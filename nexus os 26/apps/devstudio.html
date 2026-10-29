@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>开发者工坊</title>
+<script src="_bridge.js"></script>
+<script src="_app.js"></script>
+<style>
+  :root {
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --primary: #8b5cf6;
+    --primary2: #6366f1;
+    --bg: rgba(248, 247, 252, 0.94);
+    --card: rgba(255, 255, 255, 0.82);
+    --line: rgba(15, 23, 42, 0.09);
+    --text: #1a1f2b;
+    --sub: rgba(30, 41, 59, 0.55);
+    --danger: #ef4444;
+  }
+  body.dark-mode {
+    --bg: rgba(13, 15, 24, 0.94);
+    --card: rgba(30, 34, 48, 0.66);
+    --line: rgba(255, 255, 255, 0.09);
+    --text: #f1f5f9;
+    --sub: rgba(226, 232, 240, 0.55);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: background 0.3s var(--ease-out), color 0.3s var(--ease-out);
+  }
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 13px 18px 9px; flex: none; }
+  .app-icon { width: 34px; height: 34px; border-radius: 10px;
+    background: linear-gradient(135deg, #8b5cf6, #6366f1); display: flex; align-items: center;
+    justify-content: center; color: #fff; font-size: 15px; box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4); }
+  .app-title { font-size: 15px; font-weight: 700; }
+  .app-sub { font-size: 11px; color: var(--sub); margin-top: 1px; }
+  .tabs { margin-left: auto; display: flex; gap: 4px; background: rgba(120,130,150,0.12); border-radius: 10px; padding: 3px; }
+  .tab { border: none; background: transparent; padding: 6px 15px; border-radius: 8px; font-size: 13px;
+    color: var(--sub); cursor: pointer; transition: all 0.25s var(--ease-out); }
+  .tab.active { background: var(--card); color: var(--text); font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+
+  .content { flex: 1; overflow: auto; padding: 16px 18px 22px; }
+  .content::-webkit-scrollbar { width: 8px; }
+  .content::-webkit-scrollbar-thumb { background: rgba(120,130,150,0.3); border-radius: 4px; }
+
+  /* 模板 */
+  .tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+  .tpl { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px;
+    cursor: pointer; transition: transform 0.26s var(--ease-spring), box-shadow 0.26s var(--ease-out); }
+  .tpl:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.13); }
+  .tpl .ic { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center;
+    justify-content: center; font-size: 19px; color: #fff; margin-bottom: 10px; }
+  .tpl .nm { font-size: 13.5px; font-weight: 700; }
+  .tpl .ds { font-size: 11.5px; color: var(--sub); margin-top: 4px; line-height: 1.5; }
+
+  /* 编辑器 */
+  .ed-wrap { display: flex; flex-direction: column; gap: 12px; }
+  .ed-meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .ed-field { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--sub); }
+  .ed-field input { background: var(--card); border: 1px solid var(--line); color: var(--text);
+    border-radius: 8px; padding: 7px 10px; font-size: 13px; outline: none; }
+  .ed-field input:focus { border-color: var(--primary); }
+  .swatch { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+  .swatch.on { border-color: var(--text); }
+  .ed-actions { margin-left: auto; display: flex; gap: 8px; }
+  .btn { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 10px;
+    padding: 8px 15px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 7px;
+    transition: transform 0.2s var(--ease-spring), box-shadow 0.2s; }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,0,0,0.12); }
+  .btn.primary { background: linear-gradient(135deg, #8b5cf6, #6366f1); border-color: transparent; color: #fff; }
+  .btn:active { transform: scale(0.96); }
+  .ed-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; height: calc(100% - 120px); min-height: 360px; }
+  .ed-code { width: 100%; height: 100%; resize: none; border-radius: 12px; border: 1px solid var(--line);
+    background: rgba(15,18,30,0.92); color: #e2e8f0; padding: 12px; font-family: "SF Mono", Consolas, monospace;
+    font-size: 12.5px; line-height: 1.5; outline: none; }
+  .ed-prev { border-radius: 12px; border: 1px solid var(--line); background: #fff; overflow: hidden; }
+  .ed-prev iframe { width: 100%; height: 100%; border: none; }
+
+  /* 我的作品 */
+  .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+  .app-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px;
+    display: flex; flex-direction: column; gap: 10px; animation: itemIn 0.34s var(--ease-out); }
+  @keyframes itemIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .app-card .top { display: flex; align-items: center; gap: 10px; }
+  .app-card .ai { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; }
+  .app-card .nm { font-size: 13.5px; font-weight: 700; }
+  .app-card .mt { font-size: 11px; color: var(--sub); }
+  .app-card .row { display: flex; gap: 8px; }
+  .app-card .row .btn { flex: 1; justify-content: center; padding: 7px 0; font-size: 12px; }
+  .empty { text-align: center; color: var(--sub); padding: 50px 20px; }
+  .empty i { font-size: 40px; opacity: 0.35; }
+  .empty .t { font-size: 14px; font-weight: 600; color: var(--text); margin: 10px 0 4px; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(16px);
+    background: rgba(20,22,32,0.9); color: #fff; padding: 9px 16px; border-radius: 10px; font-size: 12.5px;
+    opacity: 0; transition: all 0.35s var(--ease-spring); z-index: 99; backdrop-filter: blur(14px); }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="app-icon"><i class="fas fa-code"></i></div>
+    <div><div class="app-title">开发者工坊</div><div class="app-sub">制作 · 预览 · 发布你的 Nexus 应用</div></div>
+    <div class="tabs">
+      <button class="tab active" data-tab="tpl"><i class="fas fa-th-large"></i> 模板</button>
+      <button class="tab" data-tab="ed"><i class="fas fa-edit"></i> 编辑器</button>
+      <button class="tab" data-tab="mine"><i class="fas fa-box"></i> 我的作品</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- 模板 -->
+    <div id="panel-tpl">
+      <div class="tpl-grid" id="tplGrid"></div>
+    </div>
+
+    <!-- 编辑器 -->
+    <div id="panel-ed" hidden>
+      <div class="ed-wrap">
+        <div class="ed-meta">
+          <div class="ed-field">名称 <input id="appName" value="我的应用" maxlength="12"></div>
+          <div class="ed-field">图标
+            <input id="appIcon" value="🚀" maxlength="2" style="width:48px;text-align:center;">
+          </div>
+          <div class="ed-field">主题色 <span id="sw" style="display:flex;gap:6px;"></span></div>
+          <div class="ed-actions">
+            <button class="btn" onclick="importHtml()"><i class="fas fa-file-import"></i>导入 HTML</button>
+            <button class="btn" onclick="runPreview()"><i class="fas fa-play"></i>运行预览</button>
+            <button class="btn primary" onclick="publish()"><i class="fas fa-rocket"></i>发布</button>
+          </div>
+        </div>
+        <div class="ed-split">
+          <textarea class="ed-code" id="code" spellcheck="false"></textarea>
+          <div class="ed-prev"><iframe id="prev"></iframe></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 我的作品 -->
+    <div id="panel-mine" hidden>
+      <div class="app-grid" id="mineGrid"></div>
+      <div class="empty" id="mineEmpty" hidden>
+        <i class="fas fa-box-open"></i>
+        <div class="t">还没有发布的应用</div>
+        <div class="d">去「模板」选一个开始，或在「编辑器」里自由创作并发布。</div>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="file" accept=".html,.htm" style="display:none" onchange="onFile(event)">
+  <div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  var curColor = '#8b5cf6';
+  var PALETTE = ['#8b5cf6', '#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6'];
+
+  var TEMPLATES = [
+    { id: 'blank', name: '空白页', icon: '📄', color: '#6366f1', desc: '从零开始写一个 HTML 应用',
+      code: '<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}</style></head><body><h1>Hello Nexus</h1></body></html>' },
+    { id: 'bridge', name: '桥接模板', icon: '🔗', color: '#10b981', desc: '已接好 Nexus 桥，可调用系统能力',
+      code: '<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:sans-serif;padding:20px;background:#0f172a;color:#e2e8f0}h3{color:#34d399}button{margin:6px;padding:8px 14px;border-radius:8px;border:none;background:#34d399;color:#06281f;cursor:pointer}</style></head><body>\n<h3>桥接示例</h3>\n<button onclick="sayHi()">发系统通知</button>\n<button onclick="whoami()">读取当前用户</button>\n<script>\nfunction sayHi(){ Nexus.notify("我的应用","你好，来自自制软件！","success"); }\nfunction whoami(){ Nexus.getUser().then(u=>Nexus.notify("当前用户",u&&u.name||"匿名","info")); }\n<\/script>\n</body></html>' },
+    { id: 'counter', name: '计数器', icon: '🔢', color: '#f59e0b', desc: '带本地存储的小工具',
+      code: '<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:sans-serif;text-align:center;padding:30px;background:#fff7ed;color:#7c2d12}h1{font-size:64px;margin:10px}button{padding:10px 18px;margin:6px;border-radius:10px;border:none;background:#f59e0b;color:#fff;cursor:pointer;font-size:16px}</style></head><body>\n<h3>计数器</h3>\n<h1 id="n">0</h1>\n<button onclick="add(1)">+1</button>\n<button onclick="add(-1)">-1</button>\n<button onclick="add(-1e9)">清零</button>\n<script>let n=0;function add(v){n+=v;if(n<0)n=0;document.getElementById("n").textContent=n;}<\/script>\n</body></html>' }
+  ];
+
+  function $(id) { return document.getElementById(id); }
+  function toast(m) { var t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove('show'); }, 2200); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+  function loadApps() { return Nexus.getUserLS('devApps').then(function (a) { return Array.isArray(a) ? a : []; }).catch(function () { return []; }); }
+
+  /* ===== 模板面板 ===== */
+  function renderTpl() {
+    $('tplGrid').innerHTML = TEMPLATES.map(function (t) {
+      return '<div class="tpl" onclick="useTpl(\'' + t.id + '\')">' +
+        '<div class="ic" style="background:' + t.color + '">' + t.icon + '</div>' +
+        '<div class="nm">' + t.name + '</div><div class="ds">' + t.desc + '</div></div>';
+    }).join('');
+  }
+  window.useTpl = function (id) {
+    var t = TEMPLATES.find(function (x) { return x.id === id; });
+    if (!t) return;
+    $('code').value = t.code;
+    curColor = t.color; renderSwatches();
+    switchTab('ed'); runPreview();
+    toast('已载入模板：' + t.name);
+  };
+
+  function renderSwatches() {
+    $('sw').innerHTML = PALETTE.map(function (c) {
+      return '<span class="swatch' + (c === curColor ? ' on' : '') + '" style="background:' + c + '" data-c="' + c + '"></span>';
+    }).join('');
+    Array.prototype.forEach.call($('sw').children, function (el) {
+      el.onclick = function () { curColor = el.dataset.c; renderSwatches(); };
+    });
+  }
+
+  /* ===== 编辑器 ===== */
+  window.runPreview = function () {
+    var code = $('code').value;
+    $('prev').srcdoc = code;
+  };
+  window.importHtml = function () { $('file').click(); };
+  window.onFile = function (e) {
+    var f = e.target.files && e.target.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function () { $('code').value = r.result; runPreview(); toast('已导入：' + f.name); };
+    r.readAsText(f); $('file').value = '';
+  };
+  window.publish = function () {
+    var code = $('code').value.trim();
+    if (!code) { toast('代码为空'); return; }
+    var app = { id: 'dev_' + Date.now(), name: $('appName').value || '我的应用', icon: $('appIcon').value || '🚀', color: curColor, code: code, createdAt: Date.now() };
+    loadApps().then(function (list) {
+      list.push(app); return Nexus.setUserLS('devApps', list);
+    }).then(function () {
+      toast('已发布：' + app.name);
+      switchTab('mine'); renderMine();
+    });
+  };
+
+  /* ===== 我的作品 ===== */
+  function renderMine() {
+    loadApps().then(function (list) {
+      $('mineEmpty').hidden = list.length > 0;
+      $('mineGrid').innerHTML = list.map(function (a, i) {
+        return '<div class="app-card"><div class="top">' +
+          '<div class="ai" style="background:' + a.color + '">' + (a.icon || '📦') + '</div>' +
+          '<div><div class="nm">' + esc(a.name) + '</div><div class="mt">自制应用 · ' + new Date(a.createdAt).toLocaleDateString() + '</div></div>' +
+          '</div><div class="row">' +
+          '<button class="btn" onclick="launchApp(' + i + ')"><i class="fas fa-play"></i>运行</button>' +
+          '<button class="btn" onclick="exportApp(' + i + ')"><i class="fas fa-download"></i>导出</button>' +
+          '<button class="btn" style="color:var(--danger)" onclick="uninstall(' + i + ')"><i class="fas fa-trash"></i></button>' +
+          '</div></div>';
+      }).join('');
+    });
+  }
+  window.launchApp = function (i) {
+    loadApps().then(function (list) {
+      var a = list[i]; if (!a) return;
+      var blob = new Blob([a.code], { type: 'text/html' });
+      var url = URL.createObjectURL(blob);
+      Nexus.openUrl(url);
+      toast('已运行：' + a.name);
+    });
+  };
+  window.exportApp = function (i) {
+    loadApps().then(function (list) {
+      var a = list[i]; if (!a) return;
+      var blob = new Blob([a.code], { type: 'text/html' });
+      var u = URL.createObjectURL(blob);
+      var dl = document.createElement('a'); dl.href = u; dl.download = (a.name || 'app') + '.html';
+      dl.click(); setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+      toast('已导出 HTML');
+    });
+  };
+  window.uninstall = function (i) {
+    loadApps().then(function (list) {
+      list.splice(i, 1); return Nexus.setUserLS('devApps', list);
+    }).then(function () { toast('已卸载'); renderMine(); });
+  };
+
+  /* ===== Tab ===== */
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === name); });
+    $('panel-tpl').hidden = name !== 'tpl';
+    $('panel-ed').hidden = name !== 'ed';
+    $('panel-mine').hidden = name !== 'mine';
+    if (name === 'mine') renderMine();
+  }
+  document.querySelectorAll('.tab').forEach(function (b) {
+    b.addEventListener('click', function () { switchTab(b.dataset.tab); });
+  });
+
+  Nexus.ready(function () {
+    renderTpl(); renderSwatches();
+    if ('$code' && $('code')) $('code').value = TEMPLATES[0].code;
+    toast('开发者工坊就绪');
+  });
+})();
+</script>
+</body>
+</html>

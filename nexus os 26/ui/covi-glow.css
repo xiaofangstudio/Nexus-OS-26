@@ -1,0 +1,220 @@
+/* ==========================================================================
+   Nexus OS 26 · AI 小方「长按 Space」Siri 风格光效（小方工作室自研）
+   --------------------------------------------------------------------------
+   参考 iOS 18 Apple Intelligence Siri 的视觉语法（非照抄）：
+   ① 唤起时从触发点（底部空格键区域）爆发白光，屏幕像被"捏"一样扭曲；
+   ② 三道边缘光带（黄 / 蓝 / 绿 —— 我们自己的色调，不是苹果的粉紫）
+      像真实的光一样沿着屏幕边缘转，分 core(紧) / bloom(柔) / wash(晕) 三层，
+      不同转速形成视差，光才有"厚度"；
+   ③ 状态灯原则：listening 全亮匀速 / thinking 收紧变暗 / speaking 中亮，
+      idle 不亮——光必须诚实反映助手在干什么；
+   ④ 语音识别时随人声脉冲增亮（--covi-boost），还原"光随人声响应"。
+   性能：只画边缘像素（mask 抠出边框环），perf-mode / reduced-motion 自动降级。
+   ========================================================================== */
+
+/* 旋转角属性：让 conic-gradient 的角度可被动画驱动（GPU 友好） */
+@property --covi-a {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+}
+
+#covi-stage {
+    position: fixed;
+    inset: 0;
+    z-index: 9400;               /* 高于所有窗口(1000+)，低于对话窗(9600) */
+    pointer-events: none;        /* 绝不吞点击 */
+    opacity: 0;
+    --covi-gain: 1;              /* 状态增益：listening 1 / thinking .55 / speaking .85 */
+    --covi-boost: 0;             /* 语音脉冲：0~1，JS 实时写入 */
+}
+/* 点亮瞬间不做透明度过渡（白爆要"突然冒出"）；只对熄灭做淡出 */
+#covi-stage:not(.on) { transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1); }
+#covi-stage.on { opacity: 1; }
+
+/* ---------- ① 白色爆闪：从底部（空格键区域）炸开 ---------- */
+#covi-white {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    --covi-ox: 50%;
+    --covi-oy: 97%;
+    transform-origin: var(--covi-ox) var(--covi-oy);
+    background: radial-gradient(circle at var(--covi-ox) var(--covi-oy),
+        rgba(255, 255, 255, 0.96) 0%,
+        rgba(255, 255, 255, 0.82) 6%,
+        rgba(255, 244, 214, 0.52) 14%,
+        rgba(255, 255, 255, 0.20) 27%,
+        rgba(255, 255, 255, 0) 45%);
+    mix-blend-mode: screen;      /* 提亮下方内容，像真实的光 */
+}
+#covi-white.play { animation: coviBurst 0.8s cubic-bezier(0.11, 0.78, 0.32, 1) forwards; }
+@keyframes coviBurst {
+    0%   { opacity: 0;    transform: scale(0.35); }
+    10%  { opacity: 1;    transform: scale(0.72); }
+    100% { opacity: 0;    transform: scale(1.5); }
+}
+
+/* ---------- ② 水波纹画布（JS 画同心彩环，加法混合） ---------- */
+#covi-ripple {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+}
+
+/* ---------- ③ 四边静态氛围光（黄/蓝/绿/暖黄，低透明度常亮） ---------- */
+#covi-ambient {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    box-shadow:
+        inset 0  30px 84px -34px rgba(255, 214, 10, 0.32),   /* 上：黄 */
+        inset 30px 0 84px -34px rgba(10, 132, 255, 0.32),    /* 左：蓝 */
+        inset -30px 0 84px -34px rgba(48, 209, 88, 0.32),    /* 右：绿 */
+        inset 0 -30px 84px -34px rgba(255, 179, 0, 0.26);    /* 下：暖黄 */
+    opacity: var(--covi-gain, 1);
+    transition: opacity 0.5s ease;
+}
+
+/* ---------- ④ 三道旋转光带：黄 / 蓝 / 绿 沿屏幕边缘转 ---------- */
+.covi-edge {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    padding: var(--covi-p, 3px);
+    /* mask 抠出边框环：背景只留在 padding 圈上 */
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    background: conic-gradient(from var(--covi-a, 0deg),
+        transparent 0deg,
+        rgba(255, 214, 10, 0.95) 16deg,    /* 黄光 */
+        rgba(255, 179, 0, 0.35) 38deg,
+        transparent 68deg,
+        rgba(10, 132, 255, 0.95) 108deg,   /* 蓝光 */
+        rgba(100, 210, 255, 0.35) 130deg,
+        transparent 160deg,
+        rgba(48, 209, 88, 0.95) 200deg,    /* 绿光 */
+        rgba(163, 247, 191, 0.35) 222deg,
+        transparent 252deg,
+        transparent 360deg);
+    animation: coviSpin var(--covi-dur, 6s) linear infinite;
+    opacity: calc(var(--covi-op, 0.9) * var(--covi-gain, 1) * (1 + var(--covi-boost, 0) * 0.45));
+    transition: opacity 0.45s ease, filter 0.45s ease;
+}
+@keyframes coviSpin { to { --covi-a: 360deg; } }
+
+/* 三层厚度：紧核心 / 柔光晕 / 大弥散，转速不同形成视差 */
+.covi-edge-core  { --covi-p: 2px;  --covi-op: 0.95; --covi-dur: 4.6s; }
+.covi-edge-bloom { --covi-p: 10px; --covi-op: 0.78; --covi-dur: 6.4s; filter: blur(14px); }
+.covi-edge-wash  { --covi-p: 24px; --covi-op: 0.5;  --covi-dur: 8.6s; filter: blur(36px); }
+
+/* 状态灯（亮度/弥散度变化，不改转速——避免动画跳变） */
+#covi-stage.listening { --covi-gain: 1; }
+#covi-stage.listening .covi-edge-core  { --covi-op: 1; }
+#covi-stage.listening .covi-edge-bloom { --covi-op: 0.85; }
+#covi-stage.thinking  { --covi-gain: 0.55; }          /* 思考：整体压暗 + 收紧，一眼可辨 */
+#covi-stage.thinking  .covi-edge-core  { --covi-op: 0.5; }
+#covi-stage.thinking  .covi-edge-bloom { --covi-op: 0.55; filter: blur(7px); }
+#covi-stage.thinking  .covi-edge-wash  { --covi-op: 0.32; }
+#covi-stage.speaking  { --covi-gain: 0.92; }
+#covi-stage.speaking  .covi-edge-core  { --covi-op: 0.9; }
+#covi-stage.speaking  .covi-edge-bloom { --covi-op: 0.8; }
+
+/* ---------- ⑤ 提示 pill（手势引导） ---------- */
+#covi-hint {
+    position: absolute;
+    left: 50%;
+    bottom: 30px;
+    transform: translateX(-50%) translateY(10px);
+    opacity: 0;
+    pointer-events: none;
+    padding: 8px 18px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    color: #1A2A3A;
+    background: rgba(255, 255, 255, 0.74);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+    white-space: nowrap;
+    transition: opacity 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+#covi-hint.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+body.dark-mode #covi-hint {
+    color: #f0f0f0;
+    background: rgba(26, 29, 43, 0.76);
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* ---------- ⑥ 屏幕"被捏"扭曲：桌面挤压 + 壁纸流体扭曲 ---------- */
+#desktop.covi-squish { animation: coviSquish 0.95s cubic-bezier(0.22, 0.9, 0.36, 1) both; }
+@keyframes coviSquish {
+    0%   { transform: scale(1, 1) skewX(0deg); }
+    16%  { transform: scale(1.016, 0.984) skewX(0.5deg); }    /* 向内挤压 */
+    40%  { transform: scale(0.994, 1.008) skewX(-0.28deg); }  /* 回弹过冲 */
+    66%  { transform: scale(1.003, 0.998) skewX(0.1deg); }
+    100% { transform: scale(1, 1) skewX(0deg); }
+}
+/* 壁纸：feDisplacementMap 流体扭曲（滤镜在隐藏 SVG 里定义），与桌面挤压同步 */
+#nexus-bg.covi-warp { filter: url(#coviWarp); }
+#nexus-bg.covi-squish { transform: scale(1.115); }            /* 原 scale(1.08) 基础上再放大 */
+
+/* ---------- ⑦ Agent 工具调用痕迹（对话窗内小字虚线气泡） ---------- */
+#n26AiMessages .covi-trace {
+    font-size: 11px;
+    line-height: 1.55;
+    padding: 6px 11px;
+    border-radius: 10px;
+    background: rgba(245, 158, 11, 0.10);
+    border: 1px dashed rgba(245, 158, 11, 0.45);
+    color: #92400e;
+    max-width: 88%;
+}
+body.dark-mode #n26AiMessages .covi-trace {
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.40);
+}
+#n26AiMessages .covi-trace.err {
+    background: rgba(239, 68, 68, 0.10);
+    border-color: rgba(239, 68, 68, 0.45);
+    color: #b91c1c;
+}
+body.dark-mode #n26AiMessages .covi-trace.err { color: #fca5a5; }
+
+/* ---------- 深色模式：光更亮一点 ---------- */
+body.dark-mode #covi-stage { --covi-gain: 1.12; }
+body.dark-mode .covi-edge-wash { --covi-op: 0.62; }
+
+/* ---------- 降级：性能模式 / 系统减少动态 ---------- */
+body.perf-mode #covi-white,
+body.perf-mode #covi-ripple { display: none; }
+body.perf-mode .covi-edge { animation: none; }
+body.perf-mode .covi-edge-bloom,
+body.perf-mode .covi-edge-wash { filter: none; }
+body.perf-mode #desktop.covi-squish { animation: none; }
+body.perf-mode #nexus-bg.covi-warp { filter: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    #covi-stage { transition: opacity 0.2s linear; }
+    .covi-edge { animation: none; }
+    .covi-edge-bloom, .covi-edge-wash { filter: none; }
+    #covi-white.play { animation-duration: 0.3s; }
+    #desktop.covi-squish { animation: none; }
+    #nexus-bg.covi-warp { filter: none; }
+    /* 保留"状态灯"：不做旋转，改柔和呼吸 */
+    #covi-stage.on .covi-edge-core { animation: coviSoftPulse 1.6s ease-in-out infinite; }
+    @keyframes coviSoftPulse {
+        0%, 100% { opacity: 0.45; }
+        50%      { opacity: 1; }
+    }
+}

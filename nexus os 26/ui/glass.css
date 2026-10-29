@@ -1,0 +1,99 @@
+/* ============================================================
+   Nexus OS 26 · 液态玻璃材质（ui/glass.css）
+   硬性要求 #2：克制使用 + 强磨砂。
+   分级（见 REQUIREMENTS §2.2）：
+     L0 英雄面（hero/球体）→ .glass-hero  位移折射(重滤镜) + 强磨砂 + 流体
+     L1 结构面（窗口/Dock/菜单/通知/启动台）→ .glass  强磨砂 + specular 高光边 + 厚度内影
+     L2 内容面（列表/表单/卡片）→ .glass-content  近乎实体 + 极轻模糊，保可读与性能
+   参数全部取自 tokens.css；深/浅色自动适配。
+   ============================================================ */
+
+/* ---------- L1 结构面：主玻璃（窗口 / Dock / 菜单 / 通知 / 启动台） ---------- */
+.glass {
+  background: var(--glass-tint);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), var(--glass-inner);
+  /* 顶部高光边（specular）由内影 + 渐变描边共同模拟，避免廉价白卡 */
+}
+
+/* L1 加强：启动台 / 大面板 / 模态 —— 更强磨砂与抬升阴影 */
+.glass-strong {
+  background: var(--glass-tint-2);
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+  backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-lift), var(--glass-inner);
+}
+
+/* L1 顶边高光：用伪元素画一道反光描边，模拟真实玻璃厚度 */
+.glass--specular::before,
+.glass-strong--specular::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, var(--glass-specular) 0%, rgba(255,255,255,0) 18%);
+  opacity: 0.55;
+  mix-blend-mode: screen;
+}
+body.dark-mode .glass--specular::before,
+body.dark-mode .glass-strong--specular::before { opacity: 0.22; }
+
+/* ---------- L2 内容面：列表 / 表单 / 卡片 / 应用内部 ---------- */
+.glass-content {
+  background: var(--glass-tint-2);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid var(--glass-border-2);
+  box-shadow: var(--shadow-2), var(--glass-inner);
+}
+
+/* L2 纯内嵌：比内容面更"实"，用于不需要透视的背景块 */
+.glass-solid {
+  background: var(--glass-tint-2);
+  border: 1px solid var(--glass-border-2);
+  box-shadow: var(--shadow-1);
+}
+
+/* ---------- L0 英雄面：位移折射 + 强磨砂 + 流体（仅英雄级使用） ---------- */
+.glass-hero {
+  background: var(--glass-tint);
+  -webkit-backdrop-filter: blur(var(--glass-hero-blur)) saturate(var(--glass-hero-saturate)) brightness(1.08);
+  backdrop-filter: blur(var(--glass-hero-blur)) saturate(var(--glass-hero-saturate)) brightness(1.08);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-lift), var(--glass-inner);
+}
+
+/* ---------- 通用玻璃控件 ---------- */
+.glass-btn {
+  background: var(--glass-tint-2);
+  border: 1px solid var(--glass-border-2);
+  color: var(--text-1);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-1), var(--glass-inner);
+  transition: transform var(--dur-fast) var(--ease-out-quart),
+              background var(--dur-fast) var(--ease-out-quart),
+              box-shadow var(--dur-fast) var(--ease-out-quart);
+}
+.glass-btn:hover { background: var(--glass-tint); transform: translateY(-1px); }
+.glass-btn:active { transform: translateY(0) scale(0.97); }
+
+/* 性能/减少动效降级：统一退化为纯模糊，关闭重滤镜与过渡 */
+@media (prefers-reduced-motion: reduce) {
+  .glass, .glass-strong, .glass-content, .glass-solid, .glass-hero {
+    -webkit-backdrop-filter: blur(18px) saturate(150%) !important;
+    backdrop-filter: blur(18px) saturate(150%) !important;
+  }
+}
+.perf-mode .glass,
+.perf-mode .glass-strong,
+.perf-mode .glass-content,
+.perf-mode .glass-solid,
+.perf-mode .glass-hero {
+  -webkit-backdrop-filter: blur(16px) saturate(140%) !important;
+  backdrop-filter: blur(16px) saturate(140%) !important;
+}

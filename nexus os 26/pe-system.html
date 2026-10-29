@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus PE - 分区工具</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            font-smooth: never;
+            -webkit-font-smoothing: none;
+            -moz-osx-font-smoothing: grayscale;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .pe-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .pe-title {
+            font-size: 24px;
+            font-weight: normal;
+            margin-bottom: 40px;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 0 #333;
+        }
+
+        .pe-ascii-art {
+            font-size: 12px;
+            line-height: 1.2;
+            margin-bottom: 40px;
+            color: #4A9BF5;
+            white-space: pre;
+            text-align: center;
+        }
+
+        .pe-status {
+            font-size: 16px;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+        }
+
+        .pe-progress-container {
+            width: 500px;
+            margin-bottom: 15px;
+        }
+
+        .pe-progress-bar {
+            font-size: 14px;
+            letter-spacing: 0;
+            margin-bottom: 8px;
+        }
+
+        .pe-percent {
+            font-size: 14px;
+            text-align: right;
+            color: #aaa;
+        }
+
+        .pe-detail {
+            font-size: 12px;
+            color: #666;
+            margin-top: 30px;
+            min-height: 16px;
+        }
+
+        .pe-warning {
+            margin-top: 50px;
+            font-size: 12px;
+            color: #fbbf24;
+            text-align: center;
+            line-height: 1.8;
+        }
+
+        .pe-blink {
+            animation: blink 1s step-end infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        .pe-disk-info {
+            width: 500px;
+            margin-top: 30px;
+            padding: 15px;
+            border: 1px solid #333;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .pe-disk-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px dashed #222;
+        }
+
+        .pe-disk-row:last-child { border-bottom: none; }
+    </style>
+</head>
+<body>
+    <div class="pe-container">
+        <div class="pe-title">Nexus PE System v1.0</div>
+
+        <div class="pe-ascii-art">
+   _   _                       ____  _____
+  | \ | | _____  ___   _ ___  |  _ \| ____|
+  |  \| |/ _ \ \/ / | | / __| | |_) |  _|
+  | |\  |  __/>  <| |_| \__ \ |  __/| |___
+  |_| \_|\___/_/\_\\__,_|___/ |_|   |_____|
+        </div>
+
+        <div class="pe-status" id="peStatus">正在分盘中，请稍后...</div>
+
+        <div class="pe-progress-container">
+            <div class="pe-progress-bar" id="peProgressBar">[&gt;         ]</div>
+            <div class="pe-percent" id="pePercent">0%</div>
+        </div>
+
+        <div class="pe-detail" id="peDetail">初始化分区表...</div>
+
+        <div class="pe-disk-info" id="peDiskInfo"></div>
+
+        <div class="pe-warning">
+            ⚠ 警告：正在调整磁盘分区，请勿关闭页面或断电<br>
+            否则可能导致数据丢失！
+        </div>
+    </div>
+
+    <script>
+        function getParam(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
+        }
+
+        const diskConfig = JSON.parse(decodeURIComponent(getParam('disks') || '[{"letter":"C","size":500,"system":true},{"letter":"D","size":500,"system":false}]'));
+
+        function renderDiskInfo() {
+            const info = document.getElementById('peDiskInfo');
+            info.innerHTML = diskConfig.map(d =>
+                `<div class="pe-disk-row"><span>${d.letter}盘 ${d.system ? '(系统盘)' : ''}</span><span>${d.size} GB</span></div>`
+            ).join('');
+        }
+        renderDiskInfo();
+
+        const phases = [
+            { name: '初始化分区表...', duration: 800, pct: 10 },
+            { name: '备份分区数据...', duration: 1200, pct: 25 },
+            { name: '调整 C 盘大小...', duration: 1500, pct: 45 },
+            { name: '调整 D 盘大小...', duration: 1500, pct: 65 },
+            { name: '重建分区表...', duration: 1000, pct: 80 },
+            { name: '格式化新分区...', duration: 800, pct: 92 },
+            { name: '验证分区完整性...', duration: 600, pct: 100 }
+        ];
+
+        function makeAsciiProgress(pct) {
+            const total = 10;
+            const filled = Math.floor(pct / 100 * total);
+            const empty = total - filled;
+            let bar = '[';
+            for (let i = 0; i < filled; i++) {
+                bar += '=';
+            }
+            if (filled < total) {
+                bar += '>';
+                for (let i = 0; i < empty - 1; i++) {
+                    bar += ' ';
+                }
+            }
+            bar += ']';
+            return bar;
+        }
+
+        let phaseIdx = 0;
+        let cumulative = 0;
+
+        function runPhase() {
+            if (phaseIdx >= phases.length) {
+                setTimeout(() => {
+                    document.getElementById('peStatus').textContent = '分盘完成！正在返回系统...';
+                    document.getElementById('peStatus').innerHTML += '<span class="pe-blink">_</span>';
+                    setTimeout(() => {
+                        localStorage.setItem('nexus_pe_disks', JSON.stringify(diskConfig));
+                        window.location.href = 'Nexus OS 26.html?diskUpdated=true';
+                    }, 1500);
+                }, 500);
+                return;
+            }
+
+            const phase = phases[phaseIdx];
+            document.getElementById('peDetail').textContent = phase.name;
+
+            const startPct = cumulative;
+            const endPct = cumulative + phase.pct;
+            const startTime = performance.now();
+
+            function updateBar(now) {
+                const progress = Math.min((now - startTime) / phase.duration, 1);
+                const pct = Math.floor(startPct + (endPct - startPct) * progress);
+                document.getElementById('peProgressBar').textContent = makeAsciiProgress(pct);
+                document.getElementById('pePercent').textContent = pct + '%';
+                if (progress < 1) {
+                    requestAnimationFrame(updateBar);
+                } else {
+                    cumulative = endPct;
+                    phaseIdx++;
+                    runPhase();
+                }
+            }
+            requestAnimationFrame(updateBar);
+        }
+
+        setTimeout(runPhase, 1000);
+    </script>
+</body>
+</html>

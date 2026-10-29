@@ -1,0 +1,227 @@
+/* ==========================================================================
+   Nexus OS 26 · FangUI 四风格选择器（2026-10-25）
+   --------------------------------------------------------------------------
+   四风格：flat（扁平）/ neu-solid（轻拟物）/ neu-glass（玻璃拟物）/ liquid（液态玻璃）
+   用法：renderFuiStyleRow(容器Id, 当前风格, 回调) 生成四张手绘预览卡（纯 CSS 模拟
+   各风格美学，不受全局 data-ui 级联影响）；选中后由 applyFuiStyle() 落到
+   <html data-ui data-neu>，iframe 应用经 _app.js 自动跟随。
+   另附 .fui-demo-* 实时演示条（真 fu-* 组件，直接反映当前全局风格）。
+   ========================================================================== */
+
+/* ---------- 四风格预览卡 ---------- */
+.fui-style-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    width: 100%;
+    max-width: 560px;
+    margin: 4px auto 0;
+}
+@media (max-width: 720px) {
+    .fui-style-row { grid-template-columns: repeat(2, 1fr); }
+}
+.fui-style-card {
+    position: relative;
+    cursor: pointer;
+    border-radius: 14px;
+    padding: 10px 10px 12px;
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(10, 25, 50, 0.08);
+    transition: transform 0.22s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)), box-shadow 0.22s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)), border-color 0.22s;
+    user-select: none;
+}
+.fui-style-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px -8px rgba(10, 25, 50, 0.18);
+}
+.fui-style-card.selected {
+    border-color: var(--primary, #0a84ff);
+    box-shadow: 0 0 0 2px var(--primary, #0a84ff), 0 10px 24px -8px rgba(10, 25, 50, 0.22);
+}
+.fui-style-card .fui-check {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--primary, #0a84ff);
+    color: #fff;
+    font-size: 11px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(10, 132, 255, 0.4);
+}
+.fui-style-card.selected .fui-check { display: flex; }
+.fui-style-card .fui-name {
+    margin-top: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #1a1a1a;
+    text-align: center;
+}
+.fui-style-card .fui-desc {
+    margin-top: 2px;
+    font-size: 10px;
+    line-height: 1.4;
+    color: rgba(60, 60, 67, 0.6);
+    text-align: center;
+}
+body.dark-mode .fui-style-card {
+    background: rgba(26, 29, 43, 0.6);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+body.dark-mode .fui-style-card .fui-name { color: rgba(255, 255, 255, 0.92); }
+body.dark-mode .fui-style-card .fui-desc { color: rgba(255, 255, 255, 0.5); }
+
+/* ---------- 预览卡内的小窗口模拟（各风格美学） ---------- */
+.fui-pv {
+    height: 74px;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+.fui-pv-bar {
+    height: 16px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 7px;
+    flex: 0 0 16px;
+}
+.fui-pv-bar i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    display: block;
+}
+.fui-pv-body {
+    flex: 1;
+    padding: 7px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    justify-content: center;
+}
+.fui-pv-line {
+    height: 5px;
+    border-radius: 3px;
+}
+.fui-pv-line.w60 { width: 60%; }
+.fui-pv-line.w85 { width: 85%; }
+.fui-pv-btn {
+    align-self: flex-start;
+    height: 13px;
+    width: 44px;
+    border-radius: 4px;
+    margin-top: 2px;
+}
+
+/* flat：无阴影、细边框、纯色 */
+.fui-pv-flat {
+    background: #f4f4f2;
+    border: 1px solid rgba(10, 25, 50, 0.14);
+}
+.fui-pv-flat .fui-pv-bar { background: #ececea; border-bottom: 1px solid rgba(10, 25, 50, 0.1); }
+.fui-pv-flat .fui-pv-bar i:nth-child(1) { background: #c9c9c6; }
+.fui-pv-flat .fui-pv-bar i:nth-child(2) { background: #c9c9c6; }
+.fui-pv-flat .fui-pv-bar i:nth-child(3) { background: #c9c9c6; }
+.fui-pv-flat .fui-pv-line { background: rgba(10, 25, 50, 0.12); }
+.fui-pv-flat .fui-pv-btn { background: #2f6fed; border-radius: 4px; }
+
+/* neu-solid：双阴影轻拟物 */
+.fui-pv-neu {
+    background: #e8e9ee;
+    box-shadow: 5px 5px 12px rgba(10, 25, 50, 0.16), -5px -5px 12px rgba(255, 255, 255, 0.95);
+}
+.fui-pv-neu .fui-pv-bar { background: transparent; }
+.fui-pv-neu .fui-pv-bar i { background: rgba(10, 25, 50, 0.18); }
+.fui-pv-neu .fui-pv-line { background: rgba(10, 25, 50, 0.1); box-shadow: inset 1px 1px 2px rgba(10, 25, 50, 0.12); }
+.fui-pv-neu .fui-pv-btn {
+    background: #e8e9ee;
+    box-shadow: 3px 3px 7px rgba(10, 25, 50, 0.18), -3px -3px 7px rgba(255, 255, 255, 0.95);
+    border-radius: 7px;
+}
+
+/* neu-glass：磨砂半透明轻拟物 */
+.fui-pv-neug {
+    background: linear-gradient(150deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.34));
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    box-shadow: 5px 5px 12px rgba(10, 25, 50, 0.12), -5px -5px 12px rgba(255, 255, 255, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+}
+.fui-pv-neug .fui-pv-bar { background: rgba(255, 255, 255, 0.35); }
+.fui-pv-neug .fui-pv-bar i { background: rgba(10, 25, 50, 0.22); }
+.fui-pv-neug .fui-pv-line { background: rgba(10, 25, 50, 0.1); }
+.fui-pv-neug .fui-pv-btn {
+    background: linear-gradient(150deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.45));
+    box-shadow: 3px 3px 7px rgba(10, 25, 50, 0.14), -3px -3px 7px rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 7px;
+}
+
+/* liquid：液态玻璃——流动渐变 + 高光 */
+.fui-pv-liquid {
+    background:
+        linear-gradient(115deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.12) 42%, rgba(120, 180, 255, 0.28) 100%),
+        rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    box-shadow: 0 6px 16px -4px rgba(10, 60, 140, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.85), inset 0 -8px 14px -8px rgba(10, 84, 255, 0.25);
+    -webkit-backdrop-filter: blur(7px);
+    backdrop-filter: blur(7px);
+}
+.fui-pv-liquid .fui-pv-bar { background: rgba(255, 255, 255, 0.28); }
+.fui-pv-liquid .fui-pv-bar i:nth-child(1) { background: #ffd60a; }
+.fui-pv-liquid .fui-pv-bar i:nth-child(2) { background: #0a84ff; }
+.fui-pv-liquid .fui-pv-bar i:nth-child(3) { background: #30d158; }
+.fui-pv-liquid .fui-pv-line { background: rgba(10, 60, 140, 0.14); }
+.fui-pv-liquid .fui-pv-btn {
+    background: linear-gradient(115deg, rgba(255, 255, 255, 0.85), rgba(140, 190, 255, 0.55));
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    border-radius: 7px;
+    box-shadow: 0 3px 8px -2px rgba(10, 84, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+/* ---------- 设置面板内的 FangUI 区块 ---------- */
+.fui-settings-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+.fui-settings-title small {
+    font-size: 11px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.45);
+}
+
+/* ---------- 实时演示条（真 fu-* 组件，跟随全局 data-ui） ---------- */
+.fui-demo {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: var(--surface-2, rgba(255, 255, 255, 0.5));
+    border: 1px solid var(--border, rgba(10, 25, 50, 0.08));
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+.fui-demo .fu-input { flex: 1; min-width: 130px; }
+.fui-demo-label {
+    width: 100%;
+    font-size: 11px;
+    color: var(--text-muted, rgba(60, 60, 67, 0.55));
+    margin-bottom: -4px;
+}
+
+/* ---------- 降级 ---------- */
+body.perf-mode .fui-pv-neug,
+body.perf-mode .fui-pv-liquid,
+body.perf-mode .fui-demo {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}

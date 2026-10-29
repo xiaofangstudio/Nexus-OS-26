@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>专注时刻</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<style>
+  /* ============================================================
+     专注时刻 · 780×560
+     原来：一个紫色发光圆 + 六个声音块 + 一个「已过多久」的正计时。
+     现在：真有会话（选时长 → 倒计时 → 结束），声音可调音量、
+          切换声音会淡出淡入但**不会把计时清零**（原版会）。
+     ============================================================ */
+  html, body { height: 100%; margin: 0; font-family: var(--font-sans); }
+  body { background: transparent; overflow: hidden; }
+  #app { height: 100%; }
+
+  .fc {
+    --ink: #161F2C;
+    --ink-2: rgba(22, 31, 44, 0.56);
+    --ink-3: rgba(22, 31, 44, 0.36);
+    --line: rgba(22, 31, 44, 0.08);
+    --chip: rgba(255, 255, 255, 0.62);
+    --track: rgba(22, 31, 44, 0.08);
+    --accent: #6C5CE7;
+    --accent-2: #8B7CF6;
+    --glow: rgba(108, 92, 231, 0.22);
+    height: 100%;
+    box-sizing: border-box;
+    padding: 18px 26px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--ink);
+  }
+  body.dark-mode .fc {
+    --ink: #EEF2F9;
+    --ink-2: rgba(232, 238, 248, 0.58);
+    --ink-3: rgba(232, 238, 248, 0.36);
+    --line: rgba(255, 255, 255, 0.09);
+    --chip: rgba(255, 255, 255, 0.07);
+    --track: rgba(255, 255, 255, 0.13);
+    --accent: #9C8CFF;
+    --accent-2: #B4A7FF;
+    --glow: rgba(156, 140, 255, 0.26);
+  }
+
+  /* ── 圆环 ─────────────────────────────────────────────── */
+  .fc-stage { flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; min-height: 0; }
+  .fc-ring {
+    position: relative;
+    width: 236px; height: 236px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .fc-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+  .fc-track { fill: none; stroke: var(--track); stroke-width: 8; }
+  .fc-prog {
+    fill: none; stroke: url(#fcGrad); stroke-width: 8; stroke-linecap: round;
+    transition: stroke-dashoffset 0.3s linear;
+  }
+  #fcGrad stop:first-child { stop-color: var(--accent); }
+  #fcGrad stop:last-child { stop-color: var(--accent-2); }
+  .fc-face { position: relative; z-index: 1; text-align: center; display: flex; flex-direction: column; gap: 3px; }
+  .fc-time {
+    font-size: 52px; font-weight: 250; line-height: 1;
+    letter-spacing: -1px;
+    font-variant-numeric: tabular-nums;
+  }
+  .fc-label { font-size: 11.5px; font-weight: 600; letter-spacing: 1.6px; color: var(--ink-3); }
+  .fc-ring.running::after {
+    content: ''; position: absolute; inset: 8%;
+    border-radius: 50%; box-shadow: 0 0 24px var(--glow);
+    opacity: 0.32; pointer-events: none;
+    animation: fcBreath 4s ease-in-out infinite;
+  }
+  @keyframes fcBreath { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.46; } }
+
+  /* ── 控制条 ───────────────────────────────────────────── */
+  .fc-actions { display: flex; align-items: center; gap: 12px; margin: 4px 0 10px; }
+  .fc-btn {
+    height: 40px; padding: 0 20px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: var(--chip);
+    color: var(--ink);
+    font-size: 13.5px; font-weight: 600; font-family: inherit;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    transition: background-color 0.15s var(--ease-out-quart), border-color 0.15s var(--ease-out-quart);
+  }
+  .fc-btn:hover { background: rgba(255, 255, 255, 0.9); }
+  body.dark-mode .fc-btn:hover { background: rgba(255, 255, 255, 0.12); }
+  .fc-btn.primary {
+    background: linear-gradient(180deg, var(--accent-2), var(--accent));
+    border-color: transparent; color: #fff;
+    box-shadow: 0 4px 14px var(--glow);
+  }
+  .fc-btn.primary:hover { filter: brightness(1.06); background: linear-gradient(180deg, var(--accent-2), var(--accent)); }
+  .fc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .fc-btn svg { width: 14px; height: 14px; }
+
+  /* ── 底部设置 ─────────────────────────────────────────── */
+  .fc-panel {
+    width: 100%; max-width: 560px;
+    display: flex; flex-direction: column; gap: 9px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+  .fc-row { display: flex; align-items: center; gap: 8px; }
+  .fc-row-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.4px;
+    color: var(--ink-3); width: 34px; flex-shrink: 0;
+  }
+  .fc-chips { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+  .fc-chip {
+    height: 27px; padding: 0 11px;
+    font-size: 12px; font-weight: 600; font-family: inherit;
+    color: var(--ink-2);
+    background: var(--chip);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px;
+    transition: background-color 0.15s var(--ease-out-quart),
+      border-color 0.15s var(--ease-out-quart), color 0.15s var(--ease-out-quart);
+  }
+  .fc-chip:hover { background: rgba(255, 255, 255, 0.9); color: var(--ink); }
+  body.dark-mode .fc-chip:hover { background: rgba(255, 255, 255, 0.12); }
+  .fc-chip.on {
+    background: rgba(108, 92, 231, 0.14);
+    border-color: rgba(108, 92, 231, 0.42);
+    color: var(--accent);
+  }
+  body.dark-mode .fc-chip.on { background: rgba(156, 140, 255, 0.2); color: #C4B8FF; }
+  .fc-chip:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .fc-vol { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .fc-vol input[type="range"] {
+    width: 96px; height: 16px;
+    -webkit-appearance: none; appearance: none;
+    background: transparent; cursor: pointer;
+  }
+  .fc-vol input[type="range"]::-webkit-slider-runnable-track {
+    height: 4px; border-radius: 99px; background: var(--track);
+  }
+  .fc-vol input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 12px; height: 12px; margin-top: -4px;
+    border-radius: 50%; background: var(--accent);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  }
+  .fc-vol-num {
+    font-size: 10.5px; color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    min-width: 26px; text-align: right;
+  }
+  .fc-stats {
+    text-align: center; font-size: 11px; color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    margin-top: 4px;
+  }
+  .fc-stats b { color: var(--ink-2); font-weight: 700; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fc-ring.running::after { animation: none; }
+    .fc-prog { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="../ui/motion.js"></script>
+<script src="_bridge.js"></script>
+<script src="_app.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var app = document.getElementById('app');
+
+  var DURATIONS = [15, 25, 45, 60];
+  var SOUNDS = [
+    { id: 'none', name: '安静' },
+    { id: 'rain', name: '雨声' },
+    { id: 'ocean', name: '海浪' },
+    { id: 'forest', name: '森林' },
+    { id: 'fire', name: '篝火' },
+    { id: 'cafe', name: '咖啡馆' },
+    { id: 'noise', name: '白噪' }
+  ];
+
+  var ICON = {
+    play: '<svg viewBox="0 0 24 24"><polygon fill="currentColor" points="8,5 19,12 8,19"/></svg>',
+    pause: '<svg viewBox="0 0 24 24"><rect fill="currentColor" x="7" y="5" width="4" height="14" rx="1"/><rect fill="currentColor" x="13" y="5" width="4" height="14" rx="1"/></svg>',
+    reset: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M4.5 3.8v4.6h4.6"/></svg>'
+  };
+
+  var state = {
+    minutes: 25,
+    sound: 'rain',
+    volume: 0.7,
+    running: false,
+    endAt: 0,
+    remainMs: 25 * 60 * 1000,
+    totalMs: 25 * 60 * 1000,
+    ticker: null,
+    lastSec: -1,
+    stats: { date: '', minutes: 0, sessions: 0 }
+  };
+
+  /* ---------- 音频 ---------- */
+  var actx = null, node = null, masterGain = null;
+
+  function getCtx() {
+    try {
+      if (!actx) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        actx = new AC();
+      }
+      if (actx.state === 'suspended') actx.resume();
+      return actx;
+    } catch (e) { return null; }
+  }
+
+  function buildBuffer(ctx, kind) {
+    var len = Math.floor(ctx.sampleRate * 2.2);
+    var buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    var d = buf.getChannelData(0);
+    var last = 0;
+    for (var i = 0; i < len; i++) {
+      var w = Math.random() * 2 - 1;
+      if (kind === 'ocean' || kind === 'cafe' || kind === 'fire') {
+        // 布朗噪声：低频更厚，像水声 / 环境底噪
+        last = (last + 0.02 * w) / 1.02;
+        d[i] = last * 3.2;
+      } else {
+        d[i] = w;
+      }
+    }
+    return buf;
+  }
+
+  function soundChain(ctx, kind) {
+    var src = ctx.createBufferSource();
+    src.buffer = buildBuffer(ctx, kind);
+    src.loop = true;
+    var filter = ctx.createBiquadFilter();
+    var g = ctx.createGain();
+    switch (kind) {
+      case 'rain': filter.type = 'bandpass'; filter.frequency.value = 1400; filter.Q.value = 0.55; break;
+      case 'ocean': filter.type = 'lowpass'; filter.frequency.value = 520; break;
+      case 'forest': filter.type = 'highpass'; filter.frequency.value = 1800; break;
+      case 'fire': filter.type = 'bandpass'; filter.frequency.value = 700; filter.Q.value = 1.2; break;
+      case 'cafe': filter.type = 'lowpass'; filter.frequency.value = 900; break;
+      default: filter.type = 'allpass'; break;
+    }
+    src.connect(filter); filter.connect(g); g.connect(ctx.destination);
+    return { src: src, filter: filter, gain: g };
+  }
+
+  function startSound(kind) {
+    if (kind === 'none') return;
+    var ctx = getCtx();
+    if (!ctx) return;
+    stopSound(0.25);
+    var n = soundChain(ctx, kind);
+    var target = state.volume * 0.22;
+    n.gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    n.gain.gain.exponentialRampToValueAtTime(Math.max(0.001, target), ctx.currentTime + 0.8);
+    n.src.start();
+    node = n;
+  }
+
+  function stopSound(fade) {
+    if (!node) return;
+    var n = node; node = null;
+    try {
+      var ctx = actx;
+      var f = fade === 0 ? 0.02 : (fade || 0.45);
+      n.gain.gain.cancelScheduledValues(ctx.currentTime);
+      n.gain.gain.setValueAtTime(n.gain.gain.value || 0.0001, ctx.currentTime);
+      n.gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + f);
+      setTimeout(function () { try { n.src.stop(); } catch (e) {} }, f * 1000 + 60);
+    } catch (e) {
+      try { n.src.stop(); } catch (e2) {}
+    }
+  }
+
+  function applyVolume() {
+    if (!node || !actx) return;
+    try {
+      node.gain.gain.cancelScheduledValues(actx.currentTime);
+      node.gain.gain.setTargetAtTime(state.volume * 0.22, actx.currentTime, 0.08);
+    } catch (e) {}
+  }
+
+  function chime() {
+    var ctx = getCtx();
+    if (!ctx) return;
+    [0, 0.18, 0.36].forEach(function (t, i) {
+      var o = ctx.createOscillator();
+      var g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = [660, 880, 1180][i];
+      g.gain.setValueAtTime(0.0001, ctx.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.7);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(ctx.currentTime + t);
+      o.stop(ctx.currentTime + t + 0.75);
+    });
+  }
+
+  /* ---------- 渲染 ---------- */
+  function render() {
+    app.innerHTML =
+      '<div class="fc">' +
+        '<div class="fc-stage">' +
+          '<div class="fc-ring" id="fcRing">' +
+            '<svg viewBox="0 0 236 236">' +
+              '<defs><linearGradient id="fcGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%"/><stop offset="100%"/></linearGradient></defs>' +
+              '<circle class="fc-track" cx="118" cy="118" r="106"/>' +
+              '<circle class="fc-prog" id="fcProg" cx="118" cy="118" r="106"/>' +
+            '</svg>' +
+            '<div class="fc-face">' +
+              '<div class="fc-time" id="fcTime">25:00</div>' +
+              '<div class="fc-label" id="fcLabel">准备专注</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="fc-actions">' +
+          '<button class="fc-btn primary" id="fcToggle">' + ICON.play + '开始</button>' +
+          '<button class="fc-btn" id="fcReset" title="重置（R）">' + ICON.reset + '重置</button>' +
+        '</div>' +
+
+        '<div class="fc-panel">' +
+          '<div class="fc-row">' +
+            '<span class="fc-row-label">时长</span>' +
+            '<div class="fc-chips" id="fcDurs">' +
+              DURATIONS.map(function (m) {
+                return '<button class="fc-chip" data-min="' + m + '">' + m + ' 分钟</button>';
+              }).join('') +
+            '</div>' +
+            '<div class="fc-vol">' +
+              '<input type="range" id="fcVol" min="0" max="100" value="70" aria-label="音量">' +
+              '<span class="fc-vol-num" id="fcVolNum">70%</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="fc-row">' +
+            '<span class="fc-row-label">声音</span>' +
+            '<div class="fc-chips" id="fcSounds">' +
+              SOUNDS.map(function (s) {
+                return '<button class="fc-chip" data-sound="' + s.id + '">' + s.name + '</button>';
+              }).join('') +
+            '</div>' +
+          '</div>' +
+          '<div class="fc-stats">今日已专注 <b id="fcStatMin">0</b> 分钟 · <b id="fcStatCnt">0</b> 段</div>' +
+        '</div>' +
+      '</div>';
+
+    document.getElementById('fcToggle').addEventListener('click', toggle);
+    document.getElementById('fcReset').addEventListener('click', function () { reset(true); });
+
+    document.getElementById('fcDurs').addEventListener('click', function (e) {
+      var btn = e.target.closest('.fc-chip');
+      if (!btn || state.running) return;
+      state.minutes = parseInt(btn.getAttribute('data-min'), 10);
+      reset(false);
+    });
+    document.getElementById('fcSounds').addEventListener('click', function (e) {
+      var btn = e.target.closest('.fc-chip');
+      if (!btn) return;
+      state.sound = btn.getAttribute('data-sound');
+      syncChips();
+      if (state.running) startSound(state.sound);   // 切声音不动计时
+    });
+    var vol = document.getElementById('fcVol');
+    vol.addEventListener('input', function () {
+      state.volume = parseInt(vol.value, 10) / 100;
+      document.getElementById('fcVolNum').textContent = vol.value + '%';
+      applyVolume();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.code === 'Space') { e.preventDefault(); toggle(); }
+      else if (e.key === 'r' || e.key === 'R') { reset(true); }
+    });
+
+    syncChips();
+    reset(false);
+    loadStats();
+  }
+
+  function syncChips() {
+    document.querySelectorAll('#fcDurs .fc-chip').forEach(function (b) {
+      b.classList.toggle('on', parseInt(b.getAttribute('data-min'), 10) === state.minutes);
+      b.disabled = state.running;
+    });
+    document.querySelectorAll('#fcSounds .fc-chip').forEach(function (b) {
+      b.classList.toggle('on', b.getAttribute('data-sound') === state.sound);
+    });
+  }
+
+  /* ---------- 计时 ---------- */
+  function toggle() {
+    state.running ? pause() : start();
+  }
+
+  function start() {
+    if (state.running) return;
+    if (state.remainMs <= 0) state.remainMs = state.totalMs;
+    state.running = true;
+    state.endAt = Date.now() + state.remainMs;
+    document.getElementById('fcRing').classList.add('running');
+    document.getElementById('fcToggle').innerHTML = ICON.pause + '暂停';
+    document.getElementById('fcLabel').textContent = '专注中';
+    syncChips();
+    if (state.sound !== 'none') startSound(state.sound);
+    clearInterval(state.ticker);
+    state.ticker = setInterval(tick, 250);
+  }
+
+  function pause() {
+    if (!state.running) return;
+    state.remainMs = Math.max(0, state.endAt - Date.now());
+    state.running = false;
+    clearInterval(state.ticker);
+    state.ticker = null;
+    document.getElementById('fcRing').classList.remove('running');
+    document.getElementById('fcToggle').innerHTML = ICON.play + '继续';
+    document.getElementById('fcLabel').textContent = '已暂停';
+    stopSound(0.4);
+    syncChips();
+    paint();
+  }
+
+  function reset(userAction) {
+    clearInterval(state.ticker);
+    state.ticker = null;
+    state.running = false;
+    state.totalMs = state.minutes * 60 * 1000;
+    state.remainMs = state.totalMs;
+    state.lastSec = -1;
+    stopSound(0.3);
+    var ring = document.getElementById('fcRing');
+    if (ring) ring.classList.remove('running');
+    var tg = document.getElementById('fcToggle');
+    if (tg) tg.innerHTML = ICON.play + '开始';
+    var lb = document.getElementById('fcLabel');
+    if (lb) lb.textContent = userAction ? '准备专注' : state.minutes + ' 分钟';
+    syncChips();
+    paint();
+  }
+
+  function tick() {
+    if (!state.running) return;
+    state.remainMs = state.endAt - Date.now();
+    if (state.remainMs <= 0) { finish(); return; }
+    paint();
+  }
+
+  function paint() {
+    var ms = state.running ? Math.max(0, state.endAt - Date.now()) : state.remainMs;
+    var sec = Math.ceil(ms / 1000);
+    var t = document.getElementById('fcTime');
+    if (t && sec !== state.lastSec) {
+      state.lastSec = sec;
+      var m = Math.floor(sec / 60), s = sec % 60;
+      t.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    }
+    var prog = document.getElementById('fcProg');
+    if (prog) {
+      var circ = 2 * Math.PI * 106;
+      prog.style.strokeDasharray = circ;
+      prog.style.strokeDashoffset = circ * (1 - Math.max(0, Math.min(1, ms / state.totalMs)));
+    }
+  }
+
+  function finish() {
+    clearInterval(state.ticker);
+    state.ticker = null;
+    state.running = false;
+    state.remainMs = 0;
+    stopSound(0.6);
+    chime();
+    paint();
+    document.getElementById('fcRing').classList.remove('running');
+    document.getElementById('fcToggle').innerHTML = ICON.play + '再来一段';
+    document.getElementById('fcLabel').textContent = '这一段完成了';
+
+    var done = Math.round(state.totalMs / 60000);
+    state.stats.minutes = (state.stats.minutes || 0) + done;
+    state.stats.sessions = (state.stats.sessions || 0) + 1;
+    state.stats.date = todayKey();
+    try { Nexus.setUserLS('focus_stats', state.stats); } catch (e) {}
+    paintStats();
+    try { Nexus.notify('专注完成', '刚刚专注了 ' + done + ' 分钟，起来活动一下', 'success'); } catch (e) {}
+  }
+
+  /* ---------- 统计 ---------- */
+  function todayKey() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function loadStats() {
+    try {
+      Nexus.getUserLS('focus_stats').then(function (s) {
+        if (s && typeof s === 'object') {
+          state.stats = s;
+          if (state.stats.date !== todayKey()) { state.stats.minutes = 0; state.stats.sessions = 0; }
+        }
+        paintStats();
+      }).catch(function () {});
+    } catch (e) {}
+  }
+  function paintStats() {
+    var m = document.getElementById('fcStatMin');
+    var c = document.getElementById('fcStatCnt');
+    if (m) m.textContent = state.stats.minutes || 0;
+    if (c) c.textContent = state.stats.sessions || 0;
+  }
+
+  Nexus.ready(function () { render(); });
+})();
+</script>
+</body>
+</html>

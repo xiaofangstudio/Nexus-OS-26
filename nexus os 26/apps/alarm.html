@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>闹钟</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<style>
+  html, body { height: 100%; margin: 0; font-family: var(--font-sans); }
+  body { background: transparent; overflow: hidden; }
+  #app { height: 100%; }
+  .alarm-app { padding: 20px; height: 100%; color: #1a1a1a; overflow-y: auto; background: rgba(245, 245, 247, 0.95); box-sizing: border-box; }
+  .alarm-big-clock { text-align: center; padding: 16px 0 18px; border-bottom: 1px solid rgba(0,0,0,0.08); }
+  .alarm-big-time { font-size: 56px; font-weight: 200; letter-spacing: 2px; }
+  .alarm-big-date { font-size: 13px; color: rgba(0,0,0,0.55); margin-top: 4px; }
+  .alarm-next-bar { display: flex; align-items: center; justify-content: space-between; margin: 14px 0; padding: 10px 14px; background: rgba(0,0,0,0.04); border-radius: 10px; font-size: 13px; }
+  .alarm-next-bar i { color: #fbbf24; margin-right: 6px; }
+  .alarm-tz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .alarm-tz-card { padding: 12px; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.08); border-radius: 12px; }
+  .alarm-tz-city { font-size: 12px; color: rgba(0,0,0,0.55); }
+  .alarm-tz-time { font-size: 22px; font-weight: 500; margin-top: 4px; }
+  .alarm-tz-date { font-size: 10px; color: rgba(0,0,0,0.4); margin-top: 2px; }
+  .alarm-section-title { font-size: 14px; font-weight: 600; margin: 18px 0 10px; display: flex; align-items: center; gap: 8px; }
+  .alarm-add-row { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .alarm-add-input { background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.12); color: #1a1a1a; font-size: 14px; border-radius: 8px; padding: 8px 10px; width: 60px; outline: none; }
+  .alarm-add-input:focus { border-color: var(--primary); }
+  .alarm-list { display: flex; flex-direction: column; gap: 8px; }
+  .alarm-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.08); border-radius: 10px; transition: all var(--dur-fast) var(--ease-out-quart); }
+  .alarm-item:hover { background: rgba(0,0,0,0.08); }
+  .alarm-item.disabled { opacity: 0.45; }
+  .alarm-item-time { font-size: 18px; font-weight: 500; }
+  .alarm-item-label { font-size: 11px; color: rgba(0,0,0,0.5); margin-top: 2px; }
+  .alarm-toggle { position: relative; width: 38px; height: 22px; background: rgba(0,0,0,0.15); border-radius: 11px; cursor: pointer; transition: background var(--dur-fast) var(--ease-out-quart); }
+  .alarm-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: white; border-radius: 50%; transition: left var(--dur-fast) var(--ease-spring); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .alarm-toggle.on { background: #22c55e; }
+  .alarm-toggle.on::after { left: 18px; }
+  .alarm-delete-btn { color: rgba(0,0,0,0.4); cursor: pointer; padding: 4px 6px; margin-left: 8px; transition: color var(--dur-fast) var(--ease-out-quart); }
+  .alarm-delete-btn:hover { color: #ef4444; }
+  body.dark-mode .alarm-app { background: rgba(20, 22, 30, 0.95); color: white; }
+  body.dark-mode .alarm-big-clock { border-bottom-color: rgba(255,255,255,0.1); }
+  body.dark-mode .alarm-big-date { color: rgba(255,255,255,0.65); }
+  body.dark-mode .alarm-next-bar { background: rgba(255,255,255,0.08); }
+  body.dark-mode .alarm-tz-card { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); }
+  body.dark-mode .alarm-tz-city { color: rgba(255,255,255,0.7); }
+  body.dark-mode .alarm-tz-date { color: rgba(255,255,255,0.5); }
+  body.dark-mode .alarm-add-input { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.25); color: white; }
+  body.dark-mode .alarm-item { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); }
+  body.dark-mode .alarm-item:hover { background: rgba(255,255,255,0.12); }
+  body.dark-mode .alarm-item-label { color: rgba(255,255,255,0.55); }
+  body.dark-mode .alarm-toggle { background: rgba(255,255,255,0.25); }
+  body.dark-mode .alarm-toggle::after { box-shadow: none; }
+  body.dark-mode .alarm-delete-btn { color: rgba(255,255,255,0.5); }
+  .alarm-trigger-overlay { position: fixed; inset: 0; z-index: 9000; background: rgba(0,0,0,0.6); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); display: none; align-items: center; justify-content: center; }
+  .alarm-trigger-overlay.show { display: flex; }
+  .alarm-trigger-card { text-align: center; color: white; padding: 30px; }
+  .alarm-trigger-icon { font-size: 64px; color: #fbbf24; animation: alarmShake 0.6s ease-in-out infinite; }
+  @keyframes alarmShake { 0%, 100% { transform: rotate(-12deg); } 50% { transform: rotate(12deg); } }
+  .alarm-trigger-time { font-size: 48px; font-weight: 200; margin: 14px 0 6px; }
+  .alarm-trigger-label { font-size: 14px; color: rgba(255,255,255,0.75); margin-bottom: 22px; }
+  .alarm-empty { text-align:center;color:rgba(0,0,0,0.4);padding:20px;font-size:13px; }
+  body.dark-mode .alarm-empty { color:rgba(255,255,255,0.4); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="../ui/motion.js"></script>
+<script src="_bridge.js"></script>
+<script src="_app.js"></script>
+<script>
+(function () {
+  'use strict';
+  var ALARM_TIMEZONES = [
+    { name: '北京', tz: 'Asia/Shanghai', flag: 'CN' },
+    { name: '东京', tz: 'Asia/Tokyo', flag: 'JP' },
+    { name: '纽约', tz: 'America/New_York', flag: 'US' },
+    { name: '伦敦', tz: 'Europe/London', flag: 'GB' },
+    { name: '悉尼', tz: 'Australia/Sydney', flag: 'AU' }
+  ];
+  var app = document.getElementById('app');
+  var tickerId = null, triggeredMap = {}, audioNodes = null, audioCtx = null;
+
+  function getCtx() {
+    try {
+      if (!audioCtx) { var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; audioCtx = new AC(); }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    } catch (e) { return null; }
+  }
+
+  async function getList() { return (await Nexus.getUserLS('alarms')) || []; }
+  async function saveList(list) { await Nexus.setUserLS('alarms', list); await renderList(); await updateNext(); }
+
+  function render() {
+    app.innerHTML =
+      '<div class="alarm-app">' +
+        '<div class="alarm-big-clock"><div class="alarm-big-time" id="alarmBigTime">--:--</div><div class="alarm-big-date" id="alarmBigDate">--</div></div>' +
+        '<div class="alarm-next-bar" id="alarmNextBar" style="display:none;"><span><i class="fas fa-bell"></i>下一次闹钟</span><span id="alarmNextText">--</span></div>' +
+        '<div class="alarm-section-title"><i class="fas fa-globe" style="color:var(--primary);"></i>世界时区</div>' +
+        '<div class="alarm-tz-grid" id="alarmTzGrid"></div>' +
+        '<div class="alarm-section-title"><i class="fas fa-bell" style="color:#fbbf24;"></i>添加闹钟</div>' +
+        '<div class="alarm-add-row">' +
+          '<input type="number" min="0" max="23" class="alarm-add-input" id="alarmHourInput" placeholder="时" />' +
+          '<span style="color:rgba(255,255,255,0.6);">:</span>' +
+          '<input type="number" min="0" max="59" class="alarm-add-input" id="alarmMinInput" placeholder="分" />' +
+          '<input type="text" class="alarm-add-input" style="width:140px;" id="alarmLabelInput" placeholder="标签（可选）" />' +
+          '<button class="glass-btn primary" style="padding:8px 14px;font-size:13px;" id="alarmAddBtn"><i class="fas fa-plus"></i> 添加</button>' +
+        '</div>' +
+        '<div class="alarm-section-title"><i class="fas fa-list" style="color:#60a5fa;"></i>闹钟列表</div>' +
+        '<div class="alarm-list" id="alarmList"></div>' +
+      '</div>';
+    renderTz();
+    renderList();
+    app.querySelector('#alarmAddBtn').addEventListener('click', addAlarm);
+    startTicker();
+  }
+
+  function renderTz() {
+    var grid = app.querySelector('#alarmTzGrid'); if (!grid) return;
+    grid.innerHTML = ALARM_TIMEZONES.map(function (tz) {
+      return '<div class="alarm-tz-card"><div class="alarm-tz-city">' + tz.name + '</div>' +
+        '<div class="alarm-tz-time" data-tz="' + tz.tz + '">--:--</div>' +
+        '<div class="alarm-tz-date" data-tz-date="' + tz.tz + '">--</div></div>';
+    }).join('');
+  }
+  function updateTz() {
+    app.querySelectorAll('.alarm-tz-time').forEach(function (el) {
+      try { el.textContent = new Date().toLocaleTimeString('zh-CN', { timeZone: el.dataset.tz, hour: '2-digit', minute: '2-digit', hour12: false }); } catch (e) {}
+    });
+    app.querySelectorAll('.alarm-tz-date').forEach(function (el) {
+      try { el.textContent = new Date().toLocaleDateString('zh-CN', { timeZone: el.dataset.tzDate, month: '2-digit', day: '2-digit', weekday: 'short' }); } catch (e) {}
+    });
+  }
+  async function renderList() {
+    var list = app.querySelector('#alarmList'); if (!list) return;
+    var alarms = await getList();
+    if (alarms.length === 0) { list.innerHTML = '<div class="alarm-empty">暂无闹钟</div>'; return; }
+    list.innerHTML = alarms.map(function (a) {
+      return '<div class="alarm-item ' + (a.enabled ? '' : 'disabled') + '">' +
+        '<div><div class="alarm-item-time">' + String(a.hour).padStart(2, '0') + ':' + String(a.minute).padStart(2, '0') + '</div>' +
+        '<div class="alarm-item-label">' + (a.label || '闹钟') + '</div></div>' +
+        '<div style="display:flex;align-items:center;">' +
+        '<div class="alarm-toggle ' + (a.enabled ? 'on' : '') + '" data-toggle="' + a.id + '"></div>' +
+        '<span class="alarm-delete-btn" data-del="' + a.id + '"><i class="fas fa-trash"></i></span>' +
+        '</div></div>';
+    }).join('');
+    app.querySelectorAll('.alarm-toggle').forEach(function (el) {
+      el.addEventListener('click', function () { toggleAlarm(parseInt(el.getAttribute('data-toggle'), 10)); });
+    });
+    app.querySelectorAll('.alarm-delete-btn').forEach(function (el) {
+      el.addEventListener('click', function () { deleteAlarm(parseInt(el.getAttribute('data-del'), 10)); });
+    });
+  }
+  async function addAlarm() {
+    var h = parseInt(app.querySelector('#alarmHourInput').value, 10);
+    var m = parseInt(app.querySelector('#alarmMinInput').value, 10);
+    var label = app.querySelector('#alarmLabelInput').value.trim();
+    if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) { Nexus.notify('闹钟', '请输入有效的时间（时 0-23，分 0-59）', 'warning'); return; }
+    var list = await getList();
+    list.push({ id: Date.now(), hour: h, minute: m, label: label || '闹钟', enabled: true });
+    await saveList(list);
+    app.querySelector('#alarmHourInput').value = ''; app.querySelector('#alarmMinInput').value = ''; app.querySelector('#alarmLabelInput').value = '';
+    Nexus.notify('闹钟已添加', String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ' ' + label, 'success');
+  }
+  async function toggleAlarm(id) { var list = await getList(); var a = list.find(function (x) { return x.id === id; }); if (a) a.enabled = !a.enabled; await saveList(list); }
+  async function deleteAlarm(id) { var list = (await getList()).filter(function (x) { return x.id !== id; }); await saveList(list); }
+  async function nextAlarm() {
+    var list = (await getList()).filter(function (a) { return a.enabled; });
+    if (list.length === 0) return null;
+    var now = new Date(), nearest = null, minDelta = Infinity;
+    list.forEach(function (a) {
+      var t = new Date(); t.setHours(a.hour, a.minute, 0, 0);
+      var delta = t - now; if (delta <= 0) delta += 86400000;
+      if (delta < minDelta) { minDelta = delta; nearest = a; }
+    });
+    return nearest;
+  }
+  async function updateNext() {
+    var bar = app.querySelector('#alarmNextBar'), text = app.querySelector('#alarmNextText');
+    var next = await nextAlarm();
+    if (next && bar && text) {
+      var t = String(next.hour).padStart(2, '0') + ':' + String(next.minute).padStart(2, '0');
+      bar.style.display = 'flex'; text.textContent = t + (next.label ? ' · ' + next.label : '');
+    } else if (bar) { bar.style.display = 'none'; }
+  }
+  function startTicker() {
+    if (tickerId) clearInterval(tickerId);
+    var tick = function () {
+      var now = new Date();
+      var bt = app.querySelector('#alarmBigTime'), bd = app.querySelector('#alarmBigDate');
+      if (bt) bt.textContent = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0') + ':' + String(now.getSeconds()).padStart(2, '0');
+      if (bd) bd.textContent = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+      updateTz();
+      checkTrigger(now);
+    };
+    tick(); tickerId = setInterval(tick, 1000); updateNext();
+  }
+  function checkTrigger(now) {
+    getList().then(function (list) {
+      var h = now.getHours(), m = now.getMinutes(), key = h + ':' + m;
+      list.forEach(function (a) {
+        if (a.enabled && a.hour === h && a.minute === m) {
+          if (!triggeredMap[a.id + '_' + key]) { triggeredMap[a.id + '_' + key] = true; trigger(a); }
+        }
+      });
+      Object.keys(triggeredMap).forEach(function (k) {
+        var parts = k.split('_'); var time = parts[parts.length - 1].split(':');
+        var th = parseInt(time[0], 10), tm = parseInt(time[1], 10);
+        var delta = (h - th) * 60 + (m - tm); if (delta < 0) delta += 1440;
+        if (delta > 1) delete triggeredMap[k];
+      });
+    });
+  }
+  function trigger(a) {
+    Nexus.notify('闹钟响了', String(a.hour).padStart(2, '0') + ':' + String(a.minute).padStart(2, '0') + ' ' + a.label, 'warning');
+    playSound();
+    showTriggerOverlay(a);
+  }
+  function playSound() {
+    try {
+      var ctx = getCtx(); if (!ctx) return;
+      if (audioNodes) { try { audioNodes.osc.stop(); } catch (e) {} }
+      var osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type = 'square'; osc.frequency.value = 880;
+      var now = ctx.currentTime;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.15, now + 0.05);
+      var t = now;
+      for (var i = 0; i < 10; i++) {
+        gain.gain.setValueAtTime(0.15, t); gain.gain.setValueAtTime(0.001, t + 0.2);
+        gain.gain.setValueAtTime(0.15, t + 0.4); gain.gain.setValueAtTime(0.001, t + 0.6);
+        t += 0.6;
+      }
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(now); osc.stop(now + 8);
+      audioNodes = { osc: osc, gain: gain };
+    } catch (e) {}
+  }
+  function stopSound() { if (audioNodes) { try { audioNodes.osc.stop(); } catch (e) {} audioNodes = null; } }
+  function showTriggerOverlay(a) {
+    var overlay = document.getElementById('alarmTriggerOverlay');
+    if (!overlay) { overlay = document.createElement('div'); overlay.className = 'alarm-trigger-overlay'; overlay.id = 'alarmTriggerOverlay'; document.body.appendChild(overlay); }
+    overlay.innerHTML = '<div class="alarm-trigger-card glass"><div class="alarm-trigger-icon"><i class="fas fa-bell"></i></div>' +
+      '<div class="alarm-trigger-time">' + String(a.hour).padStart(2, '0') + ':' + String(a.minute).padStart(2, '0') + '</div>' +
+      '<div class="alarm-trigger-label">' + a.label + '</div>' +
+      '<button class="glass-btn primary" style="padding:10px 28px;font-size:15px;" id="alarmDismissBtn">知道了</button></div>';
+    overlay.classList.add('show');
+    document.getElementById('alarmDismissBtn').addEventListener('click', function () { stopSound(); overlay.classList.remove('show'); });
+  }
+
+  Nexus.ready(function () { render(); });
+})();
+</script>
+</body>
+</html>

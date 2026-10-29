@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>资源监视器</title>
+<script src="_bridge.js"></script>
+<script src="_app.js"></script>
+<style>
+  :root {
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --primary: #4A9BF5;
+    --bg: rgba(246, 248, 252, 0.92);
+    --card: rgba(255, 255, 255, 0.72);
+    --line: rgba(15, 23, 42, 0.08);
+    --text: #1a1f2b;
+    --sub: rgba(30, 41, 59, 0.55);
+    --green: #10b981;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --purple: #8b5cf6;
+  }
+  body.dark-mode {
+    --bg: rgba(13, 15, 24, 0.92);
+    --card: rgba(30, 34, 48, 0.66);
+    --line: rgba(255, 255, 255, 0.09);
+    --text: #f1f5f9;
+    --sub: rgba(226, 232, 240, 0.55);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text);
+    overflow: hidden; display: flex; flex-direction: column;
+    transition: background 0.3s var(--ease-out), color 0.3s var(--ease-out);
+  }
+  .topbar {
+    flex: none; display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px 10px;
+  }
+  .app-icon {
+    width: 34px; height: 34px; border-radius: 10px;
+    background: linear-gradient(135deg, #10b981, #3b82f6);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 15px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  }
+  .app-title { font-size: 15px; font-weight: 700; }
+  .app-sub { font-size: 11px; color: var(--sub); margin-top: 1px; }
+  .live-dot {
+    margin-left: auto; display: flex; align-items: center; gap: 7px;
+    font-size: 11px; color: var(--green); font-weight: 700;
+  }
+  .live-dot i {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green); box-shadow: 0 0 8px var(--green);
+    animation: pulse 1.6s var(--ease-in-out-quart) infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .content { flex: 1; overflow-y: auto; padding: 4px 18px 20px; }
+  .content::-webkit-scrollbar { width: 8px; }
+  .content::-webkit-scrollbar-thumb { background: rgba(120,130,150,0.3); border-radius: 4px; }
+
+  /* 顶部指标卡 */
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 16px; padding: 14px 16px;
+    backdrop-filter: blur(12px);
+    transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-out);
+  }
+  .card:hover { transform: translateY(-3px); box-shadow: 0 10px 26px rgba(0,0,0,0.1); }
+  .card .k { font-size: 11px; color: var(--sub); display: flex; align-items: center; gap: 6px; font-weight: 600; }
+  .card .k i { font-size: 10px; }
+  .card .v { font-size: 24px; font-weight: 800; margin-top: 6px; font-variant-numeric: tabular-nums; letter-spacing: -0.5px; }
+  .card .v small { font-size: 12px; font-weight: 600; color: var(--sub); margin-left: 2px; }
+  .bar {
+    height: 5px; border-radius: 3px; margin-top: 9px;
+    background: rgba(120,130,150,0.18); overflow: hidden;
+  }
+  .bar > div {
+    height: 100%; border-radius: 3px;
+    transition: width 0.5s var(--ease-out), background 0.3s;
+  }
+  .card .d { font-size: 10.5px; color: var(--sub); margin-top: 6px; font-variant-numeric: tabular-nums; }
+
+  /* FPS 图 */
+  .panel {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 16px; padding: 14px 16px; margin-bottom: 14px;
+    backdrop-filter: blur(12px);
+  }
+  .panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12.5px; font-weight: 700; margin-bottom: 10px;
+  }
+  .panel-head .tag { font-size: 10.5px; color: var(--sub); font-weight: 600; }
+  #fpsChart { width: 100%; height: 110px; display: block; }
+
+  /* 进程表 */
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    text-align: left; font-size: 10.5px; color: var(--sub); font-weight: 700;
+    padding: 6px 8px; border-bottom: 1px solid var(--line);
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  td { padding: 8px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: none; }
+  tr.row { animation: rowIn 0.3s var(--ease-out) backwards; }
+  @keyframes rowIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10.5px; font-weight: 700;
+    border-radius: 999px; padding: 2px 9px;
+  }
+  .pill.run { background: rgba(16,185,129,0.14); color: var(--green); }
+  .pill.min { background: rgba(245,158,11,0.14); color: var(--orange); }
+  .app-ic {
+    width: 22px; height: 22px; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: white; font-size: 10px; margin-right: 8px; vertical-align: middle;
+  }
+  .info-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 8px 18px; font-size: 12px;
+  }
+  .info-grid .row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed var(--line); }
+  .info-grid .row span:first-child { color: var(--sub); }
+  .info-grid .row span:last-child { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .empty-tip { text-align: center; color: var(--sub); font-size: 12px; padding: 18px 0; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="app-icon"><i class="fas fa-chart-line"></i></div>
+    <div>
+      <div class="app-title">资源监视器</div>
+      <div class="app-sub">数据来自真实系统 API，实时刷新</div>
+    </div>
+    <div class="live-dot"><i></i>LIVE</div>
+  </div>
+
+  <div class="content">
+    <div class="cards">
+      <div class="card">
+        <div class="k"><i class="fas fa-memory" style="color:var(--blue);"></i>内存（JS 堆）</div>
+        <div class="v" id="memVal">--<small>MB</small></div>
+        <div class="bar"><div id="memBar" style="width:0%;background:linear-gradient(90deg,#3b82f6,#6366f1);"></div></div>
+        <div class="d" id="memSub">已用 -- / 上限 -- MB</div>
+      </div>
+      <div class="card">
+        <div class="k"><i class="fas fa-hdd" style="color:var(--purple);"></i>存储占用</div>
+        <div class="v" id="stoVal">--<small>MB</small></div>
+        <div class="bar"><div id="stoBar" style="width:0%;background:linear-gradient(90deg,#8b5cf6,#ec4899);"></div></div>
+        <div class="d" id="stoSub">配额 -- MB</div>
+      </div>
+      <div class="card">
+        <div class="k"><i class="fas fa-bolt" style="color:var(--green);"></i>实时帧率</div>
+        <div class="v" id="fpsVal">--<small>FPS</small></div>
+        <div class="bar"><div id="fpsBar" style="width:0%;background:linear-gradient(90deg,#10b981,#34d399);"></div></div>
+        <div class="d" id="fpsSub">平均 -- FPS</div>
+      </div>
+      <div class="card">
+        <div class="k"><i class="fas fa-microchip" style="color:var(--orange);"></i>处理器</div>
+        <div class="v" id="cpuVal">--<small>核</small></div>
+        <div class="bar"><div style="width:100%;background:linear-gradient(90deg,#f59e0b,#f97316);"></div></div>
+        <div class="d" id="cpuSub">逻辑核心</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><span><i class="fas fa-wave-square" style="color:var(--green);margin-right:6px;"></i>帧率曲线（最近 60 秒）</span><span class="tag" id="fpsNow">-- FPS</span></div>
+      <canvas id="fpsChart"></canvas>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><span><i class="fas fa-list-ol" style="color:var(--blue);margin-right:6px;"></i>进程（真实打开的窗口）</span><span class="tag" id="procCount">0 个进程</span></div>
+      <table>
+        <thead><tr><th>应用</th><th>窗口 ID</th><th>状态</th><th>打开于</th></tr></thead>
+        <tbody id="procBody"></tbody>
+      </table>
+      <div class="empty-tip" id="procEmpty" style="display:none;">当前没有打开的窗口进程</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><span><i class="fas fa-info-circle" style="color:var(--purple);margin-right:6px;"></i>系统信息</span></div>
+      <div class="info-grid" id="sysInfo"></div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  var fpsHist = new Array(60).fill(0);
+  var frames = 0, lastT = performance.now(), avgAcc = 0, avgN = 0;
+
+  // ===== FPS 测量 + 曲线 =====
+  var canvas = $('fpsChart'), ctx = canvas.getContext('2d');
+  function resizeCanvas() {
+    var r = canvas.getBoundingClientRect();
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = r.width * dpr; canvas.height = r.height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  function drawChart() {
+    var w = canvas.getBoundingClientRect().width, h = canvas.getBoundingClientRect().height;
+    ctx.clearRect(0, 0, w, h);
+    // 网格
+    ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--line') || 'rgba(0,0,0,0.08)';
+    ctx.lineWidth = 1;
+    [30, 60].forEach(function (v) {
+      var y = h - (v / 70) * h;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      ctx.fillStyle = 'rgba(120,130,150,0.55)';
+      ctx.font = '9px sans-serif';
+      ctx.fillText(v + '', 4, y - 3);
+    });
+    // 曲线（面积 + 线）
+    var step = w / (fpsHist.length - 1);
+    var grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(16,185,129,0.32)');
+    grad.addColorStop(1, 'rgba(16,185,129,0.02)');
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    fpsHist.forEach(function (v, i) {
+      var x = i * step, y = h - Math.min(v, 70) / 70 * h;
+      ctx.lineTo(x, y);
+    });
+    ctx.lineTo(w, h); ctx.closePath();
+    ctx.fillStyle = grad; ctx.fill();
+    ctx.beginPath();
+    fpsHist.forEach(function (v, i) {
+      var x = i * step, y = h - Math.min(v, 70) / 70 * h;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = '#10b981'; ctx.lineWidth = 2;
+    ctx.lineJoin = 'round'; ctx.stroke();
+  }
+  function loop() {
+    frames++;
+    var now = performance.now();
+    if (now - lastT >= 1000) {
+      var fps = Math.round(frames * 1000 / (now - lastT));
+      frames = 0; lastT = now;
+      fpsHist.push(fps); fpsHist.shift();
+      $('fpsVal').innerHTML = fps + '<small>FPS</small>';
+      $('fpsNow').textContent = fps + ' FPS';
+      var pct = Math.min(100, fps / 60 * 100);
+      $('fpsBar').style.width = pct + '%';
+      $('fpsBar').style.background = fps >= 50 ? 'linear-gradient(90deg,#10b981,#34d399)' : (fps >= 30 ? 'linear-gradient(90deg,#f59e0b,#f97316)' : 'linear-gradient(90deg,#ef4444,#f87171)');
+      avgAcc += fps; avgN++;
+      $('fpsSub').textContent = '平均 ' + Math.round(avgAcc / avgN) + ' FPS';
+      drawChart();
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // ===== 内存 / 存储 =====
+  function fmtMB(bytes) { return (bytes / 1048576); }
+  function refreshMem() {
+    if (performance.memory) {
+      var used = fmtMB(performance.memory.usedJSHeapSize);
+      var total = fmtMB(performance.memory.totalJSHeapSize);
+      var limit = fmtMB(performance.memory.jsHeapSizeLimit);
+      $('memVal').innerHTML = used.toFixed(0) + '<small>MB</small>';
+      $('memBar').style.width = Math.min(100, used / limit * 100) + '%';
+      $('memSub').textContent = '已用 ' + used.toFixed(0) + ' / 堆上限 ' + limit.toFixed(0) + ' MB';
+    } else {
+      $('memVal').innerHTML = 'N/A';
+      $('memSub').textContent = '当前浏览器不支持内存 API';
+    }
+  }
+  function refreshStorage() {
+    if (navigator.storage && navigator.storage.estimate) {
+      navigator.storage.estimate().then(function (est) {
+        var used = fmtMB(est.usage || 0), quota = fmtMB(est.quota || 0);
+        $('stoVal').innerHTML = used.toFixed(0) + '<small>MB</small>';
+        $('stoBar').style.width = Math.min(100, used / Math.max(quota, 1) * 100) + '%';
+        $('stoSub').textContent = '已用 ' + used.toFixed(1) + ' MB / 配额 ' + quota.toFixed(0) + ' MB';
+      }).catch(function () {});
+    } else {
+      // 回退：统计 localStorage 体积
+      var size = 0;
+      try { for (var k in localStorage) if (localStorage.hasOwnProperty(k)) size += (localStorage[k] || '').length + k.length; } catch (e) {}
+      var mb = size * 2 / 1048576;
+      $('stoVal').innerHTML = mb.toFixed(1) + '<small>MB</small>';
+      $('stoBar').style.width = Math.min(100, mb / 10 * 100) + '%';
+      $('stoSub').textContent = 'localStorage 约 ' + mb.toFixed(1) + ' MB';
+    }
+  }
+
+  // ===== 进程 =====
+  var openedAt = {};
+  function refreshProcs() {
+    Nexus.call('getProcesses').then(function (list) {
+      list = list || [];
+      $('procCount').textContent = list.length + ' 个进程';
+      $('procEmpty').style.display = list.length ? 'none' : 'block';
+      var body = $('procBody');
+      body.innerHTML = list.map(function (p, i) {
+        if (!openedAt[p.id]) openedAt[p.id] = new Date();
+        var t = openedAt[p.id];
+        return '<tr class="row" style="animation-delay:' + Math.min(i * 0.03, 0.3) + 's">' +
+          '<td><span class="app-ic" style="background:' + (p.color || '#64748b') + ';"><i class="fas ' + (p.icon || 'fa-window-maximize') + '"></i></span>' + (p.title || p.appId) + '</td>' +
+          '<td style="color:var(--sub);">#' + p.id + '</td>' +
+          '<td><span class="pill ' + (p.minimized ? 'min' : 'run') + '">' + (p.minimized ? '已最小化' : '运行中') + '</span></td>' +
+          '<td style="color:var(--sub);">' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0') + ':' + String(t.getSeconds()).padStart(2, '0') + '</td>' +
+        '</tr>';
+      }).join('');
+    }).catch(function () {});
+  }
+
+  // ===== 系统信息 =====
+  function refreshSysInfo() {
+    var rows = [];
+    var cores = navigator.hardwareConcurrency || '未知';
+    $('cpuVal').innerHTML = cores + '<small>核</small>';
+    rows.push(['逻辑核心', cores + ' 线程']);
+    rows.push(['屏幕分辨率', screen.width + ' × ' + screen.height]);
+    rows.push(['像素比', (window.devicePixelRatio || 1) + '×']);
+    rows.push(['色深', (screen.colorDepth || 24) + ' bit']);
+    rows.push(['网络状态', navigator.onLine ? '在线' : '离线']);
+    if (navigator.connection) rows.push(['网络类型', navigator.connection.effectiveType || '未知']);
+    rows.push(['语言', navigator.language || '未知']);
+    rows.push(['系统运行', Math.floor(performance.now() / 1000) + ' 秒']);
+    if (navigator.getBattery) {
+      navigator.getBattery().then(function (b) {
+        rows.push(['电池电量', Math.round((b.level || 0) * 100) + '%' + (b.charging ? '（充电中）' : '')]);
+        $('sysInfo').innerHTML = rows.map(function (r) { return '<div class="row"><span>' + r[0] + '</span><span>' + r[1] + '</span></div>'; }).join('');
+      }).catch(function () {});
+    }
+    // GPU 型号（真实）
+    try {
+      var gl = document.createElement('canvas').getContext('webgl');
+      if (gl) {
+        var ext = gl.getExtension('WEBGL_debug_renderer_info');
+        if (ext) {
+          var gpu = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || '';
+          if (gpu) rows.push(['图形处理器', String(gpu).slice(0, 42)]);
+        }
+      }
+    } catch (e) {}
+    $('sysInfo').innerHTML = rows.map(function (r) { return '<div class="row"><span>' + r[0] + '</span><span>' + r[1] + '</span></div>'; }).join('');
+  }
+
+  Nexus.ready(function () {
+    resizeCanvas();
+    drawChart();
+    requestAnimationFrame(loop);
+    refreshMem(); refreshStorage(); refreshProcs(); refreshSysInfo();
+    setInterval(refreshMem, 2000);
+    setInterval(refreshStorage, 5000);
+    setInterval(refreshProcs, 3000);
+    setInterval(refreshSysInfo, 10000);
+    window.addEventListener('resize', function () { resizeCanvas(); drawChart(); });
+  });
+})();
+</script>
+</body>
+</html>

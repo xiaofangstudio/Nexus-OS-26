@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-ui="liquid">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FangClaw</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+    --bg1: #eef3ff; --bg2: #fdf3ff;
+    --ink: #1c2233; --ink2: #5b6275; --ink3: #9aa0b5;
+    --brand: #8b5cf6; --brand2: #6d28d9;
+    --ok: #16a34a; --warn: #d97706; --bad: #dc2626;
+    --glass: rgba(255,255,255,0.66);
+    --stroke: rgba(255,255,255,0.6);
+    --r: 18px;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+html, body { height: 100%; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--ink); overflow: hidden;
+    background: linear-gradient(135deg, var(--bg1) 0%, #eafaff 45%, var(--bg2) 100%);
+}
+body.dark-mode {
+    --bg1: #141625; --bg2: #1a1430;
+    --ink: #eef0f8; --ink2: #aab0c5; --ink3: #767d95;
+    --glass: rgba(30, 33, 52, 0.66);
+    --stroke: rgba(255,255,255,0.12);
+}
+.ag-wrap { height: 100%; display: flex; flex-direction: column; }
+
+/* ===== 顶栏 ===== */
+.ag-head {
+    flex-shrink: 0; display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px; margin: 12px 14px 0;
+    background: var(--glass); border: 1px solid var(--stroke);
+    border-radius: var(--r);
+    backdrop-filter: blur(22px) saturate(1.5); -webkit-backdrop-filter: blur(22px) saturate(1.5);
+    box-shadow: 0 8px 28px rgba(90, 70, 180, 0.10);
+    animation: agIn 0.5s var(--ease) both;
+}
+@keyframes agIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+.ag-logo {
+    width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center;
+    font-size: 19px; color: #fff; flex-shrink: 0;
+    background: linear-gradient(140deg, #a78bfa, #7c3aed 55%, #6366f1);
+    box-shadow: 0 6px 16px rgba(124, 58, 237, 0.35), inset 0 1px 0 rgba(255,255,255,0.5);
+    position: relative; overflow: hidden;
+}
+.ag-logo::before { content: ''; position: absolute; inset: 0; background: radial-gradient(120% 80% at 50% -20%, rgba(255,255,255,0.5), transparent 60%); }
+.ag-logo i { position: relative; }
+.ag-title { font-size: 15.5px; font-weight: 800; letter-spacing: 0.2px; }
+.ag-sub { font-size: 11.5px; color: var(--ink3); margin-top: 2px; }
+.ag-head-actions { margin-left: auto; display: flex; gap: 8px; }
+.ag-ghost {
+    height: 34px; padding: 0 13px; border-radius: 11px; cursor: pointer;
+    border: 1px solid rgba(120, 110, 220, 0.25); background: rgba(255,255,255,0.5);
+    color: var(--ink2); font-size: 12.5px; font-weight: 600;
+    transition: all 0.22s var(--ease);
+}
+.ag-ghost:hover { color: var(--brand); border-color: var(--brand); background: #fff; transform: translateY(-1px); }
+body.dark-mode .ag-ghost { background: rgba(255,255,255,0.08); }
+body.dark-mode .ag-ghost:hover { background: rgba(255,255,255,0.16); }
+.ag-ghost.on { color: #fff; background: linear-gradient(135deg, #f59e0b, #d97706); border-color: transparent; }
+
+/* ===== 对话流 ===== */
+.ag-chat { flex: 1; overflow-y: auto; padding: 14px 18px 8px; scroll-behavior: smooth; }
+.ag-chat::-webkit-scrollbar { width: 8px; }
+.ag-chat::-webkit-scrollbar-thumb { background: rgba(130,130,160,0.25); border-radius: 8px; }
+.ag-row { display: flex; margin-bottom: 12px; animation: msgIn 0.42s var(--ease) both; }
+@keyframes msgIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+.ag-row.me { justify-content: flex-end; }
+.bubble {
+    max-width: 78%; padding: 10px 14px; border-radius: 16px;
+    font-size: 13.5px; line-height: 1.65; white-space: pre-wrap; word-break: break-word;
+}
+.ag-row.me .bubble {
+    color: #fff; border-bottom-right-radius: 6px;
+    background: linear-gradient(135deg, #7c6cf0, #5ea8ff);
+    box-shadow: 0 6px 18px rgba(108, 92, 231, 0.3);
+}
+.ag-row.ai .bubble {
+    background: var(--glass); border: 1px solid var(--stroke);
+    border-bottom-left-radius: 6px;
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 4px 14px rgba(60, 60, 120, 0.08);
+}
+.ag-row.sys { justify-content: center; }
+.ag-row.sys .bubble {
+    max-width: 92%; font-size: 11.5px; color: var(--ink3);
+    background: rgba(0,0,0,0.045); border-radius: 10px; padding: 6px 12px;
+}
+body.dark-mode .ag-row.sys .bubble { background: rgba(255,255,255,0.07); }
+.bubble .ag-think { color: var(--ink3); font-style: italic; }
+
+/* ===== 动作审批卡 ===== */
+.ag-act {
+    max-width: 86%; width: fit-content; margin-bottom: 12px;
+    border-radius: var(--r); overflow: hidden;
+    background: var(--glass); border: 1px solid var(--stroke);
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    box-shadow: 0 8px 24px rgba(90, 70, 180, 0.12);
+    animation: actIn 0.45s var(--spring) both;
+}
+@keyframes actIn { from { opacity: 0; transform: translateY(14px) scale(0.96); } to { opacity: 1; transform: none; } }
+.ag-act-head {
+    display: flex; align-items: center; gap: 9px;
+    padding: 11px 15px 9px; font-size: 13.5px; font-weight: 800;
+}
+.ag-act-head .ag-act-ic {
+    width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center;
+    font-size: 13px; color: #fff; flex-shrink: 0;
+    background: linear-gradient(140deg, #a78bfa, #7c3aed);
+    box-shadow: 0 4px 10px rgba(124, 58, 237, 0.3);
+}
+.ag-act.risky .ag-act-ic { background: linear-gradient(140deg, #fbbf24, #d97706); }
+.ag-act-tag {
+    margin-left: auto; font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+    color: var(--warn); background: rgba(217, 119, 6, 0.1); border: 1px solid rgba(217, 119, 6, 0.22);
+}
+.ag-act.safe .ag-act-tag { color: var(--ok); background: rgba(22, 163, 74, 0.1); border-color: rgba(22, 163, 74, 0.22); }
+.ag-act-body { padding: 0 15px 10px; font-size: 12px; color: var(--ink2); line-height: 1.6; }
+.ag-act-body code {
+    font-family: Consolas, monospace; font-size: 11.5px;
+    background: rgba(120, 110, 220, 0.1); padding: 1.5px 6px; border-radius: 6px; color: var(--brand2);
+    word-break: break-all;
+}
+body.dark-mode .ag-act-body code { color: #c4b5fd; }
+.ag-act-body .pv {
+    max-height: 120px; overflow: auto; margin-top: 6px; padding: 8px 10px;
+    background: rgba(0,0,0,0.045); border-radius: 10px;
+    font-family: Consolas, monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all;
+}
+body.dark-mode .ag-act-body .pv { background: rgba(255,255,255,0.07); }
+.ag-act-btns { display: flex; gap: 9px; padding: 0 15px 13px; }
+.ag-act-btns button {
+    flex: 1; height: 34px; border-radius: 11px; cursor: pointer;
+    font-size: 12.5px; font-weight: 700; border: 0;
+    transition: transform 0.2s var(--spring), filter 0.2s;
+}
+.ag-act-btns button:hover { transform: translateY(-1px); filter: brightness(1.06); }
+.ag-act-btns .ok { color: #fff; background: linear-gradient(135deg, #34d399, #10b981); box-shadow: 0 5px 14px rgba(16, 185, 129, 0.3); }
+.ag-act-btns .no { color: var(--ink2); background: rgba(0,0,0,0.06); }
+body.dark-mode .ag-act-btns .no { background: rgba(255,255,255,0.09); }
+.ag-act-done { padding: 0 15px 13px; font-size: 12px; font-weight: 700; }
+.ag-act-done.ok { color: var(--ok); } .ag-act-done.no { color: var(--bad); }
+
+/* ===== 输入区 ===== */
+.ag-inputbar {
+    flex-shrink: 0; display: flex; align-items: flex-end; gap: 10px;
+    margin: 6px 14px 14px; padding: 10px 12px;
+    background: var(--glass); border: 1px solid var(--stroke); border-radius: var(--r);
+    backdrop-filter: blur(22px) saturate(1.5); -webkit-backdrop-filter: blur(22px) saturate(1.5);
+    box-shadow: 0 8px 28px rgba(90, 70, 180, 0.10);
+    transition: box-shadow 0.25s, border-color 0.25s;
+}
+.ag-inputbar:focus-within { border-color: var(--brand); box-shadow: 0 10px 32px rgba(124, 58, 237, 0.18); }
+.ag-inputbar textarea {
+    flex: 1; border: 0; outline: 0; background: transparent; resize: none;
+    font-size: 13.5px; color: var(--ink); font-family: inherit; line-height: 1.55;
+    max-height: 120px;
+}
+.ag-inputbar textarea::placeholder { color: var(--ink3); }
+.ag-send {
+    width: 40px; height: 40px; border-radius: 13px; border: 0; cursor: pointer; flex-shrink: 0;
+    color: #fff; font-size: 15px;
+    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    box-shadow: 0 6px 16px rgba(124, 58, 237, 0.35);
+    transition: transform 0.2s var(--spring), filter 0.2s;
+}
+.ag-send:hover { transform: translateY(-2px) scale(1.04); }
+.ag-send:active { transform: scale(0.94); }
+.ag-send:disabled { filter: grayscale(0.5) brightness(0.9); cursor: wait; transform: none; }
+
+/* ===== 设置抽屉 ===== */
+.ag-cfg {
+    position: absolute; top: 0; right: 0; bottom: 0; width: min(360px, 88%);
+    background: var(--glass); border-left: 1px solid var(--stroke);
+    backdrop-filter: blur(26px) saturate(1.6); -webkit-backdrop-filter: blur(26px) saturate(1.6);
+    box-shadow: -12px 0 40px rgba(40, 30, 90, 0.18);
+    transform: translateX(105%); transition: transform 0.42s var(--ease);
+    z-index: 30; padding: 20px; overflow-y: auto;
+}
+.ag-cfg.open { transform: translateX(0); }
+.ag-cfg h3 { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
+.ag-cfg .hint { font-size: 11.5px; color: var(--ink3); margin-bottom: 16px; line-height: 1.6; }
+.ag-cfg label { display: block; font-size: 12px; font-weight: 700; color: var(--ink2); margin: 12px 0 6px; }
+.ag-cfg input, .ag-cfg select {
+    width: 100%; height: 38px; padding: 0 12px; border-radius: 11px;
+    border: 1.5px solid rgba(120, 110, 220, 0.22); background: rgba(255,255,255,0.6);
+    color: var(--ink); font-size: 12.5px; outline: none;
+    transition: border-color 0.22s, box-shadow 0.22s;
+}
+body.dark-mode .ag-cfg input, body.dark-mode .ag-cfg select { background: rgba(255,255,255,0.08); }
+.ag-cfg input:focus, .ag-cfg select:focus { border-color: var(--brand); box-shadow: 0 0 0 4px rgba(139, 124, 248, 0.14); }
+.ag-cfg .row2 { display: flex; gap: 8px; margin-top: 18px; }
+.ag-cfg .row2 button {
+    flex: 1; height: 38px; border-radius: 11px; border: 0; cursor: pointer;
+    font-size: 12.5px; font-weight: 700; transition: transform 0.2s var(--spring);
+}
+.ag-cfg .row2 button:hover { transform: translateY(-1px); }
+.ag-cfg .save { color: #fff; background: linear-gradient(135deg, #8b5cf6, #6366f1); }
+.ag-cfg .test { color: var(--ink2); background: rgba(0,0,0,0.06); }
+body.dark-mode .ag-cfg .test { background: rgba(255,255,255,0.09); }
+.ag-cfg .closex { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border-radius: 9px; border: 0; cursor: pointer; background: rgba(0,0,0,0.06); color: var(--ink2); }
+body.dark-mode .ag-cfg .closex { background: rgba(255,255,255,0.09); }
+#agTestOut { font-size: 11.5px; margin-top: 10px; color: var(--ink2); line-height: 1.6; white-space: pre-wrap; }
+body.perf-mode .ag-act, body.perf-mode .bubble, body.perf-mode .ag-head { animation: none !important; backdrop-filter: none !important; }
+</style>
+</head>
+<body>
+<div class="ag-wrap">
+    <header class="ag-head">
+        <div class="ag-logo"><img src="../../Desktop icon/OpenClaw.png" alt="FangClaw" style="width:26px;height:26px;object-fit:contain;"></div>
+        <div>
+            <div class="ag-title">FangClaw</div>
+            <div class="ag-sub" id="agSub">能替你动手干活的 AI · 关键操作需你批准</div>
+        </div>
+        <div class="ag-head-actions">
+            <button class="ag-ghost" id="agAutoBtn" title="开启后，写文件/改设置等操作不再逐条询问（风险自负）">🛡️ 逐条审批</button>
+            <button class="ag-ghost" id="agCfgBtn" title="AI 接口设置"><i class="fas fa-cog"></i></button>
+        </div>
+    </header>
+
+    <main class="ag-chat" id="agChat"></main>
+
+    <footer class="ag-inputbar">
+        <textarea id="agInput" rows="1" placeholder="告诉小方要做什么，例如：在 C:/文档 建一个「工作计划」文件夹，里面放个本周计划.txt"></textarea>
+        <button class="ag-send" id="agSend" title="发送（Enter）"><i class="fas fa-paper-plane"></i></button>
+    </footer>
+
+    <div class="ag-cfg" id="agCfg">
+        <button class="closex" id="agCfgClose"><i class="fas fa-times"></i></button>
+        <h3>AI 接口</h3>
+        <div class="hint">与「AI 小方」共用同一套接口配置（设置 → AI 模块）。这里也可以单独为 Agent 选一个不同的模型。</div>
+        <label>使用接口</label>
+        <select id="agProv"></select>
+        <label>接口地址（OpenAI 兼容，以 /v1/chat/completions 结尾或填根地址）</label>
+        <input id="agUrl" placeholder="https://api.deepseek.com/v1/chat/completions">
+        <label>API Key</label>
+        <input id="agKey" type="password" placeholder="sk-...">
+        <label>模型</label>
+        <input id="agModel" placeholder="deepseek-chat">
+        <div class="row2">
+            <button class="save" id="agSave">保存</button>
+            <button class="test" id="agTest">测试连通</button>
+        </div>
+        <div id="agTestOut"></div>
+    </div>
+</div>
+
+<script src="_bridge.js"></script>
+<script src="_app.js"></script>
+<script>
+(function () {
+    'use strict';
+    const $ = (id) => document.getElementById(id);
+    const chatEl = $('agChat'), inputEl = $('agInput'), sendBtn = $('agSend');
+
+    /* ================= AI 接口配置（与系统 AI 模块同口径） ================= */
+    const AI = { url: '', key: '', model: '', name: '' };
+    async function loadAiConfig() {
+        try {
+            const activeId = await Nexus.getLS('ai_active') || 'oobe_default';
+            const list = (await Nexus.getLS('ai_providers')) || [];
+            const base = (await Nexus.getLS('ai_config')) || {};
+            let pick = null;
+            if (activeId !== 'oobe_default') pick = list.find(p => p.id === activeId) || null;
+            if (!pick && base.url) pick = { id: 'oobe_default', name: 'OOBE 默认', url: base.url, key: base.key, model: base.model };
+            if (pick) {
+                AI.url = pick.url || ''; AI.key = pick.key || ''; AI.model = pick.model || ''; AI.name = pick.name || '';
+            }
+        } catch (e) { /* 离线也能用本地说明 */ }
+        fillProvSelect();
+        $('agUrl').value = AI.url; $('agKey').value = AI.key; $('agModel').value = AI.model;
+        updateSub();
+    }
+    async function fillProvSelect() {
+        const sel = $('agProv');
+        let list = [{ id: 'oobe_default', name: 'OOBE 默认' }];
+        try { const extra = (await Nexus.getLS('ai_providers')) || []; list = list.concat(extra); } catch (e) { }
+        sel.innerHTML = list.map(p => '<option value="' + p.id + '">' + (p.name || p.id) + '</option>').join('');
+        sel.value = 'oobe_default';
+        sel.onchange = async function () {
+            const id = this.value;
+            if (id === 'oobe_default') { const b = (await Nexus.getLS('ai_config')) || {}; $('agUrl').value = b.url || ''; $('agKey').value = b.key || ''; $('agModel').value = b.model || ''; return; }
+            const extra = (await Nexus.getLS('ai_providers')) || [];
+            const p = extra.find(x => x.id === id); if (p) { $('agUrl').value = p.url || ''; $('agKey').value = p.key || ''; $('agModel').value = p.model || ''; }
+        };
+    }
+    function updateSub() {
+        $('agSub').textContent = AI.url && AI.model
+            ? ('已连接 · ' + AI.model + ' · 关键操作需你批准')
+            : '未接 AI 接口 · 点右上 ⚙ 配置后即可指挥我干活';
+    }
+
+    /* ================= 系统提示词（FangClaw） ================= */
+    function systemPrompt() {
+        return [
+            '你是 Nexus OS 26 的内置智能体「FangClaw」，一个能替用户动手操作系统的助手。',
+            '你的性格：利落、可靠、有点幽默，说简体中文，称呼用户为「老板」。',
+            '',
+            '【工作方式】',
+            '你每次只能输出一个 JSON 对象（不要输出多余文字、不要用代码块包裹）：',
+            '{"say":"给用户看的简短中文说明","action":"动作名","params":{...}}',
+            '- 没有动作要执行时（纯聊天/总结/回答问题），action 用 "reply"，params.text 放完整回复。',
+            '- 每次只执行一个动作；执行后系统会把结果回给你，你再决定下一步。',
+            '- 涉及多个步骤的任务，一步一步来，不要一次说要干三件事。',
+            '',
+            '【可用动作】',
+            'reply        {text}                          纯回复，不操作系统',
+            'listApps     {}                              列出系统全部应用',
+            'getSettings  {}                              读取系统设置',
+            'setSetting   {key, value}                    修改一项系统设置（写操作）',
+            'listDir      {path}                          列出目录，如 C:/文档',
+            'readFile     {path}                          读文本文件（限前 4000 字）',
+            'createFolder {path}                          新建文件夹（写操作）',
+            'writeFile    {path, content}                 写文本文件，覆盖同名（写操作）',
+            'openApp      {appId}                         打开一个应用',
+            'notify       {title, message, type}          弹系统通知（type: info/success/warning/error）',
+            'screenshot   {}                              截取全屏并保存',
+            'systemInfo   {}                              当前用户、已开窗口等系统信息',
+            '',
+            '【注意】',
+            '- 文件路径一律用 C:/xxx/yyy 形式（正斜杠）。',
+            '- 写操作会先给用户审批，被拒绝时不要反复重试，改问用户想怎么处理。',
+            '- 不确定路径/应用名时，先用 listDir / listApps 查清楚再动手。',
+            '- 今天是 ' + new Date().toLocaleDateString('zh-CN') + '。'
+        ].join('\n');
+    }
+
+    /* ================= 动作执行（经 Nexus 桥操控真实系统） ================= */
+    function normPath(p) {
+        return String(p || '').replace(/\\/g, '/').replace(/\/+/g, '/')
+            .replace(/^([A-Za-z]):/, '$1')      // 盘符 C: → C（系统磁盘树以 'C' 为键）
+            .replace(/^\/+|\/+$/g, '');
+    }
+    async function fsNode(path, createFolders) {
+        const fs = (await Nexus.getUserLS('filesystem')) || {};
+        const parts = normPath(path).split('/');
+        if (!parts.length || parts[0] !== 'C') return { fs: null, node: null, parts: null };
+        let node = fs['C'];
+        if (!node || node.type !== 'drive') return { fs: null, node: null, parts: null };
+        for (let i = 1; i < parts.length; i++) {
+            if (!node.children) node.children = {};
+            const name = parts[i];
+            if (!node.children[name]) {
+                if (!createFolders) return { fs, node: null, parts };
+                node.children[name] = { type: 'folder', children: {} };
+            }
+            node = node.children[name];
+        }
+        return { fs, node, parts };
+    }
+
+    /* ==================================================================
+       token 保护：任何要塞给云端模型的 JSON 必须先过这道净化。
+       实测血案——系统设置里存着自定义壁纸的 base64 dataURL，
+       直接喂给模型一次就是几十万 token，问一句话能烧掉好几块钱。
+       ================================================================== */
+    const AG_LIMIT = { str: 500, total: 3500, depth: 4, arr: 40 };
+    function agSanitize(v, depth) {
+        depth = depth || 0;
+        if (v == null) return v;
+        if (typeof v === 'string') {
+            if (/^data:[^,]*;base64,/i.test(v) || /^data:image\//i.test(v)) {
+                return '[图片数据已省略 ' + Math.round(v.length / 1024) + 'KB]';
+            }
+            if (v.length > 2000 && /^[A-Za-z0-9+/=\s]+$/.test(v)) {
+                return '[疑似二进制数据已省略 ' + Math.round(v.length / 1024) + 'KB]';
+            }
+            if (v.length > AG_LIMIT.str) return v.slice(0, AG_LIMIT.str) + '…[已截断 ' + v.length + ' 字]';
+            return v;
+        }
+        if (typeof v === 'number' || typeof v === 'boolean') return v;
+        if (Array.isArray(v)) {
+            const a = v.slice(0, AG_LIMIT.arr).map(x => agSanitize(x, depth + 1));
+            if (v.length > AG_LIMIT.arr) a.push('…还有 ' + (v.length - AG_LIMIT.arr) + ' 项');
+            return a;
+        }
+        if (typeof v === 'object') {
+            if (depth >= AG_LIMIT.depth) return '[层级过深]';
+            const o = {}; let n = 0;
+            for (const k in v) {
+                if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
+                if (++n > 60) { o['…'] = '[字段过多]'; break; }
+                o[k] = agSanitize(v[k], depth + 1);
+            }
+            return o;
+        }
+        return String(v);
+    }
+    function agSafeJson(obj) {
+        let s;
+        try { s = (typeof obj === 'string') ? obj : JSON.stringify(obj); } catch (e) { s = String(obj); }
+        if (s == null) return '';
+        s = s.replace(/data:[^"',\s]{0,64};base64,[A-Za-z0-9+/=]{200,}/g, '[图片数据已省略]');
+        if (s.length > AG_LIMIT.total) s = s.slice(0, AG_LIMIT.total) + '…[过长已截断]';
+        return s;
+    }
+    /* 请求前体积守卫：超预算就压缩较早的条目，保住消息结构不破坏 */
+    function agShrink(msgs, budget) {
+        budget = budget || 22000;
+        const sz = s => (typeof s === 'string' ? s.length : 0);
+        let total = msgs.reduce((n, m) => n + sz(m.content), 0);
+        if (total <= budget) return msgs;
+        for (let i = 1; i < msgs.length - 1 && total > budget; i++) {
+            if (msgs[i].role === 'user' && sz(msgs[i].content) > 300) {
+                const d = sz(msgs[i].content) - 300;
+                msgs[i].content = String(msgs[i].content).slice(0, 300) + '…[已压缩]';
+                total -= d;
+            }
+        }
+        for (let j = 1; j < msgs.length - 1 && total > budget; j++) {
+            if (msgs[j].role === 'assistant' && sz(msgs[j].content) > 500) {
+                const d = sz(msgs[j].content) - 500;
+                msgs[j].content = String(msgs[j].content).slice(0, 500) + '…[已压缩]';
+                total -= d;
+            }
+        }
+        return msgs;
+    }
+
+    const ACTIONS = {
+        listApps: async function () {
+            // 内置应用清单（与系统应用注册一致的核心集合）
+            const apps = ['browser','files','appstore','settings','terminal','calculator','music','weather','alarm','album','trash','screenshot','agent','games','vm','sandbox','devstudio','monitor','notes','word-editor','excel-editor','ppt-editor'];
+            return { ok: true, apps: apps };
+        },
+        getSettings: async function () {
+            const st = (await Nexus.getSettings()) || {};
+            // 必须净化：这里面有 customWallpaper / lockCustomWallpaper 两个 base64 大字段
+            return { ok: true, settings: agSanitize(st) };
+        },
+        setSetting: async function (p) {
+            if (!p.key) return { ok: false, error: '缺少 key' };
+            await Nexus.setLS('settings', Object.assign({}, (await Nexus.getSettings()) || {}, (function(){var o={};o[p.key]=p.value;return o;})()));
+            // 通知宿主应用设置（走 setSetting 桥，若可用）
+            try { await Nexus.call('setSetting', { key: p.key, value: p.value }); } catch (e) { }
+            return { ok: true, key: p.key, value: p.value };
+        },
+        listDir: async function (p) {
+            const r = await fsNode(p.path, false);
+            if (!r.node) return { ok: false, error: '目录不存在：' + p.path };
+            if (r.node.type === 'file') return { ok: true, type: 'file' };
+            const out = [];
+            const ch = r.node.children || {};
+            for (const k in ch) {
+                const t = ch[k].type === 'folder' ? '文件夹' : (ch[k].isImage ? '图片' : '文件');
+                out.push(t + ' ' + k);
+            }
+            return { ok: true, path: normPath(p.path), items: out.slice(0, 80) };
+        },
+        readFile: async function (p) {
+            const r = await fsNode(p.path, false);
+            if (!r.node || r.node.type !== 'file') return { ok: false, error: '文件不存在：' + p.path };
+            const c = String(r.node.content || '');
+            return { ok: true, path: normPath(p.path), content: c.slice(0, 4000), truncated: c.length > 4000 };
+        },
+        createFolder: async function (p) {
+            const r = await fsNode(p.path, true);
+            if (!r.fs) return { ok: false, error: '路径无效：' + p.path };
+            await Nexus.setUserLS('filesystem', r.fs);
+            return { ok: true, created: normPath(p.path) };
+        },
+        writeFile: async function (p) {
+            if (p.content == null) return { ok: false, error: '缺少 content' };
+            const r = await fsNode(p.path, true);
+            if (!r.fs || !r.node) return { ok: false, error: '路径无效：' + p.path };
+            r.node.type = 'file'; r.node.content = String(p.content); delete r.node.children;
+            await Nexus.setUserLS('filesystem', r.fs);
+            return { ok: true, saved: normPath(p.path), bytes: String(p.content).length };
+        },
+        openApp: async function (p) {
+            if (!p.appId) return { ok: false, error: '缺少 appId' };
+            await Nexus.openApp(p.appId);
+            return { ok: true, opened: p.appId };
+        },
+        notify: async function (p) {
+            await Nexus.notify(p.title || 'FangClaw', p.message || p.text || '', p.type || 'info');
+            return { ok: true };
+        },
+        screenshot: async function () {
+            try { await Nexus.call('takeScreenshot', ['full']); return { ok: true, savedTo: 'C:/图片/Screenshots/' }; }
+            catch (e) { return { ok: false, error: String(e) }; }
+        },
+        systemInfo: async function () {
+            const ctx = (Nexus.context && Nexus.context()) || {};
+            let procs = [];
+            try { procs = (await Nexus.call('getProcesses', [])) || []; } catch (e) { }
+            return { ok: true, user: ctx.user || null, openWindows: procs.map(function (w) { return w.title || w.appId; }) };
+        },
+        reply: async function (p) { return { ok: true, text: p.text || '' }; },
+    };
+
+    /* 风险分级：写操作/开关应用需要审批 */
+    const SAFE_ACTIONS = { reply: 1, listApps: 1, getSettings: 1, listDir: 1, readFile: 1, systemInfo: 1, notify: 1 };
+    const ACT_META = {
+        reply:       { name: '回复', icon: 'fa-comment' },
+        listApps:    { name: '查看应用列表', icon: 'fa-th-large' },
+        getSettings: { name: '读取系统设置', icon: 'fa-eye' },
+        setSetting:  { name: '修改系统设置', icon: 'fa-sliders-h' },
+        listDir:     { name: '查看目录', icon: 'fa-folder-open' },
+        readFile:    { name: '读取文件', icon: 'fa-file-alt' },
+        createFolder:{ name: '新建文件夹', icon: 'fa-folder-plus' },
+        writeFile:   { name: '写入文件', icon: 'fa-pen' },
+        openApp:     { name: '打开应用', icon: 'fa-rocket' },
+        notify:      { name: '发系统通知', icon: 'fa-bell' },
+        screenshot:  { name: '截取全屏', icon: 'fa-camera' },
+        systemInfo:  { name: '读取系统信息', icon: 'fa-info-circle' },
+    };
+
+    /* ================= 审批卡 UI ================= */
+    let autoApprove = false;
+    function paramsSummary(act) {
+        const p = act.params || {};
+        switch (act.action) {
+            case 'writeFile': return '路径 <code>' + esc(p.path) + '</code>' + (p.content != null ? '<div class="pv">' + esc(String(p.content).slice(0, 500)) + '</div>' : '');
+            case 'createFolder': return '将创建 <code>' + esc(p.path) + '</code>（中间目录会自动补齐）';
+            case 'setSetting': return '把设置项 <code>' + esc(p.key) + '</code> 改为 <code>' + esc(JSON.stringify(p.value)) + '</code>';
+            case 'openApp': return '打开应用 <code>' + esc(p.appId) + '</code>';
+            case 'readFile': return '读取 <code>' + esc(p.path) + '</code> 的内容（前 4000 字）';
+            case 'listDir': return '查看 <code>' + esc(p.path) + '</code> 里的内容';
+            case 'screenshot': return '截取当前全屏，保存到 C:/图片/Screenshots/';
+            case 'notify': return '弹一条通知：「' + esc(p.title || '') + '」';
+            default: return '<code>' + esc(JSON.stringify(p || {}).slice(0, 300)) + '</code>';
+        }
+    }
+    function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+    function runWithApproval(act) {
+        return new Promise(function (resolve) {
+            const meta = ACT_META[act.action] || { name: act.action, icon: 'fa-bolt' };
+            const safe = !!SAFE_ACTIONS[act.action];
+            const needAsk = !safe && !autoApprove;
+
+            const row = document.createElement('div');
+            row.className = 'ag-row ai';
+            const card = document.createElement('div');
+            card.className = 'ag-act' + (safe ? ' safe' : ' risky');
+            card.innerHTML =
+                '<div class="ag-act-head"><div class="ag-act-ic"><i class="fas ' + meta.icon + '"></i></div>' +
+                esc(meta.name) + '<span class="ag-act-tag">' + (safe ? '只读 · 自动放行' : '写操作 · 需批准') + '</span></div>' +
+                '<div class="ag-act-body">' + paramsSummary(act) + '</div>';
+            row.appendChild(card);
+            chatEl.appendChild(row);
+
+            function finish(statusText, ok, result, cls) {
+                const done = document.createElement('div');
+                done.className = 'ag-act-done ' + (cls || (ok ? 'ok' : 'no'));
+                done.textContent = statusText;
+                card.appendChild(done);
+                scrollBottom();
+                resolve({ ok: ok, result: result });
+            }
+
+            if (!needAsk) {
+                ACTIONS[act.action](act.params || {}).then(function (r) {
+                    finish(safe ? '已自动执行 ✓' : '已执行 ✓', !!(r && r.ok), r);
+                }).catch(function (e) { finish('执行出错：' + e, false, { error: String(e) }); });
+                return;
+            }
+            const btns = document.createElement('div');
+            btns.className = 'ag-act-btns';
+            btns.innerHTML = '<button class="ok"><i class="fas fa-check"></i> 批准执行</button><button class="no"><i class="fas fa-times"></i> 拒绝</button>';
+            card.appendChild(btns);
+            const [bOk, bNo] = btns.querySelectorAll('button');
+            bOk.onclick = function () {
+                btns.remove();
+                ACTIONS[act.action](act.params || {}).then(function (r) {
+                    finish('已执行 ✓', !!(r && r.ok), r);
+                }).catch(function (e) { finish('执行出错：' + e, false, { error: String(e) }); });
+            };
+            bNo.onclick = function () {
+                btns.remove();
+                finish('已拒绝 ✋', false, { userCancelled: true });
+            };
+            scrollBottom();
+        });
+    }
+
+    /* ================= AI 调用 ================= */
+    function apiBase(u) {
+        u = String(u || '').trim().replace(/\/+$/, '');
+        if (!u) return '';
+        if (/\/chat\/completions$/.test(u)) return u;
+        if (/\/v\d+$/.test(u)) return u + '/chat/completions';
+        return u + '/v1/chat/completions';
+    }
+    async function callAI(messages) {
+        const res = await fetch(apiBase(AI.url), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AI.key },
+            body: JSON.stringify({ model: AI.model, messages: messages, temperature: 0.4, max_tokens: 1200 }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + (await res.text()).slice(0, 120));
+        const j = await res.json();
+        const txt = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+        if (!txt) throw new Error('AI 返回为空');
+        return txt.trim();
+    }
+    function parseAction(raw) {
+        let t = raw.replace(/```(?:json)?/gi, '').trim();
+        const a = t.indexOf('{'), b = t.lastIndexOf('}');
+        if (a === -1 || b === -1 || b <= a) return { say: raw, action: 'reply', params: { text: raw } };
+        try {
+            const j = JSON.parse(t.slice(a, b + 1));
+            if (!j.action) return { say: j.say || raw, action: 'reply', params: { text: j.say || j.text || raw } };
+            return { say: j.say || '', action: j.action, params: j.params || {} };
+        } catch (e) {
+            return { say: raw, action: 'reply', params: { text: raw } };
+        }
+    }
+
+    /* ================= 会话与主循环 ================= */
+    const history = [];
+    function scrollBottom() { chatEl.scrollTop = chatEl.scrollHeight; }
+    function addRow(cls, html) {
+        const row = document.createElement('div');
+        row.className = 'ag-row ' + cls;
+        const b = document.createElement('div');
+        b.className = 'bubble';
+        b.innerHTML = html;
+        row.appendChild(b); chatEl.appendChild(row); scrollBottom();
+        return b;
+    }
+    function addMe(t) { addRow('me', esc(t)); }
+    function addAi(t) { addRow('ai', esc(t)); }
+    function addSys(t) { addRow('sys', esc(t)); }
+
+    let busy = false;
+    async function agentTurn(userText) {
+        busy = true; sendBtn.disabled = true;
+        addMe(userText);
+        history.push({ role: 'user', content: userText });
+        try {
+            for (let step = 0; step < 6; step++) {
+                if (!AI.url || !AI.model) {
+                    addAi('我还没接上 AI 接口，干不了活 😅 点右上角 ⚙ 配置一下接口（跟「AI 小方」共用一套配置）。');
+                    break;
+                }
+                // 历史只带最近 8 条，且每条再过一次净化（防止长文件内容反复计费）
+                const msgs = [{ role: 'system', content: systemPrompt() }]
+                    .concat(history.slice(-8).map(function (m) {
+                        return { role: m.role, content: agSafeJson(m.content) };
+                    }));
+                agShrink(msgs, 22000);
+                const raw = await callAI(msgs);
+                const act = parseAction(raw);
+                history.push({ role: 'assistant', content: raw });
+                if (act.say) addAi(act.say);
+                if (act.action === 'reply' || !ACTIONS[act.action]) {
+                    if (act.action && act.action !== 'reply' && !ACTIONS[act.action]) addSys('（我不认识「' + act.action + '」这个动作，已忽略）');
+                    break;
+                }
+                const r = await runWithApproval(act);
+                // 工具结果先净化再入库，长度也压住
+                history.push({ role: 'user', content: '[系统执行结果] ' + agSafeJson(r.result) });
+                // 历史只留最近 24 条，防止长时间对话把上下文滚成大账本
+                if (history.length > 24) history.splice(0, history.length - 24);
+                if (!r.ok && r.result && r.result.userCancelled) {
+                    addSys('任务已取消，小方停手了。');
+                    break;
+                }
+                if (r.ok && (act.action === 'reply')) break;
+            }
+        } catch (e) {
+            addAi('出了点状况：' + (e && e.message ? e.message : e) + '\n检查一下接口地址 / Key / 模型名？');
+        }
+        busy = false; sendBtn.disabled = false; inputEl.focus();
+    }
+
+    /* ================= 事件 ================= */
+    sendBtn.onclick = function () {
+        const t = inputEl.value.trim();
+        if (!t || busy) return;
+        inputEl.value = ''; inputEl.style.height = 'auto';
+        agentTurn(t);
+    };
+    inputEl.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendBtn.onclick(); }
+    });
+    inputEl.addEventListener('input', function () {
+        this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+    $('agCfgBtn').onclick = function () { $('agCfg').classList.add('open'); };
+    $('agCfgClose').onclick = function () { $('agCfg').classList.remove('open'); };
+    $('agAutoBtn').onclick = function () {
+        autoApprove = !autoApprove;
+        this.classList.toggle('on', autoApprove);
+        this.textContent = autoApprove ? '⚡ 自动批准' : '🛡️ 逐条审批';
+        addSys(autoApprove ? '已切换为自动批准：写操作不再逐条询问，请留意小方的动作。' : '已切回逐条审批：每个写操作都会先问你。');
+    };
+    $('agSave').onclick = async function () {
+        AI.url = $('agUrl').value.trim(); AI.key = $('agKey').value.trim(); AI.model = $('agModel').value.trim();
+        const provId = $('agProv').value;
+        try {
+            if (provId === 'oobe_default') {
+                const b = (await Nexus.getLS('ai_config')) || {};
+                b.url = AI.url; b.key = AI.key; b.model = AI.model;
+                await Nexus.setLS('ai_config', b);
+            } else {
+                const list = (await Nexus.getLS('ai_providers')) || [];
+                const p = list.find(x => x.id === provId);
+                if (p) { p.url = AI.url; p.key = AI.key; p.model = AI.model; await Nexus.setLS('ai_providers', list); }
+                await Nexus.setLS('ai_active', provId);
+            }
+            $('agTestOut').textContent = '已保存 ✓';
+            updateSub();
+        } catch (e) { $('agTestOut').textContent = '保存失败：' + e; }
+    };
+    $('agTest').onclick = async function () {
+        $('agTestOut').textContent = '测试中…';
+        AI.url = $('agUrl').value.trim(); AI.key = $('agKey').value.trim(); AI.model = $('agModel').value.trim();
+        try {
+            const txt = await callAI([{ role: 'user', content: '回复「连通」两个字' }]);
+            $('agTestOut').textContent = '✓ 连通！AI 说：' + txt.slice(0, 60);
+        } catch (e) { $('agTestOut').textContent = '✗ ' + (e && e.message ? e.message : e); }
+    };
+
+    /* ================= 启动 ================= */
+    Nexus.ready(async function () {
+        try { await Nexus.setWindowTitle('FangClaw'); } catch (e) { }
+        await loadAiConfig();
+        addAi('老板好！我是 **FangClaw** —— 能替你动手干活的那位 🤖\n\n跟只会聊天的 AI 小方不一样，我可以真的操作这台系统：建文件夹、写文件、改设置、开应用、截屏……凡是「写」的操作，都会先弹卡片让你批准，绝不先斩后奏。\n\n试试对我说：\n· 「看看 C 盘根目录有什么」\n· 「建一个工作计划文件夹，里面放个本周计划.txt，随便帮我写点内容」\n· 「把系统通知打开测试一下」');
+        inputEl.focus();
+    });
+})();
+</script>
+</body>
+</html>

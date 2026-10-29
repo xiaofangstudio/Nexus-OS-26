@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>截图录屏</title>
+<script src="_bridge.js"></script>
+<script src="_app.js"></script>
+<style>
+  :root {
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+    --primary: #4A9BF5;
+    --bg: rgba(246, 248, 252, 0.92);
+    --card: rgba(255, 255, 255, 0.72);
+    --line: rgba(15, 23, 42, 0.08);
+    --text: #1a1f2b;
+    --sub: rgba(30, 41, 59, 0.55);
+    --danger: #ef4444;
+  }
+  body.dark-mode {
+    --bg: rgba(13, 15, 24, 0.92);
+    --card: rgba(30, 34, 48, 0.66);
+    --line: rgba(255, 255, 255, 0.09);
+    --text: #f1f5f9;
+    --sub: rgba(226, 232, 240, 0.55);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: background 0.3s var(--ease-out), color 0.3s var(--ease-out);
+  }
+  /* ===== 顶栏 ===== */
+  .topbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px 10px;
+    flex: none;
+  }
+  .app-icon {
+    width: 34px; height: 34px; border-radius: 10px;
+    background: linear-gradient(135deg, #60a5fa, #a78bfa);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 15px;
+    box-shadow: 0 4px 14px rgba(96, 165, 250, 0.35);
+  }
+  .app-title { font-size: 15px; font-weight: 700; letter-spacing: 0.2px; }
+  .app-sub { font-size: 11px; color: var(--sub); margin-top: 1px; }
+  .tabs {
+    margin-left: auto;
+    display: flex; gap: 4px;
+    background: rgba(120, 130, 150, 0.12);
+    border-radius: 10px; padding: 3px;
+  }
+  .tab {
+    border: none; background: transparent;
+    padding: 6px 16px; border-radius: 8px;
+    font-size: 13px; color: var(--sub); cursor: pointer;
+    transition: all 0.25s var(--ease-out);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .tab.active {
+    background: var(--card); color: var(--text);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    font-weight: 600;
+  }
+  .tab:not(.active):hover { color: var(--text); }
+
+  /* =====  capture 区 ===== */
+  .capture-bar {
+    flex: none;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .cap-btn {
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--text);
+    border-radius: 12px;
+    padding: 9px 16px;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    transition: transform 0.2s var(--ease-spring), box-shadow 0.2s var(--ease-out), background 0.2s;
+    backdrop-filter: blur(10px);
+  }
+  .cap-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.12); }
+  .cap-btn:active { transform: scale(0.96); }
+  .cap-btn i { font-size: 12px; color: var(--primary); }
+  .cap-btn.primary {
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    border-color: transparent; color: white;
+  }
+  .cap-btn.primary i { color: white; }
+  .cap-btn.danger { background: linear-gradient(135deg, #ef4444, #f97316); border-color: transparent; color: white; }
+  .cap-btn.danger i { color: white; }
+  .cap-btn.recording { animation: recBreath 1.4s var(--ease-in-out-quart) infinite; }
+  @keyframes recBreath { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
+  .path-hint {
+    font-size: 11px; color: var(--sub);
+    display: flex; align-items: center; gap: 6px;
+    margin-left: auto;
+  }
+  .path-hint code {
+    background: rgba(120,130,150,0.14);
+    border-radius: 5px; padding: 2px 7px;
+    font-size: 10.5px;
+    font-family: "SF Mono", Consolas, monospace;
+  }
+
+  /* ===== 内容区 ===== */
+  .content { flex: 1; overflow-y: auto; padding: 16px 18px 24px; }
+  .content::-webkit-scrollbar { width: 8px; }
+  .content::-webkit-scrollbar-thumb { background: rgba(120,130,150,0.3); border-radius: 4px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 14px;
+  }
+  .item {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-out);
+    animation: itemIn 0.4s var(--ease-out) backwards;
+  }
+  @keyframes itemIn { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: none; } }
+  .item:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.14); }
+  .item .thumb {
+    width: 100%; aspect-ratio: 16/10;
+    object-fit: cover; display: block;
+    background: rgba(120,130,150,0.12);
+  }
+  .item .meta { padding: 8px 10px 10px; }
+  .item .name {
+    font-size: 12px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .item .sub { font-size: 10.5px; color: var(--sub); margin-top: 2px; }
+  .empty {
+    text-align: center; color: var(--sub);
+    padding: 60px 20px;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+  }
+  .empty i { font-size: 42px; opacity: 0.35; }
+  .empty .t { font-size: 14px; font-weight: 600; color: var(--text); }
+  .empty .d { font-size: 12px; line-height: 1.6; }
+
+  /* ===== 预览弹层 ===== */
+  .viewer {
+    position: fixed; inset: 0;
+    background: rgba(8, 10, 18, 0.82);
+    backdrop-filter: blur(18px);
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 50;
+    animation: fadeIn 0.25s var(--ease-out);
+  }
+  .viewer.show { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .viewer img, .viewer video {
+    max-width: 86vw; max-height: 78vh;
+    border-radius: 12px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+    animation: viewerIn 0.35s var(--ease-spring);
+  }
+  @keyframes viewerIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+  .viewer-bar {
+    position: absolute; bottom: 26px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 10px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 14px;
+    padding: 10px 14px;
+    backdrop-filter: blur(20px);
+  }
+  .v-btn {
+    border: none; border-radius: 9px;
+    background: rgba(255,255,255,0.16);
+    color: white; font-size: 12.5px; font-weight: 600;
+    padding: 8px 14px; cursor: pointer;
+    display: flex; align-items: center; gap: 7px;
+    transition: all 0.2s var(--ease-out);
+  }
+  .v-btn:hover { background: rgba(255,255,255,0.3); }
+  .v-btn.danger { background: rgba(239,68,68,0.75); }
+  .v-btn.danger:hover { background: rgba(239,68,68,0.95); }
+  .viewer-close {
+    position: absolute; top: 22px; right: 26px;
+    width: 38px; height: 38px; border-radius: 50%;
+    border: none; cursor: pointer;
+    background: rgba(255,255,255,0.14); color: white;
+    font-size: 15px;
+    transition: all 0.2s var(--ease-spring);
+  }
+  .viewer-close:hover { background: rgba(255,255,255,0.3); transform: scale(1.08); }
+
+  /* 延时倒计时浮层（宿主机桌面级由通知提示） */
+  .rec-live {
+    display: none;
+    align-items: center; gap: 10px;
+    background: rgba(239, 68, 68, 0.14);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: var(--danger);
+    border-radius: 12px;
+    padding: 8px 14px;
+    font-size: 12.5px; font-weight: 700;
+  }
+  .rec-live.show { display: flex; animation: itemIn 0.3s var(--ease-out); }
+  .rec-live .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--danger);
+    animation: recDot 1.1s var(--ease-in-out-quart) infinite;
+  }
+  @keyframes recDot { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+  .rec-live .tm { font-variant-numeric: tabular-nums; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 26px;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(20,22,32,0.88); color: white;
+    border-radius: 12px; padding: 10px 18px;
+    font-size: 13px;
+    opacity: 0; pointer-events: none;
+    transition: all 0.35s var(--ease-spring);
+    z-index: 99;
+    backdrop-filter: blur(16px);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="app-icon"><i class="fas fa-camera"></i></div>
+    <div>
+      <div class="app-title">截图录屏</div>
+      <div class="app-sub">真实捕获 · 自动存入系统盘</div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="shot"><i class="fas fa-image"></i>截图库</button>
+      <button class="tab" data-tab="rec"><i class="fas fa-video"></i>录屏</button>
+    </div>
+  </div>
+
+  <!-- 截图面板 -->
+  <div id="panel-shot">
+    <div class="capture-bar">
+      <button class="cap-btn primary" onclick="doCapture('full')"><i class="fas fa-expand"></i>全屏截图</button>
+      <button class="cap-btn" onclick="doCapture('selection')"><i class="fas fa-crop-alt"></i>区域截图</button>
+      <button class="cap-btn" onclick="doCapture('delay')"><i class="fas fa-clock"></i>延时 3 秒</button>
+      <div class="path-hint"><i class="fas fa-folder-open"></i>存储位置 <code>C:/图片/Screenshots/</code></div>
+    </div>
+    <div class="content"><div class="grid" id="shotGrid"></div><div class="empty" id="shotEmpty" style="display:none;"><i class="fas fa-image"></i><div class="t">还没有截图</div><div class="d">点击上方按钮开始捕获<br>截图会自动存入系统盘</div></div></div>
+  </div>
+
+  <!-- 录屏面板 -->
+  <div id="panel-rec" style="display:none;">
+    <div class="capture-bar">
+      <button class="cap-btn danger" id="recBtn" onclick="toggleRec()"><i class="fas fa-circle"></i><span id="recBtnText">开始录屏</span></button>
+      <div class="rec-live" id="recLive"><span class="dot"></span>正在录制<span class="tm" id="recLiveTime">00:00</span></div>
+      <div class="path-hint"><i class="fas fa-folder-open"></i>存储位置 <code>C:/视频/ScreenRecordings/</code></div>
+    </div>
+    <div class="content"><div class="grid" id="recGrid"></div><div class="empty" id="recEmpty" style="display:none;"><i class="fas fa-film"></i><div class="t">还没有录屏</div><div class="d">点击「开始录屏」捕获整个屏幕<br>支持真实屏幕捕获，保存为 WebM</div></div></div>
+  </div>
+
+  <!-- 预览 -->
+  <div class="viewer" id="viewer" onclick="if(event.target===this)closeViewer()">
+    <button class="viewer-close" onclick="closeViewer()"><i class="fas fa-times"></i></button>
+    <img id="viewerImg" style="display:none;">
+    <video id="viewerVideo" controls style="display:none;"></video>
+    <div class="viewer-bar">
+      <button class="v-btn" id="vSave" onclick="saveCurrentToDisk()"><i class="fas fa-download"></i>保存到电脑</button>
+      <button class="v-btn danger" onclick="deleteCurrent()"><i class="fas fa-trash"></i>删除</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  var SHOT_PATH = ['C', '图片', 'Screenshots'];
+  var REC_PATH = ['C', '视频', 'ScreenRecordings'];
+  var curTab = 'shot';
+  var viewerItem = null;   // { dataUrl, name, kind }
+  var recPoll = null;
+
+  function $(id) { return document.getElementById(id); }
+  function toast(msg) {
+    var el = $('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { el.classList.remove('show'); }, 2200);
+  }
+  function fmtSize(len) {
+    if (len > 1048576) return (len / 1048576).toFixed(1) + ' MB';
+    return Math.max(1, Math.round(len / 1024)) + ' KB';
+  }
+  function dataUrlLen(d) { var i = d.indexOf(','); return Math.floor((d.length - i - 1) * 0.75); }
+
+  // 读系统盘目录 → [{name, dataUrl}]
+  function readFsDir(pathArr) {
+    return Nexus.getUserLS('filesystem').then(function (fs) {
+      var node = fs;
+      for (var i = 0; i < pathArr.length && node; i++) node = node.children ? node.children[pathArr[i]] : null;
+      if (!node || !node.children) return [];
+      return Object.keys(node.children).map(function (k) {
+        var f = node.children[k];
+        return { name: k, dataUrl: f.content || '' };
+      }).filter(function (x) { return x.dataUrl; }).sort(function (a, b) { return a.name < b.name ? 1 : -1; });
+    }).catch(function () { return []; });
+  }
+
+  function renderShots() {
+    readFsDir(SHOT_PATH).then(function (list) {
+      var grid = $('shotGrid');
+      $('shotEmpty').style.display = list.length ? 'none' : 'flex';
+      grid.innerHTML = list.map(function (it, i) {
+        return '<div class="item" style="animation-delay:' + Math.min(i * 0.04, 0.4) + 's" onclick="window.__openShot(\'' + escAttr(it.dataUrl) + '\',\'' + escAttr(it.name) + '\')">' +
+          '<img class="thumb" src="' + escAttr(it.dataUrl) + '" loading="lazy">' +
+          '<div class="meta"><div class="name">' + escHtml(it.name) + '</div>' +
+          '<div class="sub">' + fmtSize(dataUrlLen(it.dataUrl)) + ' · 截图</div></div></div>';
+      }).join('');
+    });
+  }
+  function renderRecs() {
+    readFsDir(REC_PATH).then(function (list) {
+      var grid = $('recGrid');
+      $('recEmpty').style.display = list.length ? 'none' : 'flex';
+      grid.innerHTML = list.map(function (it, i) {
+        return '<div class="item" style="animation-delay:' + Math.min(i * 0.04, 0.4) + 's" onclick="window.__openRec(\'' + escAttr(it.dataUrl) + '\',\'' + escAttr(it.name) + '\')">' +
+          '<div class="thumb" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(239,68,68,0.18),rgba(99,102,241,0.18));"><i class="fas fa-play-circle" style="font-size:34px;color:var(--primary);"></i></div>' +
+          '<div class="meta"><div class="name">' + escHtml(it.name) + '</div>' +
+          '<div class="sub">' + fmtSize(dataUrlLen(it.dataUrl)) + ' · 录屏</div></div></div>';
+      }).join('');
+    });
+  }
+  function escHtml(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+  function escAttr(s) { return String(s).replace(/'/g, "\\'"); }
+
+  // ===== 截图 =====
+  window.doCapture = function (mode) {
+    if (mode === 'delay') {
+      toast('3 秒后截图…');
+      setTimeout(function () { Nexus.call('takeScreenshot', 'full'); }, 3000);
+      setTimeout(renderShots, 4200);
+    } else {
+      Nexus.call('takeScreenshot', mode);
+      setTimeout(renderShots, 1600);
+    }
+  };
+
+  // ===== 录屏 =====
+  window.toggleRec = function () {
+    Nexus.call('getRecordingState').then(function (st) {
+      if (st && st.recording) {
+        Nexus.call('stopRecording');
+        $('recBtn').classList.remove('recording');
+        $('recBtnText').textContent = '开始录屏';
+        $('recLive').classList.remove('show');
+        stopRecPoll();
+        hideRecDock();
+        toast('录制结束，正在保存…');
+        setTimeout(renderRecs, 2500);
+      } else {
+        Nexus.call('startRecording').then(function (ok) {
+          if (ok) {
+            $('recBtn').classList.add('recording');
+            $('recBtnText').textContent = '停止录屏';
+            $('recLive').classList.add('show');
+            startRecPoll();
+            pushRecDock(0);
+            toast('录屏已开始');
+          }
+        }).catch(function (e) { toast('启动失败：' + e.message); });
+      }
+    });
+  };
+  function startRecPoll() {
+    stopRecPoll();
+    recPoll = setInterval(function () {
+      Nexus.call('getRecordingState').then(function (st) {
+        if (!st || !st.recording) {
+          $('recBtn').classList.remove('recording');
+          $('recBtnText').textContent = '开始录屏';
+          $('recLive').classList.remove('show');
+          hideRecDock();
+          stopRecPoll();
+          renderRecs();
+          return;
+        }
+        pushRecDock(st.elapsed);
+        var s = Math.floor((st.elapsed || 0) / 1000);
+        $('recLiveTime').textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+      }).catch(function () {});
+    }, 500);
+  }
+  function stopRecPoll() { if (recPoll) { clearInterval(recPoll); recPoll = null; } }
+
+  /* ===== Dock Bar 联动（第一方适配示范：录屏时 Dock Bar 出现倒计时 + 快捷按钮）=====
+     spec 支持 title / tiles / buttons / text；点击会经 nexus:dockbar 事件回到这里。 */
+  function recDockSpec(ms) {
+    var s = Math.floor((ms || 0) / 1000);
+    return {
+      title: '正在录屏',
+      buttons: [
+        { id: 'shot', label: '截一张', icon: 'fa-camera' },
+        { id: 'stop', label: '停止', icon: 'fa-stop', danger: true }
+      ],
+      text: String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0')
+    };
+  }
+  function pushRecDock(ms) {
+    try { Nexus.call('dockbar', { action: 'show', spec: recDockSpec(ms) }); } catch (e) { /* 宿主不支持 Dock Bar 时静默 */ }
+  }
+  function hideRecDock() {
+    try { Nexus.call('dockbar', { action: 'hide' }); } catch (e) { /* 静默 */ }
+  }
+  // Dock Bar 上的按钮回调（第三方应用同理，用 Nexus.on('dockbar') 接）
+  Nexus.on('dockbar', function (d) {
+    if (!d || d.type !== 'button') return;
+    if (d.id === 'stop') {
+      Nexus.call('stopRecording');
+      $('recBtn').classList.remove('recording');
+      $('recBtnText').textContent = '开始录屏';
+      $('recLive').classList.remove('show');
+      stopRecPoll();
+      hideRecDock();
+      toast('录制结束，正在保存…');
+      setTimeout(renderRecs, 2500);
+    } else if (d.id === 'shot') {
+      Nexus.call('takeScreenshot', 'full');
+      setTimeout(renderShots, 1600);
+      toast('已截图');
+    }
+  });
+
+  // ===== 预览 / 保存 / 删除 =====
+  window.__openShot = function (dataUrl, name) {
+    viewerItem = { dataUrl: dataUrl, name: name, kind: 'shot' };
+    $('viewerImg').src = dataUrl;
+    $('viewerImg').style.display = '';
+    $('viewerVideo').style.display = 'none';
+    $('vSave').style.display = '';
+    $('viewer').classList.add('show');
+  };
+  window.__openRec = function (dataUrl, name) {
+    viewerItem = { dataUrl: dataUrl, name: name, kind: 'rec' };
+    var v = $('viewerVideo');
+    v.src = dataUrl;
+    v.style.display = '';
+    $('viewerImg').style.display = 'none';
+    $('vSave').style.display = '';
+    $('viewer').classList.add('show');
+  };
+  window.closeViewer = function () {
+    $('viewer').classList.remove('show');
+    var v = $('viewerVideo');
+    try { v.pause(); } catch (e) {}
+    v.removeAttribute('src');
+    viewerItem = null;
+  };
+  // 保存到真实磁盘（File System Access API， Chromium 可选真实 C: 路径）
+  window.saveCurrentToDisk = function () {
+    if (!viewerItem) return;
+    fetch(viewerItem.dataUrl).then(function (r) { return r.blob(); }).then(function (blob) {
+      if (window.showSaveFilePicker) {
+        var accept = viewerItem.kind === 'rec' ? { 'video/webm': ['.webm'] } : { 'image/png': ['.png'] };
+        return window.showSaveFilePicker({ suggestedName: viewerItem.name, types: [{ description: '文件', accept: accept }] })
+          .then(function (handle) { return handle.createWritable(); })
+          .then(function (w) { return w.write(blob).then(function () { return w.close(); }); })
+          .then(function () { toast('已保存到电脑：' + viewerItem.name); });
+      }
+      // 回退：浏览器下载
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = viewerItem.name;
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+      toast('已触发下载：' + viewerItem.name);
+    }).catch(function (e) { if (e && e.name !== 'AbortError') toast('保存失败：' + e.message); });
+  };
+  window.deleteCurrent = function () {
+    if (!viewerItem) return;
+    var pathArr = viewerItem.kind === 'shot' ? SHOT_PATH : REC_PATH;
+    Nexus.getUserLS('filesystem').then(function (fs) {
+      var node = fs, i;
+      for (i = 0; i < pathArr.length - 1 && node; i++) node = node.children ? node.children[pathArr[i]] : null;
+      if (node && node.children && node.children[viewerItem.name]) {
+        delete node.children[viewerItem.name];
+        Nexus.setUserLS('filesystem', fs);
+        toast('已删除');
+      }
+      closeViewer();
+      if (viewerItem && viewerItem.kind === 'shot') renderShots(); else renderRecs();
+    });
+  };
+
+  // ===== Tab 切换 =====
+  document.querySelectorAll('.tab').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.tab').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      curTab = btn.dataset.tab;
+      $('panel-shot').style.display = curTab === 'shot' ? '' : 'none';
+      $('panel-rec').style.display = curTab === 'rec' ? '' : 'none';
+      if (curTab === 'shot') renderShots(); else renderRecs();
+    });
+  });
+
+  // 宿主录屏保存后推送刷新
+  window.addEventListener('nexus:recordings', function () { renderRecs(); });
+  // Esc 关闭预览
+  window.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeViewer(); });
+
+  Nexus.ready(function () {
+    renderShots();
+    renderRecs();
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+/* ============================================================
+   Nexus OS 26 · 全局细节层（ui/n26-polish.css）
+   ------------------------------------------------------------
+   定位：只做「细节」，不碰布局、不碰尺寸、不碰定位。
+       凡是会影响 getBoundingClientRect / transform-origin /
+       贴边热区判定的东西，一律不在这里出现。
+
+   硬规则（踩过坑，写死）：
+   1. 不准给固定定位元素加带 transform 的入场动画；
+      fill-mode: both 会把最后一帧焊死，悬停规则再也赢不了，
+      位置判定会整条链连锁失准（见 2026-10-29 事故复盘）。
+   2. 按压反馈统一用独立的 scale / translate 属性，
+      它与 transform 正交合成，不会顶掉 JS 正在写的 transform。
+   3. 只补「本来没有」的反馈，不改「本来就有」的配色。
+
+   本节内容按场景分块，任何一条都能单独删掉而不影响其余。
+   ============================================================ */
+
+/* ── ① 数字不抖：所有会跳字的读数统一等宽数字 ──────────────
+   顶栏时钟原来用比例数字 + letter-spacing，每秒都在微移；
+   真系统的时钟是钉子，不动的。 */
+#finderTime,
+#n26TopbarDate,
+.n26-topbar-time,
+.n26-topbar-date,
+.n26-process-count,
+.dock-badge,
+.notification-time,
+.notification-panel time {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+}
+
+/* ── ② 光标与禁用态 ───────────────────────────────────── */
+input,
+textarea,
+[contenteditable="true"] {
+    caret-color: var(--primary, #4a9bf5);
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled,
+.glass-btn.disabled,
+[aria-disabled="true"] {
+    cursor: not-allowed;
+}
+
+/* 原生控件跟随系统主色，而不是各浏览器自己的蓝 */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+progress {
+    accent-color: var(--primary, #4a9bf5);
+}
+
+/* ── ③ 图片：不许拖出幽灵半透明残影 ──────────────────── */
+img {
+    -webkit-user-drag: none;
+    -khtml-user-drag: none;
+    user-drag: none;
+}
+
+/* ── ④ 按压回弹：只补手感，不改任何现有 transform ──────
+   scale 是独立属性，和外层 transform 相乘而不是覆盖，
+   所以 Dock 放大、窗口弹性、图标位移都不会被它打断。 */
+:where(.glass-btn, .n26-topbar-icon, .n26-topbar-weather, .finder-menu,
+.finder-logo, .ctx-menu-item, .apple-menu-item, .window-btn,
+.n26-process-foot-btn, .desktop-icon, .notification-close) {
+    transition-property: background, background-color, box-shadow, color,
+        border-color, opacity, filter, transform, scale;
+}
+
+:where(.glass-btn, .n26-topbar-icon, .n26-topbar-weather, .finder-menu,
+.finder-logo, .ctx-menu-item, .apple-menu-item, .n26-process-foot-btn,
+.desktop-icon):active {
+    scale: 0.97;
+}
+
+/* 红绿灯按钮：按下去要「陷」，松开要「回」，悬停不该变暗 */
+.window-btn:hover {
+    filter: brightness(1.06);
+}
+.window-btn:active {
+    filter: brightness(0.92);
+    scale: 0.9;
+}
+
+/* ── ⑤ 顶栏图标：原来只有悬停底色，没有按下反馈 ────────── */
+.n26-topbar-icon:active,
+.n26-topbar-weather:active {
+    background: rgba(0, 0, 0, 0.14);
+}
+body.dark-mode .n26-topbar-icon:active,
+body.dark-mode .n26-topbar-weather:active {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+/* ── ⑥ 桌面图标：悬停时名字要亮起来（原来只有底色变） ──── */
+.desktop-icon-name {
+    transition: color 0.16s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
+        text-shadow 0.16s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+.desktop-icon:hover .desktop-icon-name {
+    color: rgba(255, 255, 255, 0.96);
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+.desktop-icon:active .desktop-icon-name {
+    color: #ffffff;
+}
+
+/* ── ⑦ Dock 提示气泡：从「一块黑方片」变成玻璃小胶囊 ────
+   只动背景/边框/阴影与 translate，横向居中仍由原 transform 负责。 */
+.dock-tooltip {
+    background: rgba(28, 30, 38, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    -webkit-backdrop-filter: blur(14px) saturate(170%);
+    backdrop-filter: blur(14px) saturate(170%);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+    translate: 0 3px;
+    transition: opacity 0.16s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
+        translate 0.16s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+.dock-item:hover .dock-tooltip {
+    translate: 0 0;
+}
+
+/* Dock 运行指示点：深色壁纸下原来是一颗几乎看不见的灰点 */
+body.dark-mode .dock-item.running::after {
+    background: rgba(255, 255, 255, 0.82);
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.45);
+}
+
+/* ── ⑧ 顶栏右侧功能图标：没有悬停反馈的那类补齐 ────────── */
+.n26-process-foot-btn {
+    transition: background-color 0.15s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
+        color 0.15s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+/* ── ⑨ 窗口正文允许选中文字 ────────────────────────────
+   真系统里正文是可以划选复制的，只有「控件」不参与选择。
+   这里只把容器从 none 改成 text，按钮/滑块/图标仍旧不可选。 */
+.window-content {
+    -webkit-user-select: text;
+    user-select: text;
+}
+.window-content button,
+.window-content .glass-btn,
+.window-content input[type="range"],
+.window-content img,
+.window-content .window-btn,
+.window-content [role="button"] {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* 深色下选区更亮一点，否则压在玻璃上几乎看不出来 */
+body.dark-mode ::selection {
+    background: rgba(99, 132, 255, 0.42);
+    color: #ffffff;
+}
+
+/* ── ⑩ 焦点环：键盘 Tab 时给一个柔和的系统色环 ────────── */
+:focus-visible {
+    outline-offset: 2px;
+}
+
+/* ── ⑪ 降级：性能模式 / 低端 / 晕动症一律关掉本节新增动效 ── */
+body.perf-mode :where(.dock-tooltip, .desktop-icon-name, .window-btn,
+.n26-topbar-icon, .n26-topbar-weather, .n26-process-foot-btn) {
+    transition: none !important;
+    translate: 0 0;
+}
+body.perf-mode :where(.glass-btn, .n26-topbar-icon, .n26-topbar-weather,
+.finder-menu, .finder-logo, .ctx-menu-item, .apple-menu-item,
+.n26-process-foot-btn, .desktop-icon):active {
+    scale: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dock-tooltip,
+    .desktop-icon-name,
+    .window-btn,
+    .n26-topbar-icon,
+    .n26-topbar-weather,
+    .n26-process-foot-btn {
+        transition: none !important;
+        translate: 0 0;
+    }
+    :where(.glass-btn, .n26-topbar-icon, .n26-topbar-weather, .finder-menu,
+    .finder-logo, .ctx-menu-item, .apple-menu-item, .n26-process-foot-btn,
+    .desktop-icon):active {
+        scale: 1;
+    }
+}

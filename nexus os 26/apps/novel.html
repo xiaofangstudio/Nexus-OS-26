@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>小说阅读器</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<style>
+  html, body { height: 100%; margin: 0; font-family: var(--font-sans); }
+  body { background: transparent; overflow: hidden; }
+  #app { height: 100%; }
+  .novel-app { display: flex; height: 100%; background: rgba(245, 245, 247, 0.95); color: #1a1a1a; }
+  body.dark-mode .novel-app { background: rgba(20, 22, 30, 0.95); color: white; }
+  .novel-sidebar {
+    width: 200px; flex-shrink: 0; background: rgba(0,0,0,0.2);
+    border-right: 1px solid rgba(255,255,255,0.1); overflow-y: auto; padding: 10px 0;
+  }
+  .novel-sidebar-title { color: rgba(255,255,255,0.6); font-size: 12px; padding: 8px 14px; }
+  .novel-chapter-item {
+    padding: 8px 14px; color: rgba(255,255,255,0.8); font-size: 13px; cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-out-quart);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .novel-chapter-item:hover { background: rgba(255,255,255,0.1); }
+  .novel-chapter-item.active { background: var(--primary); color: white; }
+  .novel-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .novel-toolbar {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    background: rgba(0,0,0,0.15); border-bottom: 1px solid rgba(255,255,255,0.1); flex-wrap: wrap;
+  }
+  .novel-toolbar label { color: rgba(255,255,255,0.7); font-size: 12px; }
+  .novel-toolbar select {
+    background: rgba(255,255,255,0.15); color: white;
+    border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 4px 8px; font-size: 12px; outline: none;
+  }
+  .novel-toolbar select option { color: #1a1a1a; }
+  .novel-color-btn {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.3); cursor: pointer;
+    transition: transform var(--dur-fast) var(--ease-spring);
+  }
+  .novel-color-btn:hover { transform: scale(1.15); }
+  .novel-color-btn.active { border-color: var(--primary); transform: scale(1.15); }
+  .novel-content {
+    flex: 1; overflow-y: auto; padding: 30px 40px;
+    font-size: 16px; line-height: 1.9; white-space: pre-wrap;
+    transition: background var(--dur-base) var(--ease-out-quart), color var(--dur-base) var(--ease-out-quart);
+  }
+  .novel-drop-zone {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.6); padding: 30px;
+    border: 2px dashed rgba(255,255,255,0.3); border-radius: 12px; margin: 20px;
+    transition: all var(--dur-base) var(--ease-out-quart);
+  }
+  .novel-drop-zone.dragover { border-color: var(--primary); background: rgba(74,155,245,0.1); }
+  .novel-drop-zone i { font-size: 48px; margin-bottom: 15px; }
+  body:not(.dark-mode) .novel-sidebar { background: rgba(0,0,0,0.03); border-right-color: rgba(0,0,0,0.08); }
+  body:not(.dark-mode) .novel-sidebar-title { color: rgba(0,0,0,0.5); }
+  body:not(.dark-mode) .novel-chapter-item { color: rgba(0,0,0,0.75); }
+  body:not(.dark-mode) .novel-chapter-item:hover { background: rgba(0,0,0,0.05); }
+  body:not(.dark-mode) .novel-toolbar { background: rgba(0,0,0,0.03); border-bottom-color: rgba(0,0,0,0.08); }
+  body:not(.dark-mode) .novel-toolbar label { color: rgba(0,0,0,0.7); }
+  body:not(.dark-mode) .novel-toolbar select { background: rgba(0,0,0,0.04); color: #1a1a1a; border-color: rgba(0,0,0,0.12); }
+  body:not(.dark-mode) .novel-color-btn { border-color: rgba(0,0,0,0.2); }
+  body:not(.dark-mode) .novel-drop-zone { color: rgba(0,0,0,0.5); border-color: rgba(0,0,0,0.2); }
+  .novel-chapter-empty { color: rgba(0,0,0,0.4); }
+  body.dark-mode .novel-chapter-empty { color: rgba(255,255,255,0.4); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="../ui/motion.js"></script>
+<script src="_bridge.js"></script>
+<script src="_app.js"></script>
+<script>
+(function () {
+  'use strict';
+  var app = document.getElementById('app');
+  var state = { content: '', chapters: [], currentChapter: 0, fontSize: 16, bgColor: 'white', fileName: '' };
+  var bgColors = {
+    white: { bg: '#ffffff', fg: '#1a1a1a' },
+    cream: { bg: '#f5f0e0', fg: '#2a2418' },
+    green: { bg: '#c7edcc', fg: '#1a3a1a' },
+    black: { bg: '#1a1a1a', fg: '#e0e0e0' }
+  };
+  var fontSizes = { small: 14, medium: 16, large: 19, xlarge: 23 };
+  var savedScrollTop = 0;
+
+  function q(sel) { return app.querySelector(sel); }
+
+  function renderShell(progress) {
+    app.innerHTML =
+      '<div class="novel-app">' +
+        '<div class="novel-sidebar" id="novelSidebar">' +
+          '<div class="novel-sidebar-title">章节目录</div>' +
+          '<div id="novelChapterList" class="novel-chapter-empty" style="font-size:12px;padding:10px 14px;">拖入小说文件后显示</div>' +
+        '</div>' +
+        '<div class="novel-main">' +
+          '<div class="novel-toolbar">' +
+            '<button class="glass-btn" style="padding:4px 10px;font-size:12px;" id="novelOpenBtn"><i class="fas fa-upload"></i> 打开</button>' +
+            '<input type="file" id="novelFileInput" accept=".txt" style="display:none;">' +
+            '<label>字号:</label>' +
+            '<select id="novelFontSel">' +
+              '<option value="small" ' + (state.fontSize === 14 ? 'selected' : '') + '>小</option>' +
+              '<option value="medium" ' + (state.fontSize === 16 ? 'selected' : '') + '>中</option>' +
+              '<option value="large" ' + (state.fontSize === 19 ? 'selected' : '') + '>大</option>' +
+              '<option value="xlarge" ' + (state.fontSize === 23 ? 'selected' : '') + '>特大</option>' +
+            '</select>' +
+            '<label>背景:</label>' +
+            ['white', 'cream', 'green', 'black'].map(function (c) {
+              return '<div class="novel-color-btn ' + (state.bgColor === c ? 'active' : '') + '" style="background:' + bgColors[c].bg + ';" data-bg="' + c + '"></div>';
+            }).join('') +
+          '</div>' +
+          '<div id="novelContentArea" style="flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;">' +
+            '<div class="novel-drop-zone" id="novelDropZone" style="flex:1;">' +
+              '<i class="fas fa-book-open"></i>' +
+              '<div style="font-size:16px;margin-bottom:8px;">拖入 .txt 小说文件</div>' +
+              '<div style="font-size:13px;">或点击"打开"按钮选择文件</div>' +
+              (progress && progress.fileName ?
+                '<div style="margin-top:15px;font-size:12px;color:var(--primary-light);"><i class="fas fa-bookmark"></i> 上次阅读：' + progress.fileName + ' 第' + ((progress.currentChapter || 0) + 1) + '章</div>' : '') +
+            '</div>' +
+            '<div class="novel-content" id="novelContent" style="display:none;"></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    var dropZone = q('#novelDropZone');
+    dropZone.addEventListener('dragover', function (e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', function () { dropZone.classList.remove('dragover'); });
+    dropZone.addEventListener('drop', function (e) {
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+    q('#novelOpenBtn').addEventListener('click', function () { q('#novelFileInput').click(); });
+    q('#novelFileInput').addEventListener('change', function (e) { if (e.target.files[0]) handleFile(e.target.files[0]); });
+    q('#novelFontSel').addEventListener('change', function (e) { setFontSize(e.target.value); });
+    app.querySelectorAll('.novel-color-btn').forEach(function (b) {
+      b.addEventListener('click', function () { setBg(b.getAttribute('data-bg'), b); });
+    });
+
+    if (state.content) showContent();
+  }
+
+  function handleFile(file) {
+    if (!file) return;
+    if (!file.name.endsWith('.txt')) { Nexus.notify('格式不支持', '请上传 .txt 文件', 'warning'); return; }
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      state.content = e.target.result;
+      state.fileName = file.name;
+      state.chapters = parseChapters(state.content);
+      state.currentChapter = 0;
+      showContent(); saveProgress();
+      Nexus.notify('已加载', file.name + ' 已加载', 'success');
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+  function parseChapters(text) {
+    var regex = /第[零一二三四五六七八九十百千万\d]+章[^\n]*/g;
+    var matches = Array.from(text.matchAll(regex));
+    if (matches.length === 0) return [{ title: '全文', content: text }];
+    var chapters = [];
+    for (var i = 0; i < matches.length; i++) {
+      var start = matches[i].index;
+      var end = i + 1 < matches.length ? matches[i + 1].index : text.length;
+      chapters.push({ title: matches[i][0].trim(), content: text.substring(start, end).trim() });
+    }
+    if (matches[0].index > 0) chapters.unshift({ title: '序章', content: text.substring(0, matches[0].index).trim() });
+    return chapters;
+  }
+  function showContent() {
+    var dropZone = q('#novelDropZone'), contentEl = q('#novelContent');
+    if (!contentEl || !state.content) return;
+    dropZone.style.display = 'none';
+    contentEl.style.display = 'block';
+    applyStyle(); renderChapterList(); renderContent();
+  }
+  function applyStyle() {
+    var contentEl = q('#novelContent'); if (!contentEl) return;
+    var c = bgColors[state.bgColor] || bgColors.white;
+    contentEl.style.background = c.bg;
+    contentEl.style.color = c.fg;
+    contentEl.style.fontSize = state.fontSize + 'px';
+  }
+  function renderChapterList() {
+    var list = q('#novelChapterList'); if (!list) return;
+    list.classList.remove('novel-chapter-empty');
+    list.innerHTML = state.chapters.map(function (ch, i) {
+      return '<div class="novel-chapter-item ' + (i === state.currentChapter ? 'active' : '') + '" data-ch="' + i + '">' + ch.title + '</div>';
+    }).join('');
+    list.querySelectorAll('.novel-chapter-item').forEach(function (el) {
+      el.addEventListener('click', function () { goToChapter(parseInt(el.getAttribute('data-ch'), 10)); });
+    });
+  }
+  function renderContent() {
+    var contentEl = q('#novelContent'); if (!contentEl) return;
+    var ch = state.chapters[state.currentChapter];
+    contentEl.scrollTop = 0;
+    contentEl.textContent = ch ? ch.content : '无内容';
+  }
+  function goToChapter(idx) {
+    state.currentChapter = idx;
+    renderChapterList(); renderContent(); saveProgress();
+  }
+  function setFontSize(size) {
+    state.fontSize = fontSizes[size] || 16;
+    applyStyle(); saveProgress();
+  }
+  function setBg(color, btn) {
+    state.bgColor = color;
+    app.querySelectorAll('.novel-color-btn').forEach(function (b) { b.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+    applyStyle(); saveProgress();
+  }
+  function saveProgress() {
+    var contentSize = state.content ? state.content.length : 0;
+    var progress = {
+      fileName: state.fileName, currentChapter: state.currentChapter,
+      fontSize: state.fontSize, bgColor: state.bgColor, scrollTop: savedScrollTop
+    };
+    if (contentSize < 2 * 1024 * 1024) { progress.content = state.content; progress.chapters = state.chapters; }
+    Nexus.setUserLS('novelProgress', progress).catch(function () {
+      Nexus.setUserLS('novelProgress', {
+        fileName: state.fileName, currentChapter: state.currentChapter,
+        fontSize: state.fontSize, bgColor: state.bgColor
+      });
+    });
+  }
+
+  Nexus.ready(async function () {
+    var progress = (await Nexus.getUserLS('novelProgress')) || {};
+    state = {
+      content: '', chapters: [], currentChapter: 0,
+      fontSize: progress.fontSize || 16,
+      bgColor: progress.bgColor || 'white',
+      fileName: progress.fileName || ''
+    };
+    if (progress.content) {
+      state.content = progress.content;
+      state.chapters = progress.chapters || [];
+      state.currentChapter = progress.currentChapter || 0;
+    }
+    renderShell(progress);
+    if (progress.content) {
+      var contentEl = q('#novelContent');
+      if (contentEl && progress.scrollTop) contentEl.scrollTop = progress.scrollTop;
+    }
+    savedScrollTop = 0;
+    setInterval(function () {
+      var contentEl = q('#novelContent');
+      if (contentEl && contentEl.style.display !== 'none') {
+        savedScrollTop = contentEl.scrollTop;
+        Nexus.getUserLS('novelProgress').then(function (p) {
+          p = p || {}; p.scrollTop = contentEl.scrollTop;
+          Nexus.setUserLS('novelProgress', p);
+        });
+      }
+    }, 3000);
+  });
+})();
+</script>
+</body>
+</html>

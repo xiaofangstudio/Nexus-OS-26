@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2048</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<style>
+  html, body { height: 100%; margin: 0; font-family: var(--font-sans); }
+  body { background: transparent; overflow: hidden; }
+  #app { height: 100%; }
+  .game2048-wrap { display: flex; flex-direction: column; align-items: center; height: 100%; padding: 16px; background: rgba(245, 245, 247, 0.95); box-sizing: border-box; }
+  .game2048-header { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 12px; }
+  .game2048-score { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+  .game2048-score span { background: rgba(0,0,0,0.08); padding: 4px 12px; border-radius: 8px; }
+  .game2048-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; background: rgba(0,0,0,0.08); padding: 8px; border-radius: 10px; }
+  .game2048-cell {
+    width: 70px; height: 70px; border-radius: 6px; display: flex; align-items: center;
+    justify-content: center; font-size: 22px; font-weight: 700;
+    transition: all var(--dur-fast) var(--ease-out-quart);
+    background: rgba(0,0,0,0.04); color: #1a1a1a;
+  }
+  .game2048-cell.t2 { background: #eee4da; color: #776e65; }
+  .game2048-cell.t4 { background: #ede0c8; color: #776e65; }
+  .game2048-cell.t8 { background: #f2b179; color: #f9f6f2; }
+  .game2048-cell.t16 { background: #f59563; color: #f9f6f2; }
+  .game2048-cell.t32 { background: #f67c5f; color: #f9f6f2; }
+  .game2048-cell.t64 { background: #f65e3b; color: #f9f6f2; }
+  .game2048-cell.t128 { background: #edcf72; color: #f9f6f2; font-size: 18px; }
+  .game2048-cell.t256 { background: #edcc61; color: #f9f6f2; font-size: 18px; }
+  .game2048-cell.t512 { background: #edc850; color: #f9f6f2; font-size: 18px; }
+  .game2048-cell.t1024 { background: #edc53f; color: #f9f6f2; font-size: 16px; }
+  .game2048-cell.t2048 { background: #edc22e; color: #f9f6f2; font-size: 16px; }
+  .game2048-cell.t-super { background: #3c3a32; color: #f9f6f2; font-size: 14px; }
+  .game2048-msg { font-size: 12px; color: rgba(0,0,0,0.55); margin-top: 10px; }
+  body.dark-mode .game2048-wrap { background: rgba(20, 22, 30, 0.95); }
+  body.dark-mode .game2048-score { color: white; }
+  body.dark-mode .game2048-score span { background: rgba(255,255,255,0.2); }
+  body.dark-mode .game2048-grid { background: rgba(255,255,255,0.12); }
+  body.dark-mode .game2048-cell { background: rgba(255,255,255,0.05); color: white; }
+  body.dark-mode .game2048-msg { color: rgba(255,255,255,0.7); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="../ui/motion.js"></script>
+<script src="_bridge.js"></script>
+<script src="_app.js"></script>
+<script>
+(function () {
+  'use strict';
+  var data = null;
+  var app = document.getElementById('app');
+
+  function newGame() {
+    data = { grid: Array(4).fill(null).map(function () { return Array(4).fill(0); }), score: 0, gameOver: false };
+    addRandom(); addRandom(); render();
+    var msg = app.querySelector('#game2048Msg'); if (msg) msg.textContent = '方向键操作';
+  }
+  function addRandom() {
+    var empty = [];
+    for (var r = 0; r < 4; r++) for (var c = 0; c < 4; c++) if (data.grid[r][c] === 0) empty.push({ r: r, c: c });
+    if (empty.length === 0) return;
+    var pos = empty[Math.floor(Math.random() * empty.length)];
+    data.grid[pos.r][pos.c] = Math.random() < 0.9 ? 2 : 4;
+  }
+  function rotate(grid, times) {
+    var g = grid.map(function (r) { return r.slice(); });
+    for (var t = 0; t < times; t++) {
+      var ng = Array(4).fill(null).map(function () { return Array(4).fill(0); });
+      for (var r = 0; r < 4; r++) for (var c = 0; c < 4; c++) ng[3 - c][r] = g[r][c];
+      g = ng;
+    }
+    return g;
+  }
+  function move(dir) {
+    var moved = false;
+    var rot = (dir === 'up' ? 0 : dir === 'right' ? 1 : dir === 'down' ? 2 : 3);
+    var rotated = rotate(data.grid, rot);
+    for (var r = 0; r < 4; r++) {
+      var row = rotated[r].filter(function (v) { return v !== 0; });
+      for (var i = 0; i < row.length - 1; i++) {
+        if (row[i] === row[i + 1]) { row[i] *= 2; data.score += row[i]; row.splice(i + 1, 1); }
+      }
+      while (row.length < 4) row.push(0);
+      if (row.join(',') !== rotated[r].join(',')) moved = true;
+      rotated[r] = row;
+    }
+    data.grid = rotate(rotated, (4 - rot) % 4);
+    return moved;
+  }
+  function checkGameOver() {
+    for (var r = 0; r < 4; r++) for (var c = 0; c < 4; c++) {
+      if (data.grid[r][c] === 0) return false;
+      if (c < 3 && data.grid[r][c] === data.grid[r][c + 1]) return false;
+      if (r < 3 && data.grid[r][c] === data.grid[r + 1][c]) return false;
+    }
+    return true;
+  }
+  function render() {
+    var gridEl = app.querySelector('#game2048Grid');
+    var scoreEl = app.querySelector('#game2048Score');
+    if (!gridEl) return;
+    if (scoreEl) scoreEl.textContent = data.score;
+    gridEl.innerHTML = data.grid.flat().map(function (v) {
+      var cls = v === 0 ? '' : (v <= 2048 ? 't' + v : 't-super');
+      return '<div class="game2048-cell ' + cls + '">' + (v || '') + '</div>';
+    }).join('');
+  }
+  function handleKey(e) {
+    if (data.gameOver) return;
+    var moved = false;
+    switch (e.key) {
+      case 'ArrowUp': moved = move('up'); break;
+      case 'ArrowDown': moved = move('down'); break;
+      case 'ArrowLeft': moved = move('left'); break;
+      case 'ArrowRight': moved = move('right'); break;
+      default: return;
+    }
+    if (moved) {
+      addRandom(); render();
+      if (checkGameOver()) {
+        data.gameOver = true;
+        var msg = app.querySelector('#game2048Msg'); if (msg) msg.textContent = '游戏结束！按 R 重新开始';
+      }
+    }
+    e.preventDefault();
+  }
+
+  Nexus.ready(function () {
+    app.innerHTML =
+      '<div class="game2048-wrap" style="background:linear-gradient(135deg, #8b5cf6, #7c3aed);">' +
+        '<div class="game2048-header">' +
+          '<div class="game2048-score">2048</div>' +
+          '<div class="game2048-score">分数: <span id="game2048Score">0</span></div>' +
+        '</div>' +
+        '<div class="game2048-grid" id="game2048Grid"></div>' +
+        '<div class="game2048-msg" id="game2048Msg">方向键操作</div>' +
+      '</div>';
+    newGame();
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'r' || e.key === 'R') { newGame(); return; }
+      handleKey(e);
+    });
+  });
+})();
+</script>
+</body>
+</html>

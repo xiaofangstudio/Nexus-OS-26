@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NaveIDE</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<link rel="stylesheet" href="../fangui/core/tokens.css">
+<link rel="stylesheet" href="../fangui/core/liquid.css">
+<style>
+  html, body { height: 100%; margin: 0; font-family: var(--font-sans); }
+  body { background: transparent; overflow: hidden; }
+  #app { height: 100%; display: flex; flex-direction: column; color: var(--fu-text, #e6e6e2); }
+
+  .ide-top {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    border-bottom: 1px solid rgba(255,255,255,.10); flex: 0 0 auto;
+    background: rgba(0,0,0,.18);
+  }
+  .ide-title { font-size: 13px; font-weight: 700; letter-spacing: .3px; margin-right: 6px; }
+  .ide-title small { font-weight: 400; opacity: .55; margin-left: 6px; }
+  .ide-spacer { flex: 1; }
+  .ide-btn {
+    border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.08);
+    color: inherit; border-radius: 8px; padding: 5px 12px; font-size: 12px; cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-out-quart), transform var(--dur-fast) var(--ease-out-quart);
+  }
+  .ide-btn:hover { background: rgba(255,255,255,.16); }
+  .ide-btn:active { transform: scale(.96); }
+  .ide-btn.primary { background: var(--fu-accent, #3b82f6); border-color: transparent; color: #fff; }
+  .ide-btn.ghost { background: transparent; }
+
+  .ide-body { flex: 1; display: flex; min-height: 0; }
+
+  .ide-side {
+    width: 220px; flex: 0 0 220px; border-right: 1px solid rgba(255,255,255,.10);
+    display: flex; flex-direction: column; min-height: 0; background: rgba(0,0,0,.12);
+  }
+  .ide-side-head { padding: 8px 10px; font-size: 11px; letter-spacing: 1px; opacity: .55; }
+  .ide-tree { flex: 1; overflow: auto; padding: 0 6px 10px; font-size: 12.5px; }
+  .tree-row {
+    display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 6px;
+    cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tree-row:hover { background: rgba(255,255,255,.08); }
+  .tree-row.active { background: color-mix(in srgb, var(--fu-accent, #3b82f6) 35%, transparent); }
+  .tree-row i { width: 12px; font-size: 10px; opacity: .8; }
+  .tree-row.dir { opacity: .95; }
+
+  .ide-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .ide-tabbar { display: flex; gap: 2px; padding: 6px 10px 0; background: rgba(0,0,0,.10); }
+  .ide-tab {
+    padding: 5px 14px; font-size: 12px; border-radius: 8px 8px 0 0; cursor: pointer;
+    background: rgba(255,255,255,.05); opacity: .7; max-width: 220px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ide-tab.active { background: rgba(255,255,255,.13); opacity: 1; }
+  .ide-tab .dot { color: #fbbf24; margin-left: 4px; }
+
+  .ide-editor-wrap { flex: 1; display: flex; min-height: 0; position: relative; }
+  .ide-gutter {
+    flex: 0 0 46px; padding: 12px 6px 12px 0; text-align: right; font: 12px/1.6 var(--font-mono);
+    color: rgba(255,255,255,.28); background: rgba(0,0,0,.12); overflow: hidden; user-select: none;
+    white-space: pre;
+  }
+  #code {
+    flex: 1; width: 100%; resize: none; border: 0; outline: 0; padding: 12px 14px;
+    background: rgba(0,0,0,.16); color: rgba(240,244,252,.95);
+    font: 13px/1.6 var(--font-mono); tab-size: 2; white-space: pre; overflow: auto;
+  }
+
+  .ide-bottom { flex: 0 0 190px; border-top: 1px solid rgba(255,255,255,.10); display: flex; flex-direction: column; min-height: 0; }
+  .ide-bottom-tabs { display: flex; gap: 4px; padding: 6px 10px 0; }
+  .ide-btab { padding: 4px 12px; font-size: 11.5px; border-radius: 7px 7px 0 0; cursor: pointer; opacity: .6; background: rgba(255,255,255,.05); }
+  .ide-btab.active { opacity: 1; background: rgba(255,255,255,.12); }
+  .ide-pane { flex: 1; overflow: auto; padding: 8px 12px; font: 12px/1.6 var(--font-mono); margin: 0; white-space: pre-wrap; }
+  .ide-pane.hidden { display: none; }
+  .out-line.err { color: #fca5a5; }
+  .out-line.ok { color: #86efac; }
+
+  .ide-empty { flex: 1; display: flex; align-items: center; justify-content: center; opacity: .5; font-size: 13px; }
+
+  .ide-docs { position: absolute; inset: 0; z-index: 20; background: rgba(10,12,18,.92); padding: 18px 22px; overflow: auto; display: none; }
+  .ide-docs.show { display: block; }
+  .ide-docs h3 { margin: 14px 0 6px; font-size: 13px; color: #93c5fd; }
+  .ide-docs pre { background: rgba(255,255,255,.06); padding: 10px 12px; border-radius: 8px; font-size: 12px; overflow: auto; }
+  .ide-docs code { color: #fcd34d; }
+  .ide-docs p { font-size: 12.5px; line-height: 1.7; opacity: .85; margin: 4px 0; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="ide-top">
+    <div class="ide-title">NaveIDE <small>CWScript 2.0.1</small></div>
+    <button class="ide-btn" id="btnNew">新建</button>
+    <button class="ide-btn" id="btnSave">保存</button>
+    <button class="ide-btn primary" id="btnRun">▶ 运行</button>
+    <div class="ide-spacer"></div>
+    <span id="status" style="font-size:11.5px;opacity:.55;">就绪</span>
+    <button class="ide-btn ghost" id="btnDocs">文档</button>
+  </div>
+  <div class="ide-body">
+    <div class="ide-side">
+      <div class="ide-side-head">工作区</div>
+      <div class="ide-tree" id="tree"></div>
+    </div>
+    <div class="ide-main">
+      <div class="ide-tabbar" id="tabbar"></div>
+      <div class="ide-editor-wrap">
+        <div class="ide-gutter" id="gutter">1</div>
+        <textarea id="code" spellcheck="false" placeholder="打开左侧文件，或点「新建」"></textarea>
+      </div>
+      <div class="ide-bottom">
+        <div class="ide-bottom-tabs">
+          <div class="ide-btab active" data-pane="out">输出</div>
+          <div class="ide-btab" data-pane="ast">AST</div>
+          <div class="ide-btab" data-pane="vars">变量</div>
+        </div>
+        <pre class="ide-pane" id="paneOut">尚未运行。</pre>
+        <pre class="ide-pane hidden" id="paneAst">—</pre>
+        <pre class="ide-pane hidden" id="paneVars">—</pre>
+      </div>
+    </div>
+  </div>
+  <div class="ide-docs" id="docs"></div>
+</div>
+
+<script src="../ui/motion.js"></script>
+<script src="_bridge.js"></script>
+<script src="_app.js"></script>
+<script src="cwscript-engine.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var app = document.getElementById('app');
+  var codeEl = document.getElementById('code');
+  var gutter = document.getElementById('gutter');
+  var treeEl = document.getElementById('tree');
+  var tabbar = document.getElementById('tabbar');
+  var statusEl = document.getElementById('status');
+  var docsEl = document.getElementById('docs');
+
+  var fs = null;                       // 系统文件系统快照
+  var openTabs = [];                   // [{path, content, dirty}]
+  var activePath = null;
+  var collapsed = {};                  // 折叠的目录路径
+
+  function isCW(path) { return /\.(cw|cws|cwscript)$/i.test(path || ''); }
+  function fileName(p) { return String(p).split('/').pop(); }
+  function setStatus(s) { statusEl.textContent = s; }
+
+  /* ---------- 文件系统读写（经桥） ---------- */
+  async function loadFS() {
+    fs = (await Nexus.getUserLS('filesystem')) || {};
+  }
+  async function saveFS() { await Nexus.setUserLS('filesystem', fs); }
+
+  function getNode(path) {
+    var parts = String(path).split('/').filter(Boolean);
+    var node = null, container = fs;
+    for (var i = 0; i < parts.length; i++) {
+      if (!container) return null;
+      if (i === 0) { node = container[parts[0]]; }
+      else { node = container.children && container.children[parts[i]]; }
+      if (!node) return null;
+      container = node;
+    }
+    return node;
+  }
+
+  function ensureDir(path) {
+    var parts = String(path).split('/').filter(Boolean);
+    var container = fs;
+    for (var i = 0; i < parts.length; i++) {
+      var name = parts[i];
+      var node = (i === 0) ? container[name] : (container.children && container.children[name]);
+      if (!node) {
+        node = (i === 0) ? { type: 'drive', children: {} } : { type: 'folder', children: {} };
+        if (i === 0) container[name] = node;
+        else { container.children = container.children || {}; container.children[name] = node; }
+      }
+      container = node;
+    }
+    return container;
+  }
+
+  function writeFile(path, content) {
+    var parts = String(path).split('/').filter(Boolean);
+    var name = parts.pop();
+    var parentPath = parts.join('/');
+    var parent = parentPath ? ensureDir(parentPath) : fs;
+    parent.children = parent.children || {};
+    parent.children[name] = { type: 'file', content: content, modified: Date.now() };
+  }
+
+  /* ---------- 文件树 ---------- */
+  function buildTree() {
+    treeEl.innerHTML = '';
+    var root = document.createElement('div');
+    Object.keys(fs || {}).sort().forEach(function (drive) {
+      root.appendChild(renderNode(drive, drive, fs[drive], 0));
+    });
+    treeEl.appendChild(root);
+    if (!Object.keys(fs || {}).length) {
+      treeEl.innerHTML = '<div style="opacity:.45;font-size:12px;padding:8px;">（文件系统为空）</div>';
+    }
+  }
+
+  function renderNode(name, path, node, depth) {
+    var wrap = document.createElement('div');
+    if (!node) return wrap;
+    var isDir = node.type === 'drive' || node.type === 'folder' || node.children;
+    var row = document.createElement('div');
+    row.className = 'tree-row' + (isDir ? ' dir' : '') + (path === activePath ? ' active' : '');
+    row.style.paddingLeft = (6 + depth * 12) + 'px';
+    row.innerHTML = '<i class="fas ' + (isDir ? (collapsed[path] ? 'fa-caret-right' : 'fa-caret-down') : (isCW(name) ? 'fa-code' : 'fa-file-lines')) + '"></i><span>' + name + '</span>';
+    wrap.appendChild(row);
+
+    if (isDir) {
+      row.addEventListener('click', function () {
+        collapsed[path] = !collapsed[path];
+        buildTree();
+      });
+      if (!collapsed[path] && node.children) {
+        Object.keys(node.children).sort(function (a, b) {
+          var na = node.children[a], nb = node.children[b];
+          var da = na.children ? 0 : 1, db = nb.children ? 0 : 1;
+          return da - db || a.localeCompare(b);
+        }).forEach(function (child) {
+          wrap.appendChild(renderNode(child, path + '/' + child, node.children[child], depth + 1));
+        });
+      }
+    } else {
+      row.addEventListener('click', function () { openFile(path); });
+    }
+    return wrap;
+  }
+
+  /* ---------- 打开 / 保存 ---------- */
+  async function openFile(path) {
+    var existing = openTabs.find(function (t) { return t.path === path; });
+    if (!existing) {
+      var node = getNode(path);
+      if (!node || node.type === 'folder' || node.type === 'drive') return;
+      existing = { path: path, content: node.content == null ? '' : String(node.content), dirty: false };
+      openTabs.push(existing);
+    }
+    activePath = path;
+    renderTabs(); renderTreeActive(); syncEditor();
+    setStatus('已打开 ' + fileName(path));
+  }
+
+  function renderTabs() {
+    tabbar.innerHTML = '';
+    openTabs.forEach(function (t) {
+      var el = document.createElement('div');
+      el.className = 'ide-tab' + (t.path === activePath ? ' active' : '');
+      el.innerHTML = fileName(t.path) + (t.dirty ? '<span class="dot">●</span>' : '');
+      el.title = t.path;
+      el.addEventListener('click', function () { switchTab(t.path); });
+      tabbar.appendChild(el);
+    });
+  }
+  function renderTreeActive() { buildTree(); }
+
+  function switchTab(path) {
+    // 保存当前编辑内容到内存
+    var cur = openTabs.find(function (t) { return t.path === activePath; });
+    if (cur) cur.content = codeEl.value;
+    activePath = path;
+    renderTabs(); buildTree(); syncEditor();
+  }
+
+  function syncEditor() {
+    var cur = openTabs.find(function (t) { return t.path === activePath; });
+    codeEl.value = cur ? cur.content : '';
+    updateGutter();
+  }
+
+  function updateGutter() {
+    var lines = codeEl.value.split('\n').length;
+    var out = '';
+    for (var i = 1; i <= lines; i++) out += i + '\n';
+    gutter.textContent = out;
+    gutter.scrollTop = codeEl.scrollTop;
+  }
+
+  async function saveActive() {
+    var cur = openTabs.find(function (t) { return t.path === activePath; });
+    if (!cur) { setStatus('没有打开的文件'); return; }
+    cur.content = codeEl.value;
+    await loadFS();
+    writeFile(cur.path, cur.content);
+    await saveFS();
+    cur.dirty = false;
+    renderTabs();
+    setStatus('已保存 ' + fileName(cur.path) + '（' + new Date().toLocaleTimeString('zh-CN') + '）');
+  }
+
+  /* ---------- 运行 CWScript ---------- */
+  function switchPane(name) {
+    ['out', 'ast', 'vars'].forEach(function (p) {
+      document.getElementById('pane' + p[0].toUpperCase() + p.slice(1)).classList.toggle('hidden', p !== name);
+    });
+    document.querySelectorAll('.ide-btab').forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-pane') === name);
+    });
+  }
+
+  function runCode() {
+    var src = codeEl.value;
+    if (!src.trim()) { setStatus('没有代码可运行'); return; }
+    switchPane('out');
+    var outEl = document.getElementById('paneOut');
+    var astEl = document.getElementById('paneAst');
+    var varsEl = document.getElementById('paneVars');
+
+    // 先单独解析，方便展示 AST 与语法错误
+    var ast = null;
+    try { ast = CWScript.parse(src); }
+    catch (e) {
+      outEl.innerHTML = '<span class="out-line err">语法错误：' + escapeHtml(e.message || String(e)) + '</span>';
+      astEl.textContent = '—'; varsEl.textContent = '—';
+      setStatus('语法错误'); return;
+    }
+    astEl.textContent = simplifyAST(ast);
+
+    var result = CWScript.run(src, { maxSteps: 300000 });
+    var lines = [];
+    result.output.forEach(function (l) { lines.push('<span class="out-line">' + escapeHtml(l) + '</span>'); });
+    if (!result.ok) lines.push('<span class="out-line err">运行时错误：' + escapeHtml(result.error.message) + '</span>');
+    else lines.push('<span class="out-line ok">✓ 运行结束（' + result.ms + ' ms，' + result.trace.length + ' 步）</span>');
+    outEl.innerHTML = lines.join('\n');
+    varsEl.textContent = Object.keys(result.env || {}).map(function (k) { return k + ' = ' + result.env[k]; }).join('\n') || '（无变量）';
+    setStatus(result.ok ? '运行成功' : '运行出错（第 ' + (result.error.line || '?') + ' 行）');
+  }
+
+  function simplifyAST(node, depth) {
+    depth = depth || 0;
+    if (depth > 6) return '…';
+    if (node == null) return 'null';
+    if (Array.isArray(node)) return '[' + node.map(function (n) { return simplifyAST(n, depth + 1); }).join(', ') + ']';
+    if (typeof node !== 'object') return JSON.stringify(node);
+    var keys = Object.keys(node).filter(function (k) { return k !== 'line'; });
+    var parts = keys.map(function (k) {
+      var v = node[k];
+      if (v && typeof v === 'object') return k + ': ' + simplifyAST(v, depth + 1);
+      return k + ': ' + JSON.stringify(v);
+    });
+    return node.type + ' { ' + parts.join(', ') + ' }';
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  /* ---------- 新建 ---------- */
+  async function newFile() {
+    var name = prompt('新文件名（.cw 为 CWScript，其他为普通文本）：', 'untitled.cw');
+    if (!name) return;
+    var path = prompt('保存路径（例如 C:/Users/' + ((Nexus.context() && Nexus.context().user && Nexus.context().user.name) || 'User') + '/Documents/' + name + '）：',
+      'C:/Users/' + ((Nexus.context() && Nexus.context().user && Nexus.context().user.name) || 'User') + '/Documents/' + name);
+    if (!path) return;
+    await loadFS();
+    writeFile(path, isCW(path) ? defaultTemplate() : '');
+    await saveFS();
+    buildTree();
+    openFile(path);
+  }
+
+  function defaultTemplate() {
+    return [
+      '// CWScript 2.0.1',
+      'Fn greet(name) {',
+      '  return "你好, " + name;',
+      '}',
+      '',
+      'let total = 0;',
+      'for (let i = 1; i <= 5; i++) {',
+      '  let square = i * i;',
+      '  total += square;',
+      '}',
+      'print(greet("小方"));',
+      'print("平方和 =", total);',
+    ].join('\n');
+  }
+
+  /* ---------- 文档 ---------- */
+  var DOCS_HTML = [
+    '<h3>CWScript 2.0.1 速查</h3>',
+    '<p>语法是 C 系（分号、花括号），但作用域是<b>函数级</b>（像 Python），所以变量写在 for/if 里也不会丢。没有游戏 API。</p>',
+    '<h3>变量与函数</h3>',
+    '<pre>let x = 1;\nconst PI = 3.14;\nFn add(a, b) { return a + b; }\nlet f = Fn (n) { return n * 2; };</pre>',
+    '<h3>循环（变量可放任意位置）</h3>',
+    '<pre>for (let i = 0; i &lt; 5; i++) {\n  let s = i * i;   // 循环外也能用\n}\nwhile (x &lt; 10) { x++; }</pre>',
+    '<h3>数组与内置</h3>',
+    '<pre>let a = [3, 1, 2];\na[0] = 9;\nappend(a, 4); sort(a);\nprint(len(a), sum(a), join(a, "-"));</pre>',
+    '<h3>运算符</h3>',
+    '<pre>+ - * / %  == != &lt; &gt; &lt;= &gt;=  &amp;&amp; || !  (也支持 and or not)\n= += -= *= /= %=  ++ --</pre>',
+    '<h3>内置函数</h3>',
+    '<p>len · str · int · float · bool · type · abs · min · max · sum · round · range · append · pop · insert · sort · reverse · join · split · upper · lower · strip · replace · contains</p>',
+    '<h3>注意</h3>',
+    '<p>• <code>function</code> 已废弃，请用 <code>Fn</code><br>• 只有函数调用会新建作用域，<code>{ }</code> 不会<br>• <code>print(a, b)</code> 多参数用空格连接</p>',
+    '<div style="margin-top:16px;"><button class="ide-btn" id="docsClose">关闭文档</button></div>',
+  ].join('');
+
+  /* ---------- 事件 ---------- */
+  codeEl.addEventListener('input', function () {
+    var cur = openTabs.find(function (t) { return t.path === activePath; });
+    if (cur) { cur.content = codeEl.value; cur.dirty = true; renderTabs(); }
+    updateGutter();
+  });
+  codeEl.addEventListener('scroll', function () { gutter.scrollTop = codeEl.scrollTop; });
+  codeEl.addEventListener('keydown', function (e) {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      var s = codeEl.selectionStart, en = codeEl.selectionEnd;
+      codeEl.value = codeEl.value.slice(0, s) + '  ' + codeEl.value.slice(en);
+      codeEl.selectionStart = codeEl.selectionEnd = s + 2;
+      updateGutter();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveActive(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runCode(); }
+  });
+
+  document.getElementById('btnNew').addEventListener('click', newFile);
+  document.getElementById('btnSave').addEventListener('click', saveActive);
+  document.getElementById('btnRun').addEventListener('click', runCode);
+  document.getElementById('btnDocs').addEventListener('click', function () {
+    docsEl.innerHTML = DOCS_HTML;
+    docsEl.classList.add('show');
+    document.getElementById('docsClose').addEventListener('click', function () { docsEl.classList.remove('show'); });
+  });
+  document.querySelectorAll('.ide-btab').forEach(function (b) {
+    b.addEventListener('click', function () { switchPane(b.getAttribute('data-pane')); });
+  });
+
+  /* ---------- 启动 ---------- */
+  Nexus.ready(async function () {
+    await loadFS();
+    // 确保有默认工作目录与示例文件
+    var user = (Nexus.context() && Nexus.context().user && Nexus.context().user.name) || 'User';
+    var dir = 'C:/Users/' + user + '/Documents';
+    if (!getNode(dir + '/hello.cw')) {
+      await loadFS();
+      writeFile(dir + '/hello.cw', defaultTemplate());
+      await saveFS();
+    }
+    await loadFS();
+    buildTree();
+    openFile(dir + '/hello.cw');
+    setStatus('就绪 · CWScript ' + (window.CWScript ? CWScript.VERSION : '?'));
+  });
+})();
+</script>
+</body>
+</html>

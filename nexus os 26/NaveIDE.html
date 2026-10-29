@@ -1,0 +1,2227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CW Script IDE</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; font-family: 'Segoe UI', -apple-system, sans-serif; }
+body { background: #1e1e1e; color: #d4d4d4; display: flex; flex-direction: column; }
+
+/* 菜单栏 */
+#menubar {
+  background: #2d2d2d; height: 32px; display: flex; align-items: center;
+  padding: 0 8px; border-bottom: 1px solid #3c3c3c; user-select: none;
+  font-size: 13px;
+}
+#menubar .menu-item {
+  padding: 4px 10px; cursor: pointer; border-radius: 4px; position: relative;
+}
+#menubar .menu-item:hover { background: #3c3c3c; }
+#menubar .menu-item .dropdown {
+  display: none; position: absolute; top: 100%; left: 0; background: #2d2d2d;
+  border: 1px solid #454545; border-radius: 6px; min-width: 200px; z-index: 1000;
+  padding: 4px 0; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+#menubar .menu-item:hover .dropdown { display: block; }
+.dropdown-item {
+  padding: 6px 16px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px;
+}
+.dropdown-item:hover { background: #094771; }
+.dropdown-item .shortcut { color: #888; margin-left: auto; font-size: 12px; }
+.dropdown-sep { height: 1px; background: #454545; margin: 4px 0; }
+
+/* 主布局 */
+#main { display: flex; flex: 1; overflow: hidden; }
+#sidebar { width: 220px; background: #252526; border-right: 1px solid #3c3c3c; display: flex; flex-direction: column; }
+#editor-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+#outline { width: 200px; background: #252526; border-left: 1px solid #3c3c3c; display: flex; flex-direction: column; }
+
+/* 侧边栏 */
+.sidebar-header {
+  padding: 10px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+  color: #8a8a8a; letter-spacing: 1px; display: flex; align-items: center; justify-content: space-between;
+}
+.sidebar-header button {
+  background: none; border: none; color: #8a8a8a; cursor: pointer; font-size: 14px; padding: 2px 6px;
+  border-radius: 3px;
+}
+.sidebar-header button:hover { background: #3c3c3c; color: #fff; }
+.file-list { flex: 1; overflow-y: auto; padding: 4px 0; }
+.file-item {
+  padding: 6px 14px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.file-item:hover { background: #2a2d2e; }
+.file-item.active { background: #37373d; }
+.file-item .file-icon { color: #519aba; font-size: 14px; }
+.file-item .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.file-item .file-actions { display: none; gap: 4px; }
+.file-item:hover .file-actions { display: flex; }
+.file-item .file-actions button {
+  background: none; border: none; color: #8a8a8a; cursor: pointer; font-size: 11px; padding: 2px;
+}
+.file-item .file-actions button:hover { color: #fff; }
+
+/* 编辑器 */
+.editor-header {
+  background: #2d2d2d; border-bottom: 1px solid #3c3c3c; display: flex; align-items: center;
+  padding: 0; height: 35px;
+}
+.editor-tab {
+  padding: 8px 20px; font-size: 13px; cursor: pointer; border-right: 1px solid #3c3c3c;
+  display: flex; align-items: center; gap: 8px; background: #2d2d2d; color: #999;
+}
+.editor-tab.active { background: #1e1e1e; color: #fff; border-top: 2px solid #007acc; }
+.editor-tab .close-btn { font-size: 12px; color: #888; cursor: pointer; }
+.editor-tab .close-btn:hover { color: #fff; }
+
+.editor-body { flex: 1; display: flex; overflow: hidden; position: relative; }
+
+/* 行号栏（支持断点） */
+.line-gutter {
+  width: 56px; background: #1e1e1e; color: #858585; font-family: 'Consolas','Monaco','Courier New',monospace;
+  font-size: 13px; line-height: 22px; padding: 8px 0; text-align: right; overflow: hidden;
+  user-select: none; border-right: 1px solid #3c3c3c; flex-shrink: 0;
+}
+.line-gutter .line-num {
+  position: relative; cursor: pointer; padding-right: 14px; padding-left: 18px;
+  transition: background .15s ease;
+}
+.line-gutter .line-num:hover { background: rgba(255,255,255,.04); }
+.line-gutter .line-num::before {
+  content: ''; position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
+  width: 10px; height: 10px; border-radius: 50%; background: transparent;
+  transition: all .15s ease;
+}
+.line-gutter .line-num.bp-line::before {
+  background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,.7);
+}
+.line-gutter .line-num.bp-line-active {
+  color: #ef4444 !important; font-weight: 700; background: rgba(239,68,68,.18);
+}
+.line-gutter .line-num.bp-line-active::before {
+  animation: bpPulse .8s ease-in-out infinite;
+}
+@keyframes bpPulse {
+  0%,100% { box-shadow: 0 0 6px rgba(239,68,68,.7); }
+  50% { box-shadow: 0 0 16px rgba(239,68,68,1); }
+}
+.line-gutter .line-num.line-error {
+  color: #f44747 !important; background: rgba(244,71,71,.12);
+}
+.line-gutter .line-num.line-error::after {
+  content: '\f06a'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
+  position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
+  font-size: 10px; color: #f44747;
+}
+
+/* 代码编辑器（textarea + 高亮覆盖层） */
+.code-editor-wrapper {
+  flex: 1; position: relative; overflow: hidden; background: #1e1e1e;
+}
+#codeHighlight {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  margin: 0; padding: 8px 12px; font-family: 'Consolas','Monaco','Courier New',monospace;
+  font-size: 14px; line-height: 22px; white-space: pre; word-wrap: normal;
+  overflow: auto; pointer-events: none; z-index: 1; background: transparent;
+  tab-size: 4;
+}
+#codeHighlight::-webkit-scrollbar { display: none; }
+#codeTextarea {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  width: 100%; height: 100%; resize: none; border: none; outline: none;
+  padding: 8px 12px; font-family: 'Consolas','Monaco','Courier New',monospace;
+  font-size: 14px; line-height: 22px; background: transparent; color: transparent;
+  tab-size: 4; white-space: pre; overflow: auto; z-index: 2;
+  caret-color: #fff;
+}
+#codeTextarea::placeholder { color: #555; }
+#codeTextarea::-webkit-scrollbar { width: 8px; height: 8px; }
+#codeTextarea::-webkit-scrollbar-track { background: #1e1e1e; }
+#codeTextarea::-webkit-scrollbar-thumb { background: #424242; border-radius: 4px; }
+#codeTextarea::-webkit-scrollbar-thumb:hover { background: #555; }
+
+/* 语法高亮颜色 */
+.hl-keyword { color: #569cd6; font-weight: 700; }
+.hl-type { color: #4ec9b0; }
+.hl-string { color: #ce9178; }
+.hl-comment { color: #6a9955; font-style: italic; }
+.hl-number { color: #b5cea8; }
+.hl-function { color: #dcdcaa; }
+.hl-bracket { color: #ffd700; }
+.hl-operator { color: #d4d4d4; }
+.hl-error-line { background: rgba(244,71,71,.15); }
+
+/* 自动补全浮层（液态玻璃） */
+#codeAutocomplete {
+  position: fixed; z-index: 6000; min-width: 220px; max-width: 340px;
+  max-height: 260px; overflow-y: auto; display: none;
+  padding: 6px; border-radius: 14px;
+  background: rgba(255,255,255,.55);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255,255,255,.7);
+  box-shadow: 0 12px 36px rgba(15,23,42,.25), inset 0 1px 3px rgba(255,255,255,.5);
+  animation: acPop .16s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes acPop {
+  from { opacity: 0; transform: scale(.92) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+#codeAutocomplete::-webkit-scrollbar { width: 5px; }
+#codeAutocomplete::-webkit-scrollbar-thumb { background: rgba(99,130,180,.3); border-radius: 8px; }
+.ac-item {
+  display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 9px;
+  cursor: pointer; transition: background .15s ease, transform .15s ease;
+}
+.ac-item:hover, .ac-item.active {
+  background: linear-gradient(135deg, rgba(59,130,246,.2), rgba(96,165,250,.12));
+  transform: translateX(2px);
+}
+.ac-item .ac-label {
+  font-family: 'Consolas','Monaco',monospace; font-size: 13px;
+  font-weight: 700; color: #1e293b; flex-shrink: 0;
+}
+.ac-item .ac-desc {
+  font-size: 11px; color: #64748b; flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ac-item .ac-tag {
+  font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 5px;
+  flex-shrink: 0; color: #fff; background: #94a3b8;
+}
+.ac-item .ac-tag.kw { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.ac-item .ac-tag.fn { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.ac-item .ac-tag.var { background: linear-gradient(135deg, #10b981, #059669); }
+.ac-item .ac-tag.snip { background: linear-gradient(135deg, #60a5fa, #3b82f6); }
+.ac-empty {
+  padding: 10px 12px; text-align: center; color: #94a3b8;
+  font-size: 12px; font-weight: 600;
+}
+
+/* 变量查看器 */
+#varPanel {
+  display: none; position: absolute; right: 10px; top: 10px;
+  background: rgba(30,30,30,.92); backdrop-filter: blur(16px);
+  border-radius: 12px; padding: 12px; max-height: 300px; overflow-y: auto;
+  font-size: 12px; min-width: 180px; z-index: 50;
+  box-shadow: 0 8px 32px rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.1);
+}
+#varPanel.visible { display: block; }
+#varPanel h4 { margin: 0 0 8px; font-size: 12px; color: #6366f1; text-transform: uppercase; letter-spacing: .5px; }
+.var-item { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.05); gap: 8px; }
+.var-name { font-weight: 700; color: #dcdcaa; }
+.var-val { color: #4ec9b0; font-family: monospace; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+
+/* 大纲面板 */
+.outline-header {
+  padding: 10px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+  color: #8a8a8a; letter-spacing: 1px; border-bottom: 1px solid #3c3c3c;
+}
+.outline-list { flex: 1; overflow-y: auto; padding: 4px 0; }
+.outline-item {
+  padding: 4px 14px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+}
+.outline-item:hover { background: #2a2d2e; }
+.outline-item.func-item { padding-left: 24px; }
+
+/* 底部面板 */
+#bottom-panel { height: 220px; background: #1e1e1e; border-top: 1px solid #3c3c3c; display: flex; flex-direction: column; }
+.bottom-tabs {
+  background: #252526; display: flex; align-items: center; height: 30px; padding: 0 8px;
+}
+.bottom-tab {
+  padding: 4px 14px; font-size: 12px; cursor: pointer; color: #999; border-bottom: 2px solid transparent;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.bottom-tab.active { color: #fff; border-bottom-color: #007acc; }
+.bottom-content { flex: 1; overflow-y: auto; padding: 8px; font-family: 'Consolas','Monaco',monospace; font-size: 13px; }
+#console-output { color: #d4d4d4; }
+#console-output .error { color: #f44747; }
+#console-output .info { color: #4ec9b0; }
+#console-output .warn { color: #cca700; }
+#console-output .output { color: #d4d4d4; }
+#console-output .bp { color: #ef4444; font-weight: 700; }
+#timeline-content { color: #d4d4d4; }
+.timeline-item {
+  padding: 6px 10px; border-bottom: 1px solid #2d2d2d; cursor: pointer; display: flex;
+  align-items: center; gap: 12px;
+}
+.timeline-item:hover { background: #2a2d2e; }
+.timeline-item .t-msg { flex: 1; font-size: 13px; }
+.timeline-item .t-time { color: #888; font-size: 11px; }
+.timeline-item .t-files { color: #569cd6; font-size: 11px; }
+
+/* 按钮 */
+.toolbar-btn {
+  background: #3c3c3c; border: none; color: #ccc; padding: 6px 14px; cursor: pointer;
+  font-size: 12px; border-radius: 4px; display: flex; align-items: center; gap: 6px;
+}
+.toolbar-btn:hover { background: #505050; color: #fff; }
+.toolbar-btn.primary { background: #007acc; color: #fff; }
+.toolbar-btn.primary:hover { background: #0098ff; }
+.toolbar-btn.success { background: #388a34; color: #fff; }
+.toolbar-btn.success:hover { background: #45a041; }
+.toolbar-btn.warn { background: #cc8800; color: #fff; }
+.toolbar-btn.warn:hover { background: #e6a300; }
+.toolbar-btn.debug { background: #6f42c1; color: #fff; }
+.toolbar-btn.debug:hover { background: #7e57c2; }
+.toolbar-btn.debug.active { background: #ef4444; }
+.toolbar-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* 调试按钮组 */
+#debugBtns { display: none; gap: 4px; margin-left: 8px; }
+#debugBtns.visible { display: flex; }
+.step-btn {
+  background: #6f42c1; color: #fff; border: none; cursor: pointer;
+  font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 5px;
+  display: flex; align-items: center; gap: 4px;
+}
+.step-btn:hover { background: #7e57c2; }
+.step-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* 弹窗 */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 2000;
+}
+.modal {
+  background: #2d2d2d; border: 1px solid #454545; border-radius: 8px; padding: 20px;
+  min-width: 360px; box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+}
+.modal h3 { color: #fff; margin-bottom: 14px; font-size: 16px; }
+.modal input, .modal textarea {
+  width: 100%; background: #3c3c3c; border: 1px solid #555; color: #d4d4d4; padding: 8px 12px;
+  border-radius: 4px; font-size: 13px; font-family: 'Consolas','Monaco',monospace; margin-bottom: 12px;
+}
+.modal input:focus, .modal textarea:focus { outline: none; border-color: #007acc; }
+.modal textarea { min-height: 80px; resize: vertical; }
+.modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.modal-btns button { padding: 6px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.modal-btns .btn-cancel { background: #3c3c3c; color: #ccc; }
+.modal-btns .btn-confirm { background: #007acc; color: #fff; }
+
+/* 条件断点弹窗 */
+.bp-cond-popup {
+  display: none; position: fixed; z-index: 7000;
+  background: rgba(30,30,30,.95); backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,.15); border-radius: 10px;
+  padding: 12px; min-width: 240px;
+  box-shadow: 0 12px 36px rgba(0,0,0,.5);
+}
+.bp-cond-popup input {
+  width: 100%; background: #3c3c3c; border: 1px solid #555; color: #d4d4d4;
+  padding: 6px 10px; border-radius: 4px; font-size: 13px;
+  font-family: 'Consolas','Monaco',monospace; margin: 6px 0;
+}
+.bp-cond-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.bp-cond-actions button {
+  padding: 4px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;
+}
+.bp-cond-ok { background: #007acc; color: #fff; }
+.bp-cond-cancel { background: #3c3c3c; color: #ccc; }
+.bp-cond-clear { background: #ef4444; color: #fff; }
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #1e1e1e; }
+::-webkit-scrollbar-thumb { background: #424242; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #555; }
+</style>
+</head>
+<body>
+
+<!-- 菜单栏 -->
+<div id="menubar">
+  <div class="menu-item">文件
+    <div class="dropdown">
+      <div class="dropdown-item" onclick="newFile()"><i class="fas fa-file"></i> 新建文件 <span class="shortcut">Ctrl+N</span></div>
+      <div class="dropdown-item" onclick="openFileDialog()"><i class="fas fa-folder-open"></i> 打开文件 <span class="shortcut">Ctrl+O</span></div>
+      <div class="dropdown-item" onclick="saveFile()"><i class="fas fa-save"></i> 保存 <span class="shortcut">Ctrl+S</span></div>
+      <div class="dropdown-sep"></div>
+      <div class="dropdown-item" onclick="exportNEX()"><i class="fas fa-file-export"></i> 导出为 NEX</div>
+    </div>
+  </div>
+  <div class="menu-item">编辑
+    <div class="dropdown">
+      <div class="dropdown-item" onclick="undoEdit()"><i class="fas fa-undo"></i> 撤销 <span class="shortcut">Ctrl+Z</span></div>
+      <div class="dropdown-item" onclick="redoEdit()"><i class="fas fa-redo"></i> 重做 <span class="shortcut">Ctrl+Y</span></div>
+    </div>
+  </div>
+  <div class="menu-item">查看
+    <div class="dropdown">
+      <div class="dropdown-item" onclick="toggleSidebar()"><i class="fas fa-sidebar"></i> 切换侧边栏</div>
+      <div class="dropdown-item" onclick="toggleOutline()"><i class="fas fa-list"></i> 切换大纲</div>
+      <div class="dropdown-item" onclick="toggleBottom()"><i class="fas fa-terminal"></i> 切换底部面板</div>
+      <div class="dropdown-sep"></div>
+      <div class="dropdown-item" onclick="toggleVarPanel()"><i class="fas fa-eye"></i> 变量查看器</div>
+    </div>
+  </div>
+  <div class="menu-item">运行
+    <div class="dropdown">
+      <div class="dropdown-item" onclick="runCode()"><i class="fas fa-play"></i> 运行 <span class="shortcut">F5</span></div>
+      <div class="dropdown-item" onclick="debugCode()"><i class="fas fa-bug"></i> 调试运行 <span class="shortcut">F6</span></div>
+      <div class="dropdown-item" onclick="continueCode()"><i class="fas fa-forward"></i> 继续 <span class="shortcut">F8</span></div>
+      <div class="dropdown-item" onclick="stepOver()"><i class="fas fa-step-forward"></i> 单步跳过 <span class="shortcut">F10</span></div>
+      <div class="dropdown-item" onclick="stepInto()"><i class="fas fa-arrow-down"></i> 单步进入 <span class="shortcut">F11</span></div>
+      <div class="dropdown-item" onclick="stepOut()"><i class="fas fa-arrow-up"></i> 单步跳出 <span class="shortcut">Shift+F11</span></div>
+      <div class="dropdown-sep"></div>
+      <div class="dropdown-item" onclick="stopCode()"><i class="fas fa-stop"></i> 停止</div>
+      <div class="dropdown-item" onclick="toggleBreakpointAtCursor()"><i class="fas fa-circle"></i> 切换断点 <span class="shortcut">F9</span></div>
+      <div class="dropdown-item" onclick="clearAllBreakpoints()"><i class="fas fa-eraser"></i> 清除所有断点</div>
+    </div>
+  </div>
+  <div class="menu-item">终端
+    <div class="dropdown">
+      <div class="dropdown-item" onclick="clearConsole()"><i class="fas fa-eraser"></i> 清除控制台</div>
+    </div>
+  </div>
+  <div class="menu-item">帮助
+    <div class="dropdown">
+      <div class="dropdown-item" onclick="showHelp()"><i class="fas fa-question-circle"></i> CW Script 语法</div>
+    </div>
+  </div>
+  <div style="flex:1;"></div>
+  <div id="debugBtns">
+    <button class="step-btn" onclick="continueCode()" title="继续 (F8)"><i class="fas fa-forward"></i></button>
+    <button class="step-btn" onclick="stepOver()" title="单步跳过 (F10)"><i class="fas fa-step-forward"></i></button>
+    <button class="step-btn" onclick="stepInto()" title="单步进入 (F11)"><i class="fas fa-arrow-down"></i></button>
+    <button class="step-btn" onclick="stepOut()" title="单步跳出 (Shift+F11)"><i class="fas fa-arrow-up"></i></button>
+    <button class="step-btn" onclick="stopCode()" title="停止" style="background:#ef4444"><i class="fas fa-stop"></i></button>
+  </div>
+  <button class="toolbar-btn primary" onclick="runCode()" style="margin-right:6px;margin-left:8px;"><i class="fas fa-play"></i> 运行</button>
+  <button class="toolbar-btn debug" onclick="debugCode()" style="margin-right:6px;"><i class="fas fa-bug"></i> 调试</button>
+  <button class="toolbar-btn success" onclick="gitCommit()"><i class="fas fa-code-branch"></i> 提交</button>
+</div>
+
+<!-- 主体 -->
+<div id="main">
+  <!-- 左侧文件树 -->
+  <div id="sidebar">
+    <div class="sidebar-header">
+      资源管理器
+      <div>
+        <button onclick="newFile()" title="新建文件"><i class="fas fa-plus"></i></button>
+        <button onclick="newFolder()" title="新建文件夹"><i class="fas fa-folder-plus"></i></button>
+      </div>
+    </div>
+    <div class="file-list" id="file-tree"></div>
+  </div>
+
+  <!-- 编辑区 -->
+  <div id="editor-area">
+    <div class="editor-header">
+      <div class="editor-tab active" id="editor-tab">
+        <span id="tab-name">未命名.cw</span>
+        <span class="close-btn" onclick="closeCurrentFile()">&times;</span>
+      </div>
+    </div>
+    <div class="editor-body">
+      <div class="line-gutter" id="lineGutter"><div class="line-num" data-line="1">1</div></div>
+      <div class="code-editor-wrapper">
+        <pre id="codeHighlight"></pre>
+        <textarea id="codeTextarea" spellcheck="false" placeholder="// 在此编写 CW Script 代码..."></textarea>
+      </div>
+      <div id="varPanel">
+        <h4><i class="fas fa-eye"></i> 变量监视</h4>
+        <div id="varPanelBody"><span style="color:#888">无变量</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧大纲 -->
+  <div id="outline">
+    <div class="outline-header">大纲</div>
+    <div class="outline-list" id="outline-list">
+      <div style="padding:14px;color:#888;font-size:12px;">暂无符号</div>
+    </div>
+  </div>
+</div>
+
+<!-- 底部面板 -->
+<div id="bottom-panel">
+  <div class="bottom-tabs">
+    <div class="bottom-tab active" id="tab-console" onclick="switchBottomTab('console')">控制台</div>
+    <div class="bottom-tab" id="tab-timeline" onclick="switchBottomTab('timeline')">时间线</div>
+  </div>
+  <div class="bottom-content" id="console-output"></div>
+  <div class="bottom-content" id="timeline-content" style="display:none;"></div>
+</div>
+
+<!-- 弹窗容器 -->
+<div id="modal-container"></div>
+
+<!-- 自动补全浮层 -->
+<div id="codeAutocomplete"></div>
+
+<!-- 条件断点弹窗 -->
+<div class="bp-cond-popup" id="bpCondPopup">
+  <div style="font-weight:700;font-size:13px;margin-bottom:4px">条件断点 - 第<span id="bpCondLine"></span>行</div>
+  <input id="bpCondInput" placeholder="例如: x > 10">
+  <div class="bp-cond-actions">
+    <button class="bp-cond-clear" id="bpCondClear">清除</button>
+    <button class="bp-cond-cancel" id="bpCondCancel">取消</button>
+    <button class="bp-cond-ok" id="bpCondOK">确定</button>
+  </div>
+</div>
+
+<script>
+// ==================== 状态管理 ====================
+let activeFileId = null;
+let fileTree = [];
+let fileIdCounter = 0;
+let gitCommits = [];
+let bottomTab = 'console';
+let sidebarVisible = true;
+let outlineVisible = true;
+let bottomVisible = true;
+let undoStack = [];
+let redoStack = [];
+
+// 断点与调试状态
+let breakpoints = new Set();           // 当前文件的断点行号集合
+let bpConditions = {};                  // 条件断点表达式 { lineNum: 'expr' }
+let debugState = {
+    running: false,                     // 是否正在运行
+    paused: false,                      // 是否暂停在断点
+    mode: 'normal',                     // 'normal' | 'debug'
+    stepMode: null,                     // 'over' | 'into' | 'out' | null
+    stepDepth: 0,                       // 单步跳过/跳出的深度跟踪
+    currentLine: 0,                     // 当前执行行
+    stopRequested: false,               // 用户请求停止
+    resumeResolver: null,               // 暂停后恢复的 Promise resolver
+    callStackDepth: 0                  // 调用栈深度
+};
+
+// ==================== IndexedDB ====================
+const DB_NAME = 'CWScriptIDE';
+const DB_VERSION = 1;
+let db = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('files')) d.createObjectStore('files', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('commits')) d.createObjectStore('commits', { keyPath: 'id' });
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function dbGetAll(storeName) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readonly');
+    const store = tx.objectStore(storeName);
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function dbPut(storeName, item) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    const store = tx.objectStore(storeName);
+    const req = store.put(item);
+    req.onsuccess = () => resolve();
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function dbDelete(storeName, id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    const store = tx.objectStore(storeName);
+    const req = store.delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+// ==================== 初始化 ====================
+async function init() {
+  await openDB();
+  const files = await dbGetAll('files');
+  if (files.length === 0) {
+    const defaultId = 'file_' + (++fileIdCounter);
+    fileTree = [{ id: defaultId, name: '未命名.cw', type: 'file', parentId: null, content: '// 欢迎使用 CW Script IDE!\n// 支持 AST 解析、断点调试、自动补全\n// 试试 print("Hello World!")\n\nfunction add(a, b) {\n  return a + b;\n}\n\nprint(add(2, 3));\n' }];
+    activeFileId = defaultId;
+    await dbPut('files', fileTree[0]);
+  } else {
+    fileTree = files;
+    fileIdCounter = files.reduce((max, f) => Math.max(max, parseInt(f.id.replace('file_','')) || 0), 0);
+    activeFileId = files[0].id;
+  }
+  gitCommits = await dbGetAll('commits');
+  renderFileTree();
+  loadEditor();
+  updateLineGutter();
+  renderTimeline();
+  log('info', 'CW Script IDE 已就绪');
+  log('info', '支持: AST解析、断点调试(F9切换)、自动补全(Tab确认)、语法高亮');
+}
+
+// ==================== 文件树渲染 ====================
+function renderFileTree() {
+  const container = document.getElementById('file-tree');
+  const rootFiles = fileTree.filter(f => !f.parentId);
+  container.innerHTML = rootFiles.map(f => renderFileItem(f)).join('');
+}
+
+function renderFileItem(file) {
+  const isActive = file.id === activeFileId;
+  const icon = file.type === 'folder' ? 'fa-folder' : 'fa-file-code';
+  const color = file.type === 'folder' ? '#dcb67a' : '#519aba';
+  return `
+    <div class="file-item ${isActive ? 'active' : ''}" data-id="${file.id}" onclick="selectFile('${file.id}')">
+      <i class="fas ${icon} file-icon" style="color:${color}"></i>
+      <span class="file-name">${escHtml(file.name)}</span>
+      <span class="file-actions">
+        <button onclick="event.stopPropagation();renameFile('${file.id}')" title="重命名"><i class="fas fa-pen"></i></button>
+        <button onclick="event.stopPropagation();deleteFile('${file.id}')" title="删除"><i class="fas fa-trash"></i></button>
+      </span>
+    </div>
+  `;
+}
+
+function selectFile(id) {
+  const file = fileTree.find(f => f.id === id);
+  if (!file || file.type === 'folder') return;
+  if (activeFileId) saveCurrentContent();
+  activeFileId = id;
+  loadEditor();
+  updateLineGutter();
+  renderFileTree();
+  updateOutline();
+}
+
+function closeCurrentFile() {
+  if (activeFileId) saveCurrentContent();
+  activeFileId = null;
+  document.getElementById('codeTextarea').value = '';
+  document.getElementById('tab-name').textContent = '';
+  applyHighlight();
+  updateLineGutter();
+  updateOutline();
+  renderFileTree();
+}
+
+async function newFile() {
+  if (activeFileId) saveCurrentContent();
+  const name = prompt('输入文件名:', '新文件.cw');
+  if (!name) return;
+  const id = 'file_' + (++fileIdCounter);
+  const file = { id, name: name.endsWith('.cw') ? name : name + '.cw', type: 'file', parentId: null, content: '' };
+  fileTree.push(file);
+  await dbPut('files', file);
+  activeFileId = id;
+  loadEditor();
+  updateLineGutter();
+  renderFileTree();
+  updateOutline();
+}
+
+async function newFolder() {
+  const name = prompt('输入文件夹名:', '新文件夹');
+  if (!name) return;
+  const id = 'file_' + (++fileIdCounter);
+  const folder = { id, name, type: 'folder', parentId: null, content: '' };
+  fileTree.push(folder);
+  await dbPut('files', folder);
+  renderFileTree();
+}
+
+async function renameFile(id) {
+  const file = fileTree.find(f => f.id === id);
+  if (!file) return;
+  const name = prompt('新名称:', file.name);
+  if (!name || name === file.name) return;
+  file.name = name;
+  await dbPut('files', file);
+  renderFileTree();
+  if (id === activeFileId) document.getElementById('tab-name').textContent = name;
+}
+
+async function deleteFile(id) {
+  const file = fileTree.find(f => f.id === id);
+  if (!file) return;
+  if (!confirm(`确定删除 "${file.name}"？`)) return;
+  await dbDelete('files', id);
+  fileTree = fileTree.filter(f => f.id !== id);
+  if (activeFileId === id) {
+    activeFileId = fileTree.find(f => f.type === 'file') ? fileTree.find(f => f.type === 'file').id : null;
+    if (activeFileId) loadEditor(); else document.getElementById('codeTextarea').value = '';
+    updateLineGutter();
+  }
+  renderFileTree();
+  updateOutline();
+}
+
+function openFileDialog() {
+  const files = fileTree.filter(f => f.type === 'file');
+  if (files.length === 0) { newFile(); return; }
+  const names = files.map((f,i) => `${i+1}. ${f.name}`).join('\n');
+  const idx = prompt('选择文件:\n' + names + '\n\n输入序号:', '1');
+  if (!idx) return;
+  const i = parseInt(idx) - 1;
+  if (i >= 0 && i < files.length) selectFile(files[i].id);
+}
+
+// ==================== 编辑器 ====================
+function saveCurrentContent() {
+  if (!activeFileId) return;
+  const file = fileTree.find(f => f.id === activeFileId);
+  if (!file) return;
+  file.content = document.getElementById('codeTextarea').value || '';
+}
+
+function loadEditor() {
+  const file = fileTree.find(f => f.id === activeFileId);
+  const ta = document.getElementById('codeTextarea');
+  const tabName = document.getElementById('tab-name');
+  if (file) {
+    ta.value = file.content || '';
+    tabName.textContent = file.name;
+    applyHighlight();
+  } else {
+    ta.value = '';
+    tabName.textContent = '';
+    applyHighlight();
+  }
+}
+
+async function saveFile() {
+  if (!activeFileId) return;
+  saveCurrentContent();
+  const file = fileTree.find(f => f.id === activeFileId);
+  if (file) await dbPut('files', file);
+  log('info', '文件已保存: ' + (file ? file.name : ''));
+}
+
+// ==================== 行号栏（带断点） ====================
+function updateLineGutter() {
+  const ta = document.getElementById('codeTextarea');
+  const gutter = document.getElementById('lineGutter');
+  const text = ta.value || '';
+  const lines = text.split('\n');
+  let html = '';
+  for (let i = 0; i < lines.length; i++) {
+    const ln = i + 1;
+    const cls = 'line-num' + (breakpoints.has(ln) ? ' bp-line' : '');
+    html += `<div class="${cls}" data-line="${ln}" onclick="onGutterClick(${ln}, event)" oncontextmenu="onGutterRightClick(${ln}, event)">${ln}</div>`;
+  }
+  gutter.innerHTML = html;
+}
+
+function onGutterClick(lineNum, e) {
+  toggleBreakpoint(lineNum);
+}
+
+function onGutterRightClick(lineNum, e) {
+  e.preventDefault();
+  showBpConditionPopup(lineNum, e);
+}
+
+// ==================== 语法高亮 ====================
+function applyHighlight() {
+  const ta = document.getElementById('codeTextarea');
+  const hl = document.getElementById('codeHighlight');
+  const code = ta.value || '';
+  hl.innerHTML = highlightCode(code);
+}
+
+function highlightCode(code) {
+  let result = escHtml(code);
+  // 注释
+  result = result.replace(/(\/\/.*)$/gm, '<span class="hl-comment">$1</span>');
+  // 字符串
+  result = result.replace(/(&quot;[^&]*&quot;|&#39;[^&]*&#39;)/g, '<span class="hl-string">$1</span>');
+  // 数字
+  result = result.replace(/\b(\d+\.?\d*)\b/g, '<span class="hl-number">$1</span>');
+  // 关键字
+  const keywords = ['let','if','else','while','for','function','return','print','true','false','break','continue','null'];
+  const kwRegex = new RegExp('\\b(' + keywords.join('|') + ')\\b', 'g');
+  result = result.replace(kwRegex, '<span class="hl-keyword">$1</span>');
+  // 函数名
+  result = result.replace(/\bfunction\s+([a-zA-Z_]\w*)\b/g, 'function <span class="hl-function">$1</span>');
+  result = result.replace(/\b([a-zA-Z_]\w*)\b(?=\s*\()/g, '<span class="hl-function">$1</span>');
+  // 括号
+  result = result.replace(/([{}()\[\]])/g, '<span class="hl-bracket">$1</span>');
+  return result;
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ==================== 断点系统 ====================
+function toggleBreakpoint(lineNum) {
+  if (breakpoints.has(lineNum)) {
+    breakpoints.delete(lineNum);
+    delete bpConditions[lineNum];
+    log('info', '已移除第 ' + lineNum + ' 行断点');
+  } else {
+    breakpoints.add(lineNum);
+    log('info', '已在第 ' + lineNum + ' 行设置断点');
+  }
+  updateLineGutter();
+}
+
+function toggleBreakpointAtCursor() {
+  const ta = document.getElementById('codeTextarea');
+  const pos = ta.selectionStart;
+  const before = ta.value.substring(0, pos);
+  const lineNum = before.split('\n').length;
+  toggleBreakpoint(lineNum);
+}
+
+function hasBreakpoint(lineNum) {
+  return breakpoints.has(lineNum);
+}
+
+function clearAllBreakpoints() {
+  breakpoints.clear();
+  bpConditions = {};
+  updateLineGutter();
+  clearBpHighlight();
+  log('info', '已清除所有断点');
+}
+
+function highlightBpLine(lineNum) {
+  const gutter = document.getElementById('lineGutter');
+  if (!gutter) return;
+  const lines = gutter.querySelectorAll('.line-num');
+  lines.forEach(function(ln) {
+    if (parseInt(ln.getAttribute('data-line')) === lineNum) {
+      ln.classList.add('bp-line-active');
+    }
+  });
+}
+
+function clearBpHighlight() {
+  const gutter = document.getElementById('lineGutter');
+  if (!gutter) return;
+  gutter.querySelectorAll('.bp-line-active').forEach(function(ln) {
+    ln.classList.remove('bp-line-active');
+  });
+}
+
+// 条件断点弹窗
+function showBpConditionPopup(lineNum, e) {
+  const popup = document.getElementById('bpCondPopup');
+  document.getElementById('bpCondLine').textContent = lineNum;
+  document.getElementById('bpCondInput').value = (bpConditions[lineNum] || '');
+  popup.style.display = 'block';
+  popup.style.left = Math.max(6, e.clientX - 130) + 'px';
+  popup.style.top = Math.max(6, e.clientY - 10) + 'px';
+  document.getElementById('bpCondOK').onclick = function() {
+    const expr = document.getElementById('bpCondInput').value.trim();
+    if (expr) {
+      bpConditions[lineNum] = expr;
+      breakpoints.add(lineNum);
+      log('info', '已设置条件断点: 第' + lineNum + '行 当 ' + expr);
+    }
+    popup.style.display = 'none';
+    updateLineGutter();
+  };
+  document.getElementById('bpCondCancel').onclick = function() { popup.style.display = 'none'; };
+  document.getElementById('bpCondClear').onclick = function() {
+    delete bpConditions[lineNum];
+    breakpoints.delete(lineNum);
+    popup.style.display = 'none';
+    updateLineGutter();
+    log('info', '已清除第 ' + lineNum + ' 行断点');
+  };
+}
+
+document.addEventListener('click', function(e) {
+  const popup = document.getElementById('bpCondPopup');
+  if (popup && popup.style.display === 'block' && !popup.contains(e.target) && !e.target.classList.contains('line-num')) {
+    popup.style.display = 'none';
+  }
+});
+
+// ==================== 错误行标记 ====================
+function markErrorLines(errors) {
+  if (!errors || !errors.length) return;
+  const gutter = document.getElementById('lineGutter');
+  if (!gutter) return;
+  const errorSet = new Set();
+  errors.forEach(function(err) { if (err.line) errorSet.add(err.line); });
+  const lines = gutter.querySelectorAll('.line-num');
+  lines.forEach(function(ln) {
+    const l = parseInt(ln.getAttribute('data-line'));
+    if (errorSet.has(l)) {
+      ln.classList.add('line-error');
+      ln.title = errors.filter(function(e){return e.line===l}).map(function(e){return e.message}).join('; ');
+    }
+  });
+}
+
+function clearErrorLines() {
+  const gutter = document.getElementById('lineGutter');
+  if (!gutter) return;
+  gutter.querySelectorAll('.line-error').forEach(function(ln) {
+    ln.classList.remove('line-error');
+    ln.title = '';
+  });
+}
+
+// ==================== 自动补全 ====================
+const CODE_SNIPPETS = [
+  // 控制流
+  { label: 'if () { }', desc: '条件判断', insert: 'if () {\n  \n}', tag: 'snip' },
+  { label: 'if () { } else { }', desc: '条件否则', insert: 'if () {\n  \n} else {\n  \n}', tag: 'snip' },
+  { label: 'while () { }', desc: '条件循环', insert: 'while () {\n  \n}', tag: 'snip' },
+  { label: 'for () { }', desc: 'for循环', insert: 'for (let i = 0; i < 10; i = i + 1) {\n  \n}', tag: 'snip' },
+  { label: 'break', desc: '跳出循环', insert: 'break', tag: 'kw' },
+  { label: 'continue', desc: '继续循环', insert: 'continue', tag: 'kw' },
+  // 变量/函数
+  { label: 'let x = ...', desc: '变量声明', insert: 'let ', tag: 'kw' },
+  { label: 'function () { }', desc: '函数定义', insert: 'function name() {\n  \n}', tag: 'kw' },
+  { label: 'return ...', desc: '返回值', insert: 'return ', tag: 'kw' },
+  // 输入输出
+  { label: 'print(...)', desc: '输出到控制台', insert: 'print()', tag: 'fn' },
+  // 注释
+  { label: '// 注释', desc: '行注释', insert: '// ', tag: 'kw' },
+  // 关键字
+  { label: 'true', desc: '布尔真', insert: 'true', tag: 'kw' },
+  { label: 'false', desc: '布尔假', insert: 'false', tag: 'kw' },
+  { label: 'null', desc: '空值', insert: 'null', tag: 'kw' },
+];
+
+const _acState = { open: false, list: [], selected: 0, wordStart: 0, wordEnd: 0 };
+
+function triggerAutocomplete(ta) {
+  const pos = ta.selectionStart;
+  const val = ta.value;
+  let i = pos;
+  while (i > 0) {
+    const ch = val[i - 1];
+    if (/[a-zA-Z0-9_]/.test(ch)) { i--; continue; }
+    break;
+  }
+  const word = val.substring(i, pos);
+  if (word.length === 0) { hideAutocomplete(); return; }
+  const matches = collectAcMatches(word, val);
+  if (matches.length === 0) { hideAutocomplete(); return; }
+  _acState.wordStart = i;
+  _acState.wordEnd = pos;
+  _acState.selected = 0;
+  _acState.list = matches;
+  showAutocomplete(ta, matches);
+}
+
+function collectAcMatches(word, code) {
+  const w = word.toLowerCase();
+  const dynamic = [];
+  // 从代码中扫描 function 定义
+  try {
+    const re = /function\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]*)\)/g;
+    let m;
+    while ((m = re.exec(code)) !== null) {
+      const fname = m[1];
+      const params = m[2].trim();
+      const insertText = params ? (fname + '(' + params.split(',')[0].trim() + ')') : (fname + '()');
+      dynamic.push({ label: fname + '(' + (params || '') + ')', desc: '自定义函数', insert: insertText, tag: 'fn' });
+    }
+  } catch (e) {}
+  // 从代码中扫描 let 声明的变量
+  try {
+    const varRe = /\blet\s+([a-zA-Z_][a-zA-Z0-9_]*)/g;
+    let vm;
+    while ((vm = varRe.exec(code)) !== null) {
+      const vname = vm[1];
+      if (!dynamic.find(d => d.label === vname)) {
+        dynamic.push({ label: vname, desc: '变量', insert: vname, tag: 'var' });
+      }
+    }
+  } catch (e) {}
+  const all = CODE_SNIPPETS.concat(dynamic);
+  // 去重
+  const seen = {};
+  const deduped = [];
+  all.forEach(function(item) {
+    if (seen[item.label]) return;
+    seen[item.label] = true;
+    deduped.push(item);
+  });
+  // 匹配：label 以 word 开头优先，其次包含 word
+  const starts = [];
+  const contains = [];
+  deduped.forEach(function(item) {
+    const lbl = item.label.toLowerCase();
+    const ins = item.insert.toLowerCase();
+    if (lbl.indexOf(w) === 0 || ins.indexOf(w) === 0) starts.push(item);
+    else if (lbl.indexOf(w) !== -1 || ins.indexOf(w) !== -1) contains.push(item);
+  });
+  return starts.concat(contains).slice(0, 12);
+}
+
+function showAutocomplete(ta, matches) {
+  const box = document.getElementById('codeAutocomplete');
+  if (!box) return;
+  let html = '';
+  matches.forEach(function(item, idx) {
+    const cls = 'ac-item' + (idx === _acState.selected ? ' active' : '');
+    const tagCls = 'ac-tag ' + (item.tag || '');
+    const tagText = ({kw:'关键字',fn:'函数',var:'变量',snip:'片段'})[item.tag] || '片段';
+    html += '<div class="' + cls + '" data-idx="' + idx + '">';
+    html += '<span class="ac-label">' + escHtml(item.label) + '</span>';
+    html += '<span class="ac-desc">' + escHtml(item.desc || '') + '</span>';
+    html += '<span class="' + tagCls + '">' + tagText + '</span>';
+    html += '</div>';
+  });
+  if (matches.length === 0) html += '<div class="ac-empty">无匹配项</div>';
+  box.innerHTML = html;
+  box.style.display = 'block';
+  _acState.open = true;
+  // 定位到光标处
+  const coords = getTaCursorCoords(ta);
+  let x = coords.left;
+  let y = coords.top + coords.height + 2;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const bw = box.offsetWidth || 240;
+  const bh = box.offsetHeight || 120;
+  if (x + bw > vw - 6) x = vw - bw - 6;
+  if (x < 6) x = 6;
+  if (y + bh > vh - 6) y = coords.top - bh - 2;
+  if (y < 6) y = 6;
+  box.style.left = x + 'px';
+  box.style.top = y + 'px';
+  // 点击补全项
+  box.querySelectorAll('.ac-item').forEach(function(el) {
+    el.onmousedown = function(e) {
+      e.preventDefault();
+      _acState.selected = parseInt(el.dataset.idx);
+      confirmAutocomplete();
+    };
+  });
+}
+
+function hideAutocomplete() {
+  const box = document.getElementById('codeAutocomplete');
+  if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+  _acState.open = false;
+  _acState.list = [];
+  _acState.selected = 0;
+}
+
+function moveAcSelection(delta) {
+  if (!_acState.open || _acState.list.length === 0) return;
+  let n = _acState.selected + delta;
+  if (n < 0) n = _acState.list.length - 1;
+  if (n >= _acState.list.length) n = 0;
+  _acState.selected = n;
+  const box = document.getElementById('codeAutocomplete');
+  if (!box) return;
+  const items = box.querySelectorAll('.ac-item');
+  items.forEach(function(el, idx) { el.classList.toggle('active', idx === n); });
+  const el = items[n];
+  if (el) {
+    const boxRect = box.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    if (elRect.top < boxRect.top) box.scrollTop -= (boxRect.top - elRect.top);
+    else if (elRect.bottom > boxRect.bottom) box.scrollTop += (elRect.bottom - boxRect.bottom);
+  }
+}
+
+function confirmAutocomplete() {
+  if (!_acState.open || _acState.list.length === 0) { hideAutocomplete(); return; }
+  const item = _acState.list[_acState.selected];
+  if (!item) { hideAutocomplete(); return; }
+  const ta = document.getElementById('codeTextarea');
+  const val = ta.value;
+  const before = val.substring(0, _acState.wordStart);
+  const after = val.substring(_acState.wordEnd);
+  let insertText = item.insert;
+  // 多行插入：保持后续行缩进与当前行一致
+  const lineStart = val.lastIndexOf('\n', _acState.wordStart) + 1;
+  const curIndent = (val.substring(lineStart, _acState.wordStart).match(/^(\s*)/) || ['', ''])[1];
+  if (insertText.indexOf('\n') !== -1 && curIndent) {
+    insertText = insertText.split('\n').map(function(line, idx) {
+      return idx === 0 ? line : (curIndent + '  ' + line);
+    }).join('\n');
+  }
+  ta.value = before + insertText + after;
+  // 光标定位：找到第一个 () 或 "" 中间，否则放到末尾
+  let caret = _acState.wordStart + insertText.length;
+  const parenMatch = insertText.match(/\(\)/);
+  if (parenMatch) {
+    caret = _acState.wordStart + parenMatch.index + 1;
+  } else {
+    const emptyStrMatch = insertText.match(/""/);
+    if (emptyStrMatch) caret = _acState.wordStart + emptyStrMatch.index + 1;
+    else {
+      // 多行片段：定位到第一个空行
+      const emptyLineMatch = insertText.match(/\n\s*\n/);
+      if (emptyLineMatch) caret = _acState.wordStart + emptyLineMatch.index + 1;
+    }
+  }
+  ta.selectionStart = ta.selectionEnd = caret;
+  ta.focus();
+  applyHighlight();
+  updateLineGutter();
+  hideAutocomplete();
+}
+
+// 估算 textarea 光标的像素坐标
+function getTaCursorCoords(ta) {
+  const rect = ta.getBoundingClientRect();
+  const style = window.getComputedStyle(ta);
+  const fontSize = parseFloat(style.fontSize) || 14;
+  const lineHeight = parseFloat(style.lineHeight) || (fontSize * 1.57);
+  const paddingLeft = parseFloat(style.paddingLeft) || 12;
+  const paddingTop = parseFloat(style.paddingTop) || 8;
+  const pos = ta.selectionStart;
+  const val = ta.value;
+  const before = val.substring(0, pos);
+  const lines = before.split('\n');
+  const row = lines.length - 1;
+  const col = lines[lines.length - 1].length;
+  const charW = fontSize * 0.6;
+  const x = rect.left + paddingLeft + col * charW - ta.scrollLeft;
+  const y = rect.top + paddingTop + row * lineHeight - ta.scrollTop;
+  return { left: x, top: y, height: lineHeight };
+}
+
+// ==================== 大纲面板 ====================
+function updateOutline() {
+  const container = document.getElementById('outline-list');
+  const ta = document.getElementById('codeTextarea');
+  const code = ta.value || '';
+  if (!code.trim()) {
+    container.innerHTML = '<div style="padding:14px;color:#888;font-size:12px;">暂无符号</div>';
+    return;
+  }
+  const lines = code.split('\n');
+  const symbols = [];
+  lines.forEach((line, i) => {
+    const funcMatch = line.match(/function\s+(\w+)/);
+    if (funcMatch) symbols.push({ type: 'function', name: funcMatch[1], line: i + 1 });
+    const varMatch = line.match(/\blet\s+(\w+)/);
+    if (varMatch) symbols.push({ type: 'variable', name: varMatch[1], line: i + 1 });
+  });
+  if (symbols.length === 0) {
+    container.innerHTML = '<div style="padding:14px;color:#888;font-size:12px;">暂无符号</div>';
+    return;
+  }
+  container.innerHTML = symbols.map(s => `
+    <div class="outline-item ${s.type === 'function' ? 'func-item' : ''}" onclick="gotoLine(${s.line})">
+      <i class="fas fa-cube" style="color:${s.type === 'function' ? '#dcdcaa' : '#4fc1ff'};font-size:11px;"></i>
+      ${escHtml(s.name)}
+    </div>
+  `).join('');
+}
+
+function gotoLine(lineNum) {
+  const ta = document.getElementById('codeTextarea');
+  const text = ta.value || '';
+  const lines = text.split('\n');
+  let offset = 0;
+  for (let i = 0; i < Math.min(lineNum - 1, lines.length); i++) {
+    offset += lines[i].length + 1;
+  }
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = offset;
+  ta.scrollTop = Math.max(0, (lineNum - 1) * 22 - 100);
+}
+
+// ==================== CW Script 解释器（AST + 行号 + 断点） ====================
+
+// 词法分析器（带行号追踪）
+function tokenize(code) {
+  const tokens = [];
+  let i = 0;
+  let line = 1;
+  while (i < code.length) {
+    // 换行
+    if (code[i] === '\n') { line++; i++; continue; }
+    // 空白
+    if (/\s/.test(code[i])) { i++; continue; }
+    // 注释
+    if (code[i] === '/' && code[i+1] === '/') {
+      let end = code.indexOf('\n', i);
+      if (end === -1) end = code.length;
+      i = end;
+      continue;
+    }
+    // 字符串
+    if (code[i] === '"' || code[i] === "'") {
+      const quote = code[i];
+      let str = '';
+      const startLine = line;
+      i++;
+      while (i < code.length && code[i] !== quote) {
+        if (code[i] === '\\') { str += code[i]; i++; }
+        if (code[i] === '\n') line++;
+        if (i < code.length) str += code[i];
+        i++;
+      }
+      i++;
+      tokens.push({ type: 'string', value: str, line: startLine });
+      continue;
+    }
+    // 数字
+    if (/[0-9]/.test(code[i])) {
+      let num = '';
+      while (i < code.length && /[0-9.]/.test(code[i])) { num += code[i]; i++; }
+      tokens.push({ type: 'number', value: parseFloat(num), line: line });
+      continue;
+    }
+    // 标识符/关键字
+    if (/[a-zA-Z_]/.test(code[i])) {
+      let id = '';
+      while (i < code.length && /[a-zA-Z0-9_]/.test(code[i])) { id += code[i]; i++; }
+      const keywords = ['let', 'if', 'else', 'while', 'for', 'function', 'return', 'print', 'true', 'false', 'break', 'continue', 'null'];
+      tokens.push({ type: keywords.includes(id) ? 'keyword' : 'identifier', value: id, line: line });
+      continue;
+    }
+    // 运算符
+    if ('+-*/%<>=!&|'.includes(code[i])) {
+      let op = code[i];
+      if (i+1 < code.length) {
+        if (code[i] === '=' && code[i+1] === '=') { op = '=='; i++; }
+        else if (code[i] === '!' && code[i+1] === '=') { op = '!='; i++; }
+        else if (code[i] === '<' && code[i+1] === '=') { op = '<='; i++; }
+        else if (code[i] === '>' && code[i+1] === '=') { op = '>='; i++; }
+        else if (code[i] === '&' && code[i+1] === '&') { op = '&&'; i++; }
+        else if (code[i] === '|' && code[i+1] === '|') { op = '||'; i++; }
+      }
+      i++;
+      tokens.push({ type: 'operator', value: op, line: line });
+      continue;
+    }
+    // 分隔符
+    if ('(){}[],;'.includes(code[i])) {
+      tokens.push({ type: 'delimiter', value: code[i], line: line });
+      i++;
+      continue;
+    }
+    i++;
+  }
+  tokens.push({ type: 'eof', value: '', line: line });
+  return tokens;
+}
+
+// 递归下降解析器（保留行号到 AST 节点）
+function parse(tokens) {
+  let pos = 0;
+  function peek() { return tokens[pos]; }
+  function consume() { return tokens[pos++]; }
+  function expect(type, val) {
+    const t = peek();
+    if (t.type !== type || (val !== undefined && t.value !== val)) {
+      const lineInfo = t.line ? ' (第' + t.line + '行)' : '';
+      throw { message: `期望 ${val || type}，实际得到 ${t.value || t.type}${lineInfo}`, line: t.line };
+    }
+    return consume();
+  }
+
+  function parseProgram() {
+    const stmts = [];
+    while (peek().type !== 'eof') stmts.push(parseStatement());
+    return { type: 'program', body: stmts };
+  }
+
+  function parseStatement() {
+    const t = peek();
+    if (t.type === 'keyword') {
+      switch (t.value) {
+        case 'let': return parseVarDecl();
+        case 'if': return parseIf();
+        case 'while': return parseWhile();
+        case 'for': return parseFor();
+        case 'function': return parseFuncDecl();
+        case 'return': return parseReturn();
+        case 'break': consume(); return { type: 'break', line: t.line };
+        case 'continue': consume(); return { type: 'continue', line: t.line };
+        case 'print': return parsePrint();
+      }
+    }
+    return parseExprStatement();
+  }
+
+  function parseVarDecl() {
+    const line = peek().line;
+    consume();
+    const name = expect('identifier').value;
+    expect('operator', '=');
+    const value = parseExpression();
+    expect('delimiter', ';');
+    return { type: 'varDecl', name, value, line };
+  }
+
+  function parseIf() {
+    const line = peek().line;
+    consume();
+    expect('delimiter', '(');
+    const test = parseExpression();
+    expect('delimiter', ')');
+    const consequent = parseBlock();
+    let alternate = null;
+    if (peek().type === 'keyword' && peek().value === 'else') {
+      consume();
+      if (peek().type === 'keyword' && peek().value === 'if') alternate = parseIf();
+      else alternate = parseBlock();
+    }
+    return { type: 'if', test, consequent, alternate, line };
+  }
+
+  function parseWhile() {
+    const line = peek().line;
+    consume();
+    expect('delimiter', '(');
+    const test = parseExpression();
+    expect('delimiter', ')');
+    const body = parseBlock();
+    return { type: 'while', test, body, line };
+  }
+
+  function parseFor() {
+    const line = peek().line;
+    consume();
+    expect('delimiter', '(');
+    let init = null;
+    if (peek().type === 'keyword' && peek().value === 'let') init = parseVarDeclNoSemi();
+    else if (peek().value !== ';') init = parseExpressionStatementNoSemi();
+    expect('delimiter', ';');
+    let test = null;
+    if (peek().value !== ';') test = parseExpression();
+    expect('delimiter', ';');
+    let update = null;
+    if (peek().value !== ')') update = parseExpression();
+    expect('delimiter', ')');
+    const body = parseBlock();
+    return { type: 'for', init, test, update, body, line };
+  }
+
+  function parseVarDeclNoSemi() {
+    consume();
+    const name = expect('identifier').value;
+    expect('operator', '=');
+    const value = parseExpression();
+    return { type: 'varDecl', name, value };
+  }
+
+  function parseExpressionStatementNoSemi() {
+    const expr = parseExpression();
+    return { type: 'expr', expr };
+  }
+
+  function parseFuncDecl() {
+    const line = peek().line;
+    consume();
+    const name = expect('identifier').value;
+    expect('delimiter', '(');
+    const params = [];
+    if (peek().value !== ')') {
+      params.push(expect('identifier').value);
+      while (peek().value === ',') { consume(); params.push(expect('identifier').value); }
+    }
+    expect('delimiter', ')');
+    const body = parseBlock();
+    return { type: 'funcDecl', name, params, body, line };
+  }
+
+  function parseReturn() {
+    const line = peek().line;
+    consume();
+    let value = null;
+    if (peek().value !== ';' && peek().value !== '}') value = parseExpression();
+    expect('delimiter', ';');
+    return { type: 'return', value, line };
+  }
+
+  function parsePrint() {
+    const line = peek().line;
+    consume();
+    expect('delimiter', '(');
+    let value = null;
+    if (peek().value !== ')') value = parseExpression();
+    expect('delimiter', ')');
+    expect('delimiter', ';');
+    return { type: 'print', value, line };
+  }
+
+  function parseBlock() {
+    const line = peek().line;
+    expect('delimiter', '{');
+    const stmts = [];
+    while (peek().value !== '}') stmts.push(parseStatement());
+    expect('delimiter', '}');
+    return { type: 'block', body: stmts, line };
+  }
+
+  function parseExprStatement() {
+    const line = peek().line;
+    const expr = parseExpression();
+    expect('delimiter', ';');
+    return { type: 'expr', expr, line };
+  }
+
+  function parseExpression() { return parseAssignment(); }
+
+  function parseAssignment() {
+    let left = parseOr();
+    if (peek().type === 'operator' && peek().value === '=') {
+      consume();
+      const right = parseAssignment();
+      return { type: 'assign', left, right, line: left.line };
+    }
+    return left;
+  }
+
+  function parseOr() {
+    let left = parseAnd();
+    while (peek().type === 'operator' && peek().value === '||') {
+      consume();
+      left = { type: 'binary', operator: '||', left, right: parseAnd(), line: left.line };
+    }
+    return left;
+  }
+
+  function parseAnd() {
+    let left = parseCompare();
+    while (peek().type === 'operator' && peek().value === '&&') {
+      consume();
+      left = { type: 'binary', operator: '&&', left, right: parseCompare(), line: left.line };
+    }
+    return left;
+  }
+
+  function parseCompare() {
+    let left = parseAdditive();
+    while (peek().type === 'operator' && /[<>]=?|==|!=/.test(peek().value)) {
+      const op = consume().value;
+      left = { type: 'binary', operator: op, left, right: parseAdditive(), line: left.line };
+    }
+    return left;
+  }
+
+  function parseAdditive() {
+    let left = parseMultiplicative();
+    while (peek().type === 'operator' && /[+-]/.test(peek().value)) {
+      const op = consume().value;
+      left = { type: 'binary', operator: op, left, right: parseMultiplicative(), line: left.line };
+    }
+    return left;
+  }
+
+  function parseMultiplicative() {
+    let left = parseUnary();
+    while (peek().type === 'operator' && /[*\/%]/.test(peek().value)) {
+      const op = consume().value;
+      left = { type: 'binary', operator: op, left, right: parseUnary(), line: left.line };
+    }
+    return left;
+  }
+
+  function parseUnary() {
+    if (peek().type === 'operator' && /[!-]/.test(peek().value)) {
+      const op = consume().value;
+      return { type: 'unary', operator: op, argument: parsePrimary(), line: peek().line };
+    }
+    return parseCall();
+  }
+
+  function parseCall() {
+    let expr = parsePrimary();
+    while (peek().value === '(') {
+      consume();
+      const args = [];
+      if (peek().value !== ')') {
+        args.push(parseExpression());
+        while (peek().value === ',') { consume(); args.push(parseExpression()); }
+      }
+      expect('delimiter', ')');
+      expr = { type: 'call', callee: expr, args, line: expr.line };
+    }
+    return expr;
+  }
+
+  function parsePrimary() {
+    const t = peek();
+    if (t.type === 'number') { consume(); return { type: 'literal', value: t.value, line: t.line }; }
+    if (t.type === 'string') { consume(); return { type: 'literal', value: t.value, line: t.line }; }
+    if (t.type === 'keyword' && (t.value === 'true' || t.value === 'false')) {
+      consume(); return { type: 'literal', value: t.value === 'true', line: t.line };
+    }
+    if (t.type === 'keyword' && t.value === 'null') {
+      consume(); return { type: 'literal', value: null, line: t.line };
+    }
+    if (t.type === 'identifier') { consume(); return { type: 'identifier', name: t.value, line: t.line }; }
+    if (t.value === '(') {
+      consume();
+      const expr = parseExpression();
+      expect('delimiter', ')');
+      return expr;
+    }
+    const lineInfo = t.line ? ' (第' + t.line + '行)' : '';
+    throw { message: '意外的 token: ' + (t.value || t.type) + lineInfo, line: t.line };
+  }
+
+  return parseProgram();
+}
+
+// 异步执行器（支持断点、单步、暂停）
+async function executeAsync(node, output, env = {}) {
+  if (!node) return null;
+
+  // 断点/单步检查
+  if (node.line && debugState.mode === 'debug') {
+    await checkBreakpoint(node.line, env);
+  }
+
+  switch (node.type) {
+    case 'program':
+      for (const stmt of node.body) {
+        const result = await executeAsync(stmt, output, env);
+        if (result && result.type === 'return') return result.value;
+        if (result && result.type === 'break') return result;
+        if (result && result.type === 'continue') return result;
+      }
+      return null;
+
+    case 'varDecl':
+      env[node.name] = await executeAsync(node.value, output, env);
+      updateVarPanel(env);
+      return null;
+
+    case 'block':
+      const blockEnv = Object.create(env);
+      for (const stmt of node.body) {
+        const result = await executeAsync(stmt, output, blockEnv);
+        if (result && (result.type === 'return' || result.type === 'break' || result.type === 'continue')) return result;
+      }
+      return null;
+
+    case 'if':
+      if (await executeAsync(node.test, output, env)) {
+        return await executeAsync(node.consequent, output, env);
+      } else if (node.alternate) {
+        return await executeAsync(node.alternate, output, env);
+      }
+      return null;
+
+    case 'while': {
+      let maxIter = 100000;
+      while (await executeAsync(node.test, output, env) && maxIter-- > 0) {
+        const result = await executeAsync(node.body, output, env);
+        if (result && result.type === 'break') break;
+        if (result && result.type === 'return') return result;
+        if (result && result.type === 'continue') continue;
+      }
+      if (maxIter <= 0) throw { message: '循环次数超过限制（10万次），可能存在无限循环', line: node.line };
+      return null;
+    }
+
+    case 'for': {
+      const forEnv = Object.create(env);
+      if (node.init) await executeAsync(node.init, output, forEnv);
+      let maxIter = 100000;
+      while ((!node.test || await executeAsync(node.test, output, forEnv)) && maxIter-- > 0) {
+        const result = await executeAsync(node.body, output, forEnv);
+        if (result && result.type === 'break') break;
+        if (result && result.type === 'return') return result;
+        if (node.update) await executeAsync(node.update, output, forEnv);
+      }
+      if (maxIter <= 0) throw { message: '循环次数超过限制（10万次），可能存在无限循环', line: node.line };
+      return null;
+    }
+
+    case 'funcDecl':
+      env[node.name] = { type: 'function', params: node.params, body: node.body, closure: env, line: node.line };
+      return null;
+
+    case 'return': {
+      const val = node.value ? await executeAsync(node.value, output, env) : null;
+      return { type: 'return', value: val };
+    }
+
+    case 'break':
+      return { type: 'break' };
+
+    case 'continue':
+      return { type: 'continue' };
+
+    case 'print': {
+      const val = node.value ? await executeAsync(node.value, output, env) : '';
+      output.push(val);
+      return null;
+    }
+
+    case 'expr':
+      return await executeAsync(node.expr, output, env);
+
+    case 'assign': {
+      const val = await executeAsync(node.right, output, env);
+      if (node.left.type === 'identifier') {
+        let scope = env;
+        while (scope) {
+          if (Object.prototype.hasOwnProperty.call(scope, node.left.name)) {
+            scope[node.left.name] = val;
+            updateVarPanel(env);
+            return val;
+          }
+          scope = Object.getPrototypeOf(scope);
+        }
+        env[node.left.name] = val;
+        updateVarPanel(env);
+      }
+      return val;
+    }
+
+    case 'binary': {
+      const left = await executeAsync(node.left, output, env);
+      const right = await executeAsync(node.right, output, env);
+      switch (node.operator) {
+        case '+': return left + right;
+        case '-': return left - right;
+        case '*': return left * right;
+        case '/': return left / right;
+        case '%': return left % right;
+        case '<': return left < right;
+        case '>': return left > right;
+        case '<=': return left <= right;
+        case '>=': return left >= right;
+        case '==': return left == right;
+        case '!=': return left != right;
+        case '&&': return left && right;
+        case '||': return left || right;
+        default: throw { message: '未知运算符: ' + node.operator, line: node.line };
+      }
+    }
+
+    case 'unary': {
+      const val = await executeAsync(node.argument, output, env);
+      return node.operator === '!' ? !val : -val;
+    }
+
+    case 'call': {
+      let callee;
+      if (node.callee.type === 'identifier') {
+        let scope = env;
+        while (scope) {
+          if (Object.prototype.hasOwnProperty.call(scope, node.callee.name)) { callee = scope[node.callee.name]; break; }
+          scope = Object.getPrototypeOf(scope);
+        }
+      } else {
+        callee = await executeAsync(node.callee, output, env);
+      }
+      if (!callee || callee.type !== 'function') {
+        throw { message: '未定义的函数: ' + (node.callee.name || 'anonymous'), line: node.line };
+      }
+      const args = [];
+      for (const a of node.args) args.push(await executeAsync(a, output, env));
+      const funcEnv = Object.create(callee.closure || env);
+      callee.params.forEach((p, i) => { funcEnv[p] = args[i]; });
+      debugState.callStackDepth++;
+      const result = await executeAsync(callee.body, output, funcEnv);
+      debugState.callStackDepth--;
+      return result && result.type === 'return' ? result.value : null;
+    }
+
+    case 'literal':
+      return node.value;
+
+    case 'identifier': {
+      let scope = env;
+      while (scope) {
+        if (Object.prototype.hasOwnProperty.call(scope, node.name)) return scope[node.name];
+        scope = Object.getPrototypeOf(scope);
+      }
+      throw { message: '未定义的变量: ' + node.name, line: node.line };
+    }
+
+    default:
+      return null;
+  }
+}
+
+// 断点/单步检查
+async function checkBreakpoint(lineNum, env) {
+  if (debugState.stopRequested) {
+    throw { message: '用户停止执行', __userStop: true };
+  }
+  debugState.currentLine = lineNum;
+
+  // 单步模式处理
+  if (debugState.stepMode === 'into') {
+    debugState.stepMode = null;
+    await pauseAtBreakpoint(lineNum, '单步进入', env);
+    return;
+  }
+  if (debugState.stepMode === 'over') {
+    if (debugState.callStackDepth === debugState.stepDepth) {
+      debugState.stepMode = null;
+      await pauseAtBreakpoint(lineNum, '单步跳过', env);
+      return;
+    }
+    return; // 不在当前深度，跳过
+  }
+  if (debugState.stepMode === 'out') {
+    if (debugState.callStackDepth < debugState.stepDepth) {
+      debugState.stepMode = null;
+      await pauseAtBreakpoint(lineNum, '单步跳出', env);
+      return;
+    }
+    return;
+  }
+
+  // 断点检查
+  if (hasBreakpoint(lineNum)) {
+    // 条件断点：检查条件是否满足
+    if (bpConditions[lineNum]) {
+      try {
+        const condResult = evalCondition(bpConditions[lineNum], env);
+        if (!condResult) return; // 条件不满足，跳过
+      } catch (e) {
+        log('warn', '条件断点求值失败: ' + e.message);
+      }
+    }
+    await pauseAtBreakpoint(lineNum, '断点命中', env);
+  }
+}
+
+// 评估条件断点表达式
+function evalCondition(expr, env) {
+  // 简单实现：用 with + eval
+  try {
+    const keys = [];
+    const vals = [];
+    let scope = env;
+    while (scope) {
+      Object.keys(scope).forEach(k => {
+        if (!keys.includes(k) && k !== 'type' && k !== 'params' && k !== 'body' && k !== 'closure' && k !== 'line') {
+          keys.push(k);
+          vals.push(scope[k]);
+        }
+      });
+      scope = Object.getPrototypeOf(scope);
+    }
+    const fn = new Function(...keys, 'return (' + expr + ');');
+    return fn(...vals);
+  } catch (e) {
+    throw { message: '条件断点表达式错误: ' + e.message };
+  }
+}
+
+// 暂停在断点处
+async function pauseAtBreakpoint(lineNum, reason, env) {
+  debugState.paused = true;
+  debugState.currentLine = lineNum;
+  highlightBpLine(lineNum);
+  updateVarPanel(env);
+  log('bp', '⏸ ' + reason + ': 第' + lineNum + '行');
+  updateDebugButtons();
+  await new Promise(function(resolve) {
+    debugState.resumeResolver = resolve;
+  });
+  clearBpHighlight();
+  debugState.paused = false;
+  updateDebugButtons();
+  if (debugState.stopRequested) {
+    throw { message: '用户停止执行', __userStop: true };
+  }
+}
+
+// ==================== 运行控制 ====================
+function runCode() {
+  if (debugState.running) {
+    log('warn', '代码正在运行中');
+    return;
+  }
+  saveCurrentContent();
+  const ta = document.getElementById('codeTextarea');
+  const code = ta.value || '';
+  clearConsole();
+  clearErrorLines();
+  log('info', '=== 开始执行 ===');
+  debugState.mode = 'normal';
+  debugState.running = true;
+  debugState.stopRequested = false;
+  updateDebugButtons();
+
+  (async () => {
+    try {
+      const tokens = tokenize(code);
+      const ast = parse(tokens);
+      const output = [];
+      const startTime = performance.now();
+      await executeAsync(ast, output, {});
+      const elapsed = (performance.now() - startTime).toFixed(2);
+      output.forEach(o => log('output', String(o)));
+      log('info', `=== 执行完毕 (${elapsed}ms) ===`);
+    } catch (e) {
+      if (e && e.__userStop) {
+        log('warn', '执行已停止');
+      } else {
+        const lineInfo = e.line ? ' (第' + e.line + '行)' : '';
+        log('error', '错误: ' + e.message + lineInfo);
+        if (e.line) markErrorLines([{ line: e.line, message: e.message }]);
+      }
+    } finally {
+      debugState.running = false;
+      debugState.mode = 'normal';
+      debugState.stopRequested = false;
+      clearBpHighlight();
+      updateDebugButtons();
+      hideVarPanel();
+    }
+  })();
+}
+
+function debugCode() {
+  if (debugState.running) {
+    log('warn', '代码正在运行中');
+    return;
+  }
+  if (breakpoints.size === 0) {
+    log('warn', '提示: 当前没有设置断点。点击行号左侧可设置断点，或使用 F9 在光标处切换断点。');
+  }
+  saveCurrentContent();
+  const ta = document.getElementById('codeTextarea');
+  const code = ta.value || '';
+  clearConsole();
+  clearErrorLines();
+  log('info', '=== 调试模式启动 ===');
+  debugState.mode = 'debug';
+  debugState.running = true;
+  debugState.paused = false;
+  debugState.stopRequested = false;
+  debugState.stepMode = null;
+  debugState.callStackDepth = 0;
+  showVarPanel();
+  updateDebugButtons();
+
+  (async () => {
+    try {
+      const tokens = tokenize(code);
+      const ast = parse(tokens);
+      const output = [];
+      const startTime = performance.now();
+      await executeAsync(ast, output, {});
+      const elapsed = (performance.now() - startTime).toFixed(2);
+      output.forEach(o => log('output', String(o)));
+      log('info', `=== 调试完毕 (${elapsed}ms) ===`);
+    } catch (e) {
+      if (e && e.__userStop) {
+        log('warn', '调试已停止');
+      } else {
+        const lineInfo = e.line ? ' (第' + e.line + '行)' : '';
+        log('error', '错误: ' + e.message + lineInfo);
+        if (e.line) markErrorLines([{ line: e.line, message: e.message }]);
+      }
+    } finally {
+      debugState.running = false;
+      debugState.mode = 'normal';
+      debugState.stopRequested = false;
+      debugState.paused = false;
+      clearBpHighlight();
+      updateDebugButtons();
+      hideVarPanel();
+    }
+  })();
+}
+
+function continueCode() {
+  if (!debugState.paused) {
+    log('warn', '当前未暂停，无需继续');
+    return;
+  }
+  debugState.stepMode = null;
+  if (debugState.resumeResolver) {
+    debugState.resumeResolver();
+    debugState.resumeResolver = null;
+  }
+}
+
+function stepOver() {
+  if (!debugState.paused) return;
+  debugState.stepMode = 'over';
+  debugState.stepDepth = debugState.callStackDepth;
+  if (debugState.resumeResolver) {
+    debugState.resumeResolver();
+    debugState.resumeResolver = null;
+  }
+}
+
+function stepInto() {
+  if (!debugState.paused) return;
+  debugState.stepMode = 'into';
+  if (debugState.resumeResolver) {
+    debugState.resumeResolver();
+    debugState.resumeResolver = null;
+  }
+}
+
+function stepOut() {
+  if (!debugState.paused) return;
+  debugState.stepMode = 'out';
+  debugState.stepDepth = debugState.callStackDepth;
+  if (debugState.resumeResolver) {
+    debugState.resumeResolver();
+    debugState.resumeResolver = null;
+  }
+}
+
+function stopCode() {
+  debugState.stopRequested = true;
+  if (debugState.paused && debugState.resumeResolver) {
+    debugState.resumeResolver();
+    debugState.resumeResolver = null;
+  }
+}
+
+function updateDebugButtons() {
+  const debugBtns = document.getElementById('debugBtns');
+  if (debugState.running && debugState.mode === 'debug') {
+    debugBtns.classList.add('visible');
+  } else {
+    debugBtns.classList.remove('visible');
+  }
+}
+
+// ==================== 变量查看器 ====================
+function showVarPanel() {
+  document.getElementById('varPanel').classList.add('visible');
+}
+
+function hideVarPanel() {
+  document.getElementById('varPanel').classList.remove('visible');
+}
+
+function toggleVarPanel() {
+  document.getElementById('varPanel').classList.toggle('visible');
+}
+
+function updateVarPanel(env) {
+  const body = document.getElementById('varPanelBody');
+  if (!body) return;
+  if (!env || Object.keys(env).length === 0) {
+    body.innerHTML = '<span style="color:#888">无变量</span>';
+    return;
+  }
+  let html = '';
+  let scope = env;
+  const seen = new Set();
+  while (scope) {
+    Object.keys(scope).forEach(function(k) {
+      if (seen.has(k)) return;
+      if (k === 'type' || k === 'params' || k === 'body' || k === 'closure' || k === 'line') return;
+      seen.add(k);
+      const v = scope[k];
+      if (typeof v === 'function') return;
+      let display;
+      if (v === null) display = 'null';
+      else if (v === undefined) display = 'undefined';
+      else if (typeof v === 'object') {
+        if (v.type === 'function') display = '函数 ' + (v.params || []).join(',') + '';
+        else display = JSON.stringify(v).substring(0, 60);
+      }
+      else display = String(v);
+      html += '<div class="var-item"><span class="var-name">' + escHtml(k) + '</span><span class="var-val">' + escHtml(display) + '</span></div>';
+    });
+    scope = Object.getPrototypeOf(scope);
+  }
+  body.innerHTML = html || '<span style="color:#888">无变量</span>';
+}
+
+// ==================== 控制台 ====================
+function log(type, msg) {
+  const output = document.getElementById('console-output');
+  const cls = type === 'error' ? 'error' : type === 'info' ? 'info' : type === 'warn' ? 'warn' : type === 'bp' ? 'bp' : 'output';
+  output.innerHTML += `<div class="${cls}">${escHtml(msg)}</div>`;
+  output.scrollTop = output.scrollHeight;
+}
+
+function clearConsole() {
+  document.getElementById('console-output').innerHTML = '';
+}
+
+function switchBottomTab(tab) {
+  bottomTab = tab;
+  document.getElementById('tab-console').classList.toggle('active', tab === 'console');
+  document.getElementById('tab-timeline').classList.toggle('active', tab === 'timeline');
+  document.getElementById('console-output').style.display = tab === 'console' ? '' : 'none';
+  document.getElementById('timeline-content').style.display = tab === 'timeline' ? '' : 'none';
+}
+
+// ==================== Git 时间线 ====================
+async function gitCommit() {
+  saveCurrentContent();
+  const msg = await showPrompt('提交消息', '输入提交描述:');
+  if (!msg) return;
+  const snapshot = fileTree.filter(f => f.type === 'file').map(f => ({
+    path: f.name,
+    content: f.id === activeFileId ? document.getElementById('codeTextarea').value : f.content
+  }));
+  const commit = {
+    id: 'commit_' + Date.now(),
+    message: msg,
+    timestamp: new Date().toISOString(),
+    files: snapshot
+  };
+  gitCommits.unshift(commit);
+  await dbPut('commits', commit);
+  renderTimeline();
+  log('info', '已提交: ' + msg + ' (' + snapshot.length + ' 个文件)');
+}
+
+function renderTimeline() {
+  const container = document.getElementById('timeline-content');
+  if (gitCommits.length === 0) {
+    container.innerHTML = '<div style="padding:14px;color:#888;font-size:12px;">暂无提交记录</div>';
+    return;
+  }
+  container.innerHTML = gitCommits.map(c => `
+    <div class="timeline-item" onclick="viewCommit('${c.id}')">
+      <i class="fas fa-code-branch" style="color:#f05032;"></i>
+      <span class="t-msg">${escHtml(c.message)}</span>
+      <span class="t-files">${c.files.length} 个文件</span>
+      <span class="t-time">${fmtTime(c.timestamp)}</span>
+    </div>
+  `).join('');
+}
+
+function viewCommit(id) {
+  const commit = gitCommits.find(c => c.id === id);
+  if (!commit) return;
+  const details = commit.files.map(f => `  ${f.path} (${f.content.length} 字符)`).join('\n');
+  showModal('提交详情', `
+    <div style="color:#888;margin-bottom:8px;">${fmtTime(commit.timestamp)}</div>
+    <div style="font-size:14px;margin-bottom:12px;">${escHtml(commit.message)}</div>
+    <div style="font-family:Consolas,monospace;font-size:12px;background:#1e1e1e;padding:10px;border-radius:4px;">${escHtml(details)}</div>
+  `);
+}
+
+function fmtTime(iso) {
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// ==================== 导出 NEX ====================
+async function exportNEX() {
+  saveCurrentContent();
+  const files = fileTree.filter(f => f.type === 'file');
+  if (files.length === 0) { alert('没有可导出的文件'); return; }
+  const activeFile = fileTree.find(f => f.id === activeFileId);
+  const nexData = {
+    type: 'nex',
+    name: activeFile ? activeFile.name.replace('.cw', '') : 'export',
+    icon: 'fa-code',
+    createdAt: Date.now(),
+    scripts: files.map(f => ({
+      name: f.name,
+      content: f.id === activeFileId ? document.getElementById('codeTextarea').value : f.content
+    })),
+    entry: activeFile ? activeFile.name : files[0].name
+  };
+  const json = JSON.stringify(nexData, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (nexData.name || 'export') + '.nex';
+  a.click();
+  URL.revokeObjectURL(url);
+  log('info', '已导出 NEX: ' + nexData.name + '.nex');
+}
+
+// ==================== 面板切换 ====================
+function toggleSidebar() {
+  sidebarVisible = !sidebarVisible;
+  document.getElementById('sidebar').style.display = sidebarVisible ? '' : 'none';
+}
+
+function toggleOutline() {
+  outlineVisible = !outlineVisible;
+  document.getElementById('outline').style.display = outlineVisible ? '' : 'none';
+}
+
+function toggleBottom() {
+  bottomVisible = !bottomVisible;
+  document.getElementById('bottom-panel').style.display = bottomVisible ? '' : 'none';
+}
+
+// ==================== 撤销/重做 ====================
+function undoEdit() { document.execCommand('undo'); }
+function redoEdit() { document.execCommand('redo'); }
+
+// ==================== 帮助 ====================
+function showHelp() {
+  showModal('CW Script 语法帮助', `
+    <div style="font-size:13px;line-height:1.8;">
+      <div style="color:#569cd6;font-weight:700;">关键字:</div>
+      <div>let, if, else, while, for, function, return, print, true, false, break, continue, null</div>
+      <div style="color:#569cd6;font-weight:700;margin-top:8px;">调试:</div>
+      <div>点击行号左侧设置断点 | 右键设置条件断点</div>
+      <div>F5运行 | F6调试 | F8继续 | F10单步跳过 | F11单步进入 | Shift+F11单步跳出 | F9切换断点</div>
+      <div style="color:#569cd6;font-weight:700;margin-top:8px;">自动补全:</div>
+      <div>输入时自动弹出 | Tab/Enter确认 | 方向键选择 | Esc取消</div>
+      <div style="color:#569cd6;font-weight:700;margin-top:8px;">示例:</div>
+      <pre style="background:#1e1e1e;padding:10px;border-radius:4px;font-size:12px;">let x = 5;
+print("Hello " + x);
+
+if (x > 3) {
+  print("x大于3");
+} else {
+  print("x小于等于3");
+}
+
+for (let i = 0; i < 5; i = i + 1) {
+  print("循环: " + i);
+}
+
+function add(a, b) {
+  return a + b;
+}
+print(add(2, 3));</pre>
+    </div>
+  `);
+}
+
+function showModal(title, bodyHtml) {
+  const container = document.getElementById('modal-container');
+  container.innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <h3>${escHtml(title)}</h3>
+        <div>${bodyHtml}</div>
+        <div class="modal-btns" style="margin-top:12px;">
+          <button class="btn-confirm" onclick="closeModal()">确定</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function closeModal() {
+  document.getElementById('modal-container').innerHTML = '';
+}
+
+function showPrompt(title, placeholder) {
+  return new Promise((resolve) => {
+    const container = document.getElementById('modal-container');
+    container.innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+        <div class="modal">
+          <h3>${escHtml(title)}</h3>
+          <input type="text" id="prompt-input" placeholder="${escHtml(placeholder)}" onkeydown="if(event.key==='Enter'){resolvePrompt(document.getElementById('prompt-input').value)}">
+          <div class="modal-btns">
+            <button class="btn-cancel" onclick="resolvePrompt(null)">取消</button>
+            <button class="btn-confirm" onclick="resolvePrompt(document.getElementById('prompt-input').value)">确定</button>
+          </div>
+        </div>
+      </div>
+    `;
+    window.resolvePrompt = (val) => { closeModal(); resolve(val); };
+    setTimeout(() => {
+      const inp = document.getElementById('prompt-input');
+      if (inp) inp.focus();
+    }, 100);
+  });
+}
+
+// ==================== 键盘快捷键 ====================
+document.addEventListener('keydown', function(e) {
+  if (document.getElementById('modal-container').innerHTML) return;
+  // 自动补全快捷键
+  if (_acState.open) {
+    if (e.key === 'Tab' || e.key === 'Enter') {
+      e.preventDefault();
+      confirmAutocomplete();
+      return;
+    }
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveAcSelection(1); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); moveAcSelection(-1); return; }
+    if (e.key === 'Escape') { e.preventDefault(); hideAutocomplete(); return; }
+  }
+  if (e.ctrlKey || e.metaKey) {
+    switch (e.key.toLowerCase()) {
+      case 's': e.preventDefault(); saveFile(); break;
+      case 'n': e.preventDefault(); newFile(); break;
+      case 'o': e.preventDefault(); openFileDialog(); break;
+      case 'z': e.preventDefault(); undoEdit(); break;
+      case 'y': e.preventDefault(); redoEdit(); break;
+    }
+    return;
+  }
+  // 功能键
+  if (e.key === 'F5') { e.preventDefault(); runCode(); }
+  else if (e.key === 'F6') { e.preventDefault(); debugCode(); }
+  else if (e.key === 'F8') { e.preventDefault(); continueCode(); }
+  else if (e.key === 'F9') { e.preventDefault(); toggleBreakpointAtCursor(); }
+  else if (e.key === 'F10') { e.preventDefault(); stepOver(); }
+  else if (e.key === 'F11' && !e.shiftKey) { e.preventDefault(); stepInto(); }
+  else if (e.key === 'F11' && e.shiftKey) { e.preventDefault(); stepOut(); }
+});
+
+// 编辑器键盘事件
+const _ta = document.getElementById('codeTextarea');
+_ta.addEventListener('keydown', function(e) {
+  // Tab 缩进
+  if (e.key === 'Tab' && !_acState.open) {
+    e.preventDefault();
+    const start = this.selectionStart;
+    const end = this.selectionEnd;
+    this.value = this.value.substring(0, start) + '    ' + this.value.substring(end);
+    this.selectionStart = this.selectionEnd = start + 4;
+    applyHighlight();
+  }
+  // Enter 自动缩进
+  if (e.key === 'Enter' && !_acState.open) {
+    e.preventDefault();
+    const start = this.selectionStart;
+    const lineStart = this.value.lastIndexOf('\n', start - 1) + 1;
+    const curLine = this.value.substring(lineStart, start);
+    const indent = (curLine.match(/^(\s*)/) || ['', ''])[1];
+    let extraIndent = '';
+    if (curLine.trim().endsWith('{')) extraIndent = '    ';
+    this.value = this.value.substring(0, start) + '\n' + indent + extraIndent + this.value.substring(start);
+    this.selectionStart = this.selectionEnd = start + 1 + indent.length + extraIndent.length;
+    applyHighlight();
+  }
+});
+
+_ta.addEventListener('input', function() {
+  applyHighlight();
+  updateLineGutter();
+  // 节流更新大纲
+  if (this._outlineTimeout) clearTimeout(this._outlineTimeout);
+  this._outlineTimeout = setTimeout(() => updateOutline(), 500);
+  // 触发自动补全
+  triggerAutocomplete(this);
+  // 清除错误标记
+  clearErrorLines();
+});
+
+// 滚动同步
+_ta.addEventListener('scroll', function() {
+  const hl = document.getElementById('codeHighlight');
+  const gutter = document.getElementById('lineGutter');
+  if (hl) { hl.scrollTop = this.scrollTop; hl.scrollLeft = this.scrollLeft; }
+  if (gutter) gutter.scrollTop = this.scrollTop;
+  // 滚动时隐藏补全浮层
+  hideAutocomplete();
+});
+
+// 失焦时延迟隐藏补全浮层
+_ta.addEventListener('blur', function() {
+  setTimeout(function() { hideAutocomplete(); }, 180);
+});
+
+// 启动
+init();
+</script>
+</body>
+</html>

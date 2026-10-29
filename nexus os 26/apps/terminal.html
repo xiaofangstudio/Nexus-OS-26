@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus Terminal</title>
+<link rel="stylesheet" href="_polish.css">
+<script src="_bridge.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: #0b0f14;
+    color: #c9d1d9;
+    font-family: "Cascadia Code", "JetBrains Mono", "Fira Code", "SF Mono", Consolas, "Courier New", monospace;
+    font-size: 13.5px;
+    line-height: 1.5;
+    overflow: hidden;
+  }
+  #term {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px;
+    cursor: text;
+    background:
+      radial-gradient(1200px 400px at 100% 0%, rgba(56,139,253,0.06), transparent),
+      radial-gradient(900px 400px at 0% 100%, rgba(163,113,247,0.05), transparent),
+      #0b0f14;
+  }
+  #scroll { flex: 1; overflow-y: auto; overflow-x: auto; scroll-behavior: smooth; }
+  #scroll::-webkit-scrollbar { width: 9px; height: 9px; }
+  #scroll::-webkit-scrollbar-thumb { background: rgba(139,148,158,0.35); border-radius: 6px; }
+  #scroll::-webkit-scrollbar-track { background: transparent; }
+  .line { white-space: pre-wrap; word-break: break-word; min-height: 1.5em; }
+  .dim { color: #6e7681; }
+  .err { color: #f85149; }
+  .ok  { color: #3fb950; }
+  .warn{ color: #d29922; }
+  .cyan{ color: #39c5cf; }
+  .mag { color: #bc8cff; }
+  .yel { color: #e3b341; }
+  .blu { color: #58a6ff; }
+  .b   { font-weight: 700; }
+  .cursor-blink { animation: blink 1s steps(2, start) infinite; }
+  @keyframes blink { to { visibility: hidden; } }
+
+  .input-row { display: flex; align-items: baseline; }
+  .prompt { flex: 0 0 auto; white-space: pre; user-select: none; }
+  #cmd {
+    flex: 1 1 auto;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #c9d1d9;
+    font: inherit;
+    caret-color: #58a6ff;
+    padding: 0;
+    margin-left: 6px;
+  }
+  .hint { color: #6e7681; }
+  a { color: #58a6ff; }
+</style>
+</head>
+<body>
+<div id="term">
+  <div id="scroll"></div>
+  <div class="input-row">
+    <span class="prompt" id="prompt"></span>
+    <input id="cmd" autocomplete="off" autocapitalize="off" spellcheck="false" />
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+
+  var N = window.Nexus;
+  var scrollEl = document.getElementById('scroll');
+  var promptEl = document.getElementById('prompt');
+  var cmdEl = document.getElementById('cmd');
+  var termEl = document.getElementById('term');
+
+  var ctx = null;           // 桥上下文
+  var user = { name: 'user', role: 'guest' };
+  var home = 'C:/Users/user';
+  var cwd = 'C:/Users/user';
+  var history = [];
+  var histIdx = history.length;
+  var tabBaseline = '';
+  var bootT = Date.now();
+  var fsCache = null;       // 本次命令执行时的文件系统快照
+
+  /* —— 诊断兜底：任何脚本错误直接打进终端，不再静默变砖 —— */
+  window.addEventListener('error', function (ev) {
+    try { printErr('<span class="dim">[script-error]</span> ' + esc((ev && ev.message) || '未知错误') + (ev && ev.filename ? ' <span class="dim">(' + esc(ev.filename.split('/').pop()) + ':' + ev.lineno + ')</span>' : '')); } catch (e) {}
+  });
+  window.addEventListener('unhandledrejection', function (ev) {
+    try { printErr('<span class="dim">[async-error]</span> ' + esc((ev.reason && ev.reason.message) || String(ev.reason))); } catch (e) {}
+  });
+
+  /* ---------------- 基础工具 ---------------- */
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  // 输出一段 HTML（已受控转义的部分用 html 参数传入）
+  function print(text, cls) {
+    var d = document.createElement('div');
+    d.className = 'line' + (cls ? ' ' + cls : '');
+    d.innerHTML = text;
+    scrollEl.appendChild(d);
+    scrollToBottom();
+  }
+  function printErr(text) { print(text, 'err'); }
+  function scrollToBottom() { scrollEl.scrollTop = scrollEl.scrollHeight; }
+
+  /* ---------------- 路径 ---------------- */
+  function homeDir() { return 'C:/Users/' + (user.name || 'user'); }
+  function resolve(arg) {
+    if (!arg) return cwd;
+    if (arg === '~') return homeDir();
+    arg = String(arg).replace(/\\/g, '/');
+    var abs;
+    if (/^[A-Za-z]:/.test(arg)) abs = arg;
+    else if (arg.charAt(0) === '/') abs = 'C:' + arg;
+    else abs = cwd + '/' + arg;
+    var drive = abs.charAt(0).toUpperCase();
+    var segs = abs.slice(2).split('/').filter(function (s) { return s !== ''; });
+    var out = [];
+    for (var i = 0; i < segs.length; i++) {
+      var s = segs[i];
+      if (s === '.') continue;
+      if (s === '..') { if (out.length) out.pop(); }
+      else out.push(s);
+    }
+    return drive + ':' + (out.length ? '/' + out.join('/') : '');
+  }
+  function getNode(fs, path) {
+    if (!fs) return null;
+    var segs = path.split('/').filter(function (s) { return s !== ''; });
+    if (!segs.length) return null;
+    var node = fs[segs[0].replace(':', '')];
+    if (!node) return null;
+    for (var i = 1; i < segs.length; i++) {
+      if (!node.children || !node.children[segs[i]]) return null;
+      node = node.children[segs[i]];
+    }
+    return node;
+  }
+  function displayPath(p) {
+    var h = homeDir();
+    if (p === h) return '~';
+    if (p.indexOf(h + '/') === 0) return '~' + p.slice(h.length);
+    if (/^[A-Za-z]:$/.test(p)) return '/';
+    if (/^[A-Za-z]:/.test(p)) return p.slice(2); // C:/Windows -> /Windows
+    return p;
+  }
+
+  /* ---------------- 提示符 ---------------- */
+  function renderPrompt() {
+    var path = displayPath(cwd);
+    var sign = (user.role === 'admin') ? '#' : '$';
+    promptEl.innerHTML =
+      '<span style="color:#3fb950;font-weight:700">' + esc(user.name || 'user') + '@nexus</span>' +
+      '<span style="color:#8b949e">:</span>' +
+      '<span style="color:#58a6ff">' + esc(path) + '</span>' +
+      '<span style="color:' + (user.role === 'admin' ? '#f85149' : '#8b949e') + '">' + sign + '</span>' +
+      ' ';
+  }
+
+  /* ---------------- 文件系统（经桥） ---------------- */
+  function loadFS() { return N.getUserLS('filesystem'); }
+  function saveFS(fs) { return N.setUserLS('filesystem', fs); }
+
+  /* ---------------- 输出：把纯文本按行打印（支持 \n） ---------------- */
+  function out(text, cls) {
+    if (text == null || text === '') return;
+    var lines = String(text).split('\n');
+    for (var i = 0; i < lines.length; i++) print(esc(lines[i]), cls);
+  }
+
+  /* ============================================================
+     命令解析：支持 序列(; &&) / 管道(|) / 重定向(> >>)
+     ============================================================ */
+  function tokenize(stage) {
+    var toks = [];
+    var cur = '';
+    var q = null;
+    for (var i = 0; i < stage.length; i++) {
+      var c = stage.charAt(i);
+      if (q) {
+        if (c === q) { q = null; }
+        else cur += c;
+      } else if (c === '"' || c === "'") {
+        q = c;
+      } else if (c === ' ' || c === '\t') {
+        if (cur) { toks.push(cur); cur = ''; }
+      } else {
+        cur += c;
+      }
+    }
+    if (cur) toks.push(cur);
+    return toks;
+  }
+  function splitTop(str, sep) {
+    var parts = [];
+    var cur = '';
+    var q = null;
+    for (var i = 0; i < str.length; i++) {
+      var c = str.charAt(i);
+      if (q) { cur += c; if (c === q) q = null; }
+      else if (c === '"' || c === "'") { q = c; cur += c; }
+      else if (c === sep) { parts.push(cur); cur = ''; }
+      else cur += c;
+    }
+    parts.push(cur);
+    return parts;
+  }
+
+  /* ---------------- 命令实现 ----------------
+     约定：cmd(argv, stdin) -> Promise<string|undefined>  （返回即 stdout）
+     ============================================================ */
+
+  var CMDS = {};
+  function def(name, fn, meta) { CMDS[name] = { fn: fn, meta: meta || {} }; }
+
+  /* 返回"含 <span> 彩色 HTML"的命令白名单：这些命令已自行 esc 动态内容，输出走 raw；
+     其余命令返回纯文本，统一经 out() 转义，保证 echo/cat 等不受信任内容安全。 */
+  var COLOR_CMDS = { help: 1, man: 1, ls: 1, ll: 1, la: 1, neofetch: 1, tree: 1, matrix: 1, btw: 1, sudo: 1, open: 1, curl: 1, wget: 1 };
+
+  def('help', async function () {
+    var groups = {
+      '文件': 'ls  ll  cd  pwd  cat  head  tail  touch  mkdir  rmdir  rm  cp  mv  tree  find  wc  grep',
+      '系统': 'whoami  id  hostname  uname  date  cal  uptime  free  df  ps  top  env  which  type  neofetch  ver  about',
+      'Shell': 'echo  printf  clear  history  sleep  open  exit  bc  man  help',
+      '趣味': 'cowsay  banner  figlet  fortune  yes  sl  matrix  btw  sudo'
+    };
+    var lines = ['<span class="blu b">Nexus Terminal</span> <span class="dim">— nexus-sh 1.0（贴近 Linux 的体验）</span>', ''];
+    for (var g in groups) lines.push('  <span class="mag">' + g + '</span>  ' + groups[g]);
+    lines.push('');
+    lines.push('  <span class="dim">提示：Tab 补全 · ↑↓ 历史 · Ctrl+L 清屏 · Ctrl+C 中断 · Ctrl+A/E/U/K 行编辑 · 支持 | 管道 与 > >> 重定向</span>');
+    lines.push('  <span class="dim">输入 man <命令> 查看详细用法</span>');
+    return lines.join('\n');
+  });
+
+  def('man', async function (argv) {
+    var name = argv[0];
+    if (!name) return '<span class="err">用法: man <命令></span>';
+    var c = CMDS[name];
+    if (!c || !c.meta.man) return '<span class="err">man: 没有 ' + esc(name) + ' 的手册页</span>';
+    return c.meta.man;
+  });
+
+  def('pwd', async function () { return cwd; });
+
+  def('cd', async function (argv) {
+    var target = argv[0] || '~';
+    var p = resolve(target);
+    var node = getNode(fsCache, p);
+    if (!node) return 'cd: ' + esc(target) + ': 没有那个文件或目录';
+    if (node.type === 'file') return 'cd: ' + esc(target) + ': 不是目录';
+    cwd = p; renderPrompt();
+    return '';
+  });
+
+  function fmtLs(name, data, long, human) {
+    if (!long) {
+      var color = data.type === 'folder' || data.type === 'drive' ? 'blu b' : '';
+      return color ? '<span class="' + color + '">' + esc(name) + (data.type === 'folder' ? '/' : '') + '</span>' : esc(name);
+    }
+    var isDir = (data.type === 'folder' || data.type === 'drive');
+    var perm = isDir ? 'drwxr-xr-x' : '-rw-r--r--';
+    var size = isDir ? 4096 : (data.content ? data.content.length : 0);
+    var sz = human ? humanSize(size) : size;
+    var date = new Date(data.mtime || Date.now()).toISOString().slice(0, 10);
+    return '<span class="dim">' + perm + '</span> ' + esc(String(size).padStart(8, ' ')) +
+      ' <span class="dim">' + date + '</span> ' +
+      (isDir ? '<span class="blu b">' + esc(name) + '/</span>' : esc(name));
+  }
+  function humanSize(n) {
+    if (n < 1024) return n + 'B';
+    if (n < 1048576) return (n / 1024).toFixed(1) + 'K';
+    if (n < 1073741824) return (n / 1048576).toFixed(1) + 'M';
+    return (n / 1073741824).toFixed(1) + 'G';
+  }
+  def('ls', async function (argv) {
+    var long = false, all = false, human = false;
+    var paths = [];
+    argv.forEach(function (a) {
+      if (a === '-l' || a === '-la' || a === '-al') { long = true; if (a !== '-l') all = true; }
+      else if (a === '-a') all = true;
+      else if (a === '-h') human = true;
+      else if (a === '-lh' || a === '-hl') { long = true; human = true; }
+      else if (a[0] === '-') { /* 忽略未知选项 */ }
+      else paths.push(a);
+    });
+    var target = paths.length ? resolve(paths[0]) : cwd;
+    var node = getNode(fsCache, target);
+    if (!node) return 'ls: 无法访问 \'' + esc(paths[0] || target) + '\': 没有那个文件或目录';
+    if (node.type === 'file') return esc(paths[0]);
+    var names = Object.keys(node.children || {}).filter(function (n) { return all || n.charAt(0) !== '.'; });
+    if (!names.length) return long ? 'total 0' : '';
+    if (long) {
+      var rows = ['total ' + names.length];
+      names.forEach(function (n) { rows.push(fmtLs(n, node.children[n], true, human)); });
+      return rows.join('\n');
+    }
+    // 网格排布
+    return names.map(function (n) {
+      var isDir = (node.children[n].type === 'folder' || node.children[n].type === 'drive');
+      return isDir ? '<span class="blu b">' + esc(n) + '/</span>' : esc(n);
+    }).join('   ');
+  });
+  def('ll', async function (a) { return CMDS.ls.fn(['-l'].concat(a || []), ''); });
+  def('la', async function (a) { return CMDS.ls.fn(['-a'].concat(a || []), ''); });
+
+  def('cat', async function (argv, stdin) {
+    if (!argv.length) return stdin || '';
+    var res = [];
+    for (var i = 0; i < argv.length; i++) {
+      var node = getNode(fsCache, resolve(argv[i]));
+      if (!node) return 'cat: ' + esc(argv[i]) + ': 没有那个文件或目录';
+      if (node.type === 'folder') return 'cat: ' + esc(argv[i]) + ': 是一个目录';
+      res.push(node.content == null ? '' : node.content);
+    }
+    return res.join('\n');
+  }, { man: '<span class="b">cat</span> <span class="dim">[文件...]</span> — 显示文件内容；无参数时读取管道输入' });
+
+  def('head', async function (argv, stdin) {
+    var n = 10, f = null;
+    if (argv[0] === '-n') { n = parseInt(argv[1], 10) || 10; f = argv[2]; }
+    else f = argv[0];
+    var text = f ? (getNode(fsCache, resolve(f)) || {}).content : stdin;
+    if (text == null) return 'head: 无法读取输入';
+    return String(text).split('\n').slice(0, n).join('\n');
+  });
+  def('tail', async function (argv, stdin) {
+    var n = 10, f = null;
+    if (argv[0] === '-n') { n = parseInt(argv[1], 10) || 10; f = argv[2]; }
+    else f = argv[0];
+    var text = f ? (getNode(fsCache, resolve(f)) || {}).content : stdin;
+    if (text == null) return 'tail: 无法读取输入';
+    var arr = String(text).split('\n');
+    return arr.slice(Math.max(0, arr.length - n)).join('\n');
+  });
+  def('wc', async function (argv, stdin) {
+    var text = argv[0] ? (getNode(fsCache, resolve(argv[0])) || {}).content : stdin;
+    if (text == null) return 'wc: 无法读取输入';
+    var lines = text === '' ? 0 : String(text).split('\n').length;
+    var words = String(text).split(/\s+/).filter(Boolean).length;
+    var chars = String(text).length;
+    return '  ' + lines + '  ' + words + '  ' + chars + (argv[0] ? ' ' + esc(argv[0]) : '');
+  });
+  def('grep', async function (argv, stdin) {
+    var pat = null, files = [];
+    for (var i = 0; i < argv.length; i++) {
+      if (argv[i][0] === '-') continue;
+      if (pat == null) pat = argv[i]; else files.push(argv[i]);
+    }
+    if (pat == null) return 'grep: 缺少匹配模式';
+    var re = new RegExp(pat);
+    var text;
+    if (files.length) text = (getNode(fsCache, resolve(files[0])) || {}).content || '';
+    else text = stdin || '';
+    return String(text).split('\n').filter(function (l) { return re.test(l); }).join('\n');
+  });
+  def('find', async function (argv) {
+    var start = cwd, name = null;
+    argv.forEach(function (a) { if (a === '.') return; if (a[0] === '-') { if (a === '-name' || a === '-iname') { /* next */ } } else if (!/^-/.test(a)) { if (a === '.') return; start = resolve(a); } });
+    // 简化：find [路径] -name 关键字
+    var kw = null, pathArg = null;
+    for (var i = 0; i < argv.length; i++) {
+      if (argv[i] === '-name') { kw = argv[i + 1]; i++; }
+      else pathArg = argv[i];
+    }
+    var base = pathArg ? resolve(pathArg) : cwd;
+    var res = [];
+    (function walk(path, node) {
+      if (!node) return;
+      var kids = node.children || {};
+      Object.keys(kids).forEach(function (n) {
+        var child = kids[n];
+        var full = path + '/' + n;
+        var isDir = (child.type === 'folder' || child.type === 'drive');
+        if (!kw || n.indexOf(kw) !== -1) res.push(full + (isDir ? '/' : ''));
+        if (isDir) walk(full, child);
+      });
+    })(base, getNode(fsCache, base));
+    return res.join('\n');
+  });
+  def('tree', async function (argv) {
+    var base = argv[0] ? resolve(argv[0]) : cwd;
+    var root = getNode(fsCache, base);
+    if (!root) return 'tree: ' + esc(argv[0]) + ': 没有那个目录';
+    var lines = ['<span class="blu">' + esc(displayPath(base)) + '</span>'];
+    (function walk(node, prefix) {
+      var kids = node.children || {};
+      var names = Object.keys(kids);
+      names.forEach(function (n, idx) {
+        var last = idx === names.length - 1;
+        var child = kids[n];
+        var isDir = (child.type === 'folder' || child.type === 'drive');
+        lines.push(prefix + (last ? '└── ' : '├── ') +
+          (isDir ? '<span class="blu b">' + esc(n) + '/</span>' : esc(n)));
+        if (isDir) walk(child, prefix + (last ? '    ' : '│   '));
+      });
+    })(root, '');
+    var dirs = lines.length;
+    return lines.join('\n');
+  });
+
+  def('echo', async function (argv, stdin) {
+    var text = argv.join(' ');
+    return text.replace(/\$(\w+)/g, '');
+  });
+  def('printf', async function (argv) {
+    return argv.join(' ').replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+  });
+
+  function parentAndName(fs, path) {
+    var idx = path.lastIndexOf('/');
+    var parentPath = idx <= 2 ? path.slice(0, 2) : path.slice(0, idx); // 'C:' 或 'C:/xxx'
+    var name = idx <= 2 ? path.slice(3) : path.slice(idx + 1);
+    return { parent: getNode(fs, parentPath), parentPath: parentPath, name: name };
+  }
+  def('touch', async function (argv) {
+    if (!argv[0]) return 'touch: 缺少文件操作数';
+    var fs = fsCache;
+    var p = resolve(argv[0]);
+    var pn = parentAndName(fs, p);
+    if (!pn.parent || !pn.parent.children) return 'touch: 无法创建 \'' + esc(argv[0]) + '\': 目录不存在';
+    if (pn.parent.children[pn.name]) { pn.parent.children[pn.name].mtime = Date.now(); }
+    else pn.parent.children[pn.name] = { type: 'file', content: '', mtime: Date.now() };
+    await saveFS(fs);
+    return '';
+  });
+  def('mkdir', async function (argv) {
+    argv = argv.filter(function (a) { return a[0] !== '-'; });
+    if (!argv[0]) return 'mkdir: 缺少操作数';
+    var fs = fsCache;
+    var p = resolve(argv[0]);
+    var pn = parentAndName(fs, p);
+    if (!pn.parent || !pn.parent.children) return 'mkdir: 无法创建目录 \'' + esc(argv[0]) + '\': 上级不存在';
+    if (pn.parent.children[pn.name]) return 'mkdir: 无法创建目录 \'' + esc(argv[0]) + '\': 文件已存在';
+    pn.parent.children[pn.name] = { type: 'folder', children: {}, mtime: Date.now() };
+    await saveFS(fs);
+    return '';
+  });
+  def('rmdir', async function (argv) {
+    if (!argv[0]) return 'rmdir: 缺少操作数';
+    var fs = fsCache;
+    var p = resolve(argv[0]);
+    var pn = parentAndName(fs, p);
+    var node = pn.parent && pn.parent.children && pn.parent.children[pn.name];
+    if (!node) return 'rmdir: 失败: \'' + esc(argv[0]) + '\': 没有那个文件或目录';
+    if (node.type !== 'folder') return 'rmdir: 失败: \'' + esc(argv[0]) + '\': 不是目录';
+    if (node.children && Object.keys(node.children).length) return 'rmdir: 失败: \'' + esc(argv[0]) + '\': 目录非空';
+    delete pn.parent.children[pn.name];
+    await saveFS(fs);
+    return '';
+  });
+  def('rm', async function (argv) {
+    var rec = false, targets = [];
+    argv.forEach(function (a) { if (a === '-r' || a === '-rf' || a === '-fr' || a === '-R') rec = true; else if (a[0] !== '-') targets.push(a); });
+    if (!targets.length) return 'rm: 缺少操作数';
+    var fs = fsCache;
+    for (var i = 0; i < targets.length; i++) {
+      var p = resolve(targets[i]);
+      var pn = parentAndName(fs, p);
+      var node = pn.parent && pn.parent.children && pn.parent.children[pn.name];
+      if (!node) return 'rm: 无法删除 \'' + esc(targets[i]) + '\': 没有那个文件或目录';
+      if (node.type === 'folder' && !rec) return 'rm: 无法删除 \'' + esc(targets[i]) + '\': 是一个目录（用 -r）';
+      // 移入回收站（与系统一致）
+      var trash = await N.getUserLS('trash') || [];
+      trash.push({ name: pn.name, type: node.type, content: node.content, children: node.children, originalPath: pn.parentPath, deletedAt: Date.now() });
+      await N.setUserLS('trash', trash);
+      delete pn.parent.children[pn.name];
+    }
+    await saveFS(fs);
+    return '';
+  });
+  def('cp', async function (argv) {
+    argv = argv.filter(function (a) { return a[0] !== '-'; });
+    if (argv.length < 2) return 'cp: 用法: cp <源> <目标>';
+    var fs = fsCache;
+    var src = getNode(fs, resolve(argv[0]));
+    if (!src) return 'cp: 无法访问 \'' + esc(argv[0]) + '\': 没有那个文件或目录';
+    var dp = resolve(argv[1]);
+    var pn = parentAndName(fs, dp);
+    if (!pn.parent || !pn.parent.children) return 'cp: 目标目录无效';
+    pn.parent.children[pn.name] = JSON.parse(JSON.stringify(src));
+    await saveFS(fs);
+    return '';
+  });
+  def('mv', async function (argv) {
+    argv = argv.filter(function (a) { return a[0] !== '-'; });
+    if (argv.length < 2) return 'mv: 用法: mv <源> <目标>';
+    var fs = fsCache;
+    var sp = resolve(argv[0]);
+    var spn = parentAndName(fs, sp);
+    var node = spn.parent && spn.parent.children && spn.parent.children[spn.name];
+    if (!node) return 'mv: 无法访问 \'' + esc(argv[0]) + '\': 没有那个文件或目录';
+    var dp = resolve(argv[1]);
+    var dpn = parentAndName(fs, dp);
+    if (!dpn.parent || !dpn.parent.children) return 'mv: 目标目录无效';
+    dpn.parent.children[dpn.name] = node;
+    delete spn.parent.children[spn.name];
+    await saveFS(fs);
+    return '';
+  });
+
+  def('clear', async function () { scrollEl.innerHTML = ''; return undefined; });
+  def('cls', async function () { scrollEl.innerHTML = ''; return undefined; });
+  def('history', async function () {
+    return history.map(function (h, i) { return '  ' + String(i + 1).padStart(4, ' ') + '  ' + h; }).join('\n');
+  });
+  def('whoami', async function () { return user.name || 'guest'; });
+  def('id', async function () {
+    return 'uid=' + (user.role === 'admin' ? 1000 : 1001) + '(' + (user.name || 'user') + ') gid=' + (user.role === 'admin' ? 1000 : 1001) + '(' + (user.role === 'admin' ? 'admin' : 'user') + ')';
+  });
+  def('hostname', async function () { return 'nexus'; });
+  def('uname', async function (argv) {
+    if (argv.indexOf('-a') !== -1) return 'Nexus nexus 5.15.0-nexus #1 SMP x86_64 GNU/Nexus OS 26';
+    return 'Nexus';
+  });
+  def('date', async function () { return new Date().toLocaleString('zh-CN'); });
+  def('uptime', async function () {
+    var s = Math.floor((Date.now() - bootT) / 1000);
+    var m = Math.floor(s / 60), h = Math.floor(m / 60);
+    return ' 现在 ' + new Date().toLocaleTimeString('zh-CN') + '  已运行 ' + h + ':' + String(m % 60).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0') + '  1 user  负载: 0.08, 0.12, 0.10';
+  });
+  def('env', async function () {
+    return ['USER=' + (user.name || 'user'), 'HOME=' + homeDir(), 'SHELL=/bin/nexus-sh', 'TERM=xterm-256color', 'PATH=/usr/local/bin:/usr/bin:/bin', 'LANG=zh_CN.UTF-8'].join('\n');
+  });
+  def('which', async function (argv) {
+    if (!argv[0]) return '';
+    return CMDS[argv[0]] ? '/usr/bin/' + argv[0] : '';
+  });
+  def('type', async function (argv) {
+    if (!argv[0]) return '';
+    return CMDS[argv[0]] ? argv[0] + ' 是 nexus-sh 内建命令' : argv[0] + ': 未找到';
+  });
+  def('ver', async function () { return 'Nexus OS 26 1.0 (nexus-sh 1.0)'; });
+  def('about', async function () { return 'Nexus OS 26 —— 小方工作室出品的网页伪系统。\n本终端为贴近 Linux 体验的 nexus-sh。'; });
+  def('free', async function () {
+    return '               total        used        free      shared     buff/cache   available\nMem:            8192        2048        4096         128        2048        6144\nSwap:           2048           0        2048';
+  });
+  def('df', async function () {
+    return '文件系统      容量  已用  可用 已用% 挂载点\nC:           1000G   42G   958G    5% /\nD:           2000G  128G  1872G    7% /data';
+  });
+  def('ps', async function () {
+    return '  PID TTY          TIME CMD\n    1 ?        00:00:01 nexusd\n  102 ?        00:00:00 nexus-sh\n  ' + (Math.floor(Math.random() * 900) + 100) + ' ?        00:00:00 orb-renderer';
+  });
+  def('top', async function () {
+    return 'top - ' + new Date().toLocaleTimeString('zh-CN') + '  1 user,  load average: 0.08, 0.12, 0.10\n%Cpu(s):  3.2 us,  1.1 sy,  0.0 ni, 95.5 id\nMiB Mem : 8192 total, 6144 free\n\n  PID USER      %CPU  COMMAND\n    1 user       2.1  nexusd\n  102 user       1.4  nexus-sh\n  （真实系统监控见「活动监视器」应用）';
+  });
+  def('sleep', async function (argv) {
+    var n = parseFloat(argv[0]) || 1;
+    await new Promise(function (r) { setTimeout(r, Math.min(n, 5) * 1000); });
+    return '';
+  });
+  def('bc', async function (argv, stdin) {
+    var expr = argv.join(' ') || stdin || '';
+    if (!expr.trim()) return '';
+    try {
+      if (!/^[-+*/%(). \d]+$/.test(expr)) return 'bc: 表达式非法';
+      // eslint-disable-next-line no-new-func
+      var val = Function('"use strict";return(' + expr + ')')();
+      return String(val);
+    } catch (e) { return 'bc: 语法错误'; }
+  });
+  def('calc', async function (a) { return CMDS.bc.fn(a, ''); });
+  def('neofetch', async function () {
+    var logo = [
+      '    _   __  __          __',
+      '   / | / /_ _/ /_  ___  / /',
+      '  /  |/ / / / __ \\/ _ \\/ /',
+      ' / /|  / / / / / /  __/ /',
+      '/_/ |_/_/ /_/ /_/\\___/_/'
+    ];
+    var s = Math.floor((Date.now() - bootT) / 1000);
+    var settings = await N.getSettings();
+    var info = [
+      user.name + '@nexus',
+      '----------------',
+      'OS: Nexus OS 26 1.0 x86_64',
+      'Kernel: 5.15.0-nexus',
+      'Uptime: ' + s + 's',
+      'Shell: nexus-sh 1.0',
+      'DE: Nexus Desktop',
+      'Theme: ' + (settings.theme || '夏日海滩'),
+      'Terminal: Nexus Terminal',
+      'CPU: Virtual CPU (8) @ 2.40GHz',
+      'Memory: 2048MiB / 8192MiB'
+    ];
+    var rows = [];
+    var max = Math.max(logo.length, info.length);
+    for (var i = 0; i < max; i++) {
+      var l = (logo[i] || '').padEnd(28, ' ');
+      var inf = info[i] || '';
+      var col = i === 0 ? 'blu b' : (i >= 2 ? '' : 'dim');
+      rows.push('<span class="blu">' + esc(l) + '</span>' + (col ? '<span class="' + col + '">' + esc(inf) + '</span>' : esc(inf)));
+    }
+    return rows.join('\n');
+  });
+  def('cowsay', async function (argv) {
+    var msg = argv.join(' ') || 'Moo! 来自 Nexus 终端的问候';
+    var top = ' ' + '_'.repeat(msg.length + 2);
+    var bot = ' ' + '-'.repeat(msg.length + 2);
+    return top + '\n< ' + msg + ' >\n' + bot + '\n        \\   ^__^\n         \\  (oo)\\_______\n            (__)\\       )\\/\\\n                ||----w |\n                ||     ||';
+  });
+  def('banner', async function (argv) {
+    return ' _   __  __          __\n/ | / /_ _/ /_  ___  / /\n/  |/ / / / __ \\/ _ \\/ /\n/ /|  / / / / / /  __/ /\n/_/ |_/_/ /_/ /_/\\___/_/';
+  });
+  def('figlet', async function (a) { return CMDS.banner.fn(a, ''); });
+  def('fortune', async function () {
+    var f = ['愿你写的代码永无 bug。', '今天适合摸鱼，不宜重构。', '世界上有 10 种人：懂二进制的和不懂的。', 'Talk is cheap. Show me the code.', '小方工作室出品，必属精品。'];
+    return f[Math.floor(Math.random() * f.length)];
+  });
+  def('yes', async function (argv) {
+    var w = argv.join(' ') || 'y';
+    var lines = [];
+    for (var i = 0; i < 12; i++) lines.push(w);
+    return lines.join('\n') + '\n（为防止刷屏，仅输出 12 行）';
+  });
+  def('sl', async function () {
+    return '      ====        ________                ___________\n  _D _|  |_______/        \\__I_I_____===__|_________|\n   |(_)---  |   H\\________/ |   |        =|___ ___|   \n   /     |  |   H  |  |     |   |         ||_| |_||   \n   |      |  |   H  |__--------------------| [___] |   \n   | ________|___H__/__|_____/[][]~\\_______|       |   \n   |/ |   |-----------I_____I [][] []  D   |=======|__ ';
+  });
+  def('matrix', async function () {
+    var chars = '01';
+    var rows = [];
+    for (var i = 0; i < 8; i++) {
+      var line = '';
+      for (var j = 0; j < 40; j++) line += chars[Math.floor(Math.random() * chars.length)];
+      rows.push('<span class="ok">' + line + '</span>');
+    }
+    return rows.join('\n') + '\n<span class="dim">（已接入矩阵……开玩笑的，干活吧）</span>';
+  });
+  def('btw', async function () { return '<span class="cyan b">顺便说一句，我用 Nexus OS 26。 Arch btw.</span>'; });
+  def('sudo', async function (argv) {
+    var who = user.name || 'user';
+    if (argv[0] === 'rm' && argv.indexOf('-rf') !== -1 && (argv.indexOf('/') !== -1 || argv.indexOf('C:') !== -1)) {
+      return '<span class="err">[sudo] ' + who + ' 的密码：\n抱歉，用户 ' + who + ' 被禁止执行 "/bin/rm -rf ' + esc(argv.slice(2).join(' ')) + '" 作为 root。</span>';
+    }
+    return '<span class="err">' + who + ' 不在 sudoers 文件中。此事已被上报。</span>';
+  });
+  def('open', async function (argv) {
+    var alias = { settings: 'settings', files: 'files', browser: 'browser', music: 'music', calc: 'calculator', calculator: 'calculator', store: 'appstore', appstore: 'appstore', terminal: 'terminal', weather: 'weather', album: 'album', clock: 'worldclock' };
+    var id = alias[argv[0]] || argv[0];
+    if (!id) return 'open: 用法: open <应用名>';
+    await N.openApp(id);
+    return '正在打开 ' + esc(id) + ' …';
+  });
+  def('exit', async function () { await N.closeWindow(); return undefined; });
+  def('quit', async function () { await N.closeWindow(); return undefined; });
+  def('reboot', async function () { await N.call('osAction', 'reboot'); return '系统正在重启…'; });
+  def('shutdown', async function () { await N.call('osAction', 'shutdown'); return '系统正在关机…'; });
+  def('curl', async function (argv) {
+    return '<span class="dim">curl: 模拟请求 ' + esc(argv.join(' ')) + '\n（网页版为安全沙盒环境，真实网络请求请用「浏览器」应用）</span>';
+  });
+  def('wget', async function (a) { return CMDS.curl.fn(a, ''); });
+
+  /* ============================================================
+     执行引擎
+     ============================================================ */
+  async function runPipeline(line) {
+    // 1) 序列：; 与 &&
+    var seqParts = splitTop(line, ';');
+    var lastCode = 0;
+    for (var si = 0; si < seqParts.length; si++) {
+      var seg = seqParts[si];
+      // && 链
+      var chain = splitDoubleAmp(seg);
+      for (var ci = 0; ci < chain.length; ci++) {
+        if (lastCode !== 0 && ci > 0 && chain[ci]._and) { continue; }
+        lastCode = await runSimple(chain[ci].cmd);
+      }
+    }
+    return lastCode;
+  }
+
+  function splitDoubleAmp(str) {
+    var res = [];
+    var cur = '', q = null, i = 0;
+    while (i < str.length) {
+      var c = str.charAt(i);
+      if (q) { cur += c; if (c === q) q = null; i++; continue; }
+      if (c === '"' || c === "'") { q = c; cur += c; i++; continue; }
+      if (c === '&' && str.charAt(i + 1) === '&') {
+        res.push({ cmd: cur, _and: true }); cur = ''; i += 2; continue;
+      }
+      cur += c; i++;
+    }
+    res.push({ cmd: cur, _and: false });
+    return res;
+  }
+
+  async function runSimple(stageText) {
+    stageText = stageText.trim();
+    if (!stageText) return 0;
+    // 重定向
+    var redirect = null;
+    var m = stageText.match(/\s(>>|>)\s*([^\s]+)\s*$/);
+    if (m) { redirect = { append: m[1] === '>>', file: m[2] }; stageText = stageText.slice(0, m.index).trim(); }
+
+    // 管道
+    var stages = splitTop(stageText, '|').map(function (s) { return s.trim(); }).filter(function (s) { return s; });
+    var stdin = '';
+    var stdout = '';
+    for (var i = 0; i < stages.length; i++) {
+      var argv = tokenize(stages[i]);
+      if (!argv.length) continue;
+      var name = argv[0];
+      var args = argv.slice(1);
+      var cmd = CMDS[name];
+      if (!cmd) {
+        printErr(esc(name) + ': 命令未找到（输入 help 查看可用命令）');
+        return 127;
+      }
+      try {
+        var r = await cmd.fn(args, stdin);
+        stdout = (r == null) ? '' : String(r);
+      } catch (e) {
+        printErr(esc(name) + ': ' + esc(e.message || e));
+        return 1;
+      }
+      stdin = stdout;
+    }
+    if (redirect) {
+      var fs = fsCache;
+      var p = resolve(redirect.file);
+      var pn = parentAndName(fs, p);
+      if (!pn.parent || !pn.parent.children) { printErr('无法写入 ' + esc(redirect.file) + ': 目录不存在'); return 1; }
+      var prev = pn.parent.children[pn.name];
+      var content = prev && prev.content ? prev.content : '';
+      pn.parent.children[pn.name] = { type: 'file', content: redirect.append ? (content + (content ? '\n' : '') + stripTags(stdout)) : stripTags(stdout), mtime: Date.now() };
+      await saveFS(fs);
+    } else if (stdout) {
+      if (COLOR_CMDS[name]) print(stdout); else out(stdout);
+    }
+    return 0;
+  }
+
+  function stripTags(html) {
+    var d = document.createElement('div');
+    d.innerHTML = html;
+    return d.textContent || '';
+  }
+
+  /* ============================================================
+     输入交互
+     ============================================================ */
+  function echoCommand(line) {
+    var path = displayPath(cwd);
+    var sign = (user.role === 'admin') ? '#' : '$';
+    var echoEl = document.createElement('div');
+    echoEl.className = 'line';
+    echoEl.innerHTML =
+      '<span style="color:#3fb950;font-weight:700">' + esc(user.name || 'user') + '@nexus</span>' +
+      '<span style="color:#8b949e">:</span>' +
+      '<span style="color:#58a6ff">' + esc(path) + '</span>' +
+      '<span style="color:' + (user.role === 'admin' ? '#f85149' : '#8b949e') + '">' + sign + '</span> ' +
+      esc(line);
+    scrollEl.appendChild(echoEl);
+  }
+
+  cmdEl.addEventListener('keydown', async function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      var line = cmdEl.value;
+      cmdEl.value = '';
+      echoCommand(line);
+      if (line.trim()) {
+        history.push(line);
+        histIdx = history.length;
+        // 加固：FS 读取最多等 4 秒，超时/失败用缓存继续，绝不让命令静默无响应
+        try {
+          var fsTry = await Promise.race([
+            loadFS(),
+            new Promise(function (res) { setTimeout(function () { res(null); }, 4000); })
+          ]);
+          if (fsTry) fsCache = fsTry;
+        } catch (e) {
+          print('<span class="err">[err] 文件系统读取失败：' + esc((e && e.message) || e) + '，本次使用缓存继续</span>');
+        }
+        if (!fsCache) { fsCache = {}; }
+        await runPipeline(line);
+      }
+      scrollToBottom();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (histIdx > 0) { histIdx--; cmdEl.value = history[histIdx] || ''; }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (histIdx < history.length - 1) { histIdx++; cmdEl.value = history[histIdx]; }
+      else { histIdx = history.length; cmdEl.value = ''; }
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      complete();
+    } else if (e.ctrlKey && (e.key === 'l' || e.key === 'L')) {
+      e.preventDefault(); scrollEl.innerHTML = '';
+    } else if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
+      // 中断当前行
+      echoCommand(cmdEl.value + '^C');
+      cmdEl.value = '';
+    } else if (e.ctrlKey && (e.key === 'a' || e.key === 'A')) {
+      e.preventDefault(); setTimeout(function () { cmdEl.selectionStart = cmdEl.selectionEnd = 0; }, 0);
+    } else if (e.ctrlKey && (e.key === 'e' || e.key === 'E')) {
+      e.preventDefault(); setTimeout(function () { cmdEl.selectionStart = cmdEl.selectionEnd = cmdEl.value.length; }, 0);
+    } else if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
+      e.preventDefault(); cmdEl.value = '';
+    } else if (e.ctrlKey && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault(); cmdEl.value = cmdEl.value.slice(0, cmdEl.selectionStart || 0);
+    }
+  });
+
+  function complete() {
+    var val = cmdEl.value;
+    var toks = val.split(/\s+/);
+    var last = toks[toks.length - 1] || '';
+    var cands = [];
+    if (toks.length === 1) {
+      cands = Object.keys(CMDS).filter(function (c) { return c.indexOf(last) === 0; });
+      if (cands.length === 1) cmdEl.value = cands[0] + ' ';
+      else if (cands.length > 1) { print('<span class="dim">' + esc(cands.join('   ')) + '</span>'); }
+      return;
+    }
+    // 补全路径
+    var dirPart = last.indexOf('/') !== -1 ? last.slice(0, last.lastIndexOf('/') + 1) : '';
+    var prefix = last.slice(dirPart.length);
+    var dirNode = getNode(fsCache, resolve(dirPart || '.'));
+    if (dirNode && dirNode.children) {
+      cands = Object.keys(dirNode.children).filter(function (n) { return n.indexOf(prefix) === 0; });
+      if (cands.length === 1) {
+        var isDir = (dirNode.children[cands[0]].type === 'folder' || dirNode.children[cands[0]].type === 'drive');
+        cmdEl.value = toks.slice(0, -1).join(' ') + (toks.length > 1 ? ' ' : '') + dirPart + cands[0] + (isDir ? '/' : ' ');
+      } else if (cands.length > 1) {
+        print('<span class="dim">' + esc(cands.map(function (c) { var nd = dirNode.children[c]; return (nd.type === 'folder' || nd.type === 'drive') ? c + '/' : c; }).join('   ')) + '</span>');
+      }
+    }
+  }
+
+  // 点击终端任意处聚焦输入（含 pointerdown 抢先聚焦 + 窗口获得焦点时跟随）
+  termEl.addEventListener('click', function () { cmdEl.focus(); });
+  termEl.addEventListener('pointerdown', function () { setTimeout(function () { cmdEl.focus(); }, 0); });
+  window.addEventListener('focus', function () { cmdEl.focus(); });
+
+  /* ============================================================
+     启动
+     ============================================================ */
+  function banner() {
+    var now = new Date();
+    var isRoot = (user.role === 'admin');
+    print('<span class="blu b">    _   __  __          __</span>');
+    print('<span class="blu b">   / | / /_ _/ /_  ___  / /</span>');
+    print('<span class="blu b">  /  |/ / / / __ \\/ _ \\/ /</span>');
+    print('<span class="blu b"> / /|  / / / / / /  __/ /</span>');
+    print('<span class="blu b">/_/ |_/_/ /_/ /_/\\___/_/</span>');
+    print('');
+    print('  <span class="ok b">Nexus OS 26</span> <span class="dim">v26.1.0 · 内核 nexus-kernel 26.1 · Shell nexus-sh 1.0</span>');
+    print('  <span class="dim">当前用户：</span><span class="yel b">' + esc(user.name || 'user') + '</span> <span class="dim">（' + (isRoot ? '管理员 administrator' : '标准用户 standard') + '）</span> <span class="dim">· 主机名：</span>nexus-os-26');
+    print('  <span class="dim">本次会话开始于：</span>' + esc(now.toLocaleString()));
+    print('  <span class="dim">输入</span> <span class="yel">help</span> <span class="dim">查看全部命令 ·</span> <span class="yel">man &lt;命令&gt;</span> <span class="dim">看用法 ·</span> <span class="yel">neofetch</span> <span class="dim">看系统信息</span>');
+    print('');
+  }
+
+  /* —— 启动加固：横幅立即出现，文件系统后台加载，任何桥故障都不再让 shell 静默变砖 —— */
+  var booted = false;
+  function boot() {
+    if (booted) return;
+    booted = true;
+    renderPrompt();
+    banner();
+    setTimeout(function () { cmdEl.focus(); }, 0);
+    var timeout = setTimeout(function () {
+      print('<span class="warn">[warn] 文件系统桥 4 秒未响应，基础命令仍可用；重启系统或检查用户会话后可恢复</span>');
+      scrollToBottom();
+    }, 4000);
+    loadFS().then(function (fs) {
+      clearTimeout(timeout);
+      fsCache = fs || {};
+    }).catch(function (e) {
+      clearTimeout(timeout);
+      fsCache = {};
+      print('<span class="err">[err] 文件系统加载失败：' + esc((e && e.message) || e) + '</span>');
+      scrollToBottom();
+    });
+  }
+
+  N.on('ready', function (c) {
+    ctx = c;
+    if (c && c.user) { user = c.user; }
+    home = homeDir();
+    cwd = home;
+    renderPrompt();
+    boot();
+    setTimeout(function () { cmdEl.focus(); }, 0);
+  });
+
+  // 兜底：桥上下文若已就绪（脚本顺序）也启动
+  (function bootFallback() {
+    var c = N.context && N.context();
+    if (c) {
+      ctx = c;
+      if (c.user) user = c.user;
+      home = homeDir(); cwd = home;
+      renderPrompt();
+      boot();
+      setTimeout(function () { cmdEl.focus(); }, 0);
+    } else {
+      setTimeout(bootFallback, 50);
+    }
+  })();
+
+})();
+</script>
+</body>
+</html>
