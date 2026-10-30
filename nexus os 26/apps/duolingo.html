@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>多邻学</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<style>
+  /* ============================================================
+     多邻学 · 500×600
+     原来：10 个写死的单词 + 一张翻面卡 + 下一个，翻完就没了。
+     现在：一轮 8 个词 → 先认（翻面对照例句）→ 再考（四选一）
+          → 结算（正确率 + 今日进度 + 连续天数），进度落盘。
+     ============================================================ */
+  html, body { height: 100%; margin: 0; font-family: var(--font-sans); }
+  body { background: transparent; overflow: hidden; }
+  #app { height: 100%; }
+
+  .dl {
+    --ink: #14202E;
+    --ink-2: rgba(20, 32, 46, 0.56);
+    --ink-3: rgba(20, 32, 46, 0.38);
+    --line: rgba(20, 32, 46, 0.08);
+    --card: rgba(255, 255, 255, 0.78);
+    --ok: #35B53F;
+    --bad: #E5484D;
+    --accent: #58CC02;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    color: var(--ink);
+  }
+  body.dark-mode .dl {
+    --ink: #EFF3FA;
+    --ink-2: rgba(232, 238, 248, 0.6);
+    --ink-3: rgba(232, 238, 248, 0.38);
+    --line: rgba(255, 255, 255, 0.09);
+    --card: rgba(255, 255, 255, 0.06);
+    --ok: #4BD35A;
+    --bad: #FF6B6B;
+  }
+
+  /* ── 顶栏 ─────────────────────────────────────────────── */
+  .dl-head {
+    height: 44px; flex-shrink: 0;
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .dl-x {
+    width: 26px; height: 26px;
+    border: none; border-radius: 8px;
+    background: transparent; color: var(--ink-3);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background-color 0.15s var(--ease-out-quart), color 0.15s var(--ease-out-quart);
+  }
+  .dl-x:hover { background: rgba(20, 32, 46, 0.06); color: var(--ink); }
+  body.dark-mode .dl-x:hover { background: rgba(255, 255, 255, 0.1); }
+  .dl-x svg { width: 13px; height: 13px; }
+  .dl-bar {
+    flex: 1; height: 6px; border-radius: 99px;
+    background: rgba(20, 32, 46, 0.08);
+    overflow: hidden;
+  }
+  body.dark-mode .dl-bar { background: rgba(255, 255, 255, 0.12); }
+  .dl-bar i {
+    display: block; height: 100%;
+    width: 0%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #7BE04C, #35B53F);
+    transition: width 0.35s var(--ease-out-quart);
+  }
+  .dl-count {
+    font-size: 11px; font-weight: 700; color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+    min-width: 34px; text-align: right;
+  }
+
+  /* ── 主体 ─────────────────────────────────────────────── */
+  .dl-main {
+    flex: 1; min-height: 0;
+    padding: 18px 20px 8px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 14px;
+    overflow-y: auto;
+  }
+
+  /* 首页 */
+  .dl-hero { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .dl-hero-badge {
+    width: 66px; height: 66px; border-radius: 22px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(150deg, #8AE85C, #46A302);
+    box-shadow: 0 10px 26px rgba(70, 163, 2, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    color: #fff; font-size: 28px; font-weight: 800;
+    margin-bottom: 4px;
+  }
+  .dl-hero-title { font-size: 19px; font-weight: 700; }
+  .dl-hero-sub { font-size: 12.5px; color: var(--ink-2); line-height: 1.7; }
+  .dl-stats {
+    display: flex; gap: 8px; margin-top: 4px;
+  }
+  .dl-stat {
+    min-width: 82px;
+    padding: 9px 12px;
+    border-radius: 12px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    text-align: center;
+  }
+  .dl-stat b {
+    display: block;
+    font-size: 17px; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .dl-stat span { font-size: 10.5px; color: var(--ink-3); }
+
+  /* 学习卡 */
+  .dl-card-wrap { width: 100%; max-width: 340px; perspective: 1100px; }
+  .dl-card {
+    position: relative;
+    height: 234px;
+    transform-style: preserve-3d;
+    transition: transform 0.5s cubic-bezier(.3, 1.2, .4, 1);
+    cursor: pointer;
+  }
+  .dl-card.flip { transform: rotateY(180deg); }
+  .dl-face {
+    position: absolute; inset: 0;
+    border-radius: 18px;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 8px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid var(--line);
+    background: var(--card);
+    box-shadow: 0 10px 30px rgba(16, 24, 40, 0.08);
+  }
+  body.dark-mode .dl-face { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+  .dl-face.back { transform: rotateY(180deg); }
+  .dl-word { font-size: 34px; font-weight: 700; letter-spacing: -0.5px; }
+  .dl-pos {
+    font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 99px;
+    background: rgba(88, 204, 2, 0.14); color: #3E8C00;
+  }
+  body.dark-mode .dl-pos { background: rgba(88, 204, 2, 0.2); color: #9BE86B; }
+  .dl-mean { font-size: 26px; font-weight: 700; }
+  .dl-sentence {
+    font-size: 12px; color: var(--ink-2); line-height: 1.7;
+    max-width: 260px;
+  }
+  .dl-tip { font-size: 11px; color: var(--ink-3); }
+
+  /* 测验 */
+  .dl-q { font-size: 13px; color: var(--ink-2); }
+  .dl-q b { color: var(--ink); font-size: 27px; font-weight: 700; display: block; margin-top: 2px; letter-spacing: 0.5px; }
+  .dl-opts {
+    width: 100%; max-width: 340px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 9px;
+  }
+  .dl-opt {
+    position: relative;
+    height: 52px;
+    border-radius: 13px;
+    border: 1.5px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    font-size: 14px; font-weight: 600; font-family: inherit;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.15s var(--ease-out-quart),
+      background-color 0.15s var(--ease-out-quart),
+      color 0.15s var(--ease-out-quart);
+  }
+  .dl-opt:hover { border-color: rgba(88, 204, 2, 0.5); }
+  .dl-opt.right { border-color: var(--ok); background: rgba(53, 181, 63, 0.14); color: #2C8C36; }
+  .dl-opt.wrong { border-color: var(--bad); background: rgba(229, 72, 77, 0.12); color: #C43A3F; }
+  body.dark-mode .dl-opt.right { color: #7FE68C; }
+  body.dark-mode .dl-opt.wrong { color: #FF9A9D; }
+  .dl-opt.dim { opacity: 0.45; }
+  .dl-opt .k {
+    position: absolute; left: 8px; top: 6px;
+    font-size: 9.5px; color: var(--ink-3); font-weight: 700;
+  }
+
+  /* 结算 */
+  .dl-done { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .dl-ring { position: relative; width: 132px; height: 132px; }
+  .dl-ring svg { transform: rotate(-90deg); width: 100%; height: 100%; }
+  .dl-ring .bg { fill: none; stroke: rgba(20, 32, 46, 0.08); stroke-width: 10; }
+  body.dark-mode .dl-ring .bg { stroke: rgba(255, 255, 255, 0.12); }
+  .dl-ring .fg {
+    fill: none; stroke: url(#dlGrad); stroke-width: 10; stroke-linecap: round;
+    transition: stroke-dashoffset 0.8s var(--ease-out-quart);
+  }
+  #dlGrad stop:first-child { stop-color: #7BE04C; }
+  #dlGrad stop:last-child { stop-color: #35B53F; }
+  .dl-ring-txt {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .dl-ring-txt b { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .dl-ring-txt span { font-size: 10.5px; color: var(--ink-3); }
+  .dl-done-title { font-size: 17px; font-weight: 700; }
+  .dl-done-sub { font-size: 12px; color: var(--ink-2); }
+
+  /* ── 底栏 ─────────────────────────────────────────────── */
+  .dl-foot {
+    flex-shrink: 0;
+    padding: 10px 20px 16px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .dl-btn {
+    height: 44px;
+    border: none; border-radius: 12px;
+    font-size: 14px; font-weight: 700; font-family: inherit;
+    color: #fff; cursor: pointer;
+    background: linear-gradient(180deg, #6FD834, #46A302);
+    box-shadow: 0 4px 14px rgba(70, 163, 2, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    transition: filter 0.15s var(--ease-out-quart);
+  }
+  .dl-btn:hover { filter: brightness(1.05); }
+  .dl-btn.ghost {
+    background: transparent; color: var(--ink-2);
+    border: 1.5px solid var(--line); box-shadow: none;
+  }
+  .dl-btn.ghost:hover { background: rgba(20, 32, 46, 0.05); filter: none; }
+  body.dark-mode .dl-btn.ghost:hover { background: rgba(255, 255, 255, 0.07); }
+  .dl-feedback {
+    display: none;
+    align-items: center; gap: 8px;
+    padding: 9px 12px;
+    border-radius: 11px;
+    font-size: 12.5px; font-weight: 600;
+  }
+  .dl-feedback.show { display: flex; }
+  .dl-feedback.ok { background: rgba(53, 181, 63, 0.14); color: #2C8C36; }
+  .dl-feedback.bad { background: rgba(229, 72, 77, 0.12); color: #C43A3F; }
+  body.dark-mode .dl-feedback.ok { color: #7FE68C; }
+  body.dark-mode .dl-feedback.bad { color: #FF9A9D; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="../ui/motion.js"></script>
+<script src="_bridge.js"></script>
+<script src="_app.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var app = document.getElementById('app');
+  var ROUND = 8;
+  var ICON_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+
+  var WORDS = [
+    { en: 'apple', zh: '苹果', pos: '名词', s: 'I eat an apple every day.', sZh: '我每天吃一个苹果。' },
+    { en: 'book', zh: '书本', pos: '名词', s: 'This book is really interesting.', sZh: '这本书真有意思。' },
+    { en: 'friend', zh: '朋友', pos: '名词', s: 'She is my best friend.', sZh: '她是我最好的朋友。' },
+    { en: 'travel', zh: '旅行', pos: '动词', s: 'We travel by train.', sZh: '我们坐火车旅行。' },
+    { en: 'music', zh: '音乐', pos: '名词', s: 'Music makes me calm.', sZh: '音乐让我平静。' },
+    { en: 'dream', zh: '梦想', pos: '名词', s: 'Follow your dream.', sZh: '去追你的梦想。' },
+    { en: 'learn', zh: '学习', pos: '动词', s: 'I learn English every day.', sZh: '我每天学英语。' },
+    { en: 'language', zh: '语言', pos: '名词', s: 'Chinese is a beautiful language.', sZh: '中文是一门美丽的语言。' },
+    { en: 'hello', zh: '你好', pos: '感叹词', s: 'Hello, nice to meet you.', sZh: '你好，很高兴认识你。' },
+    { en: 'world', zh: '世界', pos: '名词', s: 'The world is big.', sZh: '世界很大。' },
+    { en: 'water', zh: '水', pos: '名词', s: 'Drink more water.', sZh: '多喝点水。' },
+    { en: 'morning', zh: '早晨', pos: '名词', s: 'Good morning!', sZh: '早上好！' }
+  ];
+
+  var state = {
+    mode: 'home',        // home | learn | quiz | done
+    deck: [],            // 本轮要学的词
+    idx: 0,              // learn 指针 / quiz 指针
+    flipped: false,
+    quiz: [],            // [{word, options, answer}]
+    picked: null,
+    correct: 0,
+    answered: false,
+    stats: { date: '', learned: 0, streak: 0, lastDay: '' }
+  };
+
+  /* ---------- 工具 ---------- */
+  function shuffle(a) {
+    var arr = a.slice();
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+  function todayKey() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  /* ---------- 进度存取 ---------- */
+  function loadStats() {
+    try {
+      Nexus.getUserLS('duolingo_stats').then(function (s) {
+        if (s && typeof s === 'object') state.stats = Object.assign(state.stats, s);
+        if (state.stats.date !== todayKey()) state.stats.learned = 0;
+        if (state.mode === 'home') renderHome();
+      }).catch(function () {});
+    } catch (e) {}
+  }
+  function saveStats() {
+    state.stats.date = todayKey();
+    var today = todayKey();
+    if (state.stats.lastDay !== today) {
+      var y = new Date(Date.now() - 86400000);
+      var yk = y.getFullYear() + '-' + String(y.getMonth() + 1).padStart(2, '0') + '-' + String(y.getDate()).padStart(2, '0');
+      state.stats.streak = state.stats.lastDay === yk ? (state.stats.streak || 0) + 1 : 1;
+      state.stats.lastDay = today;
+    }
+    try { Nexus.setUserLS('duolingo_stats', state.stats); } catch (e) {}
+  }
+
+  /* ---------- 骨架 ---------- */
+  function render() {
+    app.innerHTML =
+      '<div class="dl">' +
+        '<header class="dl-head">' +
+          '<button class="dl-x" id="dlExit" title="退出本课">' + ICON_X + '</button>' +
+          '<div class="dl-bar"><i id="dlBar"></i></div>' +
+          '<div class="dl-count" id="dlCount">—</div>' +
+        '</header>' +
+        '<main class="dl-main" id="dlMain"></main>' +
+        '<footer class="dl-foot" id="dlFoot"></footer>' +
+      '</div>';
+
+    document.getElementById('dlExit').addEventListener('click', function () {
+      if (state.mode === 'home') return;
+      state.mode = 'home';
+      state.deck = [];
+      state.quiz = [];
+      state.picked = null;
+      renderHome();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (state.mode === 'quiz') {
+        if (e.key >= '1' && e.key <= '4') {
+          var btn = document.querySelectorAll('.dl-opt')[parseInt(e.key, 10) - 1];
+          if (btn && !state.answered) btn.click();
+        } else if (e.key === 'Enter' && state.answered) {
+          var next = document.getElementById('dlNext');
+          if (next) next.click();
+        }
+      } else if (state.mode === 'learn') {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault();
+          var b = document.getElementById('dlMainBtn');
+          if (b) b.click();
+        }
+      }
+    });
+
+    renderHome();
+    loadStats();
+  }
+
+  function setHead(ratio, label) {
+    var bar = document.getElementById('dlBar');
+    var cnt = document.getElementById('dlCount');
+    if (bar) bar.style.width = Math.round(ratio * 100) + '%';
+    if (cnt) cnt.textContent = label || '';
+  }
+
+  function clearFoot() {
+    var f = document.getElementById('dlFoot');
+    if (f) f.innerHTML = '';
+    return f;
+  }
+
+  /* ---------- 首页 ---------- */
+  function renderHome() {
+    state.mode = 'home';
+    setHead(0, '—');
+    var main = document.getElementById('dlMain');
+    var foot = clearFoot();
+    main.innerHTML =
+      '<div class="dl-hero">' +
+        '<div class="dl-hero-badge">Aa</div>' +
+        '<div class="dl-hero-title">今天练 8 个单词</div>' +
+        '<div class="dl-hero-sub">先认一遍，再做四选一。<br>答错的词下一轮会再出现。</div>' +
+        '<div class="dl-stats">' +
+          '<div class="dl-stat"><b id="dlStatLearned">' + (state.stats.learned || 0) + '</b><span>今日已学</span></div>' +
+          '<div class="dl-stat"><b id="dlStatStreak">' + (state.stats.streak || 0) + '</b><span>连续天数</span></div>' +
+        '</div>' +
+      '</div>';
+    foot.innerHTML = '<button class="dl-btn" id="dlStart">开始今天的一课</button>';
+    document.getElementById('dlStart').addEventListener('click', startLesson);
+  }
+
+  /* ---------- 学习 ---------- */
+  function startLesson() {
+    var weak = (state.stats.weak || []).map(function (en) {
+      return WORDS.find(function (w) { return w.en === en; });
+    }).filter(Boolean);
+    var pool = shuffle(WORDS);
+    // 错过的词优先混进来，最多占一半
+    var picked = [];
+    weak.slice(0, Math.min(ROUND / 2, weak.length)).forEach(function (w) { picked.push(w); });
+    for (var i = 0; i < pool.length && picked.length < ROUND; i++) {
+      if (picked.indexOf(pool[i]) < 0) picked.push(pool[i]);
+    }
+    state.deck = picked;
+    state.idx = 0;
+    state.flipped = false;
+    state.mode = 'learn';
+    renderLearn();
+  }
+
+  function renderLearn() {
+    var w = state.deck[state.idx];
+    if (!w) return renderHome();
+    setHead((state.idx) / (state.deck.length * 2), (state.idx + 1) + ' / ' + state.deck.length + ' 认');
+    var main = document.getElementById('dlMain');
+    var foot = clearFoot();
+    main.innerHTML =
+      '<div class="dl-card-wrap">' +
+        '<div class="dl-card' + (state.flipped ? ' flip' : '') + '" id="dlCard">' +
+          '<div class="dl-face front">' +
+            '<div class="dl-word">' + escapeHtml(w.en) + '</div>' +
+            '<div class="dl-pos">' + w.pos + '</div>' +
+            '<div class="dl-tip">点一下卡片看释义</div>' +
+          '</div>' +
+          '<div class="dl-face back">' +
+            '<div class="dl-mean">' + escapeHtml(w.zh) + '</div>' +
+            '<div class="dl-sentence">' + escapeHtml(w.s) + '<br><span style="opacity:.7">' + escapeHtml(w.sZh) + '</span></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    foot.innerHTML = '<button class="dl-btn" id="dlMainBtn">' + (state.flipped ? '记住了，下一个' : '翻面看释义') + '</button>';
+
+    var card = document.getElementById('dlCard');
+    card.addEventListener('click', function () {
+      state.flipped = !state.flipped;
+      card.classList.toggle('flip', state.flipped);
+      var b = document.getElementById('dlMainBtn');
+      if (b) b.textContent = state.flipped ? '记住了，下一个' : '翻面看释义';
+    });
+    document.getElementById('dlMainBtn').addEventListener('click', function () {
+      if (!state.flipped) {
+        state.flipped = true;
+        card.classList.add('flip');
+        this.textContent = '记住了，下一个';
+        return;
+      }
+      state.idx++;
+      state.flipped = false;
+      if (state.idx >= state.deck.length) buildQuiz();
+      else renderLearn();
+    });
+  }
+
+  /* ---------- 测验 ---------- */
+  function buildQuiz() {
+    state.mode = 'quiz';
+    state.idx = 0;
+    state.correct = 0;
+    state.answered = false;
+    state.picked = null;
+    state.quiz = shuffle(state.deck).map(function (w) {
+      var others = shuffle(WORDS.filter(function (x) { return x.en !== w.en; })).slice(0, 3);
+      return { word: w, options: shuffle(others.concat([w])) };
+    });
+    renderQuiz();
+  }
+
+  function renderQuiz() {
+    var q = state.quiz[state.idx];
+    if (!q) return renderDone();
+    setHead((state.deck.length + state.idx) / (state.deck.length * 2),
+      (state.idx + 1) + ' / ' + state.quiz.length + ' 考');
+    var main = document.getElementById('dlMain');
+    var foot = clearFoot();
+    main.innerHTML =
+      '<div class="dl-q">选出下面这个词的英文<b>' + escapeHtml(q.word.zh) + '</b></div>' +
+      '<div class="dl-opts" id="dlOpts">' +
+        q.options.map(function (o, i) {
+          return '<button class="dl-opt" data-en="' + escapeHtml(o.en) + '"><span class="k">' + (i + 1) + '</span>' + escapeHtml(o.en) + '</button>';
+        }).join('') +
+      '</div>';
+    foot.innerHTML = '<div class="dl-feedback" id="dlFb"></div>';
+
+    main.querySelectorAll('.dl-opt').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (state.answered) return;
+        state.answered = true;
+        var picked = btn.getAttribute('data-en');
+        var right = picked === q.word.en;
+        if (right) state.correct++;
+        main.querySelectorAll('.dl-opt').forEach(function (b) {
+          var en = b.getAttribute('data-en');
+          if (en === q.word.en) b.classList.add('right');
+          else if (en === picked) b.classList.add('wrong');
+          else b.classList.add('dim');
+        });
+        var fb = document.getElementById('dlFb');
+        fb.className = 'dl-feedback show ' + (right ? 'ok' : 'bad');
+        fb.innerHTML = right
+          ? '答对了 · ' + q.word.en + ' = ' + q.word.zh
+          : '正确答案是 ' + q.word.en + '（' + q.word.zh + '）';
+        var f = document.getElementById('dlFoot');
+        var btnNext = document.createElement('button');
+        btnNext.className = 'dl-btn';
+        btnNext.id = 'dlNext';
+        btnNext.textContent = state.idx + 1 >= state.quiz.length ? '看结果' : '继续';
+        btnNext.addEventListener('click', function () {
+          state.answered = false;
+          state.idx++;
+          if (state.idx >= state.quiz.length) renderDone();
+          else renderQuiz();
+        });
+        f.appendChild(btnNext);
+        if (!right) {
+          var weak = state.stats.weak || [];
+          if (weak.indexOf(q.word.en) < 0) weak.push(q.word.en);
+          state.stats.weak = weak.slice(-20);
+        } else if (state.stats.weak) {
+          state.stats.weak = state.stats.weak.filter(function (e) { return e !== q.word.en; });
+        }
+      });
+    });
+  }
+
+  /* ---------- 结算 ---------- */
+  function renderDone() {
+    state.mode = 'done';
+    var total = state.quiz.length || 1;
+    var rate = Math.round(state.correct / total * 100);
+    state.stats.learned = (state.stats.learned || 0) + state.deck.length;
+    saveStats();
+
+    setHead(1, '完成');
+    var main = document.getElementById('dlMain');
+    var foot = clearFoot();
+    var circ = 2 * Math.PI * 54;
+    main.innerHTML =
+      '<div class="dl-done">' +
+        '<div class="dl-ring">' +
+          '<svg viewBox="0 0 120 120">' +
+            '<defs><linearGradient id="dlGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%"/><stop offset="100%"/></linearGradient></defs>' +
+            '<circle class="bg" cx="60" cy="60" r="54"/>' +
+            '<circle class="fg" id="dlRingFg" cx="60" cy="60" r="54" stroke-dasharray="' + circ + '" stroke-dashoffset="' + circ + '"/>' +
+          '</svg>' +
+          '<div class="dl-ring-txt"><b>' + rate + '%</b><span>正确率</span></div>' +
+        '</div>' +
+        '<div class="dl-done-title">' + (rate >= 80 ? '这轮很稳' : rate >= 50 ? '还行，再刷一轮' : '这些词还不熟') + '</div>' +
+        '<div class="dl-done-sub">答对 ' + state.correct + ' / ' + total + ' · 本轮学了 ' + state.deck.length + ' 个词</div>' +
+      '</div>';
+    foot.innerHTML =
+      '<button class="dl-btn" id="dlAgain">再来一轮</button>' +
+      '<button class="dl-btn ghost" id="dlHome">回到首页</button>';
+
+    requestAnimationFrame(function () {
+      var fg = document.getElementById('dlRingFg');
+      if (fg) fg.style.strokeDashoffset = String(circ * (1 - rate / 100));
+    });
+    document.getElementById('dlAgain').addEventListener('click', startLesson);
+    document.getElementById('dlHome').addEventListener('click', function () {
+      renderHome();
+      loadStats();
+    });
+  }
+
+  Nexus.ready(function () { render(); });
+})();
+</script>
+</body>
+</html>

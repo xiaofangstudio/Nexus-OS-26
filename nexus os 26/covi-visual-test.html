@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<!-- 视觉测试台：从主文件抽取 covi 光效代码 + ui/covi-glow.css 实时渲染。改了主文件光效逻辑后需重新生成本文件。按钮可逐一验证各状态。 -->
+
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Covi Glow 视觉测试台</title>
+<link rel="stylesheet" href="ui/covi-glow.css">
+<style>
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;font-family:-apple-system,"Segoe UI",sans-serif}
+  #nexus-bg{position:fixed;inset:0;z-index:-1;transform:scale(1.08);transition:opacity .5s ease,transform .15s ease-out;will-change:transform;
+    background:linear-gradient(135deg,#0f2027 0%,#203a43 40%,#2c5364 100%);}
+  #desktop{position:fixed;inset:0}
+  .win{position:absolute;width:300px;height:190px;border-radius:14px;background:rgba(255,255,255,.86);box-shadow:0 18px 50px rgba(0,0,0,.28);padding:14px;font-size:13px;color:#333;border:1px solid rgba(255,255,255,.6)}
+  .win h3{margin:0 0 8px;font-size:14px}
+  .dock{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);height:56px;width:340px;border-radius:18px;background:rgba(255,255,255,.5);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.6)}
+  .panel{position:absolute;right:18px;top:18px;z-index:99999;display:flex;gap:8px;flex-direction:column;background:rgba(0,0,0,.55);padding:10px;border-radius:12px}
+  .panel button{pointer-events:auto;cursor:pointer;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.14);color:#fff;padding:7px 12px;border-radius:8px;font-size:12px}
+  .panel button:hover{background:rgba(255,255,255,.3)}
+</style>
+</head>
+<body>
+<div id="nexus-bg"></div>
+<div id="desktop">
+  <div class="win" style="left:70px;top:90px"><h3>文件管理</h3><p>桌面 / 文档 / 下载</p></div>
+  <div class="win" style="left:420px;top:150px"><h3>NaveIDE</h3><p>main.cws</p></div>
+  <div class="win" style="left:760px;top:80px"><h3>设置</h3><p>主题色 · 深色模式</p></div>
+  <div class="dock"></div>
+</div>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <filter id="coviWarp" x="-6%" y="-6%" width="112%" height="112%" color-interpolation-filters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.012 0.022" numOctaves="2" seed="7" result="coviNoise">
+                <animate attributeName="baseFrequency" dur="0.95s" values="0.012 0.022; 0.03 0.012; 0.012 0.022" repeatCount="1" fill="freeze"/>
+            </feTurbulence>
+            <!-- 位移量前 75% 保持、之后归零：类移除时扭曲已泄掉，不会"啪"地弹回 -->
+            <feDisplacementMap in="SourceGraphic" in2="coviNoise" scale="13" xChannelSelector="R" yChannelSelector="G">
+                <animate attributeName="scale" dur="0.95s" values="13;13;0" keyTimes="0;0.75;1" fill="freeze"/>
+            </feDisplacementMap>
+        </filter>
+    </svg>
+    <div id="covi-stage" aria-hidden="true">
+        <canvas id="covi-ripple"></canvas>
+        <div id="covi-white"></div>
+        <div id="covi-ambient"></div>
+        <div class="covi-edge covi-edge-wash"></div>
+        <div class="covi-edge covi-edge-bloom"></div>
+        <div class="covi-edge covi-edge-core"></div>
+        <div id="covi-hint">长按 Space 叫我 · 松手直接说话 🎤</div>
+    </div>
+<div class="panel">
+  <button id="btnSummon">唤起（白爆+波纹+扭曲+光带）</button>
+  <button id="btnListen">聆听态</button>
+  <button id="btnThink">思考态</button>
+  <button id="btnSpeak">播报态</button>
+  <button id="btnPulse">语音脉冲 ×1</button>
+  <button id="btnOff">熄灭</button>
+  <button id="btnDark">深色模式</button>
+  <button id="btnFreeze">冻结瞬间（白爆+挤压中段）</button>
+</div>
+<script>
+// ---- 桩：隔离测试只需要光效系统，不依赖整个 OS ----
+var _n26Listening = false;
+function getAiConfig(){ return { voice: false }; }
+function openN26AiChat(){ /* 视觉测试不开真对话窗 */ }
+function toggleN26AiVoice(){}
+function stopN26AiVoice(){}
+window.appRegistry = {};
+
+    var _coviOpen = false;
+    var _coviRippleRAF = 0;
+    var _coviBoostTimer = null;
+
+    function coviStage() { return document.getElementById('covi-stage'); }
+
+    /* 状态灯：listening 聆听全亮 / thinking 思考收紧 / speaking 播报中亮 / idle 待命微亮 */
+    function coviSetState(state) {
+        var st = coviStage();
+        if (!st) return;
+        st.classList.remove('listening', 'thinking', 'speaking');
+        if (state && state !== 'idle') st.classList.add(state);
+        try { st.dataset.state = state || 'idle'; } catch (e) {}
+    }
+
+    /* 语音脉冲：识别到人声瞬间把光带提亮（还原"光随人声响应"） */
+    function coviPulse() {
+        var st = coviStage();
+        if (!st) return;
+        st.style.setProperty('--covi-boost', '1');
+        if (_coviBoostTimer) clearTimeout(_coviBoostTimer);
+        _coviBoostTimer = setTimeout(function () { st.style.setProperty('--covi-boost', '0'); }, 150);
+    }
+
+    /* ① 白色爆闪：从底部（空格键区域）炸开 */
+    function coviWhiteBurst() {
+        var w = document.getElementById('covi-white');
+        if (!w) return;
+        w.classList.remove('play');
+        void w.offsetWidth;                  // 强制重排，重启动画
+        w.classList.add('play');
+    }
+
+    /* ② 水波纹：黄/蓝/绿三圈同心彩环从底部荡开（加法混合，先快后慢） */
+    function coviRipple() {
+        var cv = document.getElementById('covi-ripple');
+        if (!cv) return;
+        if (document.body.classList.contains('perf-mode')) return;
+        var ctx = cv.getContext('2d');
+        if (!ctx) return;
+        var dpr = Math.min(2, window.devicePixelRatio || 1);
+        var W = cv.width = Math.max(1, window.innerWidth * dpr);
+        var H = cv.height = Math.max(1, window.innerHeight * dpr);
+        var ox = W * 0.5, oy = H * 0.97;     // 爆点：底部中央（空格键位置）
+        var maxR = Math.hypot(W, H) * 0.62;
+        var colors = ['255,214,10', '10,132,255', '48,209,88'];   // 黄 / 蓝 / 绿
+        var t0 = performance.now(), DUR = 1900;
+        cv.style.opacity = '1';
+        if (_coviRippleRAF) cancelAnimationFrame(_coviRippleRAF);
+        function frame(t) {
+            var p = (t - t0) / DUR;
+            ctx.clearRect(0, 0, W, H);
+            ctx.globalCompositeOperation = 'lighter';
+            if (p < 1) {
+                for (var i = 0; i < 3; i++) {
+                    var rp = p - i * 0.13;
+                    if (rp <= 0) continue;
+                    var e = 1 - Math.pow(1 - rp, 2.2);             // 缓出：先快后慢
+                    var r = e * maxR;
+                    var alpha = (1 - rp) * 0.42;
+                    var lw = (1 - rp) * 22 * dpr + 2 * dpr;
+                    var g = ctx.createRadialGradient(ox, oy, Math.max(1, r - lw), ox, oy, r + lw);
+                    g.addColorStop(0, 'rgba(' + colors[i] + ',0)');
+                    g.addColorStop(0.5, 'rgba(' + colors[i] + ',' + alpha + ')');
+                    g.addColorStop(1, 'rgba(' + colors[i] + ',0)');
+                    ctx.beginPath();
+                    ctx.arc(ox, oy, r, 0, Math.PI * 2);
+                    ctx.lineWidth = lw;
+                    ctx.strokeStyle = g;
+                    ctx.stroke();
+                }
+                // 中心白芯（呼应爆闪，快速衰减）
+                var cp = Math.min(1, p * 3.2);
+                var cg = ctx.createRadialGradient(ox, oy, 0, ox, oy, maxR * 0.34);
+                cg.addColorStop(0, 'rgba(255,255,255,' + (0.5 * (1 - cp)) + ')');
+                cg.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = cg;
+                ctx.fillRect(0, 0, W, H);
+                _coviRippleRAF = requestAnimationFrame(frame);
+            } else {
+                ctx.clearRect(0, 0, W, H);
+                cv.style.opacity = '0';
+                _coviRippleRAF = 0;
+            }
+        }
+        _coviRippleRAF = requestAnimationFrame(frame);
+    }
+
+    /* ③ 屏幕"被捏"扭曲：桌面弹性挤压 + 壁纸 feDisplacementMap 流体扭曲 */
+    function coviSquish() {
+        var d = document.getElementById('desktop');
+        var bg = document.getElementById('nexus-bg');
+        var reduced = false;
+        try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+        var perf = document.body.classList.contains('perf-mode');
+        if (d && !perf && !reduced) {
+            d.classList.remove('covi-squish');
+            void d.offsetWidth;
+            d.classList.add('covi-squish');
+            setTimeout(function () { d.classList.remove('covi-squish'); }, 1000);
+        }
+        if (bg && !perf && !reduced) {
+            bg.classList.add('covi-warp', 'covi-squish');
+            setTimeout(function () { bg.classList.remove('covi-warp', 'covi-squish'); }, 980);
+        }
+    }
+
+    /* 提示 pill：显示 2.8s 手势引导 */
+    function coviHint() {
+        var h = document.getElementById('covi-hint');
+        if (!h) return;
+        h.classList.add('show');
+        setTimeout(function () { h.classList.remove('show'); }, 2800);
+    }
+
+    function coviWallpaperUrl() {
+        try {
+            var bg = document.getElementById('nexus-bg');
+            var bi = (bg && bg.style.backgroundImage) || '';
+            return bi ? bi.replace(/url\(['"]?|['"]?\)/g, '') : '';
+        } catch (e) { return ''; }
+    }
+
+    /* 点亮光效（无爆闪）：对话窗打开期间常亮，点左下 AI 球开窗也走这里 */
+    function coviGlowOn() {
+        var st = coviStage();
+        _coviOpen = true;
+        if (st) st.classList.add('on');
+        coviSetState('listening');
+    }
+
+    /* 完整唤起：爆闪 + 波纹 + 扭曲 + 光带 + 开窗 + 自动聆听 */
+    function coviSummon() {
+        if (!coviStage()) return;
+        coviWhiteBurst();
+        coviRipple();
+        coviSquish();
+        if (typeof coviGlowOn === 'function') coviGlowOn();
+        if (typeof openN26AiChat === 'function') openN26AiChat();
+        coviHint();
+        // 语音自动开启（OOBE / 设置里可关）
+        var cfg = (typeof getAiConfig === 'function') ? getAiConfig() : { voice: true };
+        if (cfg.voice !== false) {
+            setTimeout(function () {
+                if (_coviOpen && !_n26Listening && typeof toggleN26AiVoice === 'function') toggleN26AiVoice();
+            }, 420);
+        }
+    }
+
+    /* 收起：光带熄灭 + 停止识别 */
+    function coviDismiss() {
+        var st = coviStage();
+        _coviOpen = false;
+        if (typeof stopN26AiVoice === 'function') stopN26AiVoice();
+        if (st) {
+            st.classList.remove('on');
+            coviSetState('idle');
+            st.style.setProperty('--covi-boost', '0');
+        }
+        var cv = document.getElementById('covi-ripple');
+        if (cv) {
+            if (_coviRippleRAF) { cancelAnimationFrame(_coviRippleRAF); _coviRippleRAF = 0; }
+            cv.style.opacity = '0';
+        }
+    }
+
+    /* ==================== 长按 Space 全局监听（480ms） ==================== */
+    (function initCoviSpaceHotkey() {
+        var HOLD_MS = 480;
+        var holdTimer = null;
+        var consumed = false;
+        function isTypingTarget(t) {
+            if (!t) return false;
+            var tn = (t.tagName || '').toLowerCase();
+            return tn === 'input' || tn === 'textarea' || tn === 'select' || !!t.isContentEditable;
+        }
+        // 全屏系统态（锁屏 / OOBE / 开机 / 关机 / BSOD / 恢复 / PE / 安全模式）下不拦截空格
+        function systemBusy() {
+            var ids = ['lock-screen', 'install-screen', 'boot-animation-screen', 'power-off-screen',
+                       'bsod-screen', 'recovery-screen', 'pe-system', 'restart-screen', 'safe-mode-transition'];
+            for (var i = 0; i < ids.length; i++) {
+                var el = document.getElementById(ids[i]);
+                if (!el) continue;
+                try {
+                    var cs = getComputedStyle(el);
+                    if (cs.display !== 'none' && cs.visibility !== 'hidden' && el.offsetParent !== null) return true;
+                } catch (e) {}
+            }
+            return false;
+        }
+        document.addEventListener('keydown', function (e) {
+            if (e.code !== 'Space' && e.key !== ' ') return;
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            if (isTypingTarget(e.target)) return;                  // 打字时空格归输入框
+            if (systemBusy()) return;                              // 系统全屏态不抢
+            var ov = document.getElementById('n26AiChatOverlay');
+            if (ov && ov.style.display === 'flex') return;         // 对话窗已开：不重复唤起
+            if (e.repeat) { if (consumed) e.preventDefault(); return; }
+            consumed = false;
+            if (holdTimer) clearTimeout(holdTimer);
+            holdTimer = setTimeout(function () {
+                holdTimer = null;
+                consumed = true;
+                try { e.preventDefault(); } catch (_) {}
+                coviSummon();
+            }, HOLD_MS);
+        });
+        document.addEventListener('keyup', function (e) {
+            if (e.code !== 'Space' && e.key !== ' ') return;
+            if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+            if (consumed) {
+                // 吞掉这次空格的 keyup，防止焦点按钮被"空格激活"
+                try { e.preventDefault(); } catch (_) {}
+                consumed = false;
+            }
+        });
+        window.addEventListener('blur', function () {
+            if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; consumed = false; }
+        });
+    })();
+
+    // ==================== Agent 能力：工具定义 + 执行器 + 工具循环 ====================
+    // 原则：用户让 AI"做"某事 → 必须真的调用宿主能力做掉，而不是口头上教做法。
+
+    var N26_AGENT_ALIASES = {
+        '计算器': 'calculator', '计算机': 'calculator',
+        '设置': 'settings', '设置中心': 'settings', '系统设置': 'settings',
+        '文件管理': 'files', '文件': 'files', '我的文件': 'files', '此电脑': 'files', '资源管理器': 'files',
+        '回收站': 'trash', '垃圾桶': 'trash',
+        '天气': 'weather', '天气预报': 'weather',
+        '相册': 'album', '图库': 'album', '照片': 'album',
+        '音乐': 'music', '播放器': 'music',
+        '浏览器': 'browser', '上网': 'browser', '网页': 'browser',
+        '哔哩哔哩': 'bili', 'b站': 'bili', '视频': 'bili', '方哩方哩': 'bili',
+        '方聊': 'fangliao', '聊天': 'fangliao', '消息': 'fangliao',
+        '应用商城': 'appstore', '商店': 'appstore', '应用商店': 'appstore', '扩展商店': 'appstore',
+        '专注': 'focus', '专注时刻': 'focus',
+        '备忘录': 'notes', '笔记': 'notes',
+        '画图': 'paint', '绘画': 'paint',
+        '时钟': 'alarm', '闹钟': 'alarm',
+        '终端': 'terminal', '命令行': 'terminal',
+        '番茄钟': 'pomodoro',
+        '便签': 'quicknote', '快速笔记': 'quicknote',
+        '2048': 'game2048',
+        '小说': 'novel', '阅读': 'novel', '小说阅读': 'novel',
+        '多邻国': 'duolingo', '英语': 'duolingo', '背单词': 'duolingo',
+        '配色实验室': 'colorlab', '取色器': 'colorlab',
+        '小贴士': 'tips', '提示': 'tips',
+        '代码编辑器': 'ide', '编辑器': 'ide', 'naveide': 'ide', 'cwscript': 'ide'
+    };
+
+    function coviResolveApp(name) {
+        var s = String(name || '').trim().toLowerCase().replace(/\s+/g, '');
+        if (!s) return null;
+        var reg = window.appRegistry || {};
+        if (reg[s]) return s;                                       // 直接命中应用 ID
+        for (var k in N26_AGENT_ALIASES) {                          // 中文别名
+            if (s.indexOf(k) !== -1) return N26_AGENT_ALIASES[k];
+        }
+        for (var id in reg) {                                       // registry 名称模糊匹配
+            var info = reg[id];
+            if (info && info.name) {
+                var nm = String(info.name).toLowerCase().replace(/\s+/g, '');
+                if (nm && (s.indexOf(nm) !== -1 || (s.length >= 2 && nm.indexOf(s) !== -1))) return id;
+            }
+        }
+        return null;
+    }
+
+    var COVI_TOOLS = [
+        { type: 'function', function: { name: 'open_app', description: '打开系统里的一个应用（软件）。传应用ID或中文名。', parameters: { type: 'object', properties: { app: { type: 'string', description: '应用ID或中文名，如 calculator / 计算器 / 设置 / 文件管理 / 浏览器' } }, required: ['app'] } } },
+        { type: 'function', function: { name: 'close_app', description: '关闭一个已打开的应用窗口。', parameters: { type: 'object', properties: { app: { type: 'string', description: '应用ID或中文名' } }, required: ['app'] } } },
+        { type: 'function', function: { name: 'list_apps', description: '列出系统里所有已安装的应用（ID 和名称）。不确定应用 ID 时先调它。', parameters: { type: 'object', properties: {} } } },
+        { type: 'function', function: { name: 'set_theme', description: '切换系统深色 / 浅色模式。', parameters: { type: 'object', properties: { mode: { type: 'string', enum: ['dark', 'light'], description: 'dark=深色模式 light=浅色模式' } }, required: ['mode'] } } },
+        { type: 'function', function: { name: 'set_accent_color', description: '设置系统主题色（强调色），只支持预设色。', parameters: { type: 'object', properties: { color: { type: 'string', enum: ['blue', 'green', 'purple', 'orange', 'pink'], description: 'blue=蓝#4A9BF5 green=绿#34D399 purple=紫#A78BFA orange=橙#FB923C pink=粉#F472B6' } }, required: ['color'] } } },
+        { type: 'function', function: { name: 'get_system_info', description: '获取系统状态：当前时间、主题模式、主题色、当前用户、已打开的窗口、壁纸。', parameters: { type: 'object', properties: {} } } },
+        { type: 'function', function: { name: 'send_notification', description: '发送一条系统通知。', parameters: { type: 'object', properties: { title: { type: 'string', description: '标题' }, body: { type: 'string', description: '内容' } }, required: ['title', 'body'] } } },
+        { type: 'function', function: { name: 'list_files', description: '列出某个文件夹里的内容（省略路径 = C 盘根目录）。', parameters: { type: 'object', properties: { path: { type: 'string', description: '如 C:/桌面 、C: ，可省略' } } } } },
+        { type: 'function', function: { name: 'read_file', description: '读取一个文本文件的内容。', parameters: { type: 'object', properties: { path: { type: 'string', description: '文件路径，如 C:/桌面/笔记.txt' } }, required: ['path'] } } },
+        { type: 'function', function: { name: 'write_file', description: '写入（新建或覆盖）一个文本文件。', parameters: { type: 'object', properties: { path: { type: 'string', description: '文件路径，如 C:/桌面/笔记.txt' }, content: { type: 'string', description: '要写入的文本内容' } }, required: ['path', 'content'] } } },
+        { type: 'function', function: { name: 'get_weather', description: '获取今天天气（来自系统天气缓存）。', parameters: { type: 'object', properties: {} } } },
+        { type: 'function', function: { name: 'open_url', description: '用系统浏览器打开一个网页链接。', parameters: { type: 'object', properties: { url: { type: 'string', description: 'http(s) 链接' } }, required: ['url'] } } },
+        { type: 'function', function: { name: 'sleep_system', description: '让系统进入睡眠（息屏），点屏幕唤醒。', parameters: { type: 'object', properties: {} } } }
+    ];
+
+    /* 文件系统路径解析：C:/a/b → fs.C.children.a.children.b */
+    function coviFsNode(path) {
+        var fs = (typeof getUserLS === 'function') ? (getUserLS('filesystem') || {}) : {};
+        var p = String(path || '').trim().replace(/\\/g, '/');
+        if (!p || /^[a-zA-Z]:?\/?$/.test(p)) return fs['C'] || null;
+        p = p.replace(/^[a-zA-Z]:\/?/, '');
+        var parts = p.split('/').filter(function (x) { return x; });
+        var node = fs['C'];
+        for (var i = 0; i < parts.length && node; i++) {
+            node = node.children ? node.children[parts[i]] : null;
+        }
+        return node || null;
+    }
+
+    /* 工具执行器：全部操作本机宿主能力，返回 JSON 字符串给模型 */
+    function coviExecTool(name, args) {
+        args = args || {};
+        var reg = window.appRegistry || {};
+        try {
+            switch (name) {
+                case 'list_apps': {
+                    var list = [];
+                    for (var id in reg) list.push(id + '（' + ((reg[id] && reg[id].name) || id) + '）');
+                    return JSON.stringify({ ok: true, apps: list });
+                }
+                case 'open_app': {
+                    var id = coviResolveApp(args.app);
+                    if (!id) return JSON.stringify({ ok: false, error: '找不到应用「' + args.app + '」，可先调 list_apps 查看可用应用' });
+                    openApp(id);
+                    return JSON.stringify({ ok: true, opened: id, name: (reg[id] && reg[id].name) || id });
+                }
+                case 'close_app': {
+                    var id2 = coviResolveApp(args.app);
+                    if (!id2) return JSON.stringify({ ok: false, error: '找不到应用「' + args.app + '」' });
+                    if (typeof windows === 'undefined') return JSON.stringify({ ok: false, error: '窗口系统不可用' });
+                    var w = null;
+                    for (var i = 0; i < windows.length; i++) if (windows[i].appId === id2) { w = windows[i]; break; }
+                    if (!w) return JSON.stringify({ ok: false, error: '「' + args.app + '」当前没有打开' });
+                    closeWindow(w.id);
+                    return JSON.stringify({ ok: true, closed: id2 });
+                }
+                case 'set_theme': {
+                    var mode = String(args.mode || '').toLowerCase();
+                    if (mode !== 'dark' && mode !== 'light') return JSON.stringify({ ok: false, error: 'mode 只能是 dark 或 light' });
+                    if (mode === 'dark') { document.body.classList.add('dark-mode'); document.body.classList.remove('light-mode'); }
+                    else { document.body.classList.add('light-mode'); document.body.classList.remove('dark-mode'); }
+                    if (typeof setLS === 'function') setLS('theme', mode);
+                    return JSON.stringify({ ok: true, theme: mode });
+                }
+                case 'set_accent_color': {
+                    var c = String(args.color || '').trim().toLowerCase();
+                    var preset = { 'blue': 'blue', 'green': 'green', 'purple': 'purple', 'orange': 'orange', 'pink': 'pink' };
+                    if (preset[c]) c = preset[c];
+                    else if (/^#?4a9bf5$/.test(c)) c = 'blue';
+                    else if (/^#?34d399$/.test(c)) c = 'green';
+                    else if (/^#?a78bfa$/.test(c)) c = 'purple';
+                    else if (/^#?fb923c$/.test(c)) c = 'orange';
+                    else if (/^#?f472b6$/.test(c)) c = 'pink';
+                    else return JSON.stringify({ ok: false, error: '只支持预设色：blue/green/purple/orange/pink' });
+                    if (typeof setAccentColor === 'function') setAccentColor(c);
+                    return JSON.stringify({ ok: true, accent: c });
+                }
+                case 'get_system_info': {
+                    var now = new Date();
+                    var openWins = (typeof windows !== 'undefined') ? windows.map(function (x) { return (x.title || x.appId); }) : [];
+                    var st = (typeof getUserLS === 'function') ? (getUserLS('settings') || {}) : {};
+                    return JSON.stringify({
+                        ok: true, time: now.toLocaleString('zh-CN'),
+                        dark: document.body.classList.contains('dark-mode'),
+                        accent: st.accentColor || 'blue',
+                        user: (typeof currentUser !== 'undefined' && currentUser && currentUser.name) || '',
+                        openWindows: openWins, wallpaper: coviWallpaperUrl()
+                    });
+                }
+                case 'send_notification': {
+                    if (typeof showNotification === 'function') showNotification(String(args.title || 'AI 小方'), String(args.body || ''), 'info');
+                    return JSON.stringify({ ok: true, sent: true });
+                }
+                case 'list_files': {
+                    var node = coviFsNode(args.path);
+                    if (!node) return JSON.stringify({ ok: false, error: '找不到路径「' + (args.path || 'C:') + '」' });
+                    if (node.type !== 'folder' && node.type !== 'drive') return JSON.stringify({ ok: false, error: '这是一个文件，不是文件夹（用 read_file）' });
+                    var names = node.children ? Object.keys(node.children) : [];
+                    return JSON.stringify({
+                        ok: true, path: args.path || 'C:',
+                        items: names.map(function (n) {
+                            var ch = node.children[n];
+                            return n + ((ch.type === 'folder' || ch.type === 'drive') ? '/' : '');
+                        })
+                    });
+                }
+                case 'read_file': {
+                    var f = coviFsNode(args.path);
+                    if (!f) return JSON.stringify({ ok: false, error: '找不到文件「' + args.path + '」' });
+                    if (f.type === 'folder' || f.type === 'drive') return JSON.stringify({ ok: false, error: '这是文件夹，请用 list_files' });
+                    return JSON.stringify({ ok: true, path: args.path, content: String(f.content == null ? '' : f.content).slice(0, 4000) });
+                }
+                case 'write_file': {
+                    var wp = String(args.path || '').trim().replace(/\\/g, '/');
+                    if (!wp) return JSON.stringify({ ok: false, error: '缺少 path' });
+                    var seg = wp.replace(/^[a-zA-Z]:\/?/, '').split('/').filter(function (x) { return x; });
+                    if (!seg.length) return JSON.stringify({ ok: false, error: '路径不合法' });
+                    var fname = seg.pop();
+                    var fs2 = (typeof getUserLS === 'function') ? (getUserLS('filesystem') || {}) : {};
+                    if (!fs2['C']) fs2['C'] = { type: 'folder', children: {} };
+                    var cur = fs2['C'];
+                    for (var i2 = 0; i2 < seg.length; i2++) {
+                        if (!cur.children) cur.children = {};
+                        if (!cur.children[seg[i2]]) cur.children[seg[i2]] = { type: 'folder', children: {} };
+                        cur = cur.children[seg[i2]];
+                    }
+                    if (!cur.children) cur.children = {};
+                    cur.children[fname] = { type: 'file', content: String(args.content == null ? '' : args.content), modified: Date.now() };
+                    if (typeof setUserLS === 'function') setUserLS('filesystem', fs2);
+                    if (typeof n26RenderShelf === 'function') { try { n26RenderShelf(); } catch (e) {} }
+                    return JSON.stringify({ ok: true, written: wp });
+                }
+                case 'get_weather': {
+                    var w = (typeof getLS === 'function') ? (getLS('n26_topbar_weather') || null) : null;
+                    if (!w) return JSON.stringify({ ok: false, error: '暂无天气缓存，打开天气应用刷新一下' });
+                    return JSON.stringify({ ok: true, temp: w.temp, icon: w.icon || '', updated: w.time || null });
+                }
+                case 'open_url': {
+                    var u = String(args.url || '').trim();
+                    if (!/^https?:\/\//i.test(u)) return JSON.stringify({ ok: false, error: '只支持 http(s) 链接' });
+                    window.open(u, '_blank');
+                    return JSON.stringify({ ok: true, opened: u });
+                }
+                case 'sleep_system': {
+                    if (typeof doSleep === 'function') { try { doSleep(); } catch (e) {} }
+                    else { var sm = document.getElementById('sleep-mode-screen'); if (sm) sm.style.display = 'flex'; }
+                    return JSON.stringify({ ok: true, sleeping: true });
+                }
+                default:
+                    return JSON.stringify({ ok: false, error: '未知工具：' + name });
+            }
+        } catch (err) {
+            return JSON.stringify({ ok: false, error: String((err && err.message) || err) });
+        }
+    }
+
+    /* 工具调用痕迹：渲染进对话窗（小字虚线气泡） */
+    function coviAppendTrace(name, args, result) {
+        var box = document.getElementById('n26AiMessages');
+        if (!box) return;
+        var ok = true, detail = '';
+        try { var r = JSON.parse(result); ok = !!r.ok; detail = r.error || r.opened || r.closed || r.written || r.theme || r.accent || ''; } catch (e) {}
+        var label = {
+            open_app: '打开应用', close_app: '关闭应用', list_apps: '列出应用', set_theme: '切换主题',
+            set_accent_color: '更换主题色', get_system_info: '读取系统状态', send_notification: '发送通知',
+            list_files: '查看文件夹', read_file: '读取文件', write_file: '写入文件',
+            get_weather: '查看天气', open_url: '打开网页', sleep_system: '系统睡眠'
+        }[name] || name;
+        var argStr = '';
+        if (args && args.app) argStr = '「' + args.app + '」';
+        else if (args && args.path) argStr = '「' + args.path + '」';
+        else if (args && args.mode) argStr = args.mode;
+        else if (args && args.color) argStr = args.color;
+        else if (args && args.url) argStr = args.url;
+        else if (args && args.title) argStr = '「' + args.title + '」';
+        var div = document.createElement('div');
+        div.className = 'n26ai-msg ai';
+        var b = document.createElement('div');
+        b.className = 'bubble covi-trace' + (ok ? '' : ' err');
+        b.textContent = '🛠 ' + label + (argStr ? ' ' + argStr : '') + (ok ? ' ✓' : ' ✗ ' + (detail || '失败'));
+        div.appendChild(b);
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    /* 端点选择：厂商直连会被 CORS 拦 → 改走我们的 BYOK Worker；自定义兼容地址（含本机 Ollama）直连 */
+    function coviIsWorkerUrl(u) { return /ai\.fanggame\.company|workers\.dev/i.test(u || ''); }
+    function coviIsDirectProvider(u) {
+        return /api\.deepseek\.com|api\.openai\.com|dashscope\.aliyuncs|bigmodel\.cn|moonshot\.cn|api\.groq\.com|api\.siliconflow/i.test(u || '');
+    }
+    function coviInferProvider(cfg) {
+        var u = (cfg.url || '').toLowerCase(), m = (cfg.model || '').toLowerCase();
+        if (u.indexOf('deepseek') !== -1 || /^deepseek/.test(m)) return 'deepseek';
+        if (u.indexOf('dashscope') !== -1 || /^qwen|^qwq/.test(m)) return 'qwen';
+        if (u.indexOf('bigmodel') !== -1 || /^glm/.test(m)) return 'zhipu';
+        if (u.indexOf('moonshot') !== -1 || /^kimi|^moonshot/.test(m)) return 'moonshot';
+        if (u.indexOf('openai') !== -1 || /^gpt|^o[134]|^chatgpt/.test(m)) return 'openai';
+        if (u.indexOf('groq') !== -1 || /^llama|^mixtral/.test(m)) return 'groq';
+        if (u.indexOf('siliconflow') !== -1) return 'siliconflow';
+        return 'deepseek';
+    }
+    function coviChatEndpoint(cfg) {
+        var u = (cfg.url || '').trim().replace(/\/+$/, '');
+        if (!u) return null;
+        if (coviIsWorkerUrl(u)) {
+            return { url: u.replace(/\/v1$/i, '') + '/api/chat', mode: 'worker' };
+        }
+        if (coviIsDirectProvider(u)) {
+            // 用户填的是厂商官方地址：浏览器直连必被 CORS 拦，走我们自己的 BYOK 中转（Key 仍只用户自己的）
+            return { url: 'https://ai.fanggame.company/api/chat', mode: 'worker' };
+        }
+        return { url: u + '/chat/completions', mode: 'direct' };
+    }
+
+    /* Agent 工具循环：最多 4 轮，工具结果回喂模型，直到给出最终回答 */
+    async function coviAgentChat(text) {
+        var cfg = getAiConfig();
+        var ep = coviChatEndpoint(cfg);
+        if (!ep) throw new Error('未配置云端 API');
+        var sysPrompt = '你是 Nexus OS 26 的内置 AI 助手「AI 小方」，由小方工作室开发。性格活泼友好、简洁实用，用中文交流，适当用 emoji。' +
+            '你运行在一个真实的网页操作系统里，可以通过工具真正操作用户的电脑：打开/关闭应用、切换深浅色、换主题色、发通知、读写文件、查天气、开网页。' +
+            '规则：① 用户让你"做"某件事时，必须调用工具真的做掉，不要只口头教方法；② 不确定应用 ID 先调 list_apps；③ 不确定文件路径先调 list_files；④ 工具调用要克制，够用就好；⑤ 做完用一两句话汇报结果；⑥ 关机/重启这类危险操作不要做。';
+        var messages = [{ role: 'system', content: sysPrompt }];
+        var hist = Array.isArray(_n26AiHistory) ? _n26AiHistory.slice(-12) : [];
+        for (var h = 0; h < hist.length; h++) messages.push(hist[h]);
+        var traces = [];
+        for (var round = 0; round < 4; round++) {
+            var payload = ep.mode === 'worker'
+                ? { provider: coviInferProvider(cfg), model: cfg.model, messages: messages, tools: COVI_TOOLS, tool_choice: 'auto', max_tokens: 1024, temperature: 0.6 }
+                : { model: cfg.model, messages: messages, tools: COVI_TOOLS, tool_choice: 'auto', max_tokens: 1024, temperature: 0.6 };
+            var res = await fetch(ep.url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.key },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                var errText = '';
+                try { errText = await res.text(); } catch (e) {}
+                throw new Error('HTTP ' + res.status + ' ' + String(errText).substring(0, 160));
+            }
+            var data = await res.json();
+            var msg = (ep.mode === 'worker')
+                ? { content: data.content || '', tool_calls: data.tool_calls || null }
+                : ((data.choices && data.choices[0] && data.choices[0].message) || {});
+            if (msg.tool_calls && msg.tool_calls.length) {
+                messages.push({ role: 'assistant', content: msg.content || null, tool_calls: msg.tool_calls });
+                for (var i = 0; i < msg.tool_calls.length; i++) {
+                    var tc = msg.tool_calls[i];
+                    var fn = tc.function || {};
+                    var tArgs = {};
+                    try { tArgs = JSON.parse(fn.arguments || '{}'); } catch (e) {}
+                    var result = coviExecTool(fn.name, tArgs);
+                    traces.push({ name: fn.name, args: tArgs, result: result });
+                    coviAppendTrace(fn.name, tArgs, result);
+                    messages.push({ role: 'tool', tool_call_id: tc.id, content: String(result) });
+                }
+                continue;
+            }
+            return { content: msg.content || '(空回复)', traces: traces };
+        }
+        return { content: '这个我想得有点久，先歇一口气～ 你换个说法试试？', traces: traces };
+    }
+
+// ---- 测试台控制 ----
+document.getElementById('btnSummon').onclick = function(){ coviSummon(); };
+document.getElementById('btnListen').onclick = function(){ coviGlowOn(); coviSetState('listening'); };
+document.getElementById('btnThink').onclick  = function(){ coviGlowOn(); coviSetState('thinking'); };
+document.getElementById('btnSpeak').onclick  = function(){ coviGlowOn(); coviSetState('speaking'); };
+document.getElementById('btnPulse').onclick  = function(){ coviPulse(); };
+document.getElementById('btnOff').onclick    = function(){ coviDismiss(); };
+document.getElementById('btnDark').onclick   = function(){ document.body.classList.toggle('dark-mode'); };
+document.getElementById('btnFreeze').onclick = function(){
+  coviSummon();
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    document.getAnimations().forEach(function(a){
+      try {
+        var tgt = a.effect && a.effect.target;
+        if (tgt && tgt.id === 'covi-white') a.currentTime = 100;   // 白爆峰值
+        if (tgt && tgt.id === 'desktop') a.currentTime = 150;      // 挤压最深点
+        a.pause();
+      } catch(e){}
+    });
+  }); });
+};
+window.__coviReady = true;
+// #auto：页面加载后 250ms 自动唤起，便于截捕白爆瞬间
+if (location.hash === '#auto') setTimeout(function(){ coviSummon(); }, 250);
+</script>
+</body>
+</html>

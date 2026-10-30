@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>速记本</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<style>
+  /* ============================================================
+     速记本 · 500×520
+     原来的问题（一句话总结）：它把「笔记」当成「聊天记录」。
+     每按一次保存、每 5 秒自动保存，都会在前端 unshift 一条全新卡片，
+     正文随即被清空 —— 结果是一堆内容重复、改不回去、删到手软的碎片。
+
+     这次改成笔记本该有的样子：
+       左列表（标题 + 摘要 + 时间） ｜ 右编辑器（真编辑、原地保存）
+     + 首行自动当标题 + Markdown 预览 + 搜索 + 空态 + 字数 + 快捷新建
+     ============================================================ */
+  html, body { height: 100%; margin: 0; font-family: var(--font-sans); }
+  body { background: transparent; overflow: hidden; }
+  #app { height: 100%; }
+
+  .qn {
+    --ink: #16202E;
+    --ink-2: rgba(22, 32, 46, 0.56);
+    --ink-3: rgba(22, 32, 46, 0.38);
+    --line: rgba(22, 32, 46, 0.08);
+    --card: rgba(255, 255, 255, 0.62);
+    --card-hover: rgba(255, 255, 255, 0.86);
+    --active: rgba(74, 155, 245, 0.14);
+    --editor: rgba(255, 255, 255, 0.72);
+    height: 100%;
+    display: flex;
+    color: var(--ink);
+    box-sizing: border-box;
+  }
+  body.dark-mode .qn {
+    --ink: #EEF2F9;
+    --ink-2: rgba(232, 238, 248, 0.58);
+    --ink-3: rgba(232, 238, 248, 0.36);
+    --line: rgba(255, 255, 255, 0.09);
+    --card: rgba(255, 255, 255, 0.055);
+    --card-hover: rgba(255, 255, 255, 0.11);
+    --active: rgba(90, 169, 255, 0.22);
+    --editor: rgba(255, 255, 255, 0.04);
+  }
+
+  /* ── 左：列表 ─────────────────────────────────────────── */
+  .qn-side {
+    width: 172px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.18);
+  }
+  body.dark-mode .qn-side { background: rgba(0, 0, 0, 0.12); }
+  .qn-side-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 10px 8px 12px;
+    flex-shrink: 0;
+  }
+  .qn-side-title { font-size: 12px; font-weight: 700; letter-spacing: 0.3px; color: var(--ink-2); }
+  .qn-new {
+    width: 24px; height: 24px;
+    border: none; border-radius: 7px;
+    background: rgba(74, 155, 245, 0.14);
+    color: #2F7BE0;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background-color 0.15s var(--ease-out-quart);
+  }
+  .qn-new:hover { background: rgba(74, 155, 245, 0.24); }
+  .qn-new svg { width: 13px; height: 13px; }
+  body.dark-mode .qn-new { background: rgba(90, 169, 255, 0.22); color: #8CC4FF; }
+
+  .qn-search-wrap { padding: 0 10px 8px; flex-shrink: 0; }
+  .qn-search {
+    width: 100%; box-sizing: border-box;
+    height: 26px; padding: 0 9px;
+    font-size: 11.5px; font-family: inherit;
+    color: var(--ink);
+    background: rgba(22, 32, 46, 0.05);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.15s var(--ease-out-quart), background-color 0.15s var(--ease-out-quart);
+  }
+  body.dark-mode .qn-search { background: rgba(255, 255, 255, 0.07); }
+  .qn-search:focus { border-color: rgba(74, 155, 245, 0.55); background: rgba(255, 255, 255, 0.9); }
+  body.dark-mode .qn-search:focus { background: rgba(255, 255, 255, 0.12); }
+
+  .qn-list { flex: 1; overflow-y: auto; padding: 0 6px 8px; }
+  .qn-item {
+    padding: 7px 8px;
+    border-radius: 9px;
+    cursor: pointer;
+    margin-bottom: 2px;
+    transition: background-color 0.14s var(--ease-out-quart);
+  }
+  .qn-item:hover { background: var(--card-hover); }
+  .qn-item.active { background: var(--active); }
+  .qn-item-title {
+    font-size: 12px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .qn-item-sub {
+    font-size: 10.5px; color: var(--ink-3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-top: 2px;
+    display: flex; justify-content: space-between; gap: 6px;
+  }
+  .qn-item-sub span:first-child { overflow: hidden; text-overflow: ellipsis; }
+  .qn-item-sub span:last-child { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+  .qn-side-foot {
+    flex-shrink: 0;
+    padding: 6px 12px 9px;
+    font-size: 10.5px;
+    color: var(--ink-3);
+    border-top: 1px solid var(--line);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── 右：编辑器 ───────────────────────────────────────── */
+  .qn-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .qn-bar {
+    height: 38px; flex-shrink: 0;
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .qn-tab {
+    height: 24px; padding: 0 9px;
+    font-size: 11.5px; font-weight: 600; font-family: inherit;
+    color: var(--ink-2);
+    background: transparent; border: none; border-radius: 7px;
+    cursor: pointer;
+    transition: background-color 0.15s var(--ease-out-quart), color 0.15s var(--ease-out-quart);
+  }
+  .qn-tab:hover { background: rgba(22, 32, 46, 0.06); color: var(--ink); }
+  body.dark-mode .qn-tab:hover { background: rgba(255, 255, 255, 0.09); }
+  .qn-tab.on { background: rgba(74, 155, 245, 0.16); color: #2F7BE0; }
+  body.dark-mode .qn-tab.on { background: rgba(90, 169, 255, 0.24); color: #9ACEFF; }
+  .qn-status {
+    margin-left: auto; margin-right: 4px;
+    font-size: 10.5px; color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    transition: opacity 0.3s var(--ease-out-quart);
+  }
+  .qn-del {
+    width: 24px; height: 24px;
+    border: none; border-radius: 7px;
+    background: transparent; color: var(--ink-3);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background-color 0.15s var(--ease-out-quart), color 0.15s var(--ease-out-quart);
+  }
+  .qn-del:hover { background: rgba(239, 68, 68, 0.14); color: #DC2626; }
+  .qn-del svg { width: 13px; height: 13px; }
+
+  .qn-body { flex: 1; min-height: 0; position: relative; }
+  .qn-editor {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    box-sizing: border-box;
+    padding: 14px 16px;
+    border: none; outline: none; resize: none;
+    background: var(--editor);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.75;
+    caret-color: #4A9BF5;
+  }
+  .qn-editor::placeholder { color: var(--ink-3); }
+  /* 编辑器自己就是一块大画布，聚焦时光标本身就够说明了，
+     再套一圈蓝色焦点环会像「整个编辑区被选中」 */
+  .qn-editor:focus-visible { outline: none; }
+  /* 没选中笔记时编辑器整个隐形，只留空态那一层（否则两段字会叠在一起） */
+  .qn-body.is-empty .qn-editor { opacity: 0; }
+
+  .qn-preview {
+    position: absolute; inset: 0;
+    overflow-y: auto;
+    padding: 14px 16px;
+    background: var(--editor);
+    font-size: 13px;
+    line-height: 1.75;
+    display: none;
+  }
+  .qn-body.previewing .qn-editor { display: none; }
+  .qn-body.previewing .qn-preview { display: block; }
+  .qn-preview h1 { font-size: 17px; margin: 0 0 8px; }
+  .qn-preview h2 { font-size: 15px; margin: 14px 0 6px; }
+  .qn-preview h3 { font-size: 13.5px; margin: 12px 0 4px; }
+  .qn-preview p { margin: 0 0 8px; }
+  .qn-preview ul { margin: 0 0 8px; padding-left: 18px; }
+  .qn-preview li { margin: 2px 0; }
+  .qn-preview code {
+    font-family: var(--font-mono, monospace);
+    font-size: 12px;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: rgba(22, 32, 46, 0.08);
+  }
+  body.dark-mode .qn-preview code { background: rgba(255, 255, 255, 0.12); }
+  .qn-preview pre {
+    margin: 0 0 10px; padding: 9px 11px;
+    border-radius: 8px;
+    background: rgba(22, 32, 46, 0.06);
+    overflow-x: auto;
+  }
+  body.dark-mode .qn-preview pre { background: rgba(255, 255, 255, 0.08); }
+  .qn-preview pre code { background: none; padding: 0; }
+  .qn-preview blockquote {
+    margin: 0 0 8px; padding: 2px 0 2px 10px;
+    border-left: 3px solid rgba(74, 155, 245, 0.5);
+    color: var(--ink-2);
+  }
+  .qn-preview a { color: #2F7BE0; }
+
+  /* ── 空态 ─────────────────────────────────────────────── */
+  .qn-empty {
+    position: absolute; inset: 0;
+    background: var(--editor);   /* 必须盖住编辑器的占位文案，不然两层字叠在一起 */
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 7px;
+    color: var(--ink-3);
+    font-size: 12.5px;
+  }
+  .qn-empty svg { width: 34px; height: 34px; opacity: 0.32; }
+  .qn-empty button {
+    margin-top: 4px;
+    height: 28px; padding: 0 14px;
+    font-size: 12px; font-family: inherit;
+    border: none; border-radius: 8px;
+    background: linear-gradient(180deg, #5AA9FF, #3B82F6);
+    color: #fff; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  }
+  .qn-empty button:active { scale: 0.97; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="../ui/motion.js"></script>
+<script src="_bridge.js"></script>
+<script src="_app.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var app = document.getElementById('app');
+  var KEY = 'quicknotes_v2';
+  var ICON = {
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>',
+    note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h4M9 12h7M9 16h5"/></svg>'
+  };
+
+  var state = {
+    notes: [],
+    currentId: null,
+    query: '',
+    preview: false,
+    saveTimer: null,
+    dirty: false
+  };
+
+  /* ---------- 存储 ---------- */
+  function loadNotes() {
+    try {
+      Nexus.getUserLS(KEY).then(function (arr) {
+        state.notes = Array.isArray(arr) ? arr : [];
+        // 兼容旧版（quicknotes 是无 id 的卡片数组），只迁移一次
+        if (!state.notes.length) return migrateLegacy();
+        renderList();
+      }).catch(function () { renderList(); });
+    } catch (e) { renderList(); }
+  }
+  function migrateLegacy() {
+    try {
+      Nexus.getUserLS('quicknotes').then(function (arr) {
+        if (Array.isArray(arr) && arr.length) {
+          state.notes = arr.map(function (n, i) {
+            return { id: 'legacy_' + i, body: String(n.content || ''), updatedAt: n.time || Date.now() };
+          }).filter(function (n) { return n.body.trim(); });
+          persist();
+        }
+        renderList();
+      }).catch(function () { renderList(); });
+    } catch (e) { renderList(); }
+  }
+  function persist() {
+    try { Nexus.setUserLS(KEY, state.notes); } catch (e) {}
+  }
+
+  /* ---------- 视图模型 ---------- */
+  function noteTitle(n) {
+    var first = (n.body || '').split('\n').find(function (l) { return l.trim(); });
+    if (!first) return '无标题';
+    return first.replace(/^#+\s*/, '').trim().slice(0, 40) || '无标题';
+  }
+  function notePreview(n) {
+    var lines = (n.body || '').split('\n').filter(function (l) { return l.trim(); });
+    if (lines.length < 2) return '空白笔记';
+    return lines[1]
+      .replace(/^\s*(?:[-*+]|\d+\.)\s+/, '')   // 去掉列表符号
+      .replace(/^#+\s*/, '')                     // 去掉标题井号
+      .replace(/[*`>_]/g, '')
+      .trim().slice(0, 60);
+  }
+  function fmtTime(ts) {
+    var d = new Date(ts);
+    var now = new Date();
+    var sameDay = d.toDateString() === now.toDateString();
+    if (sameDay) return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    var yest = new Date(now.getTime() - 86400000);
+    if (d.toDateString() === yest.toDateString()) return '昨天';
+    return (d.getMonth() + 1) + '/' + d.getDate();
+  }
+
+  /* ---------- 渲染骨架 ---------- */
+  function render() {
+    app.innerHTML =
+      '<div class="qn">' +
+        '<aside class="qn-side">' +
+          '<div class="qn-side-head">' +
+            '<span class="qn-side-title">速记</span>' +
+            '<button class="qn-new" id="qnNew" title="新建（Ctrl/⌘ + N）">' + ICON.plus + '</button>' +
+          '</div>' +
+          '<div class="qn-search-wrap"><input class="qn-search" id="qnSearch" placeholder="搜索笔记…"></div>' +
+          '<div class="qn-list" id="qnList"></div>' +
+          '<div class="qn-side-foot" id="qnFoot">0 篇</div>' +
+        '</aside>' +
+        '<section class="qn-main">' +
+          '<div class="qn-bar">' +
+            '<button class="qn-tab on" id="qnTabEdit">编辑</button>' +
+            '<button class="qn-tab" id="qnTabView">预览</button>' +
+            '<span class="qn-status" id="qnStatus"></span>' +
+            '<button class="qn-del" id="qnDel" title="删除这篇">' + ICON.trash + '</button>' +
+          '</div>' +
+          '<div class="qn-body" id="qnBody">' +
+            '<textarea class="qn-editor" id="qnEditor" placeholder="写点什么…&#10;&#10;第一行会自动变成标题。支持 Markdown：## 小标题、**加粗**、- 列表、`代码`。"></textarea>' +
+            '<div class="qn-preview" id="qnPreview"></div>' +
+          '</div>' +
+        '</section>' +
+      '</div>';
+
+    document.getElementById('qnNew').addEventListener('click', createNote);
+    document.getElementById('qnSearch').addEventListener('input', function (e) {
+      state.query = e.target.value.trim();
+      renderList();
+    });
+    document.getElementById('qnTabEdit').addEventListener('click', function () { setPreview(false); });
+    document.getElementById('qnTabView').addEventListener('click', function () { setPreview(true); });
+    document.getElementById('qnDel').addEventListener('click', deleteCurrent);
+
+    var ed = document.getElementById('qnEditor');
+    ed.addEventListener('input', function () {
+      var n = currentNote();
+      if (!n) return;
+      n.body = ed.value;
+      n.updatedAt = Date.now();
+      state.dirty = true;
+      setStatus('保存中…');
+      renderList();
+      clearTimeout(state.saveTimer);
+      state.saveTimer = setTimeout(flush, 420);
+    });
+    ed.addEventListener('blur', flush);
+
+    document.addEventListener('keydown', function (e) {
+      var mod = e.ctrlKey || e.metaKey;
+      if (mod && (e.key === 'n' || e.key === 'N')) { e.preventDefault(); createNote(); }
+      else if (mod && (e.key === 's' || e.key === 'S')) { e.preventDefault(); flush(); }
+      else if (e.key === 'Escape' && state.query) {
+        state.query = ''; document.getElementById('qnSearch').value = ''; renderList();
+      }
+    });
+
+    renderList();
+    showEmpty();
+  }
+
+  /* ---------- 列表 ---------- */
+  function renderList() {
+    var list = document.getElementById('qnList');
+    if (!list) return;
+    var q = state.query.toLowerCase();
+    var arr = state.notes.filter(function (n) {
+      if (!q) return true;
+      return (n.body || '').toLowerCase().indexOf(q) >= 0;
+    }).sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+
+    if (!arr.length) {
+      list.innerHTML = '<div style="padding:18px 10px;text-align:center;font-size:11.5px;color:var(--ink-3);">' +
+        (q ? '没有匹配的笔记' : '还没有笔记') + '</div>';
+    } else {
+      list.innerHTML = arr.map(function (n) {
+        return '<div class="qn-item' + (n.id === state.currentId ? ' active' : '') + '" data-id="' + n.id + '">' +
+          '<div class="qn-item-title">' + escapeHtml(noteTitle(n)) + '</div>' +
+          '<div class="qn-item-sub"><span>' + escapeHtml(notePreview(n)) + '</span>' +
+          '<span>' + fmtTime(n.updatedAt || Date.now()) + '</span></div>' +
+        '</div>';
+      }).join('');
+      list.querySelectorAll('.qn-item').forEach(function (el) {
+        el.addEventListener('click', function () { selectNote(el.getAttribute('data-id')); });
+      });
+    }
+    var foot = document.getElementById('qnFoot');
+    if (foot) foot.textContent = state.notes.length + ' 篇' + (q ? ' · 筛选 ' + arr.length : '');
+  }
+
+  /* ---------- 当前笔记 ---------- */
+  function currentNote() {
+    for (var i = 0; i < state.notes.length; i++) if (state.notes[i].id === state.currentId) return state.notes[i];
+    return null;
+  }
+  function selectNote(id) {
+    flush();
+    state.currentId = id;
+    var n = currentNote();
+    var ed = document.getElementById('qnEditor');
+    ed.value = n ? (n.body || '') : '';
+    hideEmpty();
+    renderList();
+    setStatus(n ? '已保存 ' + fmtTime(n.updatedAt || Date.now()) : '');
+    if (state.preview) renderPreview();
+    ed.focus();
+  }
+  function createNote() {
+    flush();
+    var n = { id: 'n' + Date.now() + Math.floor(Math.random() * 1000), body: '', updatedAt: Date.now() };
+    state.notes.unshift(n);
+    persist();
+    selectNote(n.id);
+    renderList();
+  }
+  function deleteCurrent() {
+    var n = currentNote();
+    if (!n) return;
+    state.notes = state.notes.filter(function (x) { return x.id !== n.id; });
+    persist();
+    state.currentId = null;
+    var ed = document.getElementById('qnEditor');
+    ed.value = '';
+    setStatus('');
+    showEmpty();
+    renderList();
+  }
+  function flush() {
+    clearTimeout(state.saveTimer);
+    if (!state.dirty) return;
+    var n = currentNote();
+    if (!n) return;
+    if (!n.body.trim()) {
+      // 空笔记不留垃圾
+      state.notes = state.notes.filter(function (x) { return x.id !== n.id; });
+      state.currentId = null;
+      showEmpty();
+    }
+    persist();
+    state.dirty = false;
+    setStatus('已保存 ' + fmtTime(Date.now()));
+    renderList();
+  }
+
+  /* ---------- 预览 / Markdown ---------- */
+  function setPreview(on) {
+    state.preview = on;
+    document.getElementById('qnBody').classList.toggle('previewing', on);
+    document.getElementById('qnTabEdit').classList.toggle('on', !on);
+    document.getElementById('qnTabView').classList.toggle('on', on);
+    if (on) renderPreview();
+  }
+  function renderPreview() {
+    var n = currentNote();
+    var box = document.getElementById('qnPreview');
+    if (!box) return;
+    box.innerHTML = n && n.body.trim() ? markdown(n.body) : '<div style="color:var(--ink-3);font-size:12.5px;">这篇还是空的</div>';
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function inlineMd(s) {
+    return s
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>')
+      .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+  }
+  function markdown(src) {
+    var lines = escapeHtml(src).split('\n');
+    var out = [];
+    var inList = false, inCode = false;
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      if (/^```/.test(line.trim())) {
+        if (inList) { out.push('</ul>'); inList = false; }
+        out.push(inCode ? '</code></pre>' : '<pre><code>');
+        inCode = !inCode;
+        continue;
+      }
+      if (inCode) { out.push(line); continue; }
+      if (/^\s*$/.test(line)) { if (inList) { out.push('</ul>'); inList = false; } continue; }
+      var m;
+      if ((m = line.match(/^(#{1,3})\s+(.*)$/))) {
+        if (inList) { out.push('</ul>'); inList = false; }
+        var lv = m[1].length;
+        out.push('<h' + lv + '>' + inlineMd(m[2]) + '</h' + lv + '>');
+        continue;
+      }
+      if ((m = line.match(/^&gt;\s*(.*)$/))) {
+        if (inList) { out.push('</ul>'); inList = false; }
+        out.push('<blockquote>' + inlineMd(m[1]) + '</blockquote>');
+        continue;
+      }
+      if ((m = line.match(/^\s*[-*]\s+(.*)$/))) {
+        if (!inList) { out.push('<ul>'); inList = true; }
+        out.push('<li>' + inlineMd(m[1]) + '</li>');
+        continue;
+      }
+      if (inList) { out.push('</ul>'); inList = false; }
+      out.push('<p>' + inlineMd(line) + '</p>');
+    }
+    if (inList) out.push('</ul>');
+    if (inCode) out.push('</code></pre>');
+    return out.join('\n');
+  }
+
+  /* ---------- 状态 / 空态 ---------- */
+  function setStatus(text) {
+    var el = document.getElementById('qnStatus');
+    if (!el) return;
+    el.textContent = text;
+    el.style.opacity = text ? '1' : '0';
+  }
+  function showEmpty() {
+    var body = document.getElementById('qnBody');
+    if (!body || body.querySelector('.qn-empty')) return;
+    var box = document.createElement('div');
+    box.className = 'qn-empty';
+    box.innerHTML = ICON.note + '<div>选一篇，或者新建一篇</div><button id="qnEmptyNew">新建笔记</button>';
+    body.classList.add('is-empty');
+    var delBtn = document.getElementById('qnDel');
+    if (delBtn) delBtn.style.visibility = 'hidden';
+    body.appendChild(box);
+    var btn = document.getElementById('qnEmptyNew');
+    if (btn) btn.addEventListener('click', createNote);
+  }
+  function hideEmpty() {
+    var e = document.querySelector('.qn-empty');
+    if (e) e.remove();
+    var body = document.getElementById('qnBody');
+    if (body) body.classList.remove('is-empty');
+    var delBtn = document.getElementById('qnDel');
+    if (delBtn) delBtn.style.visibility = '';
+  }
+
+  Nexus.ready(function () {
+    render();
+    loadNotes();
+  });
+})();
+</script>
+</body>
+</html>

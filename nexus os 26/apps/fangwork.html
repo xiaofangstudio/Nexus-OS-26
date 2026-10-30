@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FangWork</title>
+<script src="_bridge.js"></script>
+<link rel="stylesheet" href="_polish.css">
+<style>
+  :root {
+    --fw-bg: #0b0e14;
+    --fw-card: #141926;
+    --fw-card-2: #1a2030;
+    --fw-line: #232a3b;
+    --fw-text: #e9edf6;
+    --fw-muted: #8b93a7;
+    --fw-brand: #2ee6b0;
+    --fw-brand-2: #38bdf8;
+    --fw-ok: #34d399;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  /* FangWork 是品牌深色界面，不跟随系统深浅色：
+     _app.js 注入的 FangUI 令牌会把 body 背景刷成浅色，
+     所以这里的背景必须 !important 锁死。 */
+  html { background: #0b0e14 !important; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    background:
+      radial-gradient(900px 480px at 78% -12%, rgba(46,230,176,.13) 0%, transparent 62%),
+      radial-gradient(700px 420px at 8% 108%, rgba(56,189,248,.11) 0%, transparent 60%),
+      #0b0e14 !important;
+    color: var(--fw-text) !important;
+    display: flex; flex-direction: column;
+    min-height: 100%;
+    overflow: hidden;
+  }
+
+  header {
+    flex: none;
+    padding: 16px 22px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--fw-line);
+    background: rgba(11,14,20,.6);
+    backdrop-filter: blur(12px);
+  }
+  .logo { width: 34px; height: 34px; border-radius: 9px; display: block; object-fit: contain; flex: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+  .hgroup { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  header h1 { font-size: 16px; font-weight: 800; letter-spacing: .3px; }
+  .ver { font-size: 11px; color: var(--fw-muted); font-variant-numeric: tabular-nums; }
+  .spacer { flex: 1; }
+  .hbtn {
+    height: 30px; padding: 0 14px; border-radius: 9px; cursor: pointer;
+    font: inherit; font-size: 12.5px; font-weight: 600;
+    background: rgba(255,255,255,.07); border: 1px solid var(--fw-line); color: var(--fw-text);
+    display: inline-flex; align-items: center; gap: 7px;
+    transition: background .16s, border-color .16s, transform .12s;
+  }
+  .hbtn:hover { background: rgba(255,255,255,.13); border-color: #313a4f; }
+  .hbtn:active { transform: scale(.96); }
+  .hbtn.primary { background: linear-gradient(135deg, var(--fw-brand), var(--fw-brand-2)); border-color: transparent; color: #06121a; }
+  .hbtn.primary:hover { filter: brightness(1.08); }
+
+  main { flex: 1; overflow-y: auto; padding: 22px 22px 26px; display: flex; flex-direction: column; }
+  .hero { margin-bottom: 18px; }
+  .hero h2 { font-size: 20px; font-weight: 800; letter-spacing: .2px; }
+  .hero p { font-size: 12.5px; color: var(--fw-muted); line-height: 1.85; margin-top: 6px; max-width: 720px; }
+  .hero p b { color: var(--fw-text); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+  .card {
+    background: linear-gradient(180deg, var(--fw-card-2), var(--fw-card));
+    border: 1px solid var(--fw-line);
+    border-radius: 16px;
+    padding: 16px 16px 14px;
+    display: flex; flex-direction: column; gap: 11px;
+    transition: border-color .18s, transform .18s, box-shadow .18s;
+    position: relative;
+    overflow: hidden;
+  }
+  .card:hover { border-color: #35405a; transform: translateY(-2px); box-shadow: 0 14px 32px rgba(0,0,0,.42); }
+  .card.missing { opacity: .84; }
+
+  .c-top { display: flex; align-items: center; gap: 12px; }
+  .c-icon { width: 46px; height: 46px; border-radius: 12px; object-fit: contain; flex: none;
+    box-shadow: 0 3px 10px rgba(0,0,0,.42); }
+  .c-name { font-size: 15.5px; font-weight: 800; letter-spacing: .2px; }
+  .c-tag { font-size: 11px; color: var(--fw-muted); margin-top: 2px; line-height: 1.5; }
+  .c-desc { font-size: 12px; color: var(--fw-muted); line-height: 1.75; flex: 1; }
+
+  .c-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 5px; letter-spacing: .2px; }
+  .badge.installed { background: rgba(52,211,153,.16); color: var(--fw-ok); }
+  .badge.notinst { background: rgba(139,147,167,.16); color: var(--fw-muted); }
+  .badge.new { background: rgba(56,189,248,.16); color: var(--fw-brand-2); }
+  .badge.upd { background: rgba(251,191,36,.16); color: #fbbf24; }
+
+  .c-acts { display: flex; gap: 8px; }
+  .btn {
+    flex: 1; height: 32px; border-radius: 9px; cursor: pointer; font: inherit;
+    font-size: 12.5px; font-weight: 700;
+    border: 1px solid var(--fw-line); background: rgba(255,255,255,.06); color: var(--fw-text);
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    transition: background .16s, transform .12s, filter .16s;
+  }
+  .btn:hover { background: rgba(255,255,255,.12); }
+  .btn:active { transform: scale(.96); }
+  .btn.launch { background: linear-gradient(135deg, var(--fw-brand), var(--fw-brand-2)); border-color: transparent; color: #06121a; }
+  .btn.launch:hover { filter: brightness(1.08); }
+  .btn.ghost { flex: 0 0 auto; padding: 0 12px; }
+  .btn:disabled { opacity: .45; cursor: default; }
+
+  .foot {
+    margin-top: auto; padding-top: 14px; border-top: 1px solid var(--fw-line);
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    font-size: 11.5px; color: var(--fw-muted);
+  }
+  .foot b { color: var(--fw-text); font-weight: 700; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 16px);
+    background: #1b2233; border: 1px solid #2b3448; color: var(--fw-text);
+    padding: 10px 18px; border-radius: 11px; font-size: 12.5px; font-weight: 600;
+    box-shadow: 0 12px 34px rgba(0,0,0,.5);
+    opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+    z-index: 99; max-width: 80%; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .spin { display: inline-block; animation: sp .9s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body class="dark-mode">
+
+<header>
+  <img class="logo" src="brand/fangwork.png" alt="FangWork" draggable="false" />
+  <div class="hgroup">
+    <h1>FangWork</h1>
+    <span class="ver" id="verText">v1.0.0</span>
+  </div>
+  <div class="spacer"></div>
+  <button class="hbtn" id="btnCheck" onclick="checkUpdates()"><i class="fas fa-arrows-rotate"></i> 检查更新</button>
+  <button class="hbtn primary" onclick="launchAll()"><i class="fas fa-play"></i> 全部启动</button>
+</header>
+
+<main>
+  <div class="hero">
+    <h2>小方创作套件</h2>
+    <p>Strata 与 Reelix 是两个<b>各自独立的软件</b>，装不装它们都不影响 FangWork 本身。FangWork 只做两件事：把它们<b>一键拉起来</b>，以及告诉你<b>有没有新版本</b>。</p>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="foot">
+    <span>内核 <b>Tauri + Rust / WASM</b></span>
+    <span>·</span>
+    <span>工程与素材都存在本地 <b>IndexedDB</b>，不上传任何服务器</span>
+    <span>·</span>
+    <span>© 小方工作室</span>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===== FangWork · 创作套件启动器 =====
+   用户明确要求：
+   ① Strata 与 Reelix 是**两个独立软件**，各自上架、可单独下载，不是 FangWork 的子页面；
+   ② FangWork 只负责「一键启动」与「检查更新」，不捆绑，只装 FangWork 也能用；
+   ③ 三个软件各用**自己专属的图标**，绝不互相顶替、也不随系统图标包变化。 */
+(function () {
+  'use strict';
+
+  var FANGWORK_VERSION = 'v1.0.0';
+
+  var CATALOG = [
+    {
+      id: 'strata', name: 'Strata', ver: 'v0.9.0',
+      icon: 'brand/strata.png',
+      tag: '图像处理 · 图层 · 蒙版 · 矢量 · 批处理',
+      desc: '对标 Photoshop 的位图编辑与数字绘画工具，Canvas2D / SVG 内核，图层、蒙版、滤镜与批处理流水线齐备。'
+    },
+    {
+      id: 'reelix', name: 'Reelix', ver: 'v0.9.0',
+      icon: 'brand/reelix.png',
+      tag: '特效合成 · 多轨时间线 · 3D 图层 · 关键帧',
+      desc: '对标 After Effects 的特效合成软件，图层式合成加效果栈为主体，37 个效果节点、转场、3D 图层与离线逐帧精确导出。'
+    }
+  ];
+
+  var installedIds = [];
+  var localVers = {};
+  var pendingUpdates = {};
+  var lastLaunched = null;
+
+  function $(id) { return document.getElementById(id); }
+
+  function toast(msg) {
+    var t = $('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._t);
+    t._t = setTimeout(function () { t.classList.remove('show'); }, 2200);
+  }
+
+  function isInstalled(id) { return installedIds.indexOf(id) >= 0; }
+
+  function displayName(id) {
+    var c = CATALOG.filter(function (x) { return x.id === id; })[0];
+    return c ? c.name : id;
+  }
+
+  function pullState() {
+    return Promise.all([
+      Nexus.getUserLS('installedApps').then(function (v) {
+        installedIds = Array.isArray(v) ? v : [];
+      }).catch(function () { installedIds = []; }),
+      Nexus.getUserLS('fangwork_versions').then(function (v) {
+        localVers = (v && typeof v === 'object') ? v : {};
+      }).catch(function () { localVers = {}; })
+    ]);
+  }
+
+  function render() {
+    var g = $('grid');
+    if (!g) return;
+
+    g.innerHTML = CATALOG.map(function (app) {
+      var inst = isInstalled(app.id);
+      var lv = localVers[app.id] || '';
+      var hasUpd = !!pendingUpdates[app.id];
+      var isNew = inst && !lv;
+
+      var badges = '';
+      if (!inst) {
+        badges += '<span class="badge notinst">未安装</span>';
+      } else if (isNew) {
+        badges += '<span class="badge new">已安装 · 新装</span>';
+      } else {
+        badges += '<span class="badge installed">已安装 ' + lv + '</span>';
+      }
+      if (hasUpd) badges += '<span class="badge upd">可更新 → ' + app.ver + '</span>';
+
+      return ''
+        + '<div class="card' + (inst ? '' : ' missing') + '">'
+        +   '<div class="c-top">'
+        +     '<img class="c-icon" src="' + app.icon + '" alt="' + app.name + '" draggable="false">'
+        +     '<div><div class="c-name">' + app.name + '</div><div class="c-tag">' + app.tag + '</div></div>'
+        +   '</div>'
+        +   '<div class="c-desc">' + app.desc + '</div>'
+        +   '<div class="c-badges">' + badges + '</div>'
+        +   '<div class="c-acts">'
+        +     (inst
+              ? '<button class="btn launch" onclick="launch(\'' + app.id + '\')"><i class="fas fa-play"></i> 启动</button>'
+              : '<button class="btn" onclick="goStore()"><i class="fas fa-download"></i> 去商店安装</button>')
+        +     (hasUpd
+              ? '<button class="btn ghost" onclick="applyUpdate(\'' + app.id + '\')"><i class="fas fa-arrow-up"></i> 更新</button>'
+              : '')
+        +   '</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  window.launch = function (id) {
+    if (!isInstalled(id)) {
+      toast('「' + displayName(id) + '」还没装，先去应用商店装一下');
+      return;
+    }
+    lastLaunched = id;
+    Nexus.openApp(id).then(function () {
+      toast('正在启动 ' + displayName(id));
+    }).catch(function () {
+      toast('启动失败，试试从开始菜单打开');
+    });
+  };
+
+  window.launchAll = function () {
+    var ready = CATALOG.filter(function (a) { return isInstalled(a.id); });
+    if (!ready.length) { toast('一个都还没装，先去应用商店把 Strata / Reelix 装上'); return; }
+    var i = 0;
+    (function next() {
+      if (i >= ready.length) { toast('已启动 ' + ready.length + ' 个应用'); return; }
+      var a = ready[i++];
+      Nexus.openApp(a.id).catch(function () {}).then(function () {
+        setTimeout(next, 420);
+      });
+    })();
+  };
+
+  window.goStore = function () {
+    Nexus.openApp('appstore').catch(function () {});
+    toast('已打开应用商店，搜索 Strata 或 Reelix');
+  };
+
+  window.checkUpdates = function () {
+    var btn = $('btnCheck');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-arrows-rotate spin"></i> 检查中'; }
+
+    setTimeout(function () {
+      var found = 0;
+      pendingUpdates = {};
+      CATALOG.forEach(function (a) {
+        if (!isInstalled(a.id)) return;
+        var lv = localVers[a.id] || '';
+        if (!lv || lv !== a.ver) { pendingUpdates[a.id] = a.ver; found++; }
+      });
+
+      render();
+
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-arrows-rotate"></i> 检查更新'; }
+
+      if (found > 0) {
+        toast('发现 ' + found + ' 个可更新');
+        Nexus.notify('FangWork', '发现 ' + found + ' 个应用可更新', 'info').catch(function () {});
+      } else {
+        toast('全部都是最新版本');
+      }
+    }, 620);
+  };
+
+  window.applyUpdate = function (id) {
+    var app = CATALOG.filter(function (x) { return x.id === id; })[0];
+    if (!app) return;
+    localVers[id] = app.ver;
+    delete pendingUpdates[id];
+    Nexus.setUserLS('fangwork_versions', localVers).catch(function () {});
+    render();
+    toast(app.name + ' 已更新到 ' + app.ver);
+    Nexus.notify('FangWork', app.name + ' 已更新到 ' + app.ver, 'success').catch(function () {});
+  };
+
+  function boot() {
+    if ($('verText')) $('verText').textContent = FANGWORK_VERSION;
+    pullState().then(render).catch(render);
+    if (Nexus.on) Nexus.on('theme', function () { render(); });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+<script src="_app.js"></script>
+</body>
+</html>

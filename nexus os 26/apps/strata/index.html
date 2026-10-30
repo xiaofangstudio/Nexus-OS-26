@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Strata</title>
+    <script type="module" crossorigin src="./assets/index-CPo0-Z0Z.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/vendor-react-DvV7Vn6x.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-CSeXnWbS.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      /* 直接双击打开（file://）时，浏览器会拦截 ES 模块加载，必然白屏、
+         页面里的链接也都会报路径错误。这里给一句明确的人话，别让用户对着白屏发懵。 */
+      (function () {
+        if (location.protocol !== "file:") return;
+        var show = function () {
+          if (document.getElementById("__file_protocol_tip")) return;
+          var box = document.createElement("div");
+          box.id = "__file_protocol_tip";
+          box.style.cssText = "position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:32px;background:#0c0e14;color:#e8ecf5;font:15px/1.85 system-ui,'PingFang SC','Microsoft YaHei',sans-serif;text-align:center;overflow:auto";
+          box.innerHTML =
+            '<div style="max-width:600px">' +
+            '<div style="font-size:22px;font-weight:800;margin-bottom:14px">请用本地服务器打开</div>' +
+            '<div style="color:#8b93a7;margin-bottom:16px">你现在是直接双击 HTML 打开的（地址栏是 <code style="color:#e8734a">file://</code>）。' +
+            '浏览器在这种方式下会拦截 ES 模块加载，所以会白屏、链接也都会报路径错误。这是浏览器的安全策略，不是软件坏了。</div>' +
+            '<div style="color:#8b93a7">请双击项目根目录的 <b style="color:#6db3ff">start.bat</b>，它会启动本地服务器并自动打开正确地址。</div>' +
+            '</div>';
+          document.body.appendChild(box);
+        };
+        if (document.body) show();
+        else document.addEventListener("DOMContentLoaded", show);
+      })();
+    </script>
+  </body>
+</html>

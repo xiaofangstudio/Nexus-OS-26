@@ -1,0 +1,38 @@
+# ============================================================
+# Nexus OS 26 · 方聊（N聊）后端 · Cloudflare Worker
+# 依据 ../API文档大全.md 第一部分「N聊 项目 API」规范实现。
+# 部署：
+#   1) wrangler d1 create nliao-db        → 把返回的 database_id 填到下面
+#   2) wrangler d1 execute nliao-db --remote --file=./schema.sql
+#   3) wrangler deploy
+# ============================================================
+name = "nexus-nliao"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# 自定义域名（绕开 *.workers.dev 的 DNS 污染）
+routes = [
+  { pattern = "nliao.fanggame.company", custom_domain = true }
+]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "nliao-db"
+database_id = "25f70892-70eb-4e7d-8411-c597ca3cf10e"
+
+# 聊天室 / 通知通道（WebSocket 实时扇出）
+[[durable_objects.bindings]]
+name = "ROOM"
+class_name = "Room"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]
+
+[vars]
+# —— CORS ——
+ALLOW_ORIGIN = "*"
+# —— MXOS 账户体系（与 OS 互通）。留空 = 开发模式（本库自带账户，仅测试用！）——
+AUTH_API_BASE = ""
+# —— WS 票据签名密钥（部署时务必改成随机长串）——
+TICKET_SECRET = "942eff88f73ba666401a0d9c3de9403ee2984c128589750e71c07dc1f613a22c"

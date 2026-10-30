@@ -1,0 +1,102 @@
+/* ============================================================
+   Nexus OS 26 · 设计令牌（ui/tokens.css）
+   硬性要求落地：#1 全部非线性动画（缓动/时长/弹簧令牌）
+                #2 液态玻璃克制+强磨砂（玻璃材质令牌）
+                #3 不露馅（间距/圆角/层级/排版刻度统一）
+   所有壳与应用共用；深色模式经 body.dark-mode 覆盖。
+   ============================================================ */
+:root {
+  /* ---- 动效：缓动曲线（非线性，禁止 linear） ---- */
+  --ease-out-expo:   cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart:  cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-out-quart:cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-in-out-expo:cubic-bezier(0.87, 0, 0.13, 1);
+  --ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);   /* 带轻微回弹 */
+  --ease-anticipate: cubic-bezier(0.68, -0.55, 0.27, 1.55);
+  --ease-smooth:     cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ---- 动效：时长 ---- */
+  --dur-instant: 90ms;
+  --dur-fast:    160ms;
+  --dur-base:    260ms;
+  --dur-slow:    400ms;
+  --dur-slower:  560ms;
+
+  /* ---- 玻璃材质：L1 结构面（强磨砂） ---- */
+  --glass-blur:       30px;
+  --glass-blur-strong:40px;
+  --glass-saturate:   180%;
+  --glass-brightness: 1.06;
+  --glass-tint:       rgba(255, 255, 255, 0.55);
+  --glass-tint-2:     rgba(255, 255, 255, 0.34);
+  --glass-border:     rgba(255, 255, 255, 0.5);
+  --glass-border-2:   rgba(255, 255, 255, 0.28);
+  --glass-specular:   rgba(255, 255, 255, 0.85);   /* 高光边 */
+  --glass-shadow:     0 8px 32px rgba(15, 23, 42, 0.18), 0 2px 8px rgba(15, 23, 42, 0.10);
+  --glass-shadow-lift:0 18px 48px rgba(15, 23, 42, 0.26), 0 4px 14px rgba(15, 23, 42, 0.14);
+  --glass-inner:      inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.05);
+
+  /* ---- 玻璃材质：L0 英雄面（位移折射 + 流体） ---- */
+  --glass-hero-blur: 22px;
+  --glass-hero-saturate: 190%;
+
+  /* ---- 圆角 ---- */
+  --r-xs: 6px;  --r-sm: 10px;  --r-md: 14px;  --r-lg: 20px;
+  --r-xl: 28px; --r-2xl: 36px; --r-full: 999px;
+
+  /* ---- 间距刻度 ---- */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 24px; --sp-6: 32px; --sp-7: 48px; --sp-8: 64px;
+
+  /* ---- 排版 ---- */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  --fs-11: 11px; --fs-12: 12px; --fs-13: 13px; --fs-14: 14px;
+  --fs-16: 16px; --fs-18: 18px; --fs-22: 22px; --fs-28: 28px; --fs-34: 34px;
+
+  /* ---- 阴影 ---- */
+  --shadow-1: 0 1px 2px rgba(15,23,42,0.08), 0 1px 3px rgba(15,23,42,0.06);
+  --shadow-2: 0 4px 12px rgba(15,23,42,0.12), 0 2px 4px rgba(15,23,42,0.08);
+  --shadow-3: 0 12px 32px rgba(15,23,42,0.18), 0 4px 12px rgba(15,23,42,0.10);
+
+  /* ---- 主色 ---- */
+  --primary: #3b82f6;
+  --primary-press: #2563eb;
+  --danger: #ef4444;
+  --ok: #22c55e;
+  --warn: #f59e0b;
+
+  /* ---- 文本 ---- */
+  --text-1: rgba(15, 23, 42, 0.92);
+  --text-2: rgba(15, 23, 42, 0.62);
+  --text-3: rgba(15, 23, 42, 0.42);
+
+  /* ---- 层级 ---- */
+  --z-desktop: 1; --z-window: 100; --z-window-focus: 200;
+  --z-dock: 500; --z-menu: 800; --z-panel: 900;
+  --z-overlay: 1000; --z-modal: 1100; --z-toast: 1200; --z-boot: 2000;
+}
+
+/* ---- 深色模式：玻璃与文本反转，保持强磨砂 ---- */
+body.dark-mode {
+  --glass-tint:      rgba(20, 24, 34, 0.55);
+  --glass-tint-2:    rgba(16, 20, 30, 0.36);
+  --glass-border:    rgba(255, 255, 255, 0.16);
+  --glass-border-2:  rgba(255, 255, 255, 0.10);
+  --glass-specular:  rgba(255, 255, 255, 0.30);
+  --glass-shadow:    0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.30);
+  --glass-shadow-lift:0 18px 48px rgba(0,0,0,0.55), 0 4px 14px rgba(0,0,0,0.35);
+  --glass-inner:     inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -1px 0 rgba(0,0,0,0.30);
+  --text-1: rgba(240, 244, 252, 0.96);
+  --text-2: rgba(226, 232, 240, 0.70);
+  --text-3: rgba(203, 213, 225, 0.48);
+  --shadow-1: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-2: 0 4px 12px rgba(0,0,0,0.45);
+  --shadow-3: 0 12px 32px rgba(0,0,0,0.55);
+}
+
+/* ---- 减少动效：统一降级 ---- */
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-instant: 0ms; --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; --dur-slower: 0ms; }
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}

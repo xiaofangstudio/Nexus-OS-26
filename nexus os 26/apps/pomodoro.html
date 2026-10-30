@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>番茄钟</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<style>
+  /* ============================================================
+     番茄钟 · 440×600
+     关键修复：
+     ① 计时改用时间戳（原来每秒 -1，切窗口/iframe 被节流就跑偏）；
+     ② 文案跟阶段对齐（原来专注结束后的按钮写着「开始工作」，
+        点下去其实是在开始休息）；
+     ③ 浅色模式下不再是白字白底；
+     ④ 专注 4 轮自动进长休息，轮次有可视化的点。
+     ============================================================ */
+  html, body { height: 100%; margin: 0; font-family: var(--font-sans); }
+  body { background: transparent; overflow: hidden; }
+  #app { height: 100%; }
+
+  .pom {
+    --ink: #17202E;
+    --ink-2: rgba(23, 32, 46, 0.55);
+    --chip-bg: rgba(23, 32, 46, 0.05);
+    --chip-bd: rgba(23, 32, 46, 0.08);
+    --chip-ink: rgba(23, 32, 46, 0.72);
+    --ring-track: rgba(23, 32, 46, 0.08);
+    --c1: #F0715A;
+    --c2: #E24C3F;
+    --glow: rgba(226, 76, 63, 0.28);
+
+    height: 100%;
+    box-sizing: border-box;
+    padding: 16px 22px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    color: var(--ink);
+    user-select: none;
+    transition: color 0.3s var(--ease-out-quart);
+  }
+  body.dark-mode .pom {
+    --ink: #F1F4FA;
+    --ink-2: rgba(232, 238, 248, 0.58);
+    --chip-bg: rgba(255, 255, 255, 0.07);
+    --chip-bd: rgba(255, 255, 255, 0.10);
+    --chip-ink: rgba(232, 238, 248, 0.76);
+    --ring-track: rgba(255, 255, 255, 0.12);
+  }
+  /* 阶段配色：专注暖红、短休翡翠、长休蓝 */
+  .pom.phase-focus { --c1: #F0715A; --c2: #E24C3F; --glow: rgba(226, 76, 63, 0.30); }
+  .pom.phase-short { --c1: #4ADE9B; --c2: #10B981; --glow: rgba(16, 185, 129, 0.28); }
+  .pom.phase-long  { --c1: #6FB4FF; --c2: #3B82F6; --glow: rgba(59, 130, 246, 0.28); }
+
+  /* ── 时长胶囊 ─────────────────────────────────────────── */
+  .pom-durs {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    transition: opacity 0.2s var(--ease-out-quart);
+  }
+  .pom-durs.locked { opacity: 0.45; pointer-events: none; }
+  .pom-dur {
+    padding: 6px 11px;
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    border-radius: 9px;
+    border: 1px solid var(--chip-bd);
+    background: var(--chip-bg);
+    color: var(--chip-ink);
+    cursor: pointer;
+    transition: background-color 0.15s var(--ease-out-quart),
+      color 0.15s var(--ease-out-quart),
+      border-color 0.15s var(--ease-out-quart);
+  }
+  .pom-dur:hover { background: rgba(23, 32, 46, 0.10); color: var(--ink); }
+  body.dark-mode .pom-dur:hover { background: rgba(255, 255, 255, 0.14); }
+  .pom-dur.active {
+    background: linear-gradient(135deg, var(--c1), var(--c2));
+    border-color: transparent;
+    color: #FFFFFF;
+    box-shadow: 0 2px 10px var(--glow);
+  }
+
+  /* ── 圆环 ─────────────────────────────────────────────── */
+  .pom-stage {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+  .pom-ring {
+    position: relative;
+    width: min(286px, 78%);
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pom-ring svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+  .pom-track { fill: none; stroke: var(--ring-track); stroke-width: 9; }
+  .pom-prog {
+    fill: none;
+    stroke: url(#pomGrad);
+    stroke-width: 9;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.28s linear;
+  }
+  /* SVG 渐变端点用 CSS 变量驱动（presentation attribute 里写 var() 不生效） */
+  #pomGrad stop:first-child { stop-color: var(--c1); }
+  #pomGrad stop:last-child { stop-color: var(--c2); }
+  .pom-face {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+  .pom-time {
+    font-size: 58px;
+    font-weight: 250;
+    line-height: 1;
+    letter-spacing: -1px;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+  .pom-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 1.6px;
+    color: var(--ink-2);
+    text-transform: uppercase;
+  }
+  /* 运行中的呼吸光：只在真的在计时的时候呼吸 */
+  .pom-ring.running::after {
+    content: '';
+    position: absolute;
+    inset: 6%;
+    border-radius: 50%;
+    box-shadow: 0 0 26px var(--glow);
+    opacity: 0.4;
+    animation: pomBreath 3.6s var(--ease-smooth, ease-in-out) infinite;
+    pointer-events: none;
+  }
+  @keyframes pomBreath {
+    0%, 100% { opacity: 0.24; }
+    50% { opacity: 0.5; }
+  }
+
+  /* ── 轮次点 ───────────────────────────────────────────── */
+  .pom-dots {
+    display: flex;
+    gap: 7px;
+    height: 8px;
+    align-items: center;
+  }
+  .pom-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--ring-track);
+    transition: background-color 0.25s var(--ease-out-quart), scale 0.25s var(--ease-spring);
+  }
+  .pom-dot.done { background: linear-gradient(135deg, var(--c1), var(--c2)); scale: 1.12; }
+
+  /* ── 控制区 ───────────────────────────────────────────── */
+  .pom-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .pom-btn {
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink);
+    background: var(--chip-bg);
+    border: 1px solid var(--chip-bd);
+    transition: background-color 0.15s var(--ease-out-quart),
+      box-shadow 0.2s var(--ease-out-quart),
+      scale 0.12s var(--ease-out-quart);
+  }
+  .pom-btn.ghost { width: 42px; height: 42px; border-radius: 50%; }
+  .pom-btn.ghost:hover { background: rgba(23, 32, 46, 0.10); }
+  body.dark-mode .pom-btn.ghost:hover { background: rgba(255, 255, 255, 0.14); }
+  .pom-btn.main {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    color: #FFFFFF;
+    border-color: transparent;
+    background: linear-gradient(145deg, var(--c1), var(--c2));
+    box-shadow: 0 6px 20px var(--glow), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+  /* 图标全部内联 SVG：iframe 里没有 Font Awesome 可用，用字体图标会直接空掉 */
+  .pom-btn svg { width: 19px; height: 19px; display: block; }
+  .pom-btn.main svg { width: 24px; height: 24px; }
+  .pom-card-icon svg { width: 26px; height: 26px; display: block; }
+  svg .fill { fill: currentColor; }
+  svg .stroke { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .pom-btn.main:hover { box-shadow: 0 8px 26px var(--glow), inset 0 1px 0 rgba(255, 255, 255, 0.45); }
+  .pom-btn.main:active { scale: 0.94; }
+  .pom-btn:active { scale: 0.94; }
+  .pom-btn:focus-visible { outline: 2px solid var(--c2); outline-offset: 3px; }
+
+  .pom-stats {
+    font-size: 11.5px;
+    color: var(--ink-2);
+    text-align: center;
+    flex-shrink: 0;
+    letter-spacing: 0.2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .pom-stats b { color: var(--ink); font-weight: 700; font-size: 13px; }
+
+  /* ── 完成浮层 ─────────────────────────────────────────── */
+  .pom-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(16, 20, 30, 0.32);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    backdrop-filter: blur(16px) saturate(150%);
+    opacity: 0;
+    translate: 0 6px;
+    pointer-events: none;
+    transition: opacity 0.22s var(--ease-out-quart), translate 0.22s var(--ease-out-quart);
+  }
+  .pom-overlay.show { opacity: 1; translate: 0 0; pointer-events: auto; }
+  .pom-card {
+    width: 300px;
+    padding: 26px 24px 22px;
+    border-radius: 20px;
+    text-align: center;
+    background: rgba(252, 253, 255, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow: 0 20px 56px rgba(16, 20, 30, 0.28);
+  }
+  body.dark-mode .pom-card {
+    background: rgba(36, 39, 52, 0.95);
+    border-color: rgba(255, 255, 255, 0.10);
+    color: #F1F4FA;
+  }
+  .pom-card-icon {
+    width: 56px; height: 56px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    color: #FFFFFF;
+    background: linear-gradient(145deg, var(--c1), var(--c2));
+    box-shadow: 0 8px 20px var(--glow);
+  }
+  .pom-card-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .pom-card-sub { font-size: 12.5px; line-height: 1.7; color: rgba(23, 32, 46, 0.6); margin-bottom: 18px; }
+  body.dark-mode .pom-card-sub { color: rgba(232, 238, 248, 0.6); }
+  .pom-card-btn {
+    width: 100%;
+    height: 42px;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #FFFFFF;
+    cursor: pointer;
+    background: linear-gradient(145deg, var(--c1), var(--c2));
+    box-shadow: 0 4px 14px var(--glow);
+    transition: filter 0.15s var(--ease-out-quart), scale 0.12s var(--ease-out-quart);
+  }
+  .pom-card-btn:hover { filter: brightness(1.06); }
+  .pom-card-btn:active { scale: 0.98; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pom-ring.running::after { animation: none; }
+    .pom-prog { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="../ui/motion.js"></script>
+<script src="_bridge.js"></script>
+<script src="_app.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var FOCUS_CHOICES = [15, 25, 30, 45, 60];
+  var SHORT_BREAK_MIN = 5;
+  var LONG_BREAK_MIN = 15;
+  var ROUNDS_BEFORE_LONG = 4;
+
+  var app = document.getElementById('app');
+
+  /* 内联图标（不依赖 Font Awesome） */
+  var ICONS = {
+    play: '<svg viewBox="0 0 24 24" aria-hidden="true"><polygon class="fill" points="8,5 19.5,12 8,19"/></svg>',
+    pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect class="fill" x="7" y="5" width="4" height="14" rx="1.2"/><rect class="fill" x="13.5" y="5" width="4" height="14" rx="1.2"/></svg>',
+    reset: '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="stroke" d="M20 12a8 8 0 1 1-2.6-5.9"/><path class="stroke" d="M4.5 3.5v5h5"/></svg>',
+    skip: '<svg viewBox="0 0 24 24" aria-hidden="true"><polygon class="fill" points="5,5 15,12 5,19"/><rect class="fill" x="16.5" y="5" width="3" height="14" rx="1"/></svg>',
+    done: '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:26px;height:26px"><path class="stroke" d="M5 12.6l4.2 4.2L19 7.2"/></svg>'
+  };
+
+  var state = {
+    phase: 'focus',        // focus | short | long
+    focusMin: 25,
+    running: false,
+    /* 计时一律以「结束时刻」为准：切窗口、iframe 被节流、
+       甚至电脑睡眠回来，读数都不会漂 */
+    endAt: 0,
+    remainMs: 25 * 60 * 1000,
+    totalMs: 25 * 60 * 1000,
+    todayCount: 0,
+    cycleDone: 0,          // 本轮已经完成的专注次数（0~3）
+    ticker: null,
+    lastRenderedSec: -1
+  };
+
+  function phaseMinutes(phase) {
+    if (phase === 'focus') return state.focusMin;
+    if (phase === 'short') return SHORT_BREAK_MIN;
+    return LONG_BREAK_MIN;
+  }
+  function phaseName(phase) {
+    if (phase === 'focus') return '专注中';
+    return phase === 'long' ? '长休息' : '短休息';
+  }
+  function phaseClass(phase) {
+    return 'phase-' + phase;
+  }
+
+  /* ---------- 渲染骨架 ---------- */
+  function render() {
+    app.innerHTML =
+      '<div class="pom ' + phaseClass(state.phase) + '" id="pomRoot">' +
+        '<div class="pom-durs" id="pomDurs">' +
+          FOCUS_CHOICES.map(function (m) {
+            return '<button class="pom-dur" data-min="' + m + '">' + m + ' 分</button>';
+          }).join('') +
+        '</div>' +
+
+        '<div class="pom-stage">' +
+          '<div class="pom-ring" id="pomRing">' +
+            '<svg viewBox="0 0 240 240" aria-hidden="true">' +
+              '<defs>' +
+                '<linearGradient id="pomGrad" x1="0%" y1="0%" x2="100%" y2="100%">' +
+                  '<stop offset="0%"/>' +
+                  '<stop offset="100%"/>' +
+                '</linearGradient>' +
+              '</defs>' +
+              '<circle class="pom-track" cx="120" cy="120" r="108"/>' +
+              '<circle class="pom-prog" id="pomProg" cx="120" cy="120" r="108"/>' +
+            '</svg>' +
+            '<div class="pom-face">' +
+              '<div class="pom-time" id="pomTime">25:00</div>' +
+              '<div class="pom-label" id="pomLabel">专注中</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="pom-dots" id="pomDots">' +
+            [0, 1, 2, 3].map(function (i) { return '<span class="pom-dot" data-i="' + i + '"></span>'; }).join('') +
+          '</div>' +
+        '</div>' +
+
+        '<div class="pom-actions">' +
+          '<button class="pom-btn ghost" id="pomReset" title="重置（R）" aria-label="重置">' + ICONS.reset + '</button>' +
+          '<button class="pom-btn main" id="pomPlay" title="开始 / 暂停（空格）" aria-label="开始或暂停">' + ICONS.play + '</button>' +
+          '<button class="pom-btn ghost" id="pomSkip" title="跳到下一阶段" aria-label="跳到下一阶段">' + ICONS.skip + '</button>' +
+        '</div>' +
+        '<div class="pom-stats">今日 <b id="pomToday">0</b> 个番茄 · <span id="pomTotalMin">0</span> 分钟专注</div>' +
+      '</div>';
+
+    app.querySelectorAll('.pom-dur').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var m = parseInt(el.getAttribute('data-min'), 10);
+        if (state.running || state.phase !== 'focus') return;
+        state.focusMin = m;
+        resetPhase('focus');
+        syncDurs();
+      });
+    });
+    document.getElementById('pomPlay').addEventListener('click', toggle);
+    document.getElementById('pomReset').addEventListener('click', function () {
+      resetPhase('focus');
+    });
+    document.getElementById('pomSkip').addEventListener('click', function () {
+      complete(true);
+    });
+
+    syncDurs();
+    renderTime(true);
+    syncDots();
+    loadStats();
+  }
+
+  function syncDurs() {
+    var box = document.getElementById('pomDurs');
+    if (!box) return;
+    box.classList.toggle('locked', state.running || state.phase !== 'focus');
+    box.querySelectorAll('.pom-dur').forEach(function (el) {
+      var m = parseInt(el.getAttribute('data-min'), 10);
+      el.classList.toggle('active', m === state.focusMin);
+    });
+  }
+
+  function syncDots() {
+    var box = document.getElementById('pomDots');
+    if (!box) return;
+    box.querySelectorAll('.pom-dot').forEach(function (el) {
+      var i = parseInt(el.getAttribute('data-i'), 10);
+      el.classList.toggle('done', i < state.cycleDone);
+    });
+  }
+
+  /* ---------- 计时 ---------- */
+  function start() {
+    if (state.running) return;
+    state.running = true;
+    state.endAt = Date.now() + state.remainMs;
+    document.getElementById('pomRing').classList.add('running');
+    document.getElementById('pomPlay').innerHTML = ICONS.pause;
+    syncDurs();
+    loop();
+  }
+
+  function pause() {
+    if (!state.running) return;
+    state.remainMs = Math.max(0, state.endAt - Date.now());
+    state.running = false;
+    stopTicker();
+    document.getElementById('pomRing').classList.remove('running');
+    document.getElementById('pomPlay').innerHTML = ICONS.play;
+    syncDurs();
+    renderTime(true);
+  }
+
+  function toggle() { state.running ? pause() : start(); }
+
+  function stopTicker() {
+    if (state.ticker) { clearInterval(state.ticker); state.ticker = null; }
+  }
+
+  function loop() {
+    stopTicker();
+    // 200ms 一跳：秒数照常整秒变，圆环走起来是连续的
+    state.ticker = setInterval(function () {
+      if (!state.running) return;
+      state.remainMs = state.endAt - Date.now();
+      if (state.remainMs <= 0) {
+        state.remainMs = 0;
+        renderTime(true);
+        complete(false);
+        return;
+      }
+      renderTime(false);
+    }, 200);
+  }
+
+  function renderTime(force) {
+    var ms = state.running ? Math.max(0, state.endAt - Date.now()) : state.remainMs;
+    var sec = Math.ceil(ms / 1000);
+    if (!force && sec === state.lastRenderedSec) return;
+    state.lastRenderedSec = sec;
+    var mm = Math.floor(sec / 60);
+    var ss = sec % 60;
+    var t = document.getElementById('pomTime');
+    if (t) t.textContent = (mm < 10 ? '0' : '') + mm + ':' + (ss < 10 ? '0' : '') + ss;
+    var total = state.totalMs || 1;
+    var ratio = Math.max(0, Math.min(1, ms / total));
+    var prog = document.getElementById('pomProg');
+    if (prog) {
+      var circ = 2 * Math.PI * 108;
+      prog.style.strokeDasharray = circ;
+      prog.style.strokeDashoffset = circ * (1 - ratio);
+    }
+  }
+
+  /* ---------- 阶段切换 ---------- */
+  function resetPhase(phase) {
+    stopTicker();
+    state.running = false;
+    state.phase = phase;
+    state.totalMs = phaseMinutes(phase) * 60 * 1000;
+    state.remainMs = state.totalMs;
+    state.lastRenderedSec = -1;
+    applyPhaseSkin();
+    var ring = document.getElementById('pomRing');
+    if (ring) ring.classList.remove('running');
+    var play = document.getElementById('pomPlay');
+    if (play) play.innerHTML = ICONS.play;
+    syncDurs();
+    renderTime(true);
+  }
+
+  function applyPhaseSkin() {
+    var root = document.getElementById('pomRoot');
+    if (!root) return;
+    root.className = 'pom ' + phaseClass(state.phase);
+    var label = document.getElementById('pomLabel');
+    if (label) label.textContent = state.phase === 'focus' ? '专注中' : (state.phase === 'long' ? '长休息' : '短休息');
+  }
+
+  function complete(skipped) {
+    var finished = state.phase;
+    stopTicker();
+    state.running = false;
+
+    if (finished === 'focus') {
+      if (!skipped) { addToday(); state.cycleDone = (state.cycleDone + 1) % ROUNDS_BEFORE_LONG; syncDots(); }
+      var next = (state.cycleDone === 0 && !skipped) ? 'long' : 'short';
+      resetPhase(next);
+      if (skipped) return;
+      notify('番茄完成', '这一段专注结束，休息 ' + phaseMinutes(next) + ' 分钟');
+      showOverlay(
+        ICONS.done,
+        next === 'long' ? '该长休息了' : '这一段结束了',
+        next === 'long'
+          ? '连续专注 ' + ROUNDS_BEFORE_LONG + ' 轮，起来走一走，' + LONG_BREAK_MIN + ' 分钟后回来。'
+          : '眼睛离开屏幕，喝口水。休息 ' + SHORT_BREAK_MIN + ' 分钟后自动进入下一轮。',
+        '开始休息',
+        start
+      );
+    } else {
+      resetPhase('focus');
+      if (skipped) return;
+      notify('休息结束', '回来继续专注吧');
+      showOverlay(ICONS.play, '回来了',
+        '准备好就开始下一个 ' + state.focusMin + ' 分钟番茄。',
+        '开始专注',
+        start);
+    }
+  }
+
+  /* ---------- 统计 ---------- */
+  function todayKey() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function loadStats() {
+    try {
+      Nexus.getLS('pomodoroCount').then(function (data) {
+        data = data || {};
+        var sameDay = data.date === todayKey();
+        state.todayCount = sameDay ? (data.count || 0) : 0;
+        state.cycleDone = state.todayCount % ROUNDS_BEFORE_LONG;
+        paintStats();
+        syncDots();
+      }).catch(function () {});
+    } catch (e) {}
+  }
+  function paintStats() {
+    var t = document.getElementById('pomToday');
+    if (t) t.textContent = state.todayCount;
+    var m = document.getElementById('pomTotalMin');
+    if (m) m.textContent = state.todayCount * state.focusMin;
+  }
+  function addToday() {
+    state.todayCount++;
+    paintStats();
+    try {
+      Nexus.setLS('pomodoroCount', { date: todayKey(), count: state.todayCount });
+    } catch (e) {}
+  }
+
+  /* ---------- 完成浮层 ---------- */
+  function showOverlay(iconSvg, title, sub, btnText, action) {
+    var old = document.getElementById('pomOverlay');
+    if (old) old.remove();
+    var el = document.createElement('div');
+    el.className = 'pom-overlay';
+    el.id = 'pomOverlay';
+    el.innerHTML =
+      '<div class="pom-card">' +
+        '<div class="pom-card-icon">' + iconSvg + '</div>' +
+        '<div class="pom-card-title">' + title + '</div>' +
+        '<div class="pom-card-sub">' + sub + '</div>' +
+        '<button class="pom-card-btn" id="pomOverlayBtn">' + btnText + '</button>' +
+      '</div>';
+    document.body.appendChild(el);
+    requestAnimationFrame(function () { el.classList.add('show'); });
+    document.getElementById('pomOverlayBtn').addEventListener('click', function () {
+      closeOverlay();
+      action();
+    });
+    el.addEventListener('click', function (e) { if (e.target === el) closeOverlay(); });
+  }
+  function closeOverlay() {
+    var el = document.getElementById('pomOverlay');
+    if (!el) return;
+    el.classList.remove('show');
+    setTimeout(function () { if (el.parentNode) el.remove(); }, 240);
+  }
+  function notify(title, msg) {
+    try { Nexus.notify(title, msg, 'success'); } catch (e) {}
+  }
+
+  /* ---------- 键盘 ---------- */
+  document.addEventListener('keydown', function (e) {
+    if (e.code === 'Space') { e.preventDefault(); toggle(); return; }
+    if (e.key === 'r' || e.key === 'R') { resetPhase('focus'); return; }
+    if (e.key === 'Escape') { closeOverlay(); return; }
+  });
+
+  // 切回来的时候立刻校正一次，别等下一个 tick
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && state.running) renderTime(true);
+  });
+
+  Nexus.ready(function () {
+    render();
+  });
+})();
+</script>
+</body>
+</html>

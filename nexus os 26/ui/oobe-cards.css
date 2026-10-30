@@ -1,0 +1,146 @@
+/* ==========================================================================
+   Nexus OS 26 · OOBE 卡牌式重做（2026-10-25）
+   --------------------------------------------------------------------------
+   用户要求：整体动效采用卡牌风格——点击一下切一下，不需要用户手动滑动；
+   操作更精致，和上一代看不出关联。
+   实现：3D 牌堆舞台 + 卡片旋出/旋入（rotateY 对称）+ 点击即前进 +
+         顶部细进度条 + 「03 / 14」计数（取代圆点）+ 分层高级阴影。
+   选择器全部带 #install-screen 前缀，压过主文件内联样式。
+   ========================================================================== */
+
+#install-screen {
+    perspective: 1600px;
+    perspective-origin: 50% 42%;
+}
+
+/* ---------- 卡片本体：更精致的层级与光泽 ---------- */
+#install-screen .install-step.active .oobe-card {
+    animation: coviCardInNext 0.55s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+    border-radius: 30px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0) 38%),
+        rgba(255, 255, 255, 0.66);
+    box-shadow:
+        0 2px 6px rgba(10, 25, 50, 0.05),
+        0 14px 30px -10px rgba(10, 25, 50, 0.13),
+        0 34px 68px -16px rgba(10, 25, 50, 0.20),
+        0 60px 120px -28px rgba(10, 25, 50, 0.24),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+}
+body.dark-mode #install-screen .install-step.active .oobe-card {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0) 38%),
+        rgba(26, 29, 43, 0.72);
+    box-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.3),
+        0 14px 30px -10px rgba(0, 0, 0, 0.4),
+        0 34px 68px -16px rgba(0, 0, 0, 0.48),
+        0 60px 120px -28px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+/* ---------- 卡牌进出动画（rotateY 对称，像翻一副牌） ---------- */
+@keyframes coviCardOutNext {
+    0%   { opacity: 1; transform: rotateY(0deg) translateX(0) scale(1); }
+    100% { opacity: 0; transform: rotateY(-16deg) translateX(-9%) scale(0.9); }
+}
+@keyframes coviCardInNext {
+    0%   { opacity: 0; transform: rotateY(14deg) translateX(10%) scale(0.93); }
+    100% { opacity: 1; transform: rotateY(0deg) translateX(0) scale(1); }
+}
+@keyframes coviCardOutPrev {
+    0%   { opacity: 1; transform: rotateY(0deg) translateX(0) scale(1); }
+    100% { opacity: 0; transform: rotateY(16deg) translateX(9%) scale(0.9); }
+}
+@keyframes coviCardInPrev {
+    0%   { opacity: 0; transform: rotateY(-14deg) translateX(-10%) scale(0.93); }
+    100% { opacity: 1; transform: rotateY(0deg) translateX(0) scale(1); }
+}
+#install-screen .install-step.active .oobe-card.covi-card-out-next { animation: coviCardOutNext 0.4s cubic-bezier(0.4, 0, 0.9, 0.4) both; }
+#install-screen .install-step.active .oobe-card.covi-card-in-next  { animation: coviCardInNext 0.55s cubic-bezier(0.22, 1.2, 0.36, 1) both; }
+#install-screen .install-step.active .oobe-card.covi-card-out-prev { animation: coviCardOutPrev 0.4s cubic-bezier(0.4, 0, 0.9, 0.4) both; }
+#install-screen .install-step.active .oobe-card.covi-card-in-prev  { animation: coviCardInPrev 0.55s cubic-bezier(0.22, 1.2, 0.36, 1) both; }
+
+/* ---------- 进度指示：细轨道 + 计数（取代圆点） ---------- */
+#install-screen .install-steps-indicator {
+    position: fixed;
+    top: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 20;
+    padding: 8px 16px 8px 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.55);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow: 0 6px 24px rgba(10, 25, 50, 0.12);
+}
+body.dark-mode #install-screen .install-steps-indicator {
+    background: rgba(26, 29, 43, 0.6);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+#install-screen .covi-p-track {
+    width: min(220px, 40vw);
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(10, 25, 50, 0.1);
+    overflow: hidden;
+}
+body.dark-mode #install-screen .covi-p-track { background: rgba(255, 255, 255, 0.14); }
+#install-screen .covi-p-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #ffd60a, #0a84ff 55%, #30d158);
+    box-shadow: 0 0 10px rgba(10, 132, 255, 0.45);
+    transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#install-screen .covi-p-count {
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.4px;
+    color: rgba(60, 60, 67, 0.72);
+    white-space: nowrap;
+}
+body.dark-mode #install-screen .covi-p-count { color: rgba(255, 255, 255, 0.72); }
+#install-screen .covi-p-count b { color: #0a84ff; font-weight: 800; }
+body.dark-mode #install-screen .covi-p-count b { color: #64d2ff; }
+
+/* ---------- 卡片可点击暗示：右下角小箭头（非交互元素上才有） ---------- */
+#install-screen .covi-tap-hint {
+    position: absolute;
+    right: 18px;
+    bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(60, 60, 67, 0.45);
+    pointer-events: none;
+    animation: coviTapHintFloat 2.4s ease-in-out infinite;
+}
+body.dark-mode #install-screen .covi-tap-hint { color: rgba(255, 255, 255, 0.45); }
+@keyframes coviTapHintFloat {
+    0%, 100% { transform: translateX(0); opacity: 0.55; }
+    50%      { transform: translateX(4px); opacity: 1; }
+}
+
+/* ---------- 降级 ---------- */
+body.perf-mode #install-screen .install-step.active .oobe-card,
+body.perf-mode #install-screen .install-step.active .oobe-card[class*="covi-card-"] {
+    animation: none !important;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+@media (prefers-reduced-motion: reduce) {
+    #install-screen .install-step.active .oobe-card,
+    #install-screen .install-step.active .oobe-card[class*="covi-card-"] { animation-duration: 0.15s; }
+    #install-screen .covi-tap-hint { animation: none; }
+}

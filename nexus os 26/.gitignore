@@ -1,0 +1,5 @@
+# 本地临时文件（不入库）
+.trash/
+.DS_Store
+Thumbs.db
+desktop.ini

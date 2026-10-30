@@ -1,0 +1,14 @@
+# 临时回收站（不入库）
+**/.trash/
+# WorkBuddy 内部目录（不入库）
+**/.workbuddy/
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+# 缓存
+__pycache__/
+*.pyc
+**/node_modules/

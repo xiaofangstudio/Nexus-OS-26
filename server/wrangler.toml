@@ -1,0 +1,25 @@
+# ============================================================
+# Nexus OS 26 · AI 小方后端（Cloudflare Worker）· BYOK
+# 部署：wrangler deploy
+#
+# ⚠️ 重要：这里**不需要、也不允许**配置任何 API Key。
+#    每个用户在自己的 Nexus OS 设置里填自己的 Key，请求时随
+#    Authorization: Bearer <用户Key> 带上；Worker 只做 CORS 转发。
+#    站长不承担任何人的调用费用。
+# ============================================================
+name = "nexus-os-ai"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# 自定义域名（绕开 *.workers.dev 的 DNS 污染；Cloudflare 自动建 DNS 记录与证书）
+routes = [
+  { pattern = "ai.fanggame.company", custom_domain = true }
+]
+
+[vars]
+# —— MX 应用商店（解决浏览器 CORS 与 http 混合内容）——
+MX_STORE_BASE = "http://api.store.mxos.zlromi.com/api/v1"
+# —— CORS ——
+ALLOW_ORIGIN = "*"
+# —— 仅开发用：true 时返回模拟回复、不调上游（默认关）——
+MOCK_AI = "false"

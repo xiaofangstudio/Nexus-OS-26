@@ -1,0 +1,119 @@
+/* ============================================================
+   Nexus OS 26 · iframe 应用通用细节层（apps/_polish.css）
+   ------------------------------------------------------------
+   由 apps/_app.js 自动注入到每一个拆分应用（terminal 单独引一次）。
+   目的：让 20 多个应用在「不逐份改样式」的前提下，共享同一套
+        交互细节，不再出现「这个应用按钮会回弹、那个不会」的割裂感。
+
+   三条边界：
+   1. 全部用低特异性（:where）选择器 —— 应用自己的样式永远赢，
+      这里只在「应用没写」的地方补；
+   2. 不动尺寸、间距、定位，只加光标/过渡/按压/选区/滚动条；
+   3. 应用若已自定义滚动条或按钮态，本层自动让位。
+   ============================================================ */
+
+/* ── ① 表单控件继承字体：默认 Arial 是「假系统」最明显的破绽 ── */
+button,
+input,
+select,
+textarea {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+/* ── ② 选区与光标 ─────────────────────────────────────── */
+::selection {
+    background: rgba(74, 155, 245, 0.3);
+    color: inherit;
+}
+body.dark-mode ::selection {
+    background: rgba(99, 132, 255, 0.45);
+    color: #fff;
+}
+input,
+textarea,
+[contenteditable="true"] {
+    caret-color: var(--primary, #4a9bf5);
+}
+
+/* ── ③ 滚动条：默认那些灰白砖块是最掉价的细节 ──────────── */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(120, 126, 150, 0.34);
+    border-radius: 8px;
+    border: 2.5px solid transparent;
+    background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(120, 126, 150, 0.55);
+}
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+body.dark-mode ::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.22);
+}
+body.dark-mode ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.36);
+}
+
+/* ── ④ 按压回弹：用独立 scale，和应用自身的 transform 相乘 ──
+   这样「按下缩一点」不会顶掉旋转、位移、展开等既有变换。 */
+:where(button, [role="button"], .fu-btn, .btn, .glass-btn, [data-act], [data-action]) {
+    transition-property: background, background-color, border-color, color,
+        box-shadow, opacity, filter, transform, scale;
+}
+:where(button, [role="button"], .fu-btn, .btn, .glass-btn, [data-act], [data-action]):not(:disabled):active {
+    scale: 0.97;
+}
+:where(button, input, select, textarea):disabled,
+:where([aria-disabled="true"]) {
+    cursor: not-allowed;
+}
+
+/* ── ⑤ 键盘焦点：统一一道细环，鼠标点击不出现 ──────────── */
+:focus-visible {
+    outline: 2px solid rgba(74, 155, 245, 0.72);
+    outline-offset: 2px;
+}
+
+/* ── ⑥ 图片不许拖出幽灵残影（拖拽排序/画布类应用仍走 pointer 事件） ── */
+img {
+    -webkit-user-drag: none;
+    -khtml-user-drag: none;
+    user-drag: none;
+}
+
+/* ── ⑦ 读数工具类：时间、金额、百分比一律等宽 ──────────── */
+.n26-num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+}
+
+/* ── ⑧ 文本可读性：正文行高兜底（应用没设时生效） ──────── */
+body {
+    text-rendering: optimizeLegibility;
+}
+
+/* ── ⑨ 降级：性能模式 / 晕动症关掉全部新增反馈 ──────────── */
+body.perf-mode :where(button, [role="button"], .fu-btn, .btn, .glass-btn):active {
+    scale: 1;
+}
+body.perf-mode :where(button, [role="button"], .fu-btn, .btn, .glass-btn) {
+    transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :where(button, [role="button"], .fu-btn, .btn, .glass-btn):active {
+        scale: 1;
+    }
+    :where(button, [role="button"], .fu-btn, .btn, .glass-btn) {
+        transition: none !important;
+    }
+}

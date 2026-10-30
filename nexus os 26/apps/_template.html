@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-ui="liquid" data-mode="light">
+<!-- ============================================================
+  Nexus OS 26 · 标准应用骨架模板（apps/_template.html）
+  新建应用的套路：复制本文件 → 改 <title> 和 data-app-id → 在 <div id="app"> 里写结构
+  → 在最后的业务 script 里用 Nexus.ready(fn) 启动 → 主文件 appRegistry 加一行 +
+  window.IFRAME_APPS 登记：{ 你的id: 'apps/你的id.html' }。完事。
+
+  ★ 本模板自带的能力（不用再写）：
+    · Nexus.* 桥：getUserLS/setUserLS/getLS/setLS/getUser/getSettings/getContext/
+                  notify/openApp/closeWindow/minimizeWindow/setWindowTitle/openUrl/
+                  call('getWallpaper') / call('setAccentColor', color) / call('osAction','reboot')
+    · _app.js：自动注入 FangUI 三风格 CSS；宿主深浅色实时跟随（html data-mode）；
+               Nexus.ready(ctx) 幂等启动，ctx = { windowId, user, settings, dark, osStyle }
+    · ui/tokens.css：非线性动效令牌（--ease-* / --dur-*）与玻璃令牌
+    · ui/glass.css：.glass / .glass-strong / .glass-content / .glass-hero / .glass-btn
+    · FangUI：fu-card / fu-panel / fu-btn / fu-input / fu-switch / fu-progress
+              （三风格消费同一套类名，换风格零改 HTML；铁律：颜色只引用变量）
+
+  ★ 铁律（REQUIREMENTS §1）：
+    1. 一切动画非线性：transition/animation 一律用 var(--ease-*) + var(--dur-*)
+    2. 液态玻璃克制 + 强磨砂：结构面用 .glass，内容面用 .glass-content，重折射只给英雄面
+    3. 不露馅：滚动边界、空态/加载态/错误态、深浅色两套都要过一遍
+    4. 存储一律走 Nexus.getUserLS/setUserLS（按用户隔离），不要用 localStorage
+    5. 定时器不用手动清理：窗口关闭 = iframe 销毁 = 自动回收（不要写 windows.find 轮询）
+  ============================================================ -->
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>应用名</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<!-- FangUI 三风格（_app.js 也会自动补，写在这里只为避免闪样式） -->
+<link rel="stylesheet" href="../fangui/core/tokens.css">
+<link rel="stylesheet" href="../fangui/core/flat.css">
+<link rel="stylesheet" href="../fangui/core/neu.css">
+<link rel="stylesheet" href="../fangui/core/liquid.css">
+<style>
+  html, body { height: 100%; margin: 0; font-family: var(--font-sans); }
+  body { background: transparent; overflow: hidden; }
+  #app { height: 100%; }
+
+  /* ↓↓↓ 应用自己的样式（示范：一律用令牌，禁止写死颜色/线性动画） ↓↓↓ */
+  .myapp { height: 100%; padding: var(--sp-4); box-sizing: border-box; display: flex; flex-direction: column; gap: var(--sp-3); }
+  .myapp-row { display: flex; gap: var(--sp-2); align-items: center; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="../ui/motion.js"></script>
+<script src="_bridge.js"></script>
+<script src="_app.js"></script>
+<!-- 按需引入（都可省）：主题色/模式 API、折射引擎、FangUI 动效 -->
+<!-- <script src="../fangui/fangui.js"></script> -->
+<!-- <script src="../fangui/liquid/refract.js"></script> -->
+<!-- <script src="../fangui/motion/fangui-motion.js"></script> -->
+
+<script>
+(function () {
+  'use strict';
+  var app = document.getElementById('app');
+
+  Nexus.ready(function (ctx) {
+    // ctx = { windowId, user:{name,role,avatar}, settings, dark, osStyle }
+    app.innerHTML =
+      '<div class="myapp">' +
+        '<div class="fu-card">' +
+          '<div class="fu-panel"><b>你好，' + (ctx && ctx.user && ctx.user.name || '用户') + '</b></div>' +
+          '<p style="color:var(--text-muted);font-size:13px;">这是标准应用骨架。复制 _template.html 开始写你的应用。</p>' +
+          '<div class="myapp-row">' +
+            '<button class="fu-btn fu-btn--accent" id="demoBtn">发个系统通知</button>' +
+            '<button class="fu-btn" id="demoClose">关闭窗口</button>' +
+          '</div>' +
+          '<div class="fu-progress" style="margin-top:12px;"><div style="width:36%;"></div></div>' +
+        '</div>' +
+      '</div>';
+
+    document.getElementById('demoBtn').addEventListener('click', function () {
+      Nexus.notify('应用名', '这是经系统桥发出的通知', 'success');
+    });
+    document.getElementById('demoClose').addEventListener('click', function () {
+      Nexus.closeWindow();
+    });
+  });
+})();
+</script>
+</body>
+</html>

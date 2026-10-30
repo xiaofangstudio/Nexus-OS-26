@@ -1,0 +1,271 @@
+/* ==========================================================================
+   Nexus OS 26 · AI 小方 HUD（长按 Space 唤起）
+   --------------------------------------------------------------------------
+   交互（2026-10-25 改版，用户明确要求）：
+   ① 长按 Space 直接在屏幕底部弹出悬浮输入条——不再打开左侧对话页；
+   ② 支持语音（说完自动发送）；
+   ③ 发送后输入条收成小胶囊，小方的回复以玻璃气泡「悬空」显示在屏幕中下部，
+      带打字机效果与 Agent 工具痕迹；点胶囊继续对话，✕ / Esc 收起。
+   配色延续自研黄 #FFD60A / 蓝 #0A84FF / 绿 #30D158 三色跑马灯。
+   ========================================================================== */
+
+#covi-hud, #covi-reply {
+    position: fixed;
+    left: 50%;
+    z-index: 9700;                /* 高于对话窗(9600)与光效舞台(9400) */
+    pointer-events: auto;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+/* ---------- 底部悬浮输入条 ---------- */
+#covi-hud {
+    bottom: 30px;
+    transform: translateX(-50%) translateY(18px) scale(0.96);
+    width: min(560px, 92vw);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1),
+                visibility 0.28s;
+}
+#covi-hud.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0) scale(1);
+}
+#covi-hud-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px 10px 14px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.78);
+    -webkit-backdrop-filter: blur(34px) saturate(180%);
+    backdrop-filter: blur(34px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.26), 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+body.dark-mode #covi-hud-bar {
+    background: rgba(24, 27, 40, 0.82);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+/* 黄/蓝/绿三色跑马灯边框（与边缘光带同色调） */
+#covi-hud-bar::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 24px;
+    padding: 2px;
+    background: conic-gradient(from var(--covi-a, 0deg),
+        transparent 0deg,
+        rgba(255, 214, 10, 0.9) 14deg, rgba(255, 179, 0, 0.3) 36deg, transparent 66deg,
+        rgba(10, 132, 255, 0.9) 106deg, rgba(100, 210, 255, 0.3) 128deg, transparent 158deg,
+        rgba(48, 209, 88, 0.9) 198deg, rgba(163, 247, 191, 0.3) 220deg, transparent 250deg);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: coviSpin 4.6s linear infinite;
+    pointer-events: none;
+}
+#covi-hud-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+}
+body.dark-mode #covi-hud-avatar { border-color: rgba(255, 255, 255, 0.18); }
+#covi-hud-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 15px;
+    color: #1a1a1a;
+    user-select: text;
+    -webkit-user-select: text;
+}
+body.dark-mode #covi-hud-input { color: #f0f0f0; }
+#covi-hud-input::placeholder { color: rgba(60, 60, 67, 0.45); }
+body.dark-mode #covi-hud-input::placeholder { color: rgba(255, 255, 255, 0.4); }
+.covi-hud-btn {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: transform 0.18s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)), background 0.18s ease;
+}
+.covi-hud-btn:active { transform: scale(0.88); }
+#covi-hud-mic {
+    background: rgba(10, 132, 255, 0.12);
+    color: #0a84ff;
+}
+#covi-hud-mic:hover { background: rgba(10, 132, 255, 0.22); }
+#covi-hud-mic.listening {
+    background: #0a84ff;
+    color: #fff;
+    animation: coviMicPulse 1.2s ease-in-out infinite;
+}
+@keyframes coviMicPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(10, 132, 255, 0.45); }
+    50%      { box-shadow: 0 0 0 8px rgba(10, 132, 255, 0); }
+}
+#covi-hud-send {
+    background: linear-gradient(135deg, #ffd60a, #ff9f0a);
+    color: #1a1a1a;
+}
+#covi-hud-send:hover { filter: brightness(1.08); }
+#covi-hud-close {
+    background: rgba(60, 60, 67, 0.08);
+    color: rgba(60, 60, 67, 0.6);
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
+}
+body.dark-mode #covi-hud-close { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.6); }
+
+/* ---------- 收起态：小胶囊 ---------- */
+#covi-hud.covi-hud-pill #covi-hud-bar { padding: 8px 14px 8px 10px; }
+#covi-hud.covi-hud-pill #covi-hud-input,
+#covi-hud.covi-hud-pill #covi-hud-mic,
+#covi-hud.covi-hud-pill #covi-hud-send,
+#covi-hud.covi-hud-pill #covi-hud-close { display: none; }
+#covi-hud-pill-text {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1a1a1a;
+    white-space: nowrap;
+    cursor: pointer;
+}
+body.dark-mode #covi-hud-pill-text { color: #f0f0f0; }
+#covi-hud.covi-hud-pill #covi-hud-pill-text { display: flex; }
+#covi-hud.covi-hud-pill { width: auto; }
+#covi-hud.covi-hud-pill #covi-hud-bar::before { animation-duration: 1.6s; opacity: 0.9; }
+#covi-hud-pill-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #30d158;
+    flex-shrink: 0;
+}
+#covi-hud[data-phase="thinking"] #covi-hud-pill-dot { background: #ffd60a; animation: coviDotBlink 0.9s ease-in-out infinite; }
+#covi-hud[data-phase="speaking"] #covi-hud-pill-dot { background: #0a84ff; }
+@keyframes coviDotBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+/* ---------- 悬空回复气泡 ---------- */
+#covi-reply {
+    bottom: 108px;
+    transform: translateX(-50%) translateY(14px) scale(0.97);
+    width: min(560px, 92vw);
+    max-height: min(46vh, 420px);
+    opacity: 0;
+    visibility: hidden;
+    display: flex;
+    flex-direction: column;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.86);
+    -webkit-backdrop-filter: blur(34px) saturate(180%);
+    backdrop-filter: blur(34px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    box-shadow: 0 22px 70px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.44s cubic-bezier(0.34, 1.56, 0.64, 1),
+                visibility 0.3s;
+}
+body.dark-mode #covi-reply {
+    background: rgba(24, 27, 40, 0.9);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 22px 70px rgba(0, 0, 0, 0.55);
+}
+#covi-reply.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0) scale(1);
+}
+#covi-reply-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 11px 14px 9px;
+    border-bottom: 1px solid rgba(60, 60, 67, 0.08);
+    flex-shrink: 0;
+}
+body.dark-mode #covi-reply-head { border-color: rgba(255, 255, 255, 0.09); }
+#covi-reply-head img {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+#covi-reply-name { font-size: 13px; font-weight: 700; color: #1a1a1a; }
+body.dark-mode #covi-reply-name { color: #f0f0f0; }
+#covi-reply-phase { font-size: 11px; color: rgba(60, 60, 67, 0.55); margin-left: 2px; }
+body.dark-mode #covi-reply-phase { color: rgba(255, 255, 255, 0.5); }
+#covi-reply-close {
+    margin-left: auto;
+    border: none;
+    background: rgba(60, 60, 67, 0.08);
+    color: rgba(60, 60, 67, 0.6);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+body.dark-mode #covi-reply-close { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.6); }
+#covi-reply-body {
+    padding: 12px 16px 15px;
+    overflow-y: auto;
+    font-size: 14.5px;
+    line-height: 1.72;
+    color: #1a1a1a;
+    white-space: pre-wrap;
+    word-break: break-word;
+    user-select: text;
+    -webkit-user-select: text;
+}
+body.dark-mode #covi-reply-body { color: #f0f0f0; }
+#covi-reply-body .covi-trace { margin: 4px 0; }
+#covi-reply-body .covi-caret {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: #0a84ff;
+    vertical-align: -2px;
+    margin-left: 2px;
+    animation: coviCaret 0.8s steps(1) infinite;
+}
+@keyframes coviCaret { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+
+/* ---------- 降级 ---------- */
+body.perf-mode #covi-hud-bar::before { animation: none; }
+body.perf-mode #covi-reply, body.perf-mode #covi-hud-bar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgba(255, 255, 255, 0.96);
+}
+body.perf-mode.dark-mode #covi-reply, body.perf-mode.dark-mode #covi-hud-bar { background: rgba(24, 27, 40, 0.97); }
+@media (prefers-reduced-motion: reduce) {
+    #covi-hud, #covi-reply { transition: opacity 0.15s linear; transform: translateX(-50%); }
+    #covi-hud-bar::before { animation: none; }
+    #covi-hud-mic.listening { animation: none; }
+    #covi-reply-body .covi-caret { animation: none; }
+}

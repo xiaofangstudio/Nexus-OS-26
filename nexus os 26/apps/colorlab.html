@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>配色实验室</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<style>
+  html, body { height: 100%; margin: 0; font-family: var(--font-sans); }
+  body { background: transparent; overflow: hidden; }
+  * { box-sizing: border-box; }
+  #app { height: 100%; }
+
+  .cl { height: 100%; overflow-y: auto; padding: 18px 20px 24px; color: #1a1f2b; font-size: 13px; }
+  .cl-sec { margin-bottom: 22px; }
+  .cl-h { font-size: 14px; font-weight: 700; margin: 0 0 11px; display: flex; align-items: center; gap: 8px; }
+  .cl-h i { font-size: 12px; opacity: .8; }
+  .cl-h .cl-act { margin-left: auto; display: flex; gap: 7px; }
+  .cl-sub { font-size: 11px; opacity: .5; font-weight: 400; margin-left: 4px; }
+
+  .cl-btn { height: 30px; padding: 0 13px; border: 1px solid rgba(0,0,0,0.13); border-radius: 9px;
+            background: rgba(0,0,0,0.045); color: inherit; font-family: inherit; font-size: 12px;
+            cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+            transition: background-color .16s var(--ease-out, ease); }
+  .cl-btn:hover { background: rgba(0,0,0,0.09); }
+  .cl-btn.pri { background: linear-gradient(135deg, var(--primary, #4A9BF5), #2563eb); color: #fff;
+                border-color: transparent; font-weight: 600; }
+  .cl-btn.pri:hover { filter: brightness(1.07); background: linear-gradient(135deg, var(--primary, #4A9BF5), #2563eb); }
+
+  /* 提取结果 */
+  .cl-pal { display: flex; gap: 9px; flex-wrap: wrap; }
+  .cl-chip { width: 84px; border-radius: 12px; overflow: hidden; cursor: pointer; background: rgba(0,0,0,0.04);
+             border: 1px solid rgba(0,0,0,0.07); transition: transform .2s var(--ease-spring, ease), box-shadow .2s; }
+  .cl-chip:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.14); }
+  .cl-chip .cw { height: 58px; position: relative; }
+  .cl-chip .cw b { position: absolute; left: 6px; bottom: 4px; font-size: 9px; font-weight: 700; padding: 1px 5px;
+                   border-radius: 99px; background: rgba(0,0,0,0.32); color: #fff; }
+  .cl-chip .ci { padding: 5px 7px 6px; }
+  .cl-chip .ci .h { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .cl-chip .ci .p { font-size: 9.5px; opacity: .5; margin-top: 1px; font-variant-numeric: tabular-nums; }
+  .cl-empty { padding: 18px; text-align: center; font-size: 12px; opacity: .5; line-height: 1.8;
+              border: 1px dashed rgba(0,0,0,0.16); border-radius: 12px; }
+
+  /* 手动选色 */
+  .cl-pick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .cl-pick input[type=color] { width: 46px; height: 34px; border: 1px solid rgba(0,0,0,0.13); border-radius: 9px;
+                               background: transparent; padding: 2px; cursor: pointer; }
+  .cl-hex { width: 96px; height: 32px; border: 1px solid rgba(0,0,0,0.13); border-radius: 9px; padding: 0 10px;
+            font-family: var(--font-mono, Consolas, monospace); font-size: 12.5px; outline: none;
+            background: rgba(255,255,255,0.6); color: inherit; }
+  .cl-hex:focus { border-color: var(--primary, #4A9BF5); }
+  .cl-hist { display: flex; gap: 6px; margin-top: 11px; flex-wrap: wrap; align-items: center; }
+  .cl-hist .lb { font-size: 10.5px; opacity: .5; margin-right: 2px; }
+  .cl-dot { width: 22px; height: 22px; border-radius: 7px; cursor: pointer; border: 1px solid rgba(0,0,0,0.14);
+            transition: transform .16s var(--ease-spring, ease); }
+  .cl-dot:hover { transform: scale(1.18); }
+  .cl-none { font-size: 11px; opacity: .45; }
+
+  /* 方案网格 */
+  .cl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
+  .cl-card { border-radius: 12px; overflow: hidden; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.07);
+             transition: transform .2s var(--ease-spring, ease), box-shadow .2s; }
+  .cl-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.13); }
+  .cl-card .cb { height: 56px; cursor: pointer; position: relative; }
+  .cl-card .cb .cp { position: absolute; right: 6px; top: 6px; opacity: 0; transition: opacity .18s; }
+  .cl-card:hover .cb .cp { opacity: 1; }
+  .cl-card .cb .cp i { color: #fff; font-size: 11px; text-shadow: 0 1px 4px rgba(0,0,0,.5); }
+  .cl-card .cm { padding: 7px 9px 8px; }
+  .cl-card .cm .n { font-size: 11px; font-weight: 700; }
+  .cl-card .cm .v { font-size: 10px; opacity: .55; margin-top: 2px; font-variant-numeric: tabular-nums;
+                    font-family: var(--font-mono, Consolas, monospace); }
+  .cl-card .cm .r { display: flex; gap: 5px; margin-top: 6px; }
+  .cl-card .cm .r span { font-size: 9px; padding: 1px 5px; border-radius: 99px; background: rgba(0,0,0,0.07);
+                         opacity: .8; font-variant-numeric: tabular-nums; }
+  .cl-card .cm .r span.ok { background: rgba(52,211,153,0.2); color: #047857; opacity: 1; font-weight: 700; }
+  .cl-apl { width: 100%; height: 24px; border: none; border-top: 1px solid rgba(0,0,0,0.07);
+            background: rgba(0,0,0,0.03); color: inherit; font-family: inherit; font-size: 10.5px;
+            cursor: pointer; opacity: .65; }
+  .cl-apl:hover { opacity: 1; background: rgba(0,0,0,0.07); }
+
+  .cl-hint { font-size: 11.5px; opacity: .5; margin-top: 9px; line-height: 1.7; }
+
+  /* toast */
+  .cl-toast { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(6px);
+              padding: 8px 15px; border-radius: 99px; background: rgba(20,24,34,0.92); color: #fff;
+              font-size: 12px; opacity: 0; pointer-events: none; z-index: 50;
+              transition: opacity .22s var(--ease-out, ease), transform .22s var(--ease-out, ease); }
+  .cl-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* 深色 */
+  body.dark-mode .cl { color: #EEF2F9; }
+  body.dark-mode .cl-btn { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.14); }
+  body.dark-mode .cl-btn:hover { background: rgba(255,255,255,0.16); }
+  body.dark-mode .cl-chip, body.dark-mode .cl-card { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
+  body.dark-mode .cl-chip:hover, body.dark-mode .cl-card:hover { box-shadow: 0 8px 22px rgba(0,0,0,0.5); }
+  body.dark-mode .cl-empty { border-color: rgba(255,255,255,0.18); }
+  body.dark-mode .cl-hex { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.16); }
+  body.dark-mode .cl-dot { border-color: rgba(255,255,255,0.18); }
+  body.dark-mode .cl-card .cm .r span { background: rgba(255,255,255,0.1); }
+  body.dark-mode .cl-card .cm .r span.ok { background: rgba(52,211,153,0.24); color: #6EE7B7; }
+  body.dark-mode .cl-apl { background: rgba(255,255,255,0.04); border-top-color: rgba(255,255,255,0.08); }
+  body.dark-mode .cl-apl:hover { background: rgba(255,255,255,0.1); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="cl-toast" id="clToast"></div>
+<script src="../ui/motion.js"></script>
+<script src="_bridge.js"></script>
+<script src="_app.js"></script>
+<script>
+(function () {
+  'use strict';
+  var N = window.Nexus;
+  var app = document.getElementById('app');
+  var toastEl = document.getElementById('clToast');
+  var toastTimer = null;
+  var history = [];
+  var palette = [];   // 从壁纸提取出的主色板
+  var base = null;    // 当前基准色 {hex}
+
+  /* ---------- 颜色数学 ---------- */
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function toHex(v) { return clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0'); }
+  function rgbToHex(r, g, b) { return '#' + toHex(r) + toHex(g) + toHex(b); }
+  function hexToRgb(hex) {
+    hex = String(hex || '').replace('#', '');
+    if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    if (!/^[0-9a-f]{6}$/i.test(hex)) return null;
+    return { r: parseInt(hex.slice(0, 2), 16), g: parseInt(hex.slice(2, 4), 16), b: parseInt(hex.slice(4, 6), 16) };
+  }
+  function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b), h, s, l = (max + min) / 2;
+    if (max === min) { h = s = 0; }
+    else {
+      var d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h /= 6;
+    }
+    return { h: h * 360, s: s * 100, l: l * 100 };
+  }
+  function hslToHex(h, s, l) {
+    h = ((h % 360) + 360) % 360; s = clamp(s, 0, 100); l = clamp(l, 0, 100);
+    s /= 100; l /= 100;
+    function k(n) { return (n + h / 30) % 12; }
+    var a = s * Math.min(l, 1 - l);
+    function f(n) { return l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); }
+    return rgbToHex(255 * f(0), 255 * f(8), 255 * f(4));
+  }
+  function relLum(hex) {
+    var c = hexToRgb(hex);
+    function f(v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+    return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+  }
+  function contrast(a, b) {
+    var l1 = relLum(a), l2 = relLum(b);
+    return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+  }
+  function isHex(s) { return /^#?[0-9a-f]{6}$/i.test(String(s || '').trim()); }
+
+  /* ---------- toast / 复制 ---------- */
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 1500);
+  }
+  function copyText(txt) {
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(function () { toast('已复制 ' + txt.toUpperCase()); },
+        function () { fallback(); toast('已复制 ' + txt.toUpperCase()); });
+    } else { fallback(); toast('已复制 ' + txt.toUpperCase()); }
+  }
+
+  /* ---------- 壁纸主色调：分桶量化 + 打分，不再是全图平均 ---------- */
+  function extractPalette(img) {
+    var W = 140, H = 88;
+    var canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, W, H);
+    var data;
+    try { data = ctx.getImageData(0, 0, W, H).data; } catch (e) { return []; }
+
+    // 4bit/通道 分桶，桶内取平均，得到真实存在的颜色而不是平均出来的脏色
+    var buckets = {};
+    for (var i = 0; i < data.length; i += 4) {
+      var a = data[i + 3];
+      if (a < 128) continue;
+      var r = data[i], g = data[i + 1], b = data[i + 2];
+      var hsl = rgbToHsl(r, g, b);
+      // 几乎纯黑/纯白/纯灰的不参与「主色」评选
+      if (hsl.s < 10 && (hsl.l < 9 || hsl.l > 91)) continue;
+      var key = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+      var bk = buckets[key];
+      if (!bk) bk = buckets[key] = { r: 0, g: 0, b: 0, n: 0, s: hsl.s, l: hsl.l };
+      bk.r += r; bk.g += g; bk.b += b; bk.n++;
+    }
+    var list = Object.keys(buckets).map(function (k) {
+      var bk = buckets[k];
+      return { r: bk.r / bk.n, g: bk.g / bk.n, b: bk.b / bk.n, n: bk.n, s: bk.s, l: bk.l };
+    });
+    if (!list.length) return [];
+    var total = list.reduce(function (n, x) { return n + x.n; }, 0);
+    // 打分：出现频率 × 饱和度权重（主色得有颜色）× 中等亮度优先
+    list.forEach(function (x) {
+      var satW = 0.32 + Math.min(1, x.s / 58) * 0.68;
+      var lumW = Math.max(0.25, 1 - Math.abs(x.l - 52) / 145);
+      x.score = (x.n / total) * satW * lumW;
+    });
+    list.sort(function (a, b) { return b.score - a.score; });
+
+    // 色相太接近的只留分最高的，避免六个格子都是同一个颜色
+    var out = [];
+    for (var j = 0; j < list.length && out.length < 6; j++) {
+      var x = list[j];
+      var h = rgbToHsl(x.r, x.g, x.b).h;
+      var dup = out.some(function (o) {
+        var dh = Math.abs(o.h - h); dh = Math.min(dh, 360 - dh);
+        return dh < 24 && Math.abs(o.l - x.l) < 24;
+      });
+      if (!dup) out.push({ hex: rgbToHex(x.r, x.g, x.b), h: h, s: x.s, l: x.l, pct: Math.round(x.n / total * 100) });
+    }
+    return out;
+  }
+
+  function loadWallpaper() {
+    return Nexus.call ? Nexus.call('getWallpaper') : Promise.resolve('');
+  }
+  function extract() {
+    var btn = document.getElementById('clExtract');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>提取中'; }
+    loadWallpaper().then(function (bgUrl) {
+      if (!bgUrl) { fallbackAccent('没有检测到壁纸，先用当前主题色'); return; }
+      var img = new Image();
+      img.onload = function () {
+        var pal = [];
+        try { pal = extractPalette(img); } catch (e) { pal = []; }
+        if (!pal.length) { fallbackAccent('壁纸颜色太单一，先用当前主题色'); return; }
+        palette = pal;
+        setBase(pal[0].hex, true);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i>重新提取'; }
+      };
+      img.onerror = function () { fallbackAccent('壁纸读取失败，先用当前主题色'); };
+      img.src = bgUrl;
+    }).catch(function () { fallbackAccent('读取壁纸失败，先用当前主题色'); });
+  }
+  function fallbackAccent(msg) {
+    Nexus.getUserLS('settings').then(function (st) {
+      st = st || {};
+      var map = { blue: '#4A9BF5', green: '#34D399', purple: '#A78BFA', orange: '#FB923C', pink: '#F472B6' };
+      setBase(map[st.accentColor] || '#4A9BF5', false);
+      toast(msg);
+    }).catch(function () { setBase('#4A9BF5', false); toast(msg); });
+    if (document.getElementById('clExtract')) {
+      document.getElementById('clExtract').disabled = false;
+      document.getElementById('clExtract').innerHTML = '<i class="fas fa-sync-alt"></i>重新提取';
+    }
+  }
+
+  /* ---------- 渲染 ---------- */
+  function render() {
+    app.innerHTML =
+      '<div class="cl">' +
+        '<div class="cl-sec">' +
+          '<div class="cl-h"><i class="fas fa-eye-dropper" style="color:var(--primary,#4A9BF5);"></i>壁纸主色调' +
+            '<span class="cl-sub">分桶量化取主色，不是全图平均</span>' +
+            '<span class="cl-act"><button class="cl-btn pri" id="clExtract"><i class="fas fa-sync-alt"></i>提取壁纸颜色</button></span>' +
+          '</div>' +
+          '<div id="clPal"><div class="cl-empty">正在读取壁纸…<br>提取的是「出现最多且最有颜色」的那几个颜色，<br>而不是把整张图平均成一团灰棕色。</div></div>' +
+        '</div>' +
+
+        '<div class="cl-sec">' +
+          '<div class="cl-h"><i class="fas fa-palette" style="color:#ec4899;"></i>手动选色' +
+            '<span class="cl-sub">任意颜色都能进实验室</span>' +
+          '</div>' +
+          '<div class="cl-pick">' +
+            '<input type="color" id="clColor" value="#4A9BF5">' +
+            '<input class="cl-hex" id="clHex" value="#4A9BF5" maxlength="7" spellcheck="false">' +
+            '<button class="cl-btn" id="clGo"><i class="fas fa-arrow-right"></i>生成方案</button>' +
+          '</div>' +
+          '<div class="cl-hist" id="clHist"><span class="lb">最近使用</span><span class="cl-none">还没有记录</span></div>' +
+        '</div>' +
+
+        '<div class="cl-sec">' +
+          '<div class="cl-h"><i class="fas fa-shapes" style="color:#f59e0b;"></i>配色方案' +
+            '<span class="cl-sub" id="clBase"></span>' +
+          '</div>' +
+          '<div id="clSchemes"><div class="cl-empty">先选一个基准色</div></div>' +
+          '<div class="cl-hint">点色块 = <b>复制</b>该颜色；点「应用」= 设为系统主题色。<br>右侧标签是它与纯黑/纯白的对比度（≥4.5 才适合做正文颜色）。</div>' +
+        '</div>' +
+      '</div>';
+
+    document.getElementById('clExtract').onclick = extract;
+    var colorIn = document.getElementById('clColor');
+    var hexIn = document.getElementById('clHex');
+    colorIn.oninput = function () { hexIn.value = this.value.toUpperCase(); };
+    hexIn.onkeydown = function (e) { if (e.key === 'Enter') goHex(); };
+    document.getElementById('clGo').onclick = goHex;
+
+    Nexus.getUserLS('colorlab_history').then(function (h) {
+      if (Array.isArray(h)) { history = h.slice(0, 10); renderHistory(); }
+    }).catch(function () {});
+  }
+
+  function goHex() {
+    var v = document.getElementById('clHex').value.trim();
+    if (!isHex(v)) { toast('颜色格式不对，要像 #4A9BF5 这样'); return; }
+    if (v.charAt(0) !== '#') v = '#' + v;
+    setBase(v, false);
+  }
+
+  function renderHistory() {
+    var box = document.getElementById('clHist');
+    if (!box) return;
+    if (!history.length) { box.innerHTML = '<span class="lb">最近使用</span><span class="cl-none">还没有记录</span>'; return; }
+    box.innerHTML = '<span class="lb">最近使用</span>' + history.map(function (c) {
+      return '<div class="cl-dot" style="background:' + c + '" data-h="' + c + '" title="' + c + '"></div>';
+    }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('.cl-dot'), function (d) {
+      d.onclick = function () { setBase(d.getAttribute('data-h'), false); };
+    });
+  }
+  function pushHistory(hex) {
+    history = [hex].concat(history.filter(function (c) { return c !== hex; })).slice(0, 10);
+    renderHistory();
+    if (N.setUserLS) Nexus.setUserLS('colorlab_history', history);
+  }
+
+  function setBase(hex, fromWallpaper) {
+    base = hex;
+    pushHistory(hex);
+    var lbl = document.getElementById('clBase');
+    if (lbl) lbl.textContent = '基准色 ' + hex.toUpperCase();
+    var ci = document.getElementById('clColor');
+    var hx = document.getElementById('clHex');
+    if (ci) ci.value = hex;
+    if (hx) hx.value = hex.toUpperCase();
+    renderPalette();
+    renderSchemes(hex);
+  }
+
+  function renderPalette() {
+    var box = document.getElementById('clPal');
+    if (!box) return;
+    if (!palette.length) {
+      box.innerHTML = '<div class="cl-empty">没有从壁纸里提取到主色<br>可能是壁纸太素、读不到，或者跨域限制了画布取色。<br>可以直接在下面手动选一个颜色继续。</div>';
+      return;
+    }
+    box.innerHTML = '<div class="cl-pal">' + palette.map(function (p, i) {
+      return '<div class="cl-chip" data-c="' + p.hex + '" title="点击复制">' +
+        '<div class="cw" style="background:' + p.hex + ';"><b>' + (i === 0 ? '主色' : '候选 ' + (i + 1)) + '</b></div>' +
+        '<div class="ci"><div class="h">' + p.hex.toUpperCase() + '</div>' +
+        '<div class="p">占画面 ' + p.pct + '% · H ' + Math.round(p.h) + '°</div></div></div>';
+    }).join('') + '</div>';
+    bindCopy(box);
+    Array.prototype.forEach.call(box.querySelectorAll('.cl-chip'), function (c) {
+      c.onclick = function () { copyText(c.getAttribute('data-c')); };
+    });
+  }
+
+  function schemes(hex) {
+    var hsl = hexToRgb(hex) ? rgbToHsl(hexToRgb(hex).r, hexToRgb(hex).g, hexToRgb(hex).b) : { h: 210, s: 90, l: 62 };
+    var h = hsl.h, s = hsl.s, l = hsl.l;
+    var mono = [12, 30, 50, 70, 88].map(function (lv) {
+      return { n: '单色 ' + lv + '%', c: hslToHex(h, s, lv) };
+    });
+    return [
+      { n: '基准色', c: hex },
+      { n: '基准 · 亮', c: hslToHex(h, Math.max(18, s - 6), Math.min(88, l + 18)) },
+      { n: '基准 · 暗', c: hslToHex(h, s, Math.max(12, l - 22)) },
+      { n: '类似色 +30°', c: hslToHex(h + 30, s, l) },
+      { n: '类似色 −30°', c: hslToHex(h - 30, s, l) },
+      { n: '互补色', c: hslToHex(h + 180, s, l) },
+      { n: '分裂互补 +150°', c: hslToHex(h + 150, s, l) },
+      { n: '分裂互补 −150°', c: hslToHex(h - 150, s, l) },
+      { n: '三角色 +120°', c: hslToHex(h + 120, s, l) },
+      { n: '三角色 −120°', c: hslToHex(h + 240, s, l) }
+    ].concat(mono);
+  }
+
+  function renderSchemes(hex) {
+    var box = document.getElementById('clSchemes');
+    if (!box) return;
+    var list = schemes(hex);
+    box.innerHTML = '<div class="cl-grid">' + list.map(function (sc) {
+      var cw = contrast(sc.c, '#FFFFFF'), cb = contrast(sc.c, '#000000');
+      var best = Math.max(cw, cb), okTxt = best >= 4.5 ? '可读' : (best >= 3 ? '大字可读' : '仅装饰');
+      return '<div class="cl-card" data-c="' + sc.c + '">' +
+        '<div class="cb" style="background:' + sc.c + ';" title="点击复制">' +
+          '<span class="cp"><i class="fas fa-copy"></i></span></div>' +
+        '<div class="cm">' +
+          '<div class="n">' + sc.n + '</div>' +
+          '<div class="v">' + sc.c.toUpperCase() + '</div>' +
+          '<div class="r"><span class="' + (best >= 4.5 ? 'ok' : '') + '">' + okTxt + '</span>' +
+          '<span>白 ' + cw.toFixed(1) + '</span><span>黑 ' + cb.toFixed(1) + '</span></div>' +
+        '</div>' +
+        '<button class="cl-apl" data-apply="' + sc.c + '">应用为主题色</button>' +
+        '</div>';
+    }).join('') + '</div>';
+
+    bindCopy(box);
+    Array.prototype.forEach.call(box.querySelectorAll('.cl-card .cb'), function (c) {
+      c.onclick = function () { copyText(c.parentElement.getAttribute('data-c')); };
+    });
+    Array.prototype.forEach.call(box.querySelectorAll('.cl-apl'), function (b) {
+      b.onclick = function (e) {
+        e.stopPropagation();
+        var col = b.getAttribute('data-apply');
+        b.textContent = '应用中…';
+        Nexus.call('setAccentColor', col).then(function () {
+          // 回读确认，别在没权限的时候也报「已设置」
+          return Nexus.getUserLS('settings');
+        }).then(function (st) {
+          var ok = !!(st && String(st.accentColor || '').toLowerCase() === col.toLowerCase());
+          Nexus.notify('配色应用', ok
+            ? ('已将 ' + col.toUpperCase() + ' 设为主题色')
+            : '主题色没有生效（当前账户可能没有修改权限）', ok ? 'success' : 'warning');
+        }).catch(function () {
+          Nexus.notify('配色应用', '提交失败，请重试', 'error');
+        }).then(function () { b.textContent = '应用为主题色'; });
+      };
+    });
+  }
+  function bindCopy(root) {
+    Array.prototype.forEach.call(root.querySelectorAll('[data-c]'), function (el) {
+      el.title = '点击复制 ' + el.getAttribute('data-c').toUpperCase();
+    });
+  }
+
+  Nexus.ready(function () {
+    render();
+    setTimeout(extract, 350);
+  });
+})();
+</script>
+</body>
+</html>
