@@ -1,0 +1,249 @@
+/* ==========================================================================
+   n26-shell.css · 应用商店左侧图标栏 + 设置面板 macOS 化   v2.9.22
+   ========================================================================== */
+
+/* ══════════════════════════════════════════════════════════════════
+   1. 应用商店：左边一列图标，点一下就切分类
+   ══════════════════════════════════════════════════════════════════ */
+.appstore-container { display: block; }
+
+.as-shell {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+}
+
+.as-rail {
+    position: sticky;
+    top: 0;
+    flex: 0 0 66px;
+    width: 66px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 7px 5px;
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.62);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 6px 18px rgba(20, 40, 70, 0.10);
+    box-sizing: border-box;
+}
+body.dark-mode .as-rail {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.as-rail-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 7px 0 6px;
+    border-radius: 11px;
+    cursor: pointer;
+    color: rgba(30, 52, 78, 0.72);
+    font-size: 10.5px;
+    line-height: 1.1;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
+    user-select: none;
+}
+.as-rail-item i { font-size: 15px; }
+.as-rail-item:hover { background: rgba(255, 255, 255, 0.85); color: #16324e; }
+.as-rail-item:active { transform: scale(0.95); }
+.as-rail-item.active {
+    background: var(--primary, #4A9BF5);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(74, 155, 245, 0.38);
+}
+body.dark-mode .as-rail-item { color: rgba(255, 255, 255, 0.68); }
+body.dark-mode .as-rail-item:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+
+.as-main { flex: 1 1 auto; min-width: 0; }
+
+.as-crumb {
+    font-size: 15px;
+    font-weight: 700;
+    color: #17324d;
+    letter-spacing: 0.3px;
+}
+body.dark-mode .as-crumb { color: rgba(255, 255, 255, 0.9); }
+
+/* 工具栏现在是「分类名 + 搜索」，不再横排一堆胶囊 */
+.appstore-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   2. 设置面板：向 macOS「系统设置」靠
+      · 左栏窄一点、条目更矮更圆，图标变成彩色小方块
+      · 右侧内容改成一张张白色圆角卡片（分组感）
+   ══════════════════════════════════════════════════════════════════ */
+.settings-sidebar {
+    width: 214px;
+    padding: 12px 8px;
+    background: rgba(246, 247, 250, 0.72);
+    border-right: 1px solid rgba(0, 0, 0, 0.07);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+body.dark-mode .settings-sidebar {
+    background: rgba(26, 28, 34, 0.72);
+    border-right-color: rgba(255, 255, 255, 0.08);
+}
+
+.settings-item {
+    padding: 6px 10px;
+    border-radius: 9px;
+    font-size: 13px;
+    gap: 9px;
+    margin-bottom: 2px;
+    color: rgba(20, 30, 45, 0.86);
+    transition: background 0.14s ease, color 0.14s ease;
+}
+.settings-item:hover { background: rgba(0, 0, 0, 0.05); color: #0f2233; }
+.settings-item.active {
+    background: var(--primary, #4A9BF5);
+    color: #fff;
+}
+.settings-item.active i { color: #fff !important; }
+
+/* 左栏图标 → 彩色小方块（苹果那种每个设置一个色的图标） */
+.settings-item > i {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #fff !important;
+    background: #8e8e93;
+    flex-shrink: 0;
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+}
+.settings-item.active > i { background: rgba(255, 255, 255, 0.22); box-shadow: none; }
+
+/* 每个 tab 一个颜色（按左栏顺序） */
+.settings-item:nth-child(1) > i  { background: #5b8def; }
+.settings-item:nth-child(2) > i  { background: #8e8e93; }
+.settings-item:nth-child(3) > i  { background: #6b7280; }
+.settings-item:nth-child(4) > i  { background: #f59e0b; }
+.settings-item:nth-child(5) > i  { background: #a855f7; }
+.settings-item:nth-child(6) > i  { background: #10b981; }
+.settings-item:nth-child(7) > i  { background: #14b8a6; }
+.settings-item:nth-child(8) > i  { background: #ec4899; }
+.settings-item:nth-child(9) > i  { background: #64748b; }
+.settings-item:nth-child(10) > i { background: #3b82f6; }
+.settings-item:nth-child(11) > i { background: #ef4444; }
+.settings-item:nth-child(12) > i { background: #6366f1; }
+
+/* 右侧内容：分组白卡 */
+#settingsPanel {
+    padding: 16px 20px 26px !important;
+    background: rgba(242, 244, 248, 0.62);
+}
+body.dark-mode #settingsPanel { background: rgba(20, 22, 28, 0.55); }
+
+#settingsPanel > h3 {
+    font-size: 21px !important;
+    font-weight: 700 !important;
+    margin: 2px 0 14px !important;
+    letter-spacing: 0.2px;
+}
+
+.settings-section {
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(0, 0, 0, 0.055);
+    border-radius: 12px !important;
+    padding: 13px 16px !important;
+    margin-bottom: 11px !important;
+    box-shadow: 0 1px 2px rgba(16, 32, 52, 0.05);
+}
+body.dark-mode .settings-section {
+    background: rgba(255, 255, 255, 0.055);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
+}
+
+.settings-section h4 {
+    font-size: 13px !important;
+    font-weight: 650 !important;
+    margin: 0 0 10px !important;
+    color: #1b2a3a;
+}
+body.dark-mode .settings-section h4 { color: rgba(255, 255, 255, 0.92); }
+.settings-section h4 small { font-weight: 400; font-size: 11px; opacity: 0.55; }
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 5px 0;
+    font-size: 12.5px;
+}
+
+/* 分段控件（主题色 / 风格那种）更接近苹果圆角分段 */
+.style-options {
+    display: inline-flex;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 9px;
+    background: rgba(120, 128, 140, 0.16);
+}
+.style-option {
+    padding: 5px 13px;
+    border-radius: 7px;
+    font-size: 12px;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.style-option.active {
+    background: #fff;
+    color: #10202f;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+}
+body.dark-mode .style-option.active { background: rgba(255, 255, 255, 0.16); color: #fff; }
+
+
+/* ══════════════════════════════════════════════════════════════════
+   3. 「关于本机」：系统名 + 宣传语
+      「让每一处想象都照亮未知的远方」——想象是光源，未知的远方是目的地；
+      所以这一行用一道从左到右由亮转淡的光来做，而不是纯文字。
+   ══════════════════════════════════════════════════════════════════ */
+.n26-about-name {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    color: #10202f;
+    line-height: 1.2;
+}
+body.dark-mode .n26-about-name { color: #f2f5f9; }
+
+.n26-about-slogan {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 7px 0 14px;
+    font-size: 13.5px;
+    letter-spacing: 0.8px;
+    font-weight: 600;
+    /* 左亮右淡：像光从近处照向远方。末端保留 32% 亮度，别淡到看不见 */
+    background: linear-gradient(90deg, var(--primary, #4A9BF5) 0%, rgba(74, 155, 245, 0.72) 62%, rgba(74, 155, 245, 0.32) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+}
+.n26-about-slogan::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--primary, #4A9BF5);
+    box-shadow: 0 0 8px 2px rgba(74, 155, 245, 0.55);
+    -webkit-text-fill-color: initial;
+}

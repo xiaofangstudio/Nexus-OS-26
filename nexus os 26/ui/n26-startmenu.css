@@ -1,0 +1,305 @@
+/* ==========================================================================
+   n26-startmenu.css · Win8 式全屏磁贴开始菜单   v2.9.19
+   --------------------------------------------------------------------------
+   设计要点（按用户要求）：
+     · 全屏铺满，**纯高斯模糊、不加任何底色**——只 blur，不染色
+     · 圆角磁贴，可自由拖动排序、增删、调大小（1×1 / 2×1 / 2×2）
+     · 每块磁贴都有一层「正好覆盖它的玻璃」：内侧高光 + 细描边 + 投影，
+       做出厚度感，而不是扁平色块
+     · 磁贴本身不再各自上 backdrop-filter（父层已经是一整块模糊了，
+       子层再加一遍只是白烧 GPU）——厚度靠高光和描边做，视觉一样、成本为零
+     · 两档样式：磁贴（默认）/ 小型（保留原来的弹出式菜单）
+   ========================================================================== */
+
+#smTileMenu {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: 30px 46px 22px;
+    color: #fff;
+
+    /* 纯模糊，无颜色 */
+    background: transparent;
+    backdrop-filter: blur(34px) saturate(180%);
+    -webkit-backdrop-filter: blur(34px) saturate(180%);
+
+    /* 不可见时不参与绘制（和 n26-perf.css 同一套做法，零成本隐藏） */
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.24s var(--ease-out, ease), visibility 0s linear 0.24s;
+}
+#smTileMenu.show {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity 0.24s var(--ease-out, ease), visibility 0s linear 0s;
+}
+
+/* 深色模式：纯模糊在亮壁纸上会让白字发飘，给一点点极淡的压暗（不算"上色"） */
+body.dark-mode #smTileMenu {
+    backdrop-filter: blur(34px) saturate(160%) brightness(0.82);
+    -webkit-backdrop-filter: blur(34px) saturate(160%) brightness(0.82);
+}
+
+/* ── 顶栏 ───────────────────────────────────────────── */
+.smt-top {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    padding-bottom: 20px;
+}
+.smt-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 12px 5px 5px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.20);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32);
+    cursor: pointer;
+    transition: background 0.16s ease;
+    flex-shrink: 0;
+}
+.smt-user:hover { background: rgba(255, 255, 255, 0.2); }
+.smt-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: linear-gradient(135deg, #60a5fa, #a78bfa);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: #fff; overflow: hidden;
+}
+.smt-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.smt-uname { font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+
+.smt-search {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.20);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.30);
+    flex: 0 1 320px;
+    min-width: 140px;
+}
+.smt-search i { font-size: 12px; opacity: 0.7; }
+.smt-search input {
+    flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+    color: #fff; font-size: 13px; font-family: inherit;
+}
+.smt-search input::placeholder { color: rgba(255, 255, 255, 0.55); }
+
+.smt-top-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.smt-tb {
+    height: 34px; padding: 0 14px;
+    display: inline-flex; align-items: center; gap: 7px;
+    border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.20);
+    background: rgba(255, 255, 255, 0.10);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    color: #fff; font-size: 12.5px; font-family: inherit; cursor: pointer;
+    transition: background 0.16s ease;
+}
+.smt-tb:hover { background: rgba(255, 255, 255, 0.2); }
+.smt-tb.on { background: rgba(255, 255, 255, 0.30); }
+
+/* ── 磁贴区 ─────────────────────────────────────────── */
+.smt-body { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; padding-right: 8px; }
+.smt-group-title {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; opacity: 0.62; margin: 4px 2px 10px;
+}
+.smt-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+    grid-auto-rows: 108px;
+    /* dense：让 1×1 的小磁贴自动回填 2×2 大磁贴留下的空洞 */
+    grid-auto-flow: row dense;
+    gap: 10px;
+    align-content: start;
+}
+
+.smt-tile {
+    position: relative;
+    grid-column: span 1;
+    grid-row: span 1;
+    border-radius: 13px;
+    overflow: hidden;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 11px 12px;
+    box-sizing: border-box;
+    color: #fff;
+    /* ★ MIUI / Modern UI 磁贴：整块铺 app 主色的渐变（左上亮 → 本色 → 右下深）
+       不要白色高光斜扫（那会变成老式拉丝金属），不要底部压暗（那是玻璃时代的做法）。
+       厚度只靠 1px 内描边 + 一层很短的投影。 */
+    background:
+        linear-gradient(150deg,
+            color-mix(in srgb, var(--app-color, #4A9BF5) 80%, #ffffff) 0%,
+            var(--app-color, #4A9BF5) 48%,
+            color-mix(in srgb, var(--app-color, #4A9BF5) 76%, #000000) 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.10),
+        0 2px 8px rgba(0, 0, 0, 0.18);
+    transition: transform 0.15s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.15s ease, filter 0.15s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+}
+.smt-tile:hover {
+    filter: brightness(1.08) saturate(1.04);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.36),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+        0 8px 20px rgba(0, 0, 0, 0.26);
+    scale: 1.015;
+}
+.smt-tile:active { scale: 0.985; }
+.smt-tile.wide { grid-column: span 2; }
+.smt-tile.lg { grid-column: span 2; grid-row: span 2; }
+
+.smt-tile-icon {
+    position: absolute;
+    top: 12px; left: 12px;
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 9px;
+    overflow: hidden;
+}
+.smt-tile-icon img { width: 100%; height: 100%; object-fit: contain; }
+.smt-tile-name {
+    font-size: 12.5px; font-weight: 600; line-height: 1.25;
+    overflow: hidden; display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    word-break: break-word;
+}
+.smt-tile.lg .smt-tile-name,
+.smt-tile.wide .smt-tile-name { font-size: 15px; }
+
+/* 磁贴右上角的小控件：平时透明，编辑态才出来 */
+.smt-tile-tools {
+    position: absolute; top: 6px; right: 6px;
+    display: flex; gap: 4px; opacity: 0;
+    transition: opacity 0.14s ease;
+}
+.smt-tile:hover .smt-tile-tools,
+body.smt-editing .smt-tile-tools { opacity: 1; }
+.smt-tile-btn {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0, 0, 0, 0.34);
+    border: 1px solid rgba(255, 255, 255, 0.30);
+    color: #fff; font-size: 9px; cursor: pointer;
+    transition: background 0.14s ease;
+}
+.smt-tile-btn:hover { background: rgba(0, 0, 0, 0.6); }
+
+/* 拖动中的占位反馈 */
+.smt-tile.dragging { opacity: 0.4; }
+.smt-tile.drop-target { outline: 2px dashed rgba(255, 255, 255, 0.72); outline-offset: -3px; }
+
+/* 「添加应用」磁贴 */
+.smt-tile-add {
+    align-items: center; justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px dashed rgba(255, 255, 255, 0.34);
+    box-shadow: none;
+}
+.smt-tile-add:hover { background: rgba(255, 255, 255, 0.12); }
+.smt-tile-add i { font-size: 20px; opacity: 0.8; }
+.smt-tile-add .smt-tile-name { font-size: 11.5px; opacity: 0.72; text-align: center; }
+
+.smt-empty {
+    grid-column: 1 / -1;
+    padding: 50px 0; text-align: center;
+    font-size: 13px; opacity: 0.6;
+}
+
+/* ── 底栏 ───────────────────────────────────────────── */
+.smt-foot {
+    display: flex; align-items: center; gap: 10px;
+    flex-shrink: 0; padding-top: 14px;
+    margin-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+.smt-foot-hint {
+    font-size: 11px; opacity: 0.5; margin-left: 2px;
+}
+.smt-foot-actions { margin-left: auto; display: flex; gap: 8px; }
+
+/* 「添加应用」抽屉 */
+.smt-picker {
+    position: fixed; inset: auto 0 0 0;
+    max-height: 46vh;
+    z-index: 20001;
+    display: flex; flex-direction: column;
+    padding: 16px 46px 20px;
+    background: rgba(22, 24, 32, 0.86);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
+    color: #fff;
+    transform: translateY(101%);
+    transition: transform 0.26s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
+}
+.smt-picker.show { transform: translateY(0); }
+.smt-picker-head {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; font-weight: 600; margin-bottom: 12px;
+}
+.smt-picker-head button {
+    margin-left: auto; border: 0; background: rgba(255, 255, 255, 0.14);
+    color: #fff; border-radius: 999px; padding: 5px 14px;
+    font-size: 12px; font-family: inherit; cursor: pointer;
+}
+.smt-picker-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px; overflow-y: auto;
+}
+.smt-pick-item {
+    display: flex; align-items: center; gap: 9px;
+    padding: 8px 10px; border-radius: 10px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    cursor: pointer; font-size: 12.5px;
+    transition: background 0.14s ease;
+}
+.smt-pick-item:hover { background: rgba(255, 255, 255, 0.16); }
+.smt-pick-item.added { opacity: 0.42; cursor: default; }
+.smt-pick-item img { width: 22px; height: 22px; object-fit: contain; flex-shrink: 0; }
+.smt-pick-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ══════════════════════════════════════════════════════
+   Dock 位置：新增「隐藏」档
+   ══════════════════════════════════════════════════════ */
+body.dock-hidden #dock {
+    transform: translateY(140%) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: transform 0.3s var(--ease-standard, ease), opacity 0.3s ease;
+}
+body.dock-hidden #dock.dock-peek {
+    transform: translateY(0) !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+/* 底部 6px 热区：鼠标碰到就浮出来 */
+#n26DockHotZone {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    height: 6px;
+    z-index: 900;
+    display: none;
+}
+body.dock-hidden #n26DockHotZone { display: block; }

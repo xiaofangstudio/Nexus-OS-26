@@ -332,18 +332,45 @@
       .then(function (g) { return (g.city || g.locality || g.principalSubdivision || '我的位置'); })
       .catch(function () { return '我的位置'; });
   }
+  /* ★ v2.9.24 兜底城市：
+     这个应用是跑在 iframe 里的，很多情况下浏览器的定位权限策略会直接把它挡住，
+     而 getCurrentPosition 在这种环境下**既不回成功也不回失败**，
+     于是就永远停在「定位中…」——用户看到的就是「天气打不开 / 接口用不了」。
+     现在：定位不可用 / 超时 / 被拒 → 一律落到默认城市，先把天气显示出来。 */
+  var FALLBACK_CITY = { name: '北京', lat: 39.9042, lon: 116.4074 };
+  function fallbackCity(reason) {
+    if (loc) return;                                  // 已经在显示某个城市了，别抢
+    $('cityName').textContent = FALLBACK_CITY.name;
+    try { toastErr(reason || '定位不可用，已切到默认城市'); } catch (e) { }
+    fetchWx(FALLBACK_CITY);
+  }
   window.useMyLocation = function () {
     closeSearch();
     $('cityName').textContent = '定位中…';
-    if (!navigator.geolocation) { toastErr('此设备不支持定位，请搜索城市'); return; }
+    var settled = false;
+    var guard = null;
+    var finish = function (fn) { if (settled) return; settled = true; if (guard) clearTimeout(guard); fn(); };
+
+    if (!navigator.geolocation) {
+      finish(function () { fallbackCity('此设备不支持定位，已切到默认城市'); });
+      return;
+    }
+    // iframe 权限策略下回调可能永远不来，自己兜一个超时，别让界面卡死
+    guard = setTimeout(function () {
+      finish(function () { fallbackCity('定位没有响应，已切到默认城市'); });
+    }, 4500);
+
     navigator.geolocation.getCurrentPosition(function (p) {
-      reverseName(p.coords.latitude, p.coords.longitude).then(function (nm) {
-        fetchWx({ name: nm, lat: +p.coords.latitude.toFixed(4), lon: +p.coords.longitude.toFixed(4) });
+      finish(function () {
+        reverseName(p.coords.latitude, p.coords.longitude).then(function (nm) {
+          fetchWx({ name: nm, lat: +p.coords.latitude.toFixed(4), lon: +p.coords.longitude.toFixed(4) });
+        });
       });
     }, function (err) {
-      toastErr(err.code === 1 ? '定位权限被拒绝，可搜索城市' : '定位失败，可搜索城市');
-      $('cityName').textContent = '定位失败';
-    }, { timeout: 8000, maximumAge: 600000 });
+      finish(function () {
+        fallbackCity(err && err.code === 1 ? '定位权限不可用，已切到默认城市' : '定位失败，已切到默认城市');
+      });
+    }, { timeout: 6000, maximumAge: 600000 });
   };
 
   /* ===== 城市搜索 ===== */
