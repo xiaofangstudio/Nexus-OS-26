@@ -32,7 +32,7 @@
         :root {
             --primary: #4A9BF5;
             --primary-light: #7AB6FF;
-            --glass-bg: rgba(255,255,255,0.72);
+            --glass-bg: rgba(246,248,251,0.58);
             --glass-border: rgba(255,255,255,0.5);
             --glass-blur: 30px;
             --window-radius: 12px;
@@ -6613,6 +6613,13 @@
             background: linear-gradient(160deg, #303a4a, #171c25);
             box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 4px 12px rgba(16,24,40,.26); }
         .n26st-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        /* ★ v2.9.41：官网 logo 是「白底手绘图」，直接贴上去就是一个白方块。
+           multiply 混合可以吃掉纯白底，只留图案；容器底色保持透明。 */
+        .n26st-logo-studio {
+            background: transparent; padding: 0;
+            box-shadow: none; border-radius: 12px; overflow: hidden;
+        }
+        .n26st-logo-studio img { mix-blend-mode: multiply; corner-shape: squircle; border-radius: 12px; }
         .n26st-name { font-size: 20px; font-weight: 800; letter-spacing: .3px; }
         .n26st-slogan { font-size: 11.5px; opacity: .58; margin-top: 2px; }
         .n26st-stats { margin-left: auto; display: flex; gap: 18px; }
@@ -7050,7 +7057,10 @@
         }
         #dockBgSep.hidden { opacity: 0; width: 0; margin: 0; pointer-events: none; }
         /* Dock 栏宽度过渡（被吸入感） */
-        #dock { transition: padding 0.3s var(--ease-out); }
+        /* ★ v2.9.25：这里原来是 `transition: padding 0.3s`，
+           简写会把上面那条 transform/opacity 的过渡整个覆盖掉，
+           结果 Dock 收起时是「啪」一下消失、没有任何动画。合并成一条。 */
+        #dock { transition: transform 0.42s var(--ease-out), opacity 0.32s var(--ease-out), padding 0.3s var(--ease-out); }
         /* 后台区域新图标进入动画（从小竖线右侧展开） */
         #dockBgApps .dock-item.genie-entering {
             animation: bgIconGenieEnter 0.4s var(--ease-out) forwards;
@@ -7155,6 +7165,9 @@
         .window.dragging { opacity: 0.85; transition: opacity 0.15s var(--ease-out); }
         .window.dragging .window-content { pointer-events: none; }
         /* Genie 精灵效果 — 由 JS Web Animations API 控制，CSS 仅保留禁用指针 */
+        /* ★ v2.9.37：clip-path 漏斗只有四个角，边缘是硬直线，看着就是锯齿。
+           动画期间叠 0.5px 模糊，视觉上等价于把边缘做抗锯齿，结束即移除。 */
+        .window.genie-out { filter: blur(0.5px); }
         .window.genie-out {
             pointer-events: none;
         }
@@ -7267,7 +7280,13 @@
         .window-content {
             flex: 1;
             overflow: auto;
-            background: rgba(255,255,255,0.55);
+            /* v2.9.35：窗口内容底色从"奶白"改成偏冷的烟灰磨砂（用户要偏黑一点的磨砂玻璃） */
+            background: linear-gradient(180deg, rgba(28,34,46,0.075), rgba(28,34,46,0.035)), rgba(255,255,255,0.44);
+            /* ★ v2.9.34：这里必须建立定位上下文。
+               回收站（.tr2）和工作室内嵌网页都用 position:absolute; inset:0 铺满内容区，
+               而 .window-content 之前没有 position，参照物变成了整个 .window ——
+               于是内容一路顶到标题栏，压在红黄绿三个按钮上。 */
+            position: relative;
         }
         .window-resize-handle {
             position: absolute;
@@ -11809,9 +11828,16 @@
             font-size: 12px; color: rgba(26, 42, 58, 0.55);
             margin-bottom: 16px;
         }
+        /* ★ v2.9.25 修「小组件面板卡片互相重叠成一团」：
+           原来是 repeat(4,1fr) + 卡片靠 aspect-ratio:1/1 撑高度。
+           网格容器是定高的，auto 行会被 align-content 摊平分掉可用高度，
+           行高被压到 ~75px，而卡片自己仍是 147px —— 于是每行都往上叠 60px。
+           改成「列宽自适应 + 行高固定 + 卡片填满」，高度完全确定，不再依赖 aspect-ratio。 */
         .widget-panel-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
+            grid-auto-rows: 148px;
+            align-content: start;
             gap: 12px;
             overflow-y: auto; padding: 4px 4px 8px;
             margin: 0 -4px;
@@ -11820,7 +11846,8 @@
         .widget-panel-grid::-webkit-scrollbar-thumb { background: rgba(26,42,58,0.18); border-radius: 3px; }
         .widget-panel-card {
             position: relative;
-            aspect-ratio: 1 / 1;
+            aspect-ratio: auto;
+            height: 100%;
             border-radius: 16px;
             background: rgba(255, 255, 255, 0.4);
             border: 1px solid rgba(255, 255, 255, 0.5);
@@ -16248,8 +16275,8 @@
     <link rel="stylesheet" href="ui/n26-polish.css">
     <link rel="stylesheet" href="ui/n26-perf.css?v=221">
     <link rel="stylesheet" href="ui/n26-material.css?v=225">
-    <link rel="stylesheet" href="ui/n26-startmenu.css?v=223">
-    <link rel="stylesheet" href="ui/n26-shell.css?v=226">
+    <link rel="stylesheet" href="ui/n26-startmenu.css?v=231">
+    <link rel="stylesheet" href="ui/n26-shell.css?v=240">
 </head>
 <script>
 /* ==================================================================
@@ -20587,7 +20614,8 @@
         'fangliao':     '../Desktop icon/方聊.png',
         'focus':        '../Desktop icon/专注一刻.png',   // 专注时刻
         // ★ v2.9.12 小方创作套件：三个图标都是专门重绘过的，各自独立、绝不互相顶替
-        'fangwork':     'apps/brand/fangwork.png',   // FangWork（青绿 f + 蓝卡）
+        'fangwork':     'apps/brand/fangwork.png',
+        'studio':       'apps/brand/studio.png',   // FangWork（青绿 f + 蓝卡）
         'strata':       'apps/brand/strata.png',     // Strata（St 字标 + 蓝边）
         'reelix':       'apps/brand/reelix.png',     // Reelix（RL 字标 + 荧光绿边）
         // Desktop icon 没有的 → MIUI 备选
@@ -20637,7 +20665,7 @@
         //   FangWork + 生产力套件（Strata / Reelix / 以后新增的都往这里加）+ FangClaw
         // 这几个**无论图标包选哪档都用自绘**，因为它们各有品牌色与字标，
         // 换成扁平色块或 FA 字形就是品牌走样。新增套件应用时记得同步加进来。
-        const N26_ALWAYS_DRAWN = { agent: 1, fangclaw: 1, fangwork: 1, strata: 1, reelix: 1 };
+        const N26_ALWAYS_DRAWN = { agent: 1, fangclaw: 1, fangwork: 1, strata: 1, reelix: 1, studio: 1 };
         // 原始扁平图标：彩色圆底 + 白色 FA 图标（与初代 NexusOS 风格一致）
         if (pack === 'flat' && !opts.forceN26 && !N26_ALWAYS_DRAWN[appId]) {
             return `<span class="app-icon-flat" style="--app-color:${color};width:${s}px;height:${s}px;border-radius:${Math.max(8, Math.round(r * 0.9))}px;"><i class="fas ${fa}"></i></span>`;
@@ -20729,6 +20757,14 @@
         if (!shelf) return;
         const rect = shelf.getBoundingClientRect();
         const insideShelf = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+        // ★ v2.9.25：应用最大化 / 浏览器全屏时，鼠标往左甩一下就弹出桌面卡片，非常烦人。
+        //   这两种状态下不再响应左侧 6px 热区（已经在显示的顺手收起）。
+        let _busy = false;
+        try { _busy = !!(document.fullscreenElement) || (typeof windows !== 'undefined' && windows.some(w => w && w.state === 'maximized')); } catch (err) { _busy = false; }
+        if (_busy) {
+            if (shelf.classList.contains('show')) shelf.classList.remove('show');
+            return;
+        }
         if (e.clientX <= 6) {
             // 贴住最左边 → 滑出
             if (!shelf.classList.contains('show')) {
@@ -21651,7 +21687,9 @@
     /* 完整唤起：爆闪 + 波纹 + 扭曲 + 光带 + 底部 HUD 输入条 + 自动聆听 */
     function coviSummon() {
         if (!coviStage()) return;
-        if (_coviHudOpen) { coviHudShow(true); return; }        // 已唤起：只展开输入条，不重复爆闪
+        // ★ v2.9.25：已唤起时再点一次 = 收起。之前这里是 coviHudShow(true) 直接 return，
+        // 所以用户点玻璃球/点空白，看到的是「又打开一次」，关不掉。
+        if (_coviHudOpen) { if (typeof coviHudClose === 'function') coviHudClose(); return; }
         coviWhiteBurst();
         coviRipple();
         coviSquish();
@@ -22269,6 +22307,8 @@
 
     /* 展开 / 唤起 HUD；expand=true 时进入可输入态并聚焦 */
     function coviHudShow(expand) {
+        // v2.9.37：小框尺寸一变，折射贴图必须重建，否则边框那圈「没覆盖」
+        setTimeout(function () { try { if (typeof n26LgSync === 'function') n26LgSync(); } catch (e) { } }, 60);
         var hud = coviHudEl('covi-hud');
         if (!hud) return;
         _coviHudOpen = true;
@@ -22547,7 +22587,10 @@
         ['#n26LeftDock', 'n26LgLeft'],
         ['#dock', 'n26LgDock'],
         ['#n26RightDock', 'n26LgRight'],
-        ['#startMenu', 'n26LgStart']
+        ['#startMenu', 'n26LgStart'],
+        // ★ v2.9.37：长按空格唤出的 AI 小框，之前根本没接液态玻璃（所以「没扭曲、边框没覆盖」）。
+        //   小框比 Dock 扁很多，SDF 内缩要更小、阈值更浅，否则折射会把边框吃掉。
+        ['#covi-hud-bar', 'n26LgHud', { inset: 0.12, thresh: -0.10 }]
     ];
     function n26LgMaterialAllows() {
         try {
@@ -22574,7 +22617,7 @@
             if (el.getClientRects().length === 0) return;
             const r = el.getBoundingClientRect();
             if (r.width < 20 || r.height < 14) return;
-            if (!el._n26Lg) { _n26LgApply(el, id); return; }
+            if (!el._n26Lg) { _n26LgApply(el, id, pair[2]); return; }
             if (Math.abs(r.width - el._n26Lg.w) > 1 || Math.abs(r.height - el._n26Lg.h) > 1) {
                 const oldF = document.getElementById(el._n26Lg.id);
                 if (oldF) oldF.remove();
@@ -22583,7 +22626,7 @@
                 el.style.backdropFilter = '';
                 el.classList.remove('n26-liquid-on');
                 el._n26Lg = null;
-                _n26LgApply(el, id);
+                _n26LgApply(el, id, pair[2]);
             }
         });
     }
@@ -22740,6 +22783,43 @@
         if (code >= 95) return { icon: 'fa-bolt', cls: '#f59e0b' };
         return { icon: 'fa-cloud-sun', cls: '#f59e0b' };
     }
+    /* ★ v2.9.35 真实定位：以前顶栏天气只「读」n26_geo，全项目没有任何地方「写」它，
+       所以永远显示北京。这里补上写入逻辑：先取浏览器定位 → 反查城市名 → 存 localStorage；
+       取不到就用默认坐标落盘，避免每次刷新都重试。 */
+    function n26EnsureGeo() {
+        return new Promise(function (resolve) {
+            var cached = getLS('n26_geo');
+            if (cached && cached.lat && cached.lon) { resolve(cached); return; }
+            if (!navigator.geolocation) {
+                var d0 = { lat: 39.9042, lon: 116.4074, name: '北京', ts: Date.now() };
+                setLS('n26_geo', d0); resolve(d0); return;
+            }
+            var done = false;
+            var finish = function (g) { if (done) return; done = true; resolve(g); };
+            var guard = setTimeout(function () {
+                var d = { lat: 39.9042, lon: 116.4074, name: '北京', ts: Date.now() };
+                setLS('n26_geo', d); finish(d);
+            }, 4000);
+            navigator.geolocation.getCurrentPosition(function (pos) {
+                clearTimeout(guard);
+                var lat = +pos.coords.latitude.toFixed(4);
+                var lon = +pos.coords.longitude.toFixed(4);
+                var base = { lat: lat, lon: lon, name: '我的位置', ts: Date.now() };
+                // 反查城市名（失败就用"我的位置"，不挡住天气）
+                fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + lat + '&longitude=' + lon + '&localityLanguage=zh')
+                    .then(function (r) { return r.json(); })
+                    .then(function (g) { base.name = g.city || g.locality || g.principalSubdivision || '我的位置'; })
+                    .catch(function () { })
+                    .then(function () { setLS('n26_geo', base); finish(base); });
+            }, function () {
+                clearTimeout(guard);
+                var d = { lat: 39.9042, lon: 116.4074, name: '北京', ts: Date.now() };
+                setLS('n26_geo', d); finish(d);
+            }, { timeout: 3500, maximumAge: 600000 });
+        });
+    }
+    window.n26EnsureGeo = n26EnsureGeo;
+
     async function updateN26TopbarWeather() {
         const textEl = document.getElementById('n26TopbarWeatherText');
         const iconEl = document.getElementById('n26TopbarWeatherIcon');
@@ -22754,10 +22834,9 @@
             return;
         }
         try {
-            // 默认北京坐标，支持 geolocation 覆盖
-            let lat = 39.9042, lon = 116.4074;
-            const geo = getLS('n26_geo');
-            if (geo) { lat = geo.lat; lon = geo.lon; }
+            // v2.9.35：走真实定位（结果存 localStorage，下次直接用）
+            const geo = await n26EnsureGeo();
+            const lat = geo.lat, lon = geo.lon;
             const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code`);
             if (!res.ok) throw new Error('weather http ' + res.status);
             const data = await res.json();
@@ -25017,7 +25096,7 @@
             body.innerHTML = `
                 <div class="nex-modal-field"><label>应用名称</label><input type="text" id="nexImportName" placeholder="例如：我的应用"></div>
                 <label class="nex-modal-file-btn" for="nexFileImport">
-                    <i class="fas fa-cloud-upload-alt"></i> 选择HTML文件
+                    <i class="fas fa-cloud-arrow-up"></i> 选择HTML文件
                 </label>
                 <div class="nex-modal-file-name" id="nexImportFileName">未选择文件</div>
             `;
@@ -25152,7 +25231,7 @@
         'word-editor': { name: '文档编辑器', icon: 'fa-file-word', color: '#2563eb', defaultWidth: 860, defaultHeight: 640 },
         'excel-editor': { name: '表格编辑器', icon: 'fa-file-excel', color: '#16a34a', defaultWidth: 900, defaultHeight: 620 },
         screenshot: { name: '截图录屏', icon: 'fa-camera', color: '#0ea5e9', defaultWidth: 860, defaultHeight: 600 },
-        agent: { name: 'FangClaw', icon: 'fa-hand-pointer', color: '#8b5cf6', defaultWidth: 920, defaultHeight: 660 },
+        agent: { name: 'FangClaw', icon: 'fa-hand-pointer', color: '#3b82f6', defaultWidth: 920, defaultHeight: 660 },
         monitor: { name: '资源监视器', icon: 'fa-chart-line', color: '#10b981', defaultWidth: 720, defaultHeight: 560 },
         vm: { name: '虚拟机', icon: 'fa-server', color: '#6366f1', defaultWidth: 900, defaultHeight: 620 },
         sandbox: { name: '虚拟机', icon: 'fa-layer-group', color: '#60a5fa', defaultWidth: 1080, defaultHeight: 720 },
@@ -26611,7 +26690,7 @@
 
         var hero = '<div class="n26st-hero">'
             + '<div class="n26st-hero-l">'
-            + '<div class="n26st-logo"><img src="' + N26_LOGO_SRC + '" alt="Nexus OS 26" draggable="false"></div>'
+            + '<div class="n26st-logo n26st-logo-studio"><img src="apps/brand/studio.png" alt="小方工作室" draggable="false"></div>'
             + '<div><div class="n26st-name">小方工作室</div>'
             + '<div class="n26st-slogan">xiaofangstudio · 做点真的能用的东西</div></div>'
             + '</div>'
@@ -27213,6 +27292,8 @@
         cancelAnimationsFor(el, 'genie-min');
         cancelAnimationsFor(el, 'genie-restore');
 
+        // ★ v2.9.38：标记"正在最小化"，供 restoreWindow 判断是否要「从当前姿态反向」
+        el._n26Minimizing = true;
         el.classList.add('genie-out');
         el.classList.remove('opening');
 
@@ -27257,7 +27338,14 @@
 
         // 2. 计算位移目标（缓存，避免每帧 DOM 查询）
         if (bgIcon) bgIcon.offsetHeight;
-        const targetRect = bgIcon ? bgIcon.getBoundingClientRect() : null;
+        // ★ v2.9.35：收拢目标优先用「这个应用真正在 Dock 里的那个图标」。
+        //   以前只在 #dockBgApps（后台区）里找，应用图标如果在主 Dock 上就找不到，
+        //   于是回落到 Dock 中心 —— 看起来就是"直接朝正中间收过去"。
+        let targetRect = bgIcon ? bgIcon.getBoundingClientRect() : null;
+        if (!targetRect && win.appId) {
+            const anyIcon = document.querySelector('.dock-item[data-app-id="' + win.appId + '"]');
+            if (anyIcon) targetRect = anyIcon.getBoundingClientRect();
+        }
         const targetX = targetRect ? targetRect.left + targetRect.width / 2 : dockTarget.x;
         const targetY = targetRect ? targetRect.top + targetRect.height / 2 : dockTarget.y;
 
@@ -27321,6 +27409,7 @@
             } else {
                 // 动画结束：清理
                 finishAnimation(anim);
+                el._n26Minimizing = false;
                 el.classList.add('minimized');
                 el.classList.remove('minimizing');
                 el.classList.remove('genie-out');
@@ -27352,6 +27441,47 @@
         if (!win || win.state !== 'minimized') return;
         const el = document.getElementById('window-' + id);
         if (!el) return;
+
+        // ★ v2.9.38 真正可打断：正在最小化时再点，不要从 Dock 重新开始，
+        //   而是把此刻的 transform / clip-path / opacity 抓下来，直接从这一帧反向长回去。
+        if (el._n26Minimizing) {
+            const cs = getComputedStyle(el);
+            const snap = {
+                transform: cs.transform,
+                clipPath: cs.clipPath,
+                opacity: cs.opacity,
+                borderRadius: cs.borderRadius,
+                filter: cs.filter
+            };
+            cancelAnimationsFor(el, 'genie-min');
+            el._n26Minimizing = false;
+            el.classList.remove('genie-out');
+            el.classList.remove('minimizing');
+            el.classList.remove('minimized');
+            el.style.transition = 'none';
+            el.style.transform = snap.transform;
+            el.style.clipPath = (snap.clipPath && snap.clipPath !== 'none') ? snap.clipPath : '';
+            el.style.opacity = snap.opacity;
+            el.style.borderRadius = snap.borderRadius;
+            if (snap.filter && snap.filter !== 'none') el.style.filter = snap.filter;
+            void el.offsetWidth;
+            el.style.transition = 'transform .3s cubic-bezier(.2,.9,.3,1), clip-path .3s cubic-bezier(.2,.9,.3,1), opacity .22s ease, border-radius .3s ease, filter .22s ease';
+            el.style.transform = '';
+            el.style.clipPath = '';
+            el.style.opacity = '1';
+            el.style.borderRadius = '';
+            el.style.filter = '';
+            el.style.willChange = '';
+            win.state = 'normal';
+            try { updateWindowDockIndicators(); } catch (e) { }
+            try { if (typeof updateWinTaskbarApps === 'function') updateWinTaskbarApps(); } catch (e) { }
+            setTimeout(function () {
+                el.style.transition = '';
+                el.style.clipPath = '';
+                el.style.filter = '';
+            }, 360);
+            return;
+        }
 
         // 取消可能残留的精灵动画（打断）
         cancelAnimationsFor(el, 'genie-min');
@@ -28475,7 +28605,6 @@
             { id: 'settings', name: '系统设置', icon: 'fa-cog', color: '#9ca3af' },
             { id: 'terminal', name: '终端', icon: 'fa-terminal', color: '#22c55e' },
             { id: 'tips', name: '玩机技巧', icon: 'fa-lightbulb', color: '#fbbf24' },
-            { id: 'image', name: '图片查看器', icon: 'fa-image', color: '#a78bfa' },
             { id: 'video', name: '视频播放器', icon: 'fa-play', color: '#f87171' },
             { id: 'music', name: '音乐播放器', icon: 'fa-music', color: '#ec4899' },
             { id: 'defender', name: 'Nexus Defender', icon: 'fa-shield-alt', color: '#10b981' },
@@ -29410,6 +29539,8 @@
         const se = document.getElementById('smtSearch');
         if (se) se.value = '';
         n26RenderTileMenu();
+        // v2.9.25：点空白处关闭（之前全屏菜单铺满整屏，没有「外面」可点，只能点右上角 ×）
+        m.onclick = function (ev) { if (ev.target === m) n26TileMenuClose(); };
         m.classList.add('show');
         startMenuActive = true;
         if (se) { try { se.focus(); } catch (e) { } }
@@ -30719,6 +30850,11 @@
                     ${Object.keys(fs).map(d => `
                         <div class="fm-sidebar-item fm-drive-item ${(!isCloud && fmCurrentPath === d + ':') ? 'active' : ''}" data-drive="${d}" onclick="fmNavigate('${d}:')"><i class="fas fa-hdd"></i> ${d} 盘</div>
                     `).join('')}
+                    <!-- ★ v2.9.29 真实系统磁盘：浏览器唯一合规的读法是用 File System Access API
+                         让用户亲手授权一个真实文件夹，之后就能浏览/读取/新建（localhost 或 https 下可用）。 -->
+                    <div class="fm-sidebar-item" style="margin-top:10px;font-size:11px;color:var(--fm-fg-faint);padding-left:12px;">真实系统</div>
+                    <div class="fm-sidebar-item" onclick="fmConnectRealFolder()" title="选择本机上的一个真实文件夹并授权访问"><i class="fas fa-folder-plus"></i> 连接真实文件夹…</div>
+                    <div id="fmRealList"></div>
                 </div>
                 <div class="fm-main" id="fmMainContent">
                     ${isCloud ? '' : `
@@ -33089,6 +33225,275 @@
                         <h4>更新日志</h4>
                         <div class="changelog">
                             <div class="changelog-item">
+                                <div class="changelog-version">v2.9.41</div>
+                                <div class="changelog-date">2026-10-31</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm fix">修复</span><b>🏷️ 小方工作室页面头部挂的还是 Nexus 的 logo</b><br>
+                                        ① 那个位置直接引用了 <code>N26_LOGO_SRC</code>（Nexus OS 自己的黑底 N），
+                                            所以在「小方工作室」页上顶着自家系统的标志，看着像走错门；<br>
+                                        ② 现在换成官网 <code>index.html</code> 用的那张手绘标志
+                                            （<code>屏幕截图 2026-05-22 221716.png</code> → <code>apps/brand/studio.png</code>）；<br>
+                                        ③ 那张图是<b>白底手绘</b>，直接贴会变成一个白方块——用 <code>mix-blend-mode: multiply</code>
+                                            把纯白底吃掉，只保留图案；容器底色改成透明，不再套深色底板。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.40</div>
+                                <div class="changelog-date">2026-10-31</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm fix">修正</span><b>🗑️ 回收站的位置我改反了，已恢复</b><br>
+                                        上一版我把<b>左下角胶囊里的回收站</b>隐藏了——理解反了。
+                                        用户的意思是「回收站本来就在左下角，Dock 栏不需要再放一个」，
+                                        不是要删掉左下角那个。已恢复原样；主 Dock 本来就只放开始 / 启动台 / 聚焦搜索 /
+                                        浏览器 / 文件管理 / 应用商城，没有回收站条目。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.39</div>
+                                <div class="changelog-date">2026-10-31</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm new">重做</span><b>🌤️ 天气页面整个重做，改成苹果天气那套结构</b><br>
+                                        ① 之前是一堆零散卡片堆在一起，像手机小工具。现在按苹果的骨架来：
+                                            <b>城市名 → 超大温度 → 天气描述 → 最高/最低 → 24 小时横向条 → 10 天预报 → 六张指标卡</b>；<br>
+                                        ② <b>背景不再是固定图，而是按天气和昼夜实时换</b>：晴 / 多云 / 阴 / 雾 / 雨 / 雪 / 雷雨，
+                                            每种各有白天与夜间两套渐变，切换时 1.1 秒平滑过渡；<br>
+                                        ③ 10 天预报每天有一条<b>温度区间条</b>（位置和长度按当天最低/最高在整段区间里的比例算），
+                                            一眼就能看出哪天更冷更热；<br>
+                                        ④ <b>位置走系统共享的那份</b>（<code>n26_geo</code>），和顶栏天气、服务小组件用的是同一个坐标；
+                                            拿不到定位才回落到上次缓存的城市，再不行才用默认城市，全程不会卡在空白。</li>
+                                    <li><span class="tag-sm polish">打磨</span><b>🪟 窗口切换补上反馈（开关动画原来就有）</b><br>
+                                        查过了：窗口打开已经有 <code>windowOpenGlass</code>、关闭已经有 <code>windowCloseApple</code>，
+                                        所以没有再重复造一套。这轮补的是原来缺的<b>切换反馈</b>：点到某个窗口时给一次极轻的「提起来」缩放，
+                                        从 0.992 回到 1，只动 <code>scale</code> 不动 <code>transform</code>，不会和拖拽、最小化打架。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.38</div>
+                                <div class="changelog-date">2026-10-31</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm new">新增</span><b>↩️ 最小化动画可以被「立刻打断」了</b><br>
+                                        ① 以前窗口正在缩进 Dock 的途中你再去点它，代码会把最小化动画<b>整个取消、从 Dock 位置重新开始</b>，
+                                            于是画面先「跳」一下再长回来，非常像 bug；<br>
+                                        ② 现在改成真正的打断：把<b>当前这一帧</b>的 <code>transform / clip-path / opacity / 圆角 / 滤镜</code>
+                                            全部抓下来当作起点，用一条过渡直接长回原样——<b>从你按下鼠标那一刻的形态反向回去</b>，不跳、不重来；<br>
+                                        ③ 实测：在最小化进行到第 140ms 时触发还原，过渡正常接管，最终 <code>transform: none</code>、
+                                            透明度 1、窗口状态回到 normal，没有残留的 <code>minimized</code> 类。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.37</div>
+                                <div class="changelog-date">2026-10-31</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm fix">修复</span><b>🫧 长按空格唤出的 AI 小框：底部没有扭曲、边框没被盖住</b><br>
+                                        ① 真正的原因不是参数调错，而是<b>这个小框从来没接进液态玻璃系统</b>——
+                                            折射只给了 Dock 三段、开始菜单，小框一直是普通半透明底，所以既没有扭曲、边缘也盖不满；<br>
+                                        ② 现在把小框加进折射目标，并按它的形状单独调参：小框比 Dock 扁得多，
+                                            SDF 内缩收到 <code>0.12</code>、折射阈值放到 <code>-0.10</code>，
+                                            否则折射会把边框那一圈「吃掉」；<br>
+                                        ③ 小框展开/收起会变尺寸，贴图必须重建——在展开回调里补了同步，
+                                            否则会一直用旧宽度的贴图，边缘对不齐。</li>
+                                    <li><span class="tag-sm polish">打磨</span><b>✨ 最小化的精灵动画边缘不再有锯齿</b><br>
+                                        漏斗形变是 <code>clip-path</code> 四点多边形，边缘是硬直线，所以看着毛。
+                                        动画期间叠 <code>0.5px</code> 模糊，等价于给边缘做抗锯齿，动画结束自动去掉。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.36</div>
+                                <div class="changelog-date">2026-10-31</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm fix">修复</span><b>🏷️ 小方工作室换回官网那张手绘 logo</b><br>
+                                        之前是我自己找了个头像凑数，不对。现在直接用官网 <code>index.html</code> 里那张
+                                        <code>屏幕截图 2026-05-22 221716.png</code>（就是"小方工作室 / fang game company / 用心做好游戏"
+                                        那张手绘标志），复制成 <code>apps/brand/studio.png</code> 并锁定为品牌图标。</li>
+                                    <li><span class="tag-sm polish">精简</span><b>🗑️ 去掉左下角胶囊里重复的回收站按钮</b><br>
+                                        回收站本来就有独立应用图标，左下角那个小球旁边再挂一个纯属重复。
+                                        已隐藏；<b>删除能力不变</b>——文件管理器里删除、拖到 Dock 回收站图标，都照样进回收站。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.35</div>
+                                <div class="changelog-date">2026-10-31</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm fix">修复</span><b>📍 顶栏天气永远是北京——因为根本没有代码去定位</b><br>
+                                        ① 顶栏天气会读 <code>n26_geo</code>，但<b>全项目没有任何一处写它</b>，
+                                            所以永远拿到默认坐标；<br>
+                                        ② 现在补上 <code>n26EnsureGeo()</code>：先取浏览器定位（3.5 秒超时），
+                                            成功就反查城市名，<b>结果写进 localStorage</b>；失败则落默认坐标但同样落盘，
+                                            不会每次刷新都重试；<br>
+                                        ③ 取到的位置是全系统共用的，服务小组件的天气读的是同一份数据。</li>
+                                    <li><span class="tag-sm polish">打磨</span><b>🌫️ 全局背景从「奶白」改成偏冷的烟灰磨砂</b><br>
+                                        窗口内容底色加了一层极淡的冷色压暗（<code>rgba(28,34,46,0.075)</code> 渐变），
+                                        玻璃底色也调低了一档，整体不再发白。</li>
+                                    <li><span class="tag-sm fix">修复</span><b>🫧 最小化时的精灵动画不再「径直朝屏幕中间收」</b><br>
+                                        收拢目标以前只在后台区 Dock 里找图标，应用图标如果挂在主 Dock 上就找不到，
+                                        于是回落到 Dock 中心点。现在改为<b>全 Dock 范围查找该应用的图标</b>，收到哪就在哪。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.34</div>
+                                <div class="changelog-date">2026-10-31</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm fix">修复</span><b>🗑️ 回收站内容压到标题栏的红黄绿三个按钮上</b><br>
+                                        ① 回收站内容用 <code>position: absolute; inset: 0</code> 铺满内容区，
+                                            但 <code>.window-content</code> 之前<b>没有建立定位上下文</b>——
+                                            于是参照物变成了整个 <code>.window</code>，内容一路顶到窗口最顶端，压在交通灯上；<br>
+                                        ② 给 <code>.window-content</code> 加上 <code>position: relative</code>。
+                                            <b>这一改同时把所有用同样写法的应用都修好了</b>（小方工作室的内嵌网页就是同一种毛病）；<br>
+                                        ③ 实测：内容顶部与标题栏底部完全贴合（232 / 232），重叠 0。</li>
+                                    <li><span class="tag-sm fix">修复</span><b>🏷️ 小方工作室用的不是官网头像</b><br>
+                                        之前图标是一个通用方块字形，看着像别人的 logo。现在换成官网最外层那张头像
+                                        （<code>图片/小方.jpg</code>），并加入品牌锁定名单——不跟随「图标风格」开关变化。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.33</div>
+                                <div class="changelog-date">2026-10-31</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm fix">修复</span><b>🔊 两个图标是「坏的」——类名在 Font Awesome 6 里根本不存在</b><br>
+                                        ① 蓝牙设备那一栏的喇叭写的是 <code>fa-speaker</code>，上传那处写的是
+                                            <code>fa-cloud-upload-alt</code>，这两个名字在 FA6 里已经改了，
+                                            浏览器找不到字形，渲染出来就是一个空框/方块——看着像"图标坏了"；<br>
+                                        ② 分别改成 <code>fa-volume-high</code> 与 <code>fa-cloud-arrow-up</code>。</li>
+                                    <li><span class="tag-sm fix">修复</span><b>📐 桌面小组件缩到最小尺寸时内容溢出卡片</b><br>
+                                        ① 卡片本身没裁切，内部又是按原始尺寸硬排的，一缩小就顶出边界；<br>
+                                        ② 给 <code>.desktop-widget-card</code> 加裁切，并让所有后代允许收缩
+                                            （<code>min-width/min-height: auto</code> 正是 flex / grid 里溢出的根源），
+                                            图片与画布一并限制在卡片内。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.32</div>
+                                <div class="changelog-date">2026-10-31</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm fix">修复</span><b>🔲 全系统「都变方了」——我把连续圆角的范围搞错了</b><br>
+                                        ① 用户要的是<b>只有图标</b>用二阶贝塞尔（超椭圆），我上一版却写成了
+                                            <code>*, *::before, *::after { corner-shape: squircle }</code> 全量；
+                                        ② 超椭圆比圆弧更「鼓」，套在<b>圆形头像、状态圆点、胶囊按钮</b>上就直接变方，
+                                            整屏观感全毁；<br>
+                                        ③ 现在收窄成只作用于图标：<code>img.n26-app-img</code> / <code>.n26-app-fallback</code> /
+                                            <code>.app-icon-flat</code> / <code>.store-app-icon</code> / Dock 图标 / 启动台图标，
+                                            iframe 侧同样只覆盖图标类选择器；<br>
+                                        ④ 实测：头像与圆点回到标准圆角（<code>superellipse(1)</code>），只有图标是
+                                            <code>superellipse(2)</code>。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.31</div>
+                                <div class="changelog-date">2026-10-31</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm fix">修复</span><b>🖱️ 桌面小组件终于能拖了</b><br>
+                                        根因找到了：桌面小组件容器 <code>#desktopWidgets</code> 是 <code>pointer-events: none</code>，
+                                        旧实现把 <code>mousedown</code> 挂在每个小组件自己身上，事件根本走不到。
+                                        改成在 <b>window 捕获阶段</b>统一接管 pointerdown，按下即抓、拖动实时对齐 80px 网格并显示辅助线、松手落盘。
+                                        实测：位置 300,260 → 580,400，且已写进 <code>desktopWidgets</code>。</li>
+                                    <li><span class="tag-sm polish">打磨</span><b>🧱 开始菜单打开不再是「啪」一下出现</b><br>
+                                        之前只有一个淡入，铺满整屏时还是显得突兀。现在加了轻微缩放（1.015 → 1）+ 6px 模糊消散，
+                                        进度和透明度错开，像从屏幕里推近。</li>
+                                    <li><span class="tag-sm polish">精简</span><b>🗑️ 删掉「图片查看器」</b><br>
+                                        功能与相册完全重叠，用户明确说不需要。启动台元数据与商店条目一并移除，不再占用位置。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.30</div>
+                                <div class="changelog-date">2026-10-31</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm fix">修复</span><b>🔲 连续圆角只生效了一半：<b>所有 iframe 应用里的圆角还是普通圆</b></b><br>
+                                        ① 上一版把 <code>corner-shape: squircle</code> 挂在主文档样式表上，但<b>应用都跑在 iframe 里，拿不到主文档的 CSS</b>——
+                                            所以 FangClaw 左上角那个图标、商店卡片、各处窗内控件全是普通圆角；<br>
+                                        ② 现在改成<b>全量生效</b>（<code>*, *::before, *::after</code>），并<b>同时在 <code>apps/_polish.css</code> 里补一份</b>，
+                                            这样每一个 iframe 应用都跟着走同一条二阶贝塞尔曲线；<br>
+                                        ③ 顺手修了个老坑：<code>_app.js</code> 注入 <code>_polish.css</code> 时没带版本号，浏览器一直吃缓存，
+                                            改了样式也看不到——现在带上 iframe 自己的 <code>?v=</code> 版本戳。<br>
+                                        实测：FangClaw 图标 / 侧栏 logo / 按钮、主窗口，计算值全部是 <code>superellipse(2)</code>。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.29</div>
+                                <div class="changelog-date">2026-10-31</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm new">新增</span><b>💽 文件管理：Nexus 自己的 C / D 盘之外，现在能接真实系统的磁盘了</b><br>
+                                        ① 侧栏多出一栏「真实系统 → 连接真实文件夹…」。浏览器出于安全限制<b>不可能直接列出你的 C:/D:</b>，
+                                            唯一合规的读法是 <b>File System Access API</b>：由你亲手挑一个真实文件夹并授权，之后系统才能读写它；<br>
+                                        ② 授权后可以：<b>逐层浏览真实目录</b>、看文件大小、点开文本文件直接预览（超过 512KB 自动改下载）、
+                                            <b>新建文件 / 新建文件夹</b>，全部作用在你真实的磁盘上，不是虚拟盘；<br>
+                                        ③ 需要 <code>127.0.0.1</code> 或 <code>https</code> 打开；用 <code>file://</code> 直接双击打开会给出明确提示，
+                                            而不是点了没反应；<br>
+                                        ④ 授权只在当前会话有效——这是浏览器的安全设计，重开页面需要重新挑一次文件夹。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.28</div>
+                                <div class="changelog-date">2026-10-31</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm fix">修复</span><b>🔲 图标那圈「边」直接去掉，只留连续圆角</b><br>
+                                        之前理解错了——用户不是要换边色，是要<b>没有边</b>。
+                                        病根在 <code>.ag-logo</code>：一块彩色渐变底 + 一层紫色光晕
+                                        <code>box-shadow: rgba(124,58,237,.35)</code>，等于给图标硬套了个环。
+                                        现在底色与光晕全清，图标本体只做 <code>corner-shape: squircle</code>。</li>
+                                    <li><span class="tag-sm new">重做</span><b>🤖 FangClaw 加左侧导航，终于像个 Agent 了</b><br>
+                                        按用户给的参考界面重构：<b>左栏</b>（品牌 + 蓝色「新建任务」按钮 + 助理 / 专家·技能·连接器 /
+                                        定时任务 / 资料库 / 更多 + 底部「最近」列表）+ <b>右侧主区</b>（顶栏 / 对话 / 输入框）。
+                                        布局用 CSS Grid 的 <code>grid-template-areas</code> 实现，<b>没有改动原有 header/chat/footer 的 DOM 结构</b>，
+                                        所以聊天逻辑一行都没动；配置浮层改成 fixed，不参与网格。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.27</div>
+                                <div class="changelog-date">2026-10-31</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm polish">打磨</span><b>🐾 FangClaw 换成浅蓝 / 蓝配色，不再是那身紫</b><br>
+                                        ① 品牌色原来写死 <code>#8b5cf6</code>（紫）——用户原话「紫色都烂大街了，丑爆了」。
+                                            现在整条换成蓝：主色 <code>#3b82f6</code>、深色 <code>#2563eb</code>、浅色 <code>#93c5fd</code>；<br>
+                                        ② 底色同步改成浅蓝（<code>#eef6ff</code> → <code>#eaf6ff</code>），深色模式去掉紫调改冷调；
+                                        ③ 系统里 FangClaw 的注册色也一起换掉，图标、开始菜单、商店不会再冒出紫边。</li>
+                                    <li><span class="tag-sm new">新增</span><b>⚡ FangClaw 空状态补上「快捷指令」条</b><br>
+                                        原来打开就是一大片白纸加一段欢迎语，看着完全不像个 Agent。
+                                        现在下面有一排蓝色胶囊：看看 C 盘 / 建「工作计划」文件夹 / 截个屏保存下来 / 打开系统通知，
+                                        点一下自动填进输入框，直接回车就能让它干活。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.26</div>
+                                <div class="changelog-date">2026-10-31</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm polish">打磨</span><b>🍎 全系统换成苹果式「连续圆角」（超椭圆），不是普通的四分之一圆</b><br>
+                                        ① 普通 <code>border-radius</code> 画的是四分之一圆，直边与圆角相接的地方<b>曲率突变</b>，所以看着「钝」「生硬」；
+                                            苹果用的是<b>超椭圆（superellipse）</b>，从直边到圆角是连续的，这才有那种「顺」的手感；<br>
+                                        ② 现在用 <code>corner-shape: squircle</code> 统一接管：<b>所有应用图标</b>（自绘位图 / FA 色块 / 回退图标）、
+                                            窗口、磁贴、设置卡片、商店卡片、Dock 位置卡、主题卡，全部走同一条二阶曲线；<br>
+                                        ③ 实测浏览器算出来是 <code>superellipse(2)</code>；老内核不支持这一行会自动忽略，退回普通圆角，不会坏。</li>
+                                    <li><span class="tag-sm polish">打磨</span><b>⚙️ 设置页补上排版与分割线，卡片带入场动画</b><br>
+                                        ① 每张卡片内各行之间有一条 1px 分割线（深浅色各一套），不再是一片糊在一起的文字；<br>
+                                        ② 卡片进入时逐张淡入 + 上浮 + 极轻缩放，每张错开 30ms，就是手机系统那种「卡片浮上来」的感觉。</li>
+                                    <li><span class="tag-sm polish">打磨</span><b>💬 AI 小方发消息终于有动画了</b><br>
+                                        消息气泡滑入（用户与 AI 左右方向不同），「思考中」改成三个点依次呼吸，不再是静止省略号。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.25</div>
+                                <div class="changelog-date">2026-10-31</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm fix">修复</span><b>🧩 桌面小组件面板里所有卡片叠成一团，根本没法看</b><br>
+                                        ① 网格是 <code>repeat(4,1fr)</code> + 卡片靠 <code>aspect-ratio:1/1</code> 撑正方形，
+                                            但面板高度是定的，<code>auto</code> 行会被摊平分掉可用高度——行高被压到 <b>75px</b>，
+                                            卡片自己还是 <b>147px</b>，于是每一行都往上叠 60px，整片糊在一起；<br>
+                                        ② 改成「列宽自适应 + 行高固定 148px + 卡片填满」，高度完全确定、不再依赖 aspect-ratio。
+                                            实测行距 184 → 344 → 504，重叠为 0。</li>
+                                    <li><span class="tag-sm fix">修复</span><b>📥 应用最大化时，底部 Dock 是「啪」一下凭空消失，没有收起动画</b><br>
+                                        病根是一条 CSS 简写：后面又写了一次 <code>#dock { transition: padding 0.3s }</code>，
+                                        把前面那条 <code>transform / opacity</code> 的过渡<b>整个覆盖</b>掉了。
+                                        合并成一条后，三段 Dock 现在会一起顺着弹性曲线缩下去。</li>
+                                    <li><span class="tag-sm fix">修复</span><b>🤖 AI 小方点了反而「又打开一次」，关不掉</b><br>
+                                        已唤起的状态下再触发，代码里是「只展开输入条然后 return」，
+                                        所以用户点玻璃球、点空白，看着就是又开了一遍。现在改成<b>再点一次 = 收起</b>。</li>
+                                    <li><span class="tag-sm fix">修复</span><b>🖱️ 应用全屏时鼠标往左一甩就弹出桌面文件卡片</b><br>
+                                        左侧 6px 热区没有判断当前状态。现在<b>有窗口最大化 / 浏览器全屏时不响应</b>，
+                                        已经在显示的顺手收起。</li>
+                                    <li><span class="tag-sm polish">打磨</span><b>🧱 开始菜单点空白处没反应</b><br>
+                                        全屏磁贴菜单铺满整屏，没有「外面」可点，之前只能点右上角 ×。现在点空白直接关。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
                                 <div class="changelog-version">v2.9.24</div>
                                 <div class="changelog-date">2026-10-31</div>
                                 <ul class="changelog-list">
@@ -34554,7 +34959,7 @@
                         <h4>已连接设备</h4>
                         <div class="settings-row"><span><i class="fas fa-mouse" style="margin-right:8px;"></i>鼠标</span><span style="color:#f87171;font-size:12px;">未连接</span></div>
                         <div class="settings-row"><span><i class="fas fa-keyboard" style="margin-right:8px;"></i>键盘</span><span style="color:#f87171;font-size:12px;">未连接</span></div>
-                        <div class="settings-row"><span><i class="fas fa-speaker" style="margin-right:8px;"></i>蓝牙音箱</span><span style="color:#f87171;font-size:12px;">未连接</span></div>
+                        <div class="settings-row"><span><i class="fas fa-volume-high" style="margin-right:8px;"></i>蓝牙音箱</span><span style="color:#f87171;font-size:12px;">未连接</span></div>
                     </div>
                 `;
                 break;
@@ -38451,14 +38856,93 @@
         badge.textContent = cols + ' × ' + rows;
         el.appendChild(handle);
         el.appendChild(badge);
-        // 拖拽（移动已有组件）
-        el.addEventListener('mousedown', (ev) => startDesktopWidgetDrag(ev, idx));
+        // 拖拽改由容器上的指针事件统一接管（见 initDesktopWidgetPointerDrag）
+        // 旧写法 el.addEventListener('mousedown', ...) 在这个容器里收不到事件：
+        // #desktopWidgets 是 pointer-events:none，子元素虽可点，但冒泡链上的监听不触发。
         // 右键菜单
         el.addEventListener('contextmenu', (ev) => {
             ev.preventDefault();
             showDesktopWidgetMenu(ev.clientX, ev.clientY, idx);
         });
         return el;
+    }
+
+    /* ★ v2.9.26 桌面小组件自由拖动（重做）
+       旧实现挂在每个组件自己的 mousedown 上，但 #desktopWidgets 是 pointer-events:none，
+       实际拖不动。这里改成在容器上用「捕获阶段 pointerdown」统一接管：
+       按下即抓、拖动实时对齐 80px 网格并显示辅助线、松手落盘。 */
+    let _n26Wdrag = null;
+    function n26WdragStart(e) {
+        window.__n26Wdbg = window.__n26Wdbg || { start: 0, move: 0, end: 0, moved: 0, skipped: 0 };
+        const card = e.target && e.target.closest ? e.target.closest('.desktop-widget-card') : null;
+        if (!card) return;
+        window.__n26Wdbg.start++;
+        if (e.button !== 0 && e.pointerType === 'mouse') return;
+        // 这些区域不拖：缩放手柄 / 输入控件 / 明确的交互按钮
+        if (e.target.closest('.widget-resize-handle') ||
+            e.target.closest('input, textarea, select, button') ||
+            e.target.closest('.widget-todo-add, .widget-todo-check, .widget-todo-del, .widget-calc-btn, .widget-music-btn, .widget-focus-btn, .widget-sleep-btn')) return;
+        _n26Wdrag = {
+            card: card,
+            idx: parseInt(card.dataset.idx, 10) || 0,
+            x0: e.clientX, y0: e.clientY,
+            ox: parseInt(card.style.left) || 0,
+            oy: parseInt(card.style.top) || 0,
+            moved: false,
+            w: card.offsetWidth, h: card.offsetHeight
+        };
+        try { card.setPointerCapture(e.pointerId); } catch (err) { }
+        window.addEventListener('pointermove', n26WdragMove, true);
+        window.addEventListener('pointerup', n26WdragEnd, { once: true, capture: true });
+        window.addEventListener('pointercancel', n26WdragEnd, { once: true, capture: true });
+    }
+    function n26WdragMove(e) {
+        if (!_n26Wdrag) return;
+        if (window.__n26Wdbg) window.__n26Wdbg.move++;
+        const d = _n26Wdrag;
+        const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
+        if (!d.moved) {
+            if (Math.abs(dx) + Math.abs(dy) < 4) return;
+            d.moved = true;
+            d.card.classList.add('dragging');
+            try { if (typeof showWidgetGridGuide === 'function') showWidgetGridGuide(); } catch (err) { }
+        }
+        const GRID = 80, OFFX = 20, OFFY = 0;
+        let nx = Math.round((d.ox + dx - OFFX) / GRID) * GRID + OFFX;
+        let ny = Math.round((d.oy + dy - OFFY) / GRID) * GRID + OFFY;
+        nx = Math.max(0, Math.min(nx, window.innerWidth - d.w));
+        ny = Math.max(0, Math.min(ny, window.innerHeight - d.h - 70));
+        d.card.style.left = nx + 'px';
+        d.card.style.top = ny + 'px';
+        e.preventDefault();
+    }
+    function n26WdragEnd() {
+        window.removeEventListener('pointermove', n26WdragMove, true);
+        if (!_n26Wdrag) return;
+        const d = _n26Wdrag; _n26Wdrag = null;
+        d.card.classList.remove('dragging');
+        if (window.__n26Wdbg) { window.__n26Wdbg.end++; if (d.moved) window.__n26Wdbg.moved++; }
+        try { if (typeof hideWidgetGridGuide === 'function') hideWidgetGridGuide(); } catch (err) { }
+        if (!d.moved) return;
+        const nx = parseInt(d.card.style.left) || 0;
+        const ny = parseInt(d.card.style.top) || 0;
+        try {
+            const widgets = getUserLS('desktopWidgets') || [];
+            if (widgets[d.idx]) {
+                widgets[d.idx].x = nx;
+                widgets[d.idx].y = ny;
+                setUserLS('desktopWidgets', widgets);
+            }
+        } catch (err) { }
+    }
+    function initDesktopWidgetPointerDrag() {
+        // 挂 document 捕获阶段：容器本身 pointer-events:none，挂在容器上会漏事件
+        if (window._n26PDragBound) return;
+        window._n26PDragBound = true;
+        // window 捕获是整条事件链最早的位置：只要更早没有同类监听 stopPropagation，
+        // 这里一定能拿到；比 document 捕获更安全。
+        window.addEventListener('pointerdown', n26WdragStart, true);
+        window.__n26WdragReady = true;
     }
 
     // 根据类型渲染小组件内容
@@ -39288,6 +39772,7 @@
         });
         updateDesktopWidgetClocks();
         WidgetResize.bindAll(container);
+        try { initDesktopWidgetPointerDrag(); } catch (e) { }
     }
 
     // ==================== 小组件自由拉伸系统 ====================
@@ -41996,7 +42481,6 @@
         },
         { id: 'browser', name: '浏览器', icon: 'fa-globe', color: '#60a5fa', category: '工具', type: 'ui', url: null, downloads: '5.2亿', desc: '内置浏览器，支持多标签页、书签和历史记录。', longDesc: 'Nexus OS 26 内置浏览器，支持多标签页浏览、书签管理、历史记录查看。液态玻璃风格地址栏，支持搜索引擎快捷访问。' },
         { id: 'album', name: '相册', icon: 'fa-images', color: '#f472b6', category: '媒体', type: 'ui', url: null, downloads: '3.8亿', desc: '管理你的照片和视频，支持相册分类和幻灯片播放。', longDesc: 'Nexus 相册应用，管理你的照片和视频。支持按时间线浏览、相册分类创建、幻灯片播放、图片旋转和编辑。从文件系统导入图片，一键生成相册。' },
-        { id: 'image', name: '图片查看器', icon: 'fa-image', color: '#a78bfa', category: '媒体', type: 'ui', url: null, downloads: '2.1亿', desc: '轻量级图片查看器，支持缩放、旋转和全屏。', longDesc: '轻量级图片查看器，支持鼠标滚轮缩放、拖拽平移、旋转翻转和全屏浏览。支持 JPG、PNG、GIF、WebP 等常见格式。' },
         { id: 'video', name: '视频播放器', icon: 'fa-play', color: '#f87171', category: '媒体', type: 'ui', url: null, downloads: '1.9亿', desc: '视频播放器，支持多种格式和字幕。', longDesc: 'Nexus 视频播放器，支持 MP4、WebM、OGG 等格式播放。支持字幕加载、播放速度调节、全屏模式和画面截图。' },
         { id: 'music', name: '音乐播放器', icon: 'fa-music', color: '#ec4899', category: '媒体', type: 'ui', url: null, downloads: '4.5亿', desc: '音乐播放器，支持播放列表和音效。', longDesc: 'Nexus 音乐播放器，支持本地音乐文件播放、播放列表管理、均衡器调节和可视化效果。支持 MP3、WAV、OGG 等格式。' },
         { id: 'screenshot', name: '截图录屏', icon: 'fa-camera', color: '#0ea5e9', category: '媒体', type: 'ui', url: null, downloads: '9.2亿', desc: '全屏/区域截图与屏幕录制，自动存入系统盘。', longDesc: '截图录屏工作室：支持全屏截图、区域截图、延时截图与屏幕录制（真实屏幕捕获）。所有截图自动保存到 C:/图片/Screenshots/，录屏保存为 WebM 到 C:/视频/ScreenRecordings/，可在资源管理器中查看，也能一键保存到电脑真实磁盘。' },
@@ -42909,7 +43393,7 @@
         if (biliState.loading) {
             body = '<div class="bili-loading"><div class="bili-spin"></div>加载中…</div>';
         } else if (biliState.error) {
-            body = '<div class="bili-empty"><div class="big"><i class="fas fa-cloud-upload-alt"></i></div>' + biliState.error + '<br><span style="font-size:12px;">点右上角「连接代理」填入 Worker 地址后即可加载 B站内容</span></div>';
+            body = '<div class="bili-empty"><div class="big"><i class="fas fa-cloud-arrow-up"></i></div>' + biliState.error + '<br><span style="font-size:12px;">点右上角「连接代理」填入 Worker 地址后即可加载 B站内容</span></div>';
         } else if (biliState.items.length === 0) {
             body = '<div class="bili-empty"><div class="big"><i class="fas fa-inbox"></i></div>暂无内容</div>';
         } else {
@@ -44571,7 +45055,7 @@
 
     // ==================== 账户管理弹窗 ====================
     /* 版本号唯一来源：更新日志里最新那条必须和这里一致，关于本机 / 控制中心 / 本机账户设置都读它 */
-    const NEXUS_OS_VERSION = 'v2.9.24';
+    const NEXUS_OS_VERSION = 'v2.9.41';
     const NEXUS_OS_BUILD_DATE = '2026-10-30';
 
     function openAccountModal() {
@@ -48408,7 +48892,7 @@
             const files = await cloudDrive.listFiles();
             if (listEl) {
                 if (files.length === 0) {
-                    listEl.innerHTML = '<div style="text-align:center;color:var(--cd-fg-fade);padding:30px;"><i class="fas fa-cloud-upload-alt" style="font-size:32px;margin-bottom:10px;display:block;"></i>暂无文件，点击上传按钮添加</div>';
+                    listEl.innerHTML = '<div style="text-align:center;color:var(--cd-fg-fade);padding:30px;"><i class="fas fa-cloud-arrow-up" style="font-size:32px;margin-bottom:10px;display:block;"></i>暂无文件，点击上传按钮添加</div>';
                 } else {
                     listEl.innerHTML = files.map(f => `
                         <div class="clouddrive-file-item">
@@ -52236,6 +52720,230 @@
          首屏既不建 GPU 设备也不跑帧；离开视口立即停帧。 */
     })();
   
+</script>
+
+<script>
+/* ===================== v2.9.29 真实系统磁盘（File System Access API） =====================
+   浏览器没法直接列出 C:/D:，唯一合规的路径是「让用户亲手把某个真实文件夹授权给我们」。
+   授权后可以：列目录 / 读文件 / 新建文件 / 新建文件夹 / 删除（readwrite 模式下）。
+   需要安全上下文：localhost 或 https；file:// 打开不可用，会给出明确提示。 */
+(function () {
+    var _real = [];      // 已连接的真实根：[{ handle, name }]
+    var _stack = [];     // 当前浏览路径栈：[{ handle, name }]
+
+    function notify(t, m, k) {
+        try { if (typeof showNotification === 'function') return showNotification(t, m, k); } catch (e) { }
+        try { alert(t + '\n' + m); } catch (e) { }
+    }
+    window.fmRealNotify = notify;
+
+    window.fmConnectRealFolder = async function () {
+        if (!window.showDirectoryPicker) {
+            notify('这个环境不支持', '读取真实文件夹需要 Chromium 内核 + localhost / https 打开。请用 http://127.0.0.1 访问本页再试。', 'error');
+            return;
+        }
+        try {
+            var h = await window.showDirectoryPicker({ mode: 'readwrite', id: 'n26real' });
+            _real.push({ handle: h, name: h.name });
+            fmRenderRealList();
+            fmOpenReal(_real.length - 1);
+        } catch (e) { /* 用户取消，静默 */ }
+    };
+
+    window.fmRenderRealList = function () {
+        var box = document.getElementById('fmRealList');
+        if (!box) return;
+        box.innerHTML = _real.map(function (r, i) {
+            return '<div class="fm-sidebar-item" onclick="fmOpenReal(' + i + ')"><i class="fas fa-folder-open"></i> ' + escReal(r.name) + '</div>';
+        }).join('');
+    };
+
+    function escReal(x) {
+        return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) {
+            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+        });
+    }
+    function fmtSize(n) {
+        if (n == null) return '';
+        if (n < 1024) return n + ' B';
+        if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+        if (n < 1073741824) return (n / 1048576).toFixed(1) + ' MB';
+        return (n / 1073741824).toFixed(2) + ' GB';
+    }
+
+    window.fmOpenReal = function (i) {
+        var r = _real[i];
+        if (!r) return;
+        _stack = [{ handle: r.handle, name: r.name }];
+        fmRenderRealDir();
+    };
+    window.fmRealUp = function () {
+        if (_stack.length > 1) { _stack.pop(); fmRenderRealDir(); }
+    };
+
+    async function fmRenderRealDir() {
+        var main = document.getElementById('fmMainContent');
+        if (!main || !_stack.length) return;
+        var cur = _stack[_stack.length - 1];
+        var pathTxt = _stack.map(function (x) { return x.name; }).join(' / ');
+        main.innerHTML =
+            '<div style="display:flex;flex-direction:column;height:100%;min-height:0;">'
+            + '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid rgba(0,0,0,.08);flex-wrap:wrap;">'
+            + '<button class="fm-toolbar-btn fm-icon" onclick="fmRealUp()" title="上一级"><i class="fas fa-level-up-alt"></i></button>'
+            + '<span style="font-size:12px;opacity:.72;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">真实系统 · ' + escReal(pathTxt) + '</span>'
+            + '<span style="margin-left:auto;display:flex;gap:6px;">'
+            + '<button class="fm-toolbar-btn" onclick="fmRealNewFile()" title="在当前真实目录新建文件"><i class="fas fa-file-circle-plus"></i></button>'
+            + '<button class="fm-toolbar-btn" onclick="fmRealNewFolder()" title="在当前真实目录新建文件夹"><i class="fas fa-folder-plus"></i></button>'
+            + '</span></div>'
+            + '<div id="fmRealListBox" style="flex:1 1 0;min-height:0;overflow:auto;padding:6px 8px;">读取中…</div></div>';
+
+        var box = document.getElementById('fmRealListBox');
+        var entries = [];
+        try {
+            for await (const ent of cur.handle.values()) {
+                entries.push(ent);
+                if (entries.length > 400) break;
+            }
+        } catch (e) {
+            box.innerHTML = '<div style="padding:16px;font-size:12px;color:#dc2626;">读取失败：' + escReal(e.message) + '</div>';
+            return;
+        }
+        entries.sort(function (a, b) {
+            if (a.kind !== b.kind) return a.kind === 'directory' ? -1 : 1;
+            return a.name.localeCompare(b.name, 'zh');
+        });
+        if (!entries.length) {
+            box.innerHTML = '<div style="padding:18px;font-size:12px;opacity:.55;">这个文件夹是空的</div>';
+            return;
+        }
+        var html = '';
+        entries.forEach(function (e, i) {
+            var icon = e.kind === 'directory' ? 'fa-folder' : 'fa-file-lines';
+            var color = e.kind === 'directory' ? '#f0b429' : '#7c9cc4';
+            html += '<div class="fm-real-row" data-name="' + escReal(e.name) + '" data-kind="' + e.kind + '" data-i="' + i + '"'
+                + ' style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;cursor:pointer;font-size:12.5px;">'
+                + '<i class="fas ' + icon + '" style="color:' + color + ';width:16px;text-align:center;"></i>'
+                + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escReal(e.name) + '</span>'
+                + '<span style="opacity:.45;font-size:11px;" class="fm-real-size"></span></div>';
+        });
+        box.innerHTML = html;
+        var list = Array.prototype.slice.call(box.querySelectorAll('.fm-real-row'));
+        list.forEach(function (row) {
+            var ent = entries[+row.dataset.i];
+            row.onclick = function () {
+                if (ent.kind === 'directory') {
+                    _stack.push({ handle: ent, name: ent.name });
+                    fmRenderRealDir();
+                } else {
+                    fmRealOpenFile(ent);
+                }
+            };
+            if (ent.kind === 'file') {
+                ent.getFile().then(function (f) {
+                    var sg = row.querySelector('.fm-real-size');
+                    if (sg) sg.textContent = fmtSize(f.size);
+                }).catch(function () { });
+            }
+        });
+    }
+
+    async function fmRealOpenFile(handle) {
+        try {
+            var f = await handle.getFile();
+            if (f.size > 512 * 1024) {
+                var url = URL.createObjectURL(f);
+                var a = document.createElement('a');
+                a.href = url; a.download = f.name; a.click();
+                setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+                return;
+            }
+            var txt = await f.text();
+            var old = document.getElementById('fmRealViewer');
+            if (old) old.remove();
+            var ov = document.createElement('div');
+            ov.id = 'fmRealViewer';
+            ov.style.cssText = 'position:fixed;inset:0;z-index:100060;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:40px;';
+            ov.innerHTML = '<div style="width:min(760px,92vw);max-height:80vh;display:flex;flex-direction:column;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.35);">'
+                + '<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid rgba(0,0,0,.08);">'
+                + '<b style="font-size:13px;">' + escReal(f.name) + '</b>'
+                + '<span style="font-size:11px;opacity:.5;">' + fmtSize(f.size) + ' · 真实文件</span>'
+                + '<button style="margin-left:auto;border:0;background:rgba(0,0,0,.06);border-radius:8px;padding:5px 12px;cursor:pointer;font-size:12px;">关闭</button>'
+                + '</div>'
+                + '<pre style="margin:0;padding:14px 16px;overflow:auto;font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word;"></pre></div>';
+            ov.querySelector('pre').textContent = txt;
+            ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
+            ov.querySelector('button').onclick = function () { ov.remove(); };
+            document.body.appendChild(ov);
+        } catch (e) { notify('打不开这个文件', e.message, 'error'); }
+    }
+
+    window.fmRealNewFile = async function () {
+        if (!_stack.length) return;
+        var name = prompt('新建文件名（含扩展名）：', '新建文本.txt');
+        if (!name) return;
+        try {
+            var fh = await _stack[_stack.length - 1].handle.getFileHandle(name, { create: true });
+            var w = await fh.createWritable();
+            await w.write('');
+            await w.close();
+            fmRenderRealDir();
+        } catch (e) { notify('新建失败', e.message, 'error'); }
+    };
+    window.fmRealNewFolder = async function () {
+        if (!_stack.length) return;
+        var name = prompt('新建文件夹名：', '新建文件夹');
+        if (!name) return;
+        try {
+            await _stack[_stack.length - 1].handle.getDirectoryHandle(name, { create: true });
+            fmRenderRealDir();
+        } catch (e) { notify('新建失败', e.message, 'error'); }
+    };
+})();
+</script>
+
+<script>
+/* ===================== v2.9.39 窗口过渡动效（零侵入注入） =====================
+   不碰窗口创建流程，用 MutationObserver 侦测新出现的 .window 并挂入场动画。
+   只用独立的 scale 属性，不动 transform，所以不会和拖拽 / 最小化 / 贴边打架。 */
+(function () {
+    if (window.__n26WinAnimBound) return;
+    window.__n26WinAnimBound = true;
+
+    function markIn(el) {
+        if (!el || el.nodeType !== 1 || !el.classList || !el.classList.contains('window')) return;
+        // 打开动画已由 .window.opening + windowOpenGlass 负责，这里不再重复加类
+        el._n26In = true;
+    }
+
+    function bindFocus(el) {
+        if (!el || el.nodeType !== 1 || !el.classList || !el.classList.contains('window')) return;
+        if (el._n26FocusBound) return;
+        el._n26FocusBound = true;
+        el.addEventListener('pointerdown', function () {
+            if (el.classList.contains('n26-win-focus')) return;
+            el.classList.add('n26-win-focus');
+            setTimeout(function () { el.classList.remove('n26-win-focus'); }, 240);
+        }, true);
+    }
+
+    function scan(root) {
+        if (!root || root.nodeType !== 1) return;
+        if (root.classList && root.classList.contains('window')) { markIn(root); bindFocus(root); }
+        if (root.querySelectorAll) {
+            root.querySelectorAll('.window').forEach(function (w) { markIn(w); bindFocus(w); });
+        }
+    }
+
+    var mo = new MutationObserver(function (muts) {
+        for (var i = 0; i < muts.length; i++) {
+            var m = muts[i];
+            if (!m.addedNodes) continue;
+            for (var j = 0; j < m.addedNodes.length; j++) scan(m.addedNodes[j]);
+        }
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+    scan(document.body);
+})();
 </script>
 </body>
 </html>

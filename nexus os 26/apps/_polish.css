@@ -117,3 +117,20 @@ body.perf-mode :where(button, [role="button"], .fu-btn, .btn, .glass-btn) {
         transition: none !important;
     }
 }
+
+
+/* ==========================================================================
+   v2.9.30 全局连续圆角（squircle）
+   用户的说法是「全部边框都是二阶贝塞尔」——所以这里是全量生效，不是白名单。
+   corner-shape 只改「圆角那段曲线的形状」，没有 border-radius 的元素完全不受影响；
+   不支持的新内核会直接忽略这一行，退回普通圆角，不会坏。
+   ★ 关键：iframe 应用拿不到主文档的 CSS，必须在这里再写一份。
+   ========================================================================== */
+/* ★ v2.9.32：只给「图标类」元素，绝不要 * 全量（会把圆圈头像变方） */
+img.n26-app-img,
+.n26-app-fallback,
+.app-icon-flat,
+.app-icon,
+[class*="appicon"],
+[class*="-logo"] img,
+.ag-logo img { corner-shape: squircle; }

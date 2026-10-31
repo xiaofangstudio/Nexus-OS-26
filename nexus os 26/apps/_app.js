@@ -27,7 +27,10 @@
       if (document.querySelector('link[href*="_polish.css"]')) return;
       var l = document.createElement('link');
       l.rel = 'stylesheet';
-      l.href = '_polish.css';
+      // ★ 带版本戳：否则浏览器会一直用缓存里的旧 _polish.css（本轮加全局连续圆角时踩到）
+      var _v = '1';
+      try { _v = new URLSearchParams(location.search).get('v') || '1'; } catch (e) { }
+      l.href = '_polish.css?v=' + encodeURIComponent(_v);
       (document.head || document.documentElement).appendChild(l);
     } catch (e) { /* 静默：样式缺失不该挡住应用启动 */ }
   })();

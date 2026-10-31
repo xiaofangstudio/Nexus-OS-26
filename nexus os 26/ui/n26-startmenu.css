@@ -30,13 +30,25 @@
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transition: opacity 0.24s var(--ease-out, ease), visibility 0s linear 0.24s;
+    /* v2.9.31：之前只有淡入，铺满整屏时看着像"啪"一下出现。
+       加一点缩放 + 轻微模糊，做出"从屏幕里推近"的感觉。 */
+    transform: scale(1.015);
+    filter: blur(6px);
+    transition: opacity 0.26s var(--ease-out, ease),
+                transform 0.34s cubic-bezier(0.2, 0.9, 0.3, 1),
+                filter 0.26s ease,
+                visibility 0s linear 0.26s;
 }
 #smTileMenu.show {
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
-    transition: opacity 0.24s var(--ease-out, ease), visibility 0s linear 0s;
+    transform: none;
+    filter: none;
+    transition: opacity 0.26s var(--ease-out, ease),
+                transform 0.34s cubic-bezier(0.2, 0.9, 0.3, 1),
+                filter 0.26s ease,
+                visibility 0s linear 0s;
 }
 
 /* 深色模式：纯模糊在亮壁纸上会让白字发飘，给一点点极淡的压暗（不算"上色"） */

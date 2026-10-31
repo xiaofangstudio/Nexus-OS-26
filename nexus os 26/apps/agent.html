@@ -7,9 +7,9 @@
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
-    --bg1: #eef3ff; --bg2: #fdf3ff;
+    --bg1: #eef6ff; --bg2: #eaf6ff;
     --ink: #1c2233; --ink2: #5b6275; --ink3: #9aa0b5;
-    --brand: #8b5cf6; --brand2: #6d28d9;
+    --brand: #3b82f6; --brand2: #2563eb;
     --ok: #16a34a; --warn: #d97706; --bad: #dc2626;
     --glass: rgba(255,255,255,0.66);
     --stroke: rgba(255,255,255,0.6);
@@ -24,7 +24,7 @@ body {
     background: linear-gradient(135deg, var(--bg1) 0%, #eafaff 45%, var(--bg2) 100%);
 }
 body.dark-mode {
-    --bg1: #141625; --bg2: #1a1430;
+    --bg1: #0f1725; --bg2: #0e1e2e;
     --ink: #eef0f8; --ink2: #aab0c5; --ink3: #767d95;
     --glass: rgba(30, 33, 52, 0.66);
     --stroke: rgba(255,255,255,0.12);
@@ -42,14 +42,18 @@ body.dark-mode {
     animation: agIn 0.5s var(--ease) both;
 }
 @keyframes agIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+/* ★ v2.9.28：这里原来是一块彩色渐变底 + 一层紫色光晕（rgba(124,58,237,.35)），
+   等于给图标硬套了一个"边"。用户要的是：**边直接去掉**，图标本体只做连续圆角。 */
 .ag-logo {
-    width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center;
-    font-size: 19px; color: #fff; flex-shrink: 0;
-    background: linear-gradient(140deg, #a78bfa, #7c3aed 55%, #6366f1);
-    box-shadow: 0 6px 16px rgba(124, 58, 237, 0.35), inset 0 1px 0 rgba(255,255,255,0.5);
-    position: relative; overflow: hidden;
+    width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center;
+    flex-shrink: 0; background: none; box-shadow: none;
+    position: relative; overflow: hidden; corner-shape: squircle;
 }
-.ag-logo::before { content: ''; position: absolute; inset: 0; background: radial-gradient(120% 80% at 50% -20%, rgba(255,255,255,0.5), transparent 60%); }
+.ag-logo::before { content: none; }
+.ag-logo img {
+    width: 100% !important; height: 100% !important;
+    object-fit: contain; border-radius: 13px; corner-shape: squircle; display: block;
+}
 .ag-logo i { position: relative; }
 .ag-title { font-size: 15.5px; font-weight: 800; letter-spacing: 0.2px; }
 .ag-sub { font-size: 11.5px; color: var(--ink3); margin-top: 2px; }
@@ -112,7 +116,7 @@ body.dark-mode .ag-row.sys .bubble { background: rgba(255,255,255,0.07); }
 .ag-act-head .ag-act-ic {
     width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center;
     font-size: 13px; color: #fff; flex-shrink: 0;
-    background: linear-gradient(140deg, #a78bfa, #7c3aed);
+    background: linear-gradient(140deg, #93c5fd, #2563eb);
     box-shadow: 0 4px 10px rgba(124, 58, 237, 0.3);
 }
 .ag-act.risky .ag-act-ic { background: linear-gradient(140deg, #fbbf24, #d97706); }
@@ -166,7 +170,7 @@ body.dark-mode .ag-act-btns .no { background: rgba(255,255,255,0.09); }
 .ag-send {
     width: 40px; height: 40px; border-radius: 13px; border: 0; cursor: pointer; flex-shrink: 0;
     color: #fff; font-size: 15px;
-    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
     box-shadow: 0 6px 16px rgba(124, 58, 237, 0.35);
     transition: transform 0.2s var(--spring), filter 0.2s;
 }
@@ -201,17 +205,109 @@ body.dark-mode .ag-cfg input, body.dark-mode .ag-cfg select { background: rgba(2
     font-size: 12.5px; font-weight: 700; transition: transform 0.2s var(--spring);
 }
 .ag-cfg .row2 button:hover { transform: translateY(-1px); }
-.ag-cfg .save { color: #fff; background: linear-gradient(135deg, #8b5cf6, #6366f1); }
+.ag-cfg .save { color: #fff; background: linear-gradient(135deg, #3b82f6, #2563eb); }
 .ag-cfg .test { color: var(--ink2); background: rgba(0,0,0,0.06); }
 body.dark-mode .ag-cfg .test { background: rgba(255,255,255,0.09); }
 .ag-cfg .closex { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border-radius: 9px; border: 0; cursor: pointer; background: rgba(0,0,0,0.06); color: var(--ink2); }
 body.dark-mode .ag-cfg .closex { background: rgba(255,255,255,0.09); }
 #agTestOut { font-size: 11.5px; margin-top: 10px; color: var(--ink2); line-height: 1.6; white-space: pre-wrap; }
 body.perf-mode .ag-act, body.perf-mode .bubble, body.perf-mode .ag-head { animation: none !important; backdrop-filter: none !important; }
+
+/* ===== 蓝色快捷指令条（空状态时给个抓手，别让人对着白纸发呆） ===== */
+.ag-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 2px 14px; }
+.ag-chip {
+    border: 1px solid rgba(59,130,246,0.22);
+    background: rgba(59,130,246,0.07);
+    color: #1d4ed8;
+    font-family: inherit; font-size: 12.5px;
+    padding: 7px 13px; border-radius: 999px;
+    cursor: pointer; transition: background .16s ease, transform .12s ease, box-shadow .16s ease;
+    corner-shape: squircle;
+}
+.ag-chip:hover { background: rgba(59,130,246,0.15); box-shadow: 0 4px 12px rgba(59,130,246,0.18); }
+.ag-chip:active { transform: scale(0.97); }
+body.dark-mode .ag-chip { color: #93c5fd; border-color: rgba(147,197,253,0.28); background: rgba(59,130,246,0.14); }
+
+/* ===== 左侧导航布局（参考用户给的那张 Agent 界面） ===== */
+.ag-wrap {
+    display: grid !important;
+    grid-template-columns: 196px 1fr;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas: "side head" "side chat" "side input";
+    height: 100%;
+}
+.ag-side { grid-area: side; }
+.ag-head { grid-area: head; }
+.ag-chat { grid-area: chat; }
+.ag-inputbar { grid-area: input; }
+
+.ag-side {
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 14px 10px 12px;
+    background: rgba(255,255,255,0.5);
+    border-right: 1px solid rgba(59,130,246,0.12);
+    backdrop-filter: blur(14px);
+}
+body.dark-mode .ag-side { background: rgba(20,30,44,0.55); border-right-color: rgba(147,197,253,0.12); }
+
+.ag-side-brand { display: flex; align-items: center; gap: 8px; padding: 2px 6px 8px; font-weight: 800; font-size: 13.5px; color: var(--ink); }
+.ag-side-brand img { width: 22px; height: 22px; object-fit: contain; corner-shape: squircle; }
+
+.ag-side-new {
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    height: 34px; border: 0; border-radius: 10px; cursor: pointer;
+    font-family: inherit; font-size: 12.5px; font-weight: 650; color: #fff;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    box-shadow: 0 4px 12px rgba(59,130,246,0.30);
+    corner-shape: squircle;
+}
+.ag-side-new:hover { filter: brightness(1.06); }
+
+.ag-side-nav { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.ag-side-item {
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 9px; border-radius: 9px; cursor: pointer;
+    font-size: 12.5px; color: var(--ink2);
+    transition: background .14s ease, color .14s ease;
+}
+.ag-side-item i { width: 15px; text-align: center; font-size: 12px; opacity: .85; }
+.ag-side-item:hover { background: rgba(59,130,246,0.09); color: #1d4ed8; }
+.ag-side-item.active { background: rgba(59,130,246,0.14); color: #1d4ed8; font-weight: 650; }
+body.dark-mode .ag-side-item.active { background: rgba(59,130,246,0.22); color: #bfdbfe; }
+
+.ag-side-recent { margin-top: auto; padding-top: 8px; border-top: 1px solid rgba(59,130,246,0.12); }
+.ag-side-recent-t { font-size: 10.5px; color: var(--ink3); padding: 0 8px 5px; letter-spacing: .04em; }
+.ag-side-recent-i {
+    font-size: 11.5px; color: var(--ink2); padding: 6px 8px; border-radius: 8px;
+    cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ag-side-recent-i:hover { background: rgba(59,130,246,0.09); color: #1d4ed8; }
+
+/* 配置浮层不能参与 grid 布局 */
+.ag-cfg { position: fixed !important; }
 </style>
 </head>
 <body>
 <div class="ag-wrap">
+    <aside class="ag-side">
+        <div class="ag-side-brand">
+            <img src="../../Desktop icon/OpenClaw.png" alt="">
+            <span>FangClaw</span>
+        </div>
+        <button class="ag-side-new"><i class="fas fa-plus"></i> 新建任务</button>
+        <nav class="ag-side-nav">
+            <div class="ag-side-item active"><i class="fas fa-comment-dots"></i> 助理</div>
+            <div class="ag-side-item"><i class="fas fa-user-tie"></i> 专家 · 技能 · 连接器</div>
+            <div class="ag-side-item"><i class="fas fa-clock"></i> 定时任务</div>
+            <div class="ag-side-item"><i class="fas fa-box-archive"></i> 资料库</div>
+            <div class="ag-side-item"><i class="fas fa-ellipsis"></i> 更多</div>
+        </nav>
+        <div class="ag-side-recent">
+            <div class="ag-side-recent-t">最近</div>
+            <div class="ag-side-recent-i">新建一个工作计划文件夹</div>
+            <div class="ag-side-recent-i">看看 C 盘有什么</div>
+        </div>
+    </aside>
     <header class="ag-head">
         <div class="ag-logo"><img src="../../Desktop icon/OpenClaw.png" alt="FangClaw" style="width:26px;height:26px;object-fit:contain;"></div>
         <div>
@@ -727,6 +823,36 @@ body.perf-mode .ag-act, body.perf-mode .bubble, body.perf-mode .ag-head { animat
         addAi('老板好！我是 **FangClaw** —— 能替你动手干活的那位 🤖\n\n跟只会聊天的 AI 小方不一样，我可以真的操作这台系统：建文件夹、写文件、改设置、开应用、截屏……凡是「写」的操作，都会先弹卡片让你批准，绝不先斩后奏。\n\n试试对我说：\n· 「看看 C 盘根目录有什么」\n· 「建一个工作计划文件夹，里面放个本周计划.txt，随便帮我写点内容」\n· 「把系统通知打开测试一下」');
         inputEl.focus();
     });
+})();
+</script>
+
+<script>
+(function () {
+  function addChips() {
+    var chat = document.getElementById('agChat');
+    if (!chat || chat.querySelector('.ag-chips')) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'ag-chips';
+    var items = [
+      ['看看 C 盘根目录有什么', '看看 C 盘根目录有什么'],
+      ['建一个「工作计划」文件夹', '在 C:/文档 建一个「工作计划」文件夹，里面放个本周计划.txt'],
+      ['截个屏保存下来', '截屏并保存'],
+      ['打开系统通知', '帮我把系统通知打开']
+    ];
+    wrap.innerHTML = items.map(function (p) {
+      return '<button class="ag-chip" data-t="' + p[1].replace(/"/g, '&quot;') + '">' + p[0] + '</button>';
+    }).join('');
+    wrap.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('.ag-chip') : null;
+      if (!b) return;
+      var inp = document.getElementById('agInput');
+      if (inp) { inp.value = b.getAttribute('data-t'); inp.focus(); }
+    });
+    chat.appendChild(wrap);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addChips);
+  else addChips();
+  setTimeout(addChips, 700);
 })();
 </script>
 </body>
