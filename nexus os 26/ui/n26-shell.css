@@ -478,6 +478,11 @@ img.n26-app-img,
 .n26-hero-os {
     position: relative;
     display: inline-block;
+    /* ★ 「OS」必须跟 Nexus / 26 一样白。
+       坑：主文件里有一条兜底 body:not(.dark-mode) .settings-panel span { color:#1a1a1a }（(0,2,2)），
+       它**直接命中这个 span**，把从 .n26-hero-name 继承来的白色顶掉 → OS 变黑。
+       父级写再强的 !important 也救不了子元素（直接声明 > 继承），必须在本元素上同等级顶回去。 */
+    color: #fdfefe !important;
 }
 /* 「OS」下方那道蓝短横 */
 .n26-hero-os::after {

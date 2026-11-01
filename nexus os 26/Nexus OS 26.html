@@ -171,6 +171,11 @@
         body.dark-mode .settings-user-arrow { color: rgba(255,255,255,0.4); }
         body.dark-mode .settings-user-avatar i.fa-user-circle { color: rgba(255,255,255,0.6); }
         body.dark-mode .toggle-switch { background: rgba(255,255,255,0.2); }
+        /* ★ v2.9.49：这条必须补。上面那条 body.dark-mode .toggle-switch 特异性 (0,2,1)，
+           比 .toggle-switch.active (0,2,0) 高 —— 深色模式下会把「已打开」的背景压成灰白，
+           于是开关看起来永远是关的（圆点其实已经滑过去了，但一点颜色区别都没有）。
+           要抬到 (0,3,1) 才压得住。 */
+        body.dark-mode .toggle-switch.active { background: var(--primary); }
 
         /* ========== 深色模式：二级弹窗恢复深色 ========== */
         body.dark-mode .nex-modal,
@@ -3086,23 +3091,35 @@
         #n26AboutCard > *:not(.n26-about-bg) { position: relative; z-index: 2; }
         .n26-about-head { text-align: center; margin-bottom: 18px; }
         .n26-about-logo { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-        /* §7.2：这里以前是"临时画的一块深蓝紫渐变方块写个 N"，现在换成真正的 3D 玻璃 logo，
-           并用与开始菜单/启动台/商店同款的墨色瓷砖托底（白玻璃直接贴浅色底会糊没）。 */
+        /* §7.2：这里以前是"临时画的一块深蓝紫渐变方块写个 N"，现在换成真正的 3D 玻璃 logo。
+           ★ v2.9.49：托底颜色跟随主题 —— 浅色模式白底、深色模式墨底（原来两档都是深色，
+           浅色模式下像个黑方块压在浅面板上，很突兀）。
+           白色玻璃 N 贴白底会糊没，所以浅色档靠一层 drop-shadow 给 N 描边（见 img 规则）。 */
         .n26-about-logo-mark {
             width: 74px; height: 74px; border-radius: 22px;
             display: flex; align-items: center; justify-content: center;
             padding: 9px; box-sizing: border-box;
-            background: linear-gradient(160deg, #303a4a, #171c25);
-            box-shadow: 0 12px 32px rgba(16,24,40,0.32), inset 0 1px 0 rgba(255,255,255,0.20);
+            /* 浅色档：近白的冷灰蓝渐变（不是纯白 —— 这个 N 本身是白色玻璃，
+               纯白底上会完全糊掉）。底部压一点内阴影，托出"嵌在浅色瓷砖里"的层次。 */
+            background: linear-gradient(160deg, #fbfdff 0%, #e2eaf6 46%, #c2d2e6 100%);
+            box-shadow: 0 10px 24px rgba(20,40,70,0.18),
+                        inset 0 0 0 1px rgba(20,40,70,0.11),
+                        inset 0 1px 0 rgba(255,255,255,0.95),
+                        inset 0 -10px 18px rgba(84,120,166,0.22);
         }
         .n26-about-logo-mark img {
             width: 100%; height: 100%; object-fit: contain; display: block;
             user-select: none; -webkit-user-drag: none;
+            /* 浅底上给玻璃 N 两层投影：近处一层收紧轮廓，远处一层拉开层次。
+               不加的话白色 N 贴浅底直接看不见。 */
+            filter: drop-shadow(0 1px 1px rgba(18,44,84,0.58))
+                    drop-shadow(0 3px 8px rgba(18,44,84,0.34));
         }
         body.dark-mode .n26-about-logo-mark {
-            background: linear-gradient(160deg, #3a4557, #1c222c);
-            box-shadow: 0 12px 32px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.14);
+            background: linear-gradient(160deg, #303a4a, #171c25);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.20);
         }
+        body.dark-mode .n26-about-logo-mark img { filter: none; }
         /* 账号中心那块小一号 */
         #n26AcctLogo .n26-about-logo-mark { width: 56px; height: 56px; border-radius: 17px; padding: 7px; }
         .n26-about-logo-name { font-size: 19px; font-weight: 800; color: #1a1a1a; letter-spacing: .3px; }
@@ -8129,6 +8146,44 @@
         }
         .theme-preview div { background-size: cover; background-position: center; }
         .theme-name { font-size: 13px; color: rgba(255,255,255,0.8); text-align: center; }
+        /* v2.9.47：预留壁纸分类（还没图）的占位卡——中性虚线，不抢眼 */
+        .theme-card-empty { cursor: default; border-style: dashed; border-color: rgba(255,255,255,0.16); }
+        .theme-card-empty:hover { border-color: rgba(255,255,255,0.22); }
+        .theme-preview-todo {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: 11.5px;
+            letter-spacing: .5px;
+            color: rgba(255,255,255,0.42);
+            background: repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0 10px, rgba(255,255,255,.02) 10px 20px);
+        }
+        .theme-preview-todo i { font-size: 18px; opacity: .8; }
+        body:not(.dark-mode) .settings-panel .theme-card-empty { border-color: rgba(0,0,0,0.14); }
+        body:not(.dark-mode) .settings-panel .theme-preview-todo {
+            color: rgba(0,0,0,0.42);
+            background: repeating-linear-gradient(45deg, rgba(60,80,110,.09) 0 10px, rgba(60,80,110,.035) 10px 20px);
+        }
+        .n26-wp-todo {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            padding: 20px 12px;
+            border-radius: 10px;
+            border: 1.5px dashed rgba(255,255,255,0.16);
+            color: rgba(255,255,255,0.5);
+            font-size: 12.5px;
+            text-align: center;
+        }
+        .n26-wp-todo i { font-size: 22px; opacity: .55; }
+        .n26-wp-todo small { font-size: 11px; opacity: .7; }
+        body:not(.dark-mode) .settings-panel .n26-wp-todo { border-color: rgba(0,0,0,0.14); color: rgba(0,0,0,0.5); }
 
         /* 设置面板浅色模式修正：浅色背景上使用深色文字和半透明黑色背景 */
         body:not(.dark-mode) .settings-panel .style-option { background: rgba(0,0,0,0.04); color: rgba(0,0,0,0.7); }
@@ -16276,7 +16331,7 @@
     <link rel="stylesheet" href="ui/n26-perf.css?v=221">
     <link rel="stylesheet" href="ui/n26-material.css?v=225">
     <link rel="stylesheet" href="ui/n26-startmenu.css?v=232">
-    <link rel="stylesheet" href="ui/n26-shell.css?v=246">
+    <link rel="stylesheet" href="ui/n26-shell.css?v=247">
 </head>
 <script>
 /* ==================================================================
@@ -16918,57 +16973,122 @@
         <div class="install-step" id="step-account">
             <div class="oobe-card">
                 <div class="oobe-card-anim">
-                    <i class="fas fa-user-circle" style="font-size:96px;color:#3b82f6;filter:drop-shadow(0 12px 28px rgba(59,130,246,0.45));animation:oobeLogoFloat 4s var(--ease-in-out-quart) infinite;"></i>
+                    <i class="fas fa-user-circle" id="accPaneIcon" style="font-size:96px;color:#3b82f6;filter:drop-shadow(0 12px 28px rgba(59,130,246,0.45));animation:oobeLogoFloat 4s var(--ease-in-out-quart) infinite;"></i>
                     <div class="oobe-anim-ripple"></div>
                     <div class="oobe-anim-ripple"></div>
                 </div>
                 <div class="oobe-card-form">
-                    <div class="step-title" style="color:#1a1a1a;">这台电脑归谁用？</div>
-                    <div class="step-subtitle" style="color:rgba(60,60,67,0.7);">起个名字、设个密码，它就是你的了</div>
-                    <div class="account-reinstall-hint" id="accountReinstallHint" style="display:none;width:100%;max-width:420px;padding:12px 16px;background:rgba(255,255,255,0.5);border:1px solid rgba(0,0,0,0.1);border-radius:10px;margin-bottom:12px;text-align:center;color:#1a1a1a;font-size:13px;z-index:1;position:relative;">
-                        检测到您之前创建过Nexus账号，是否使用原账号登录？
+
+                    <!-- ═══ 面板 A：登录（默认）═══ -->
+                    <div class="acc-pane" id="accPaneLogin">
+                        <div class="step-title" style="color:#1a1a1a;">登录 Nexus 账号</div>
+                        <div class="step-subtitle" style="color:rgba(60,60,67,0.7);">换台电脑也不用重配：登录后头像、资料和 AI 接口都会自动带过来</div>
+                        <div class="glass-card-clear account-form">
+                            <div class="form-group">
+                                <label class="form-label">账户名 或 UID</label>
+                                <input type="text" class="form-input" id="accLoginQ" placeholder="例如 xiaofang 或 0000001" maxlength="20" autocomplete="username">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">账号密码</label>
+                                <input type="password" class="form-input" id="accLoginPass" placeholder="输入账号密码" autocomplete="current-password">
+                            </div>
+                            <div id="accLoginMsg" style="display:none;font-size:12px;line-height:1.6;border-radius:8px;padding:8px 10px;margin-bottom:10px;"></div>
+                            <div class="btn-row">
+                                <button class="glass-btn primary" id="accLoginBtn" onclick="n26AccDoLogin()"><i class="fas fa-arrow-right-to-bracket"></i> 登录</button>
+                            </div>
+                            <div class="skip-link" onclick="n26AccPane('register')">还没有账号？<b>注册一个</b></div>
+                            <div class="skip-link" style="opacity:.6;font-size:11.5px;" onclick="n26AccPane('local')">先不登录，只用这台电脑</div>
+                        </div>
                     </div>
-                    <div class="glass-card-clear account-form">
-                        <div class="form-group">
-                            <label class="form-label">用户名</label>
-                            <input type="text" class="form-input" id="accountName" placeholder="输入用户名" maxlength="20">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">密码（可选）</label>
-                            <input type="password" class="form-input" id="accountPass" placeholder="留空则无密码">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">选择头像</label>
-                            <div class="avatar-selection" id="avatarSelection"></div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">账户角色</label>
-                            <div class="role-selector">
-                                <div class="role-option selected" data-role="admin" onclick="selectRole(this)">
-                                    <div class="role-icon"><i class="fas fa-crown"></i></div>
-                                    <div>管理员</div>
-                                </div>
-                                <div class="role-option" data-role="member" onclick="selectRole(this)">
-                                    <div class="role-icon"><i class="fas fa-user"></i></div>
-                                    <div>成员</div>
-                                </div>
-                                <div class="role-option" data-role="guest" onclick="selectRole(this)">
-                                    <div class="role-icon"><i class="fas fa-user-secret"></i></div>
-                                    <div>访客</div>
+
+                    <!-- ═══ 面板 B：注册 ═══ -->
+                    <div class="acc-pane" id="accPaneRegister" style="display:none;">
+                        <div class="step-title" style="color:#1a1a1a;">注册 Nexus 账号</div>
+                        <div class="step-subtitle" style="color:rgba(60,60,67,0.7);">账户名注册后就定了，改不了；UID 按注册顺序自动分配</div>
+                        <div class="glass-card-clear account-form">
+                            <div class="form-group">
+                                <label class="form-label">账户名 <span style="color:#e5484d;">*</span> <small style="opacity:.6;">注册后不可更改</small></label>
+                                <input type="text" class="form-input" id="accRegName" placeholder="2–20 位，中英文/数字/下划线" maxlength="20" oninput="n26AccCheckName()">
+                                <div id="accNameHint" style="font-size:11.5px;margin-top:5px;min-height:16px;"></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">账号密码 <span style="color:#e5484d;">*</span></label>
+                                <input type="password" class="form-input" id="accRegPass" placeholder="至少 4 位" autocomplete="new-password">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">再输一次 <span style="color:#e5484d;">*</span></label>
+                                <input type="password" class="form-input" id="accRegPass2" placeholder="两次要一致" autocomplete="new-password">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">性别 <small style="opacity:.6;">可在方聊显示，也可保密</small></label>
+                                <div class="role-selector" style="grid-template-columns:repeat(3,1fr);">
+                                    <div class="role-option acc-gender" data-g="male" onclick="n26AccPickGender(this)"><div class="role-icon"><i class="fas fa-mars"></i></div><div>男</div></div>
+                                    <div class="role-option acc-gender" data-g="female" onclick="n26AccPickGender(this)"><div class="role-icon"><i class="fas fa-venus"></i></div><div>女</div></div>
+                                    <div class="role-option acc-gender selected" data-g="secret" onclick="n26AccPickGender(this)"><div class="role-icon"><i class="fas fa-user-secret"></i></div><div>保密</div></div>
                                 </div>
                             </div>
+                            <div class="form-group">
+                                <label class="form-label">生日 <small style="opacity:.6;">留空即保密</small></label>
+                                <input type="date" class="form-input" id="accRegBirthday">
+                            </div>
+                            <div id="accRegMsg" style="display:none;font-size:12px;line-height:1.6;border-radius:8px;padding:8px 10px;margin-bottom:10px;"></div>
+                            <div class="btn-row">
+                                <button class="glass-btn" onclick="n26AccPane('login')">返回登录</button>
+                                <button class="glass-btn primary" id="accRegBtn" onclick="n26AccDoRegister()"><i class="fas fa-user-plus"></i> 注册</button>
+                            </div>
                         </div>
-                        <div class="btn-row">
-                            <button class="glass-btn" id="reinstallUseOldBtn" style="display:none;" onclick="reinstallUseOldAccount()">使用原账号</button>
-                            <button class="glass-btn primary" id="reinstallCreateBtn" onclick="createAccountAndFinish()">确认创建</button>
-                        </div>
-                        <div class="skip-link" id="reinstallSkipLink" onclick="createAccountAndFinish()">跳过，使用默认账户</div>
                     </div>
+
+                    <!-- ═══ 面板 C：本机设置（头像 / 电脑名 / 电脑密码 / 角色）═══ -->
+                    <div class="acc-pane" id="accPaneLocal" style="display:none;">
+                        <div class="step-title" style="color:#1a1a1a;">这台电脑归谁用？</div>
+                        <div class="step-subtitle" style="color:rgba(60,60,67,0.7);">名字和密码随时能在设置里改</div>
+                        <div class="account-reinstall-hint" id="accountReinstallHint" style="display:none;width:100%;max-width:420px;padding:12px 16px;background:rgba(255,255,255,0.5);border:1px solid rgba(0,0,0,0.1);border-radius:10px;margin-bottom:12px;text-align:center;color:#1a1a1a;font-size:13px;z-index:1;position:relative;">
+                            检测到您之前创建过 Nexus 账号，是否使用原账号登录？
+                        </div>
+                        <div class="acc-badge-row" id="accBoundBadge" style="display:none;"></div>
+                        <div class="glass-card-clear account-form">
+                            <div class="form-group">
+                                <label class="form-label">用户名 <small style="opacity:.6;">就是这台电脑的名字，随时可改</small></label>
+                                <input type="text" class="form-input" id="accountName" placeholder="输入用户名" maxlength="20">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">电脑密码（可选）<small style="opacity:.6;">开机/锁屏用，随时可改</small></label>
+                                <input type="password" class="form-input" id="accountPass" placeholder="留空则无密码">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">选择头像</label>
+                                <div class="avatar-selection" id="avatarSelection"></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">账户角色</label>
+                                <div class="role-selector">
+                                    <div class="role-option selected" data-role="admin" onclick="selectRole(this)">
+                                        <div class="role-icon"><i class="fas fa-crown"></i></div>
+                                        <div>管理员</div>
+                                    </div>
+                                    <div class="role-option" data-role="member" onclick="selectRole(this)">
+                                        <div class="role-icon"><i class="fas fa-user"></i></div>
+                                        <div>成员</div>
+                                    </div>
+                                    <div class="role-option" data-role="guest" onclick="selectRole(this)">
+                                        <div class="role-icon"><i class="fas fa-user-secret"></i></div>
+                                        <div>访客</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="btn-row">
+                                <button class="glass-btn" id="reinstallUseOldBtn" style="display:none;" onclick="reinstallUseOldAccount()">使用原账号</button>
+                                <button class="glass-btn primary" id="reinstallCreateBtn" onclick="createAccountAndFinish()">进入系统</button>
+                            </div>
+                            <div class="skip-link" id="reinstallSkipLink" onclick="createAccountAndFinish()">跳过，使用默认账户</div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
 
-        <!-- Step 7: 云盘提示（N26 卡片化） -->
         <div class="install-step" id="step-cloud">
             <div class="oobe-card">
                 <div class="oobe-card-anim">
@@ -17909,7 +18029,9 @@
                 <div class="n26acct-err" id="acctLoginErr"></div>
                 <div class="n26acct-row">
                     <button class="glass-btn primary n26acct-go" onclick="n26AcctLogin()"><i class="fas fa-right-to-bracket"></i> 登录</button>
-                    <button class="glass-btn n26acct-mini" onclick="n26AcctSwitch('forgot')">忘记密码？</button>
+                    <!-- ★ v2.9.49：撤掉「忘记密码」。那条路要靠绑定邮箱 + 邮箱验证码，
+                         后端没有邮件服务，点进去是一条死路。改密码请走 设置 → 账户 → 账号密码（验原密码）。 -->
+                    <button class="glass-btn n26acct-mini" onclick="n26CloseAccount(); openApp('settings'); switchSettingsTab('accounts')">改密码</button>
                 </div>
             </div>
 
@@ -17928,12 +18050,8 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">账户名 <small>（必填 · 存后端 · 唯一 · 不可改）</small></label>
-                    <input type="text" class="form-input" id="acctRegName" placeholder="4-20 位，字母开头" onblur="n26AcctCheckName()" oninput="n26AcctNameHint()">
+                    <input type="text" class="form-input" id="acctRegName" placeholder="2-20 位，中文/字母/数字/_/-" onblur="n26AcctCheckName()" oninput="n26AcctNameHint()">
                     <div class="n26acct-hint" id="acctNameHint"></div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">用户名 <small>（必填 · 可随时改）</small></label>
-                    <input type="text" class="form-input" id="acctRegDisplay" placeholder="别人看到的名字">
                 </div>
                 <div class="form-group">
                     <label class="form-label">密码 <small>（必填 · 至少 6 位）</small></label>
@@ -17943,15 +18061,24 @@
                     <label class="form-label">再次输入密码 <small>（必填 · 二次确认）</small></label>
                     <input type="password" class="form-input" id="acctRegPw2" placeholder="再输一次，防止打错">
                 </div>
+                <!-- ★ v2.9.49：字段按 v2.9.47 定的账号模型改：账户名 / 密码 / 性别 / 生日。
+                     原来那套「用户名 + 邮箱 + 人机验证」是旧模型，后端根本没有对应字段；
+                     用户名（= 电脑名）改为注册时用账户名预填，之后在设置里随便改。 -->
                 <div class="form-group">
-                    <label class="form-label">邮箱 <small>（可留空 · 用于找回密码）</small></label>
-                    <input type="text" class="form-input" id="acctRegEmail" placeholder="可以不填，以后在设置里绑定">
+                    <label class="form-label">性别 <small>（可保密 · 方聊里显示）</small></label>
+                    <select class="form-input" id="acctRegGender">
+                        <option value="secret">保密</option>
+                        <option value="male">男</option>
+                        <option value="female">女</option>
+                    </select>
                 </div>
-                <div id="acctTurnstile"></div>
+                <div class="form-group">
+                    <label class="form-label">生日 <small>（可留空 · 方聊里显示）</small></label>
+                    <input type="date" class="form-input" id="acctRegBirthday">
+                </div>
                 <div class="n26acct-err" id="acctRegErr"></div>
-                <!-- 这条静态行由 n26AcctRegStep 统一隐藏，导航交给 .n26acct-regnav，
-                     否则每一步下面都会多余冒出一个「创建账号」按钮 -->
-                <div class="n26acct-row" id="n26AcctRegStaticRow" style="display:none;">
+                <!-- 分步导航已取消（v2.9.49 合成一屏），这一行常显 -->
+                <div class="n26acct-row" id="n26AcctRegStaticRow">
                     <button class="glass-btn primary n26acct-go" onclick="n26AcctRegister()"><i class="fas fa-user-plus"></i> 创建账号</button>
                 </div>
             </div>
@@ -17986,17 +18113,18 @@
             <!-- 好友（方聊 / 方流） -->
             <div class="n26acct-pane" id="n26AcctPaneFriend" style="display:none;">
                 <div class="form-group">
-                    <label class="form-label">添加好友 <small>（账户名或 UID）</small></label>
+                    <label class="form-label">添加好友 <small>（账户名 / UID / ID 号，任一种都行）</small></label>
                     <div style="display:flex;gap:8px;">
-                        <input type="text" class="form-input" id="acctFriendId" placeholder="对方账户名 / UID">
+                        <input type="text" class="form-input" id="acctFriendId" placeholder="例如 xiaofang、0000001 或 @fang">
                         <button class="glass-btn n26acct-mini" onclick="n26AcctAddFriend()">添加</button>
                     </div>
+                    <div id="acctFriendMsg" style="font-size:11.5px;margin-top:6px;min-height:15px;"></div>
                 </div>
                 <div class="n26acct-friends" id="acctFriendList"></div>
             </div>
 
             <div class="n26acct-foot">
-                <div class="n26acct-foot-note" id="n26AcctFootNote">账号信息先存在本机；以后接入 FangCloud 才会同步到云端。</div>
+                <div class="n26acct-foot-note" id="n26AcctFootNote">账号走 Nexus 账号服务（Cloudflare）；连不上时自动退回本机账号，功能照样能用。</div>
                 <button class="n26acct-foot-link" onclick="n26CloseAccount();openAccountModal()" title="头像 / 锁屏 / 版本信息 / 注销">
                     <i class="fas fa-sliders"></i> 本机账户设置
                 </button>
@@ -19283,7 +19411,11 @@
         else if (idx === 3) startDownloadProgress();
         else if (idx === 4) triggerReboot();
         else if (idx === 5) initFeatureCarousel();
-        else if (idx === 6) { renderAvatars(); checkReinstallAccount(); }
+        else if (idx === 6) {
+            // v2.9.47：默认落在「登录」面板（下面有注册入口），本机头像等设置放到第三步
+            try { n26AccPane('login'); } catch (e) { }
+            try { checkReinstallAccount(); } catch (e) { }
+        }
         else if (idx === 8) renderPersonalizeLanguage();
         else if (idx === 9) { renderPersonalizeTheme(); renderOobeFuiStyles(); renderOobeDockPos(); }
         else if (idx === 10) renderPersonalizeWallpaper();
@@ -19448,8 +19580,35 @@
             '../Wallpaper/海岛/b8a9b3ddac7b23ecfef0798539f1e6ad.jpeg',
             '../Wallpaper/海岛/e1f19a82e7d1db8ab98353cbf0f27d7a.jpeg',
             '../Wallpaper/海岛/e48b317703435c6567463262c16cbcd8.jpg'
+        ],
+        /* v2.9.48：用户上传的两个新壁纸种类（原来是 v2.9.47 的 reserved1 / reserved2 占位）。
+           minecraft = 我的世界（目前 1 张：旷野孤树）
+           cleanlight = 清新光影（2 张：黑白光栅 / 彩色光栅）
+           以后加图：把图片丢进 Wallpaper/对应目录，路径追加进数组即可，别处不用动。 */
+        minecraft: [
+            '../Wallpaper/我的世界/meadow-tree.jpg'
+        ],
+        cleanlight: [
+            '../Wallpaper/清新光影/cleanlight-01.jpg',
+            '../Wallpaper/清新光影/cleanlight-02.jpg'
         ]
     };
+    /* 旧存档兼容：v2.9.47 用 reserved1/reserved2 占位，老 settings.theme 可能还存着这两个值 */
+    N26_WALLPAPERS.reserved1 = N26_WALLPAPERS.minecraft;
+    N26_WALLPAPERS.reserved2 = N26_WALLPAPERS.cleanlight;
+
+    /* 主题显示信息（OOBE 与设置页共用一份，加新分类只改这里 + 上面的数组） */
+    const N26_THEME_INFO = {
+        abstract: { name: '抽象艺术', desc: '流动的色彩' },
+        island: { name: '海岛假日', desc: '碧海蓝天' },
+        minecraft: { name: '我的世界', desc: '方块与旷野' },
+        cleanlight: { name: '清新光影', desc: '光线穿过空间' }
+    };
+    /* 主题 id 归一化：把 v2.9.47 的占位名映射到正式名，老账号不用手动改设置 */
+    const N26_THEME_ALIAS = { reserved1: 'minecraft', reserved2: 'cleanlight' };
+    function n26NormTheme(id) {
+        return N26_THEME_ALIAS[id] || id;
+    }
     // 安装过程中的选择（全局变量）
     let installTheme = 'abstract';
     let installSaveLocation = 'C';
@@ -19536,18 +19695,23 @@
     function renderPersonalizeTheme() {
         const grid = document.getElementById('personalizeThemeGrid');
         if (!grid) return;
-        const themes = {
-            abstract: { name: '抽象艺术', desc: '流动的色彩', url: N26_WALLPAPERS.abstract[0] },
-            island: { name: '海岛假日', desc: '碧海蓝天', url: N26_WALLPAPERS.island[0] }
-        };
+        const themes = {};
+        /* 主题列表统一从 N26_THEME_INFO 生成：加新壁纸种类只改那一个常量 + 壁纸数组 */
+        Object.keys(N26_THEME_INFO).forEach(function (id) {
+            const info = N26_THEME_INFO[id];
+            themes[id] = { name: info.name, desc: info.desc, url: (N26_WALLPAPERS[id] || [])[0] || '' };
+        });
         grid.innerHTML = '';
         Object.keys(themes).forEach(key => {
             const t = themes[key];
             const card = document.createElement('div');
             card.className = 'theme-card install-step-element' + (installTheme === key ? ' selected' : '');
-            const bg = `url('${t.url}')`;
+            const hasImg = !!t.url;
+            const bg = hasImg ? `url('${t.url}')` : 'repeating-linear-gradient(45deg,rgba(120,140,170,.10) 0 10px,rgba(120,140,170,.04) 10px 20px)';
             card.style.cssText = `height: 120px; border-radius: 12px; cursor: pointer; border: 3px solid ${installTheme === key ? 'var(--primary)' : 'rgba(0,0,0,0.1)'}; display: flex; align-items: flex-end; padding: 12px; background: ${bg}; background-size: cover; background-position: center;`;
-            card.innerHTML = `<div style="background: rgba(0,0,0,0.35); padding: 4px 10px; border-radius: 6px; color: white; font-size: 13px; font-weight: 600;">${t.name} · ${t.desc}</div>`;
+            card.innerHTML = hasImg
+                ? `<div style="background: rgba(0,0,0,0.35); padding: 4px 10px; border-radius: 6px; color: white; font-size: 13px; font-weight: 600;">${t.name} · ${t.desc}</div>`
+                : `<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.55);padding:5px 10px;border-radius:6px;color:#3a465a;font-size:12.5px;font-weight:600;"><i class="fas fa-images" style="opacity:.6;"></i>${t.name} · 待加入</div>`;
             card.onclick = () => {
                 installTheme = key;
                 personalizeWallpaper = 0; // 切换主题时重置壁纸索引
@@ -19568,6 +19732,21 @@
         if (!grid) return;
         const wps = N26_WALLPAPERS[installTheme] || [];
         grid.innerHTML = '';
+        /* v2.9.47：分类里暂时没图时显示一张「待加入」占位卡，
+           别让用户看到一片空白以为坏了（以后新加空分类仍然有效） */
+        if (!wps.length) {
+            const holder = document.createElement('div');
+            holder.className = 'wallpaper-option install-step-element';
+            holder.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;'
+                + 'background:repeating-linear-gradient(45deg,rgba(120,140,170,.10) 0 10px,rgba(120,140,170,.04) 10px 20px);'
+                + 'border:1.5px dashed rgba(120,140,170,.45);color:rgba(60,70,90,.75);cursor:default;';
+            const info = N26_THEME_INFO[installTheme] || { name: '新分类', desc: '暂无壁纸' };
+            holder.innerHTML = '<i class="fas fa-images" style="font-size:26px;opacity:.5;"></i>'
+                + '<div style="font-size:12.5px;font-weight:600;">' + info.name + '</div>'
+                + '<div style="font-size:11px;opacity:.65;">暂无壁纸</div>';
+            grid.appendChild(holder);
+            return;
+        }
         wps.forEach((url, i) => {
             const div = document.createElement('div');
             div.className = 'wallpaper-option install-step-element' + (personalizeWallpaper === i ? ' selected' : '');
@@ -19832,6 +20011,19 @@
             }
             currentUser = newAcc;
             try { applyInstallChoices(); } catch(e) { console.error('applyInstallChoices 出错:', e); }
+            // v2.9.47：把电脑密码 / 头像 / 电脑名回写到云端账号（之后换设备登录能带回来）
+            try {
+                if (_accPending) {
+                    var patch = {
+                        userName: name,
+                        computerPass: pass || '',
+                        avatar: (_accPending && _accPending.accountName) ? String(selectedAvatar) : ''
+                    };
+                    n26Acc.update(patch).then(function (r) {
+                        if (r && r.account) { _accPending = r.account; n26Acc.setCurrent(r.account); }
+                    }).catch(function () { });
+                }
+            } catch (e) { }
             enterDesktop();
             showNotification('账户已创建', '已切换到账户 ' + newAcc.name, 'success');
             return;
@@ -20084,6 +20276,642 @@
         selectedRole = el.dataset.role;
     }
 
+    /* ==================== v2.9.47 Nexus 账号服务（云端 + 本地降级） ====================
+       产品要求的账号模型（6 个必存字段 + 额外）：
+         accountName   账户名：注册即定型，不可改，全局唯一
+         userName      用户名 = 这台电脑的名字，可随便改
+         uid           7 位顺序号（0000001、0000002…），按注册顺序分配，不可改
+         id            ID 号（handle）：字母/数字/符号可改、唯一、不许中文
+         pass          账号密码（云端存 sha256(salt+pass)，不存明文）
+         computerPass  电脑密码（本机锁屏，可随便改）
+         gender / birthday  性别、生日（可保密，方聊里显示）
+         avatar        头像
+         aiApi         AI 配置 —— 登录后自动从云端取回填好，不用重新配
+       云端不可达（Worker 没部署 / 断网 / 没绑 KV）时自动退回本地账号模式，
+       保证「现在这台机器上就能注册和登录」，不会因为后端没上线而全废。 */
+    const N26_ACC_BASE = 'https://ai.fanggame.company';
+    const N26_ACC_TIMEOUT = 4500;
+
+    const n26Acc = (function () {
+        var _mode = 'unknown';     // 'cloud' | 'local'
+        var _retryAt = 0;          // 云端连续失败后的冷却截止时间
+
+        /* ★ v2.9.49：后端不通时不要每次都等满 4.5 秒超时。
+           一次失败后 60 秒内直接走本地分支，用户点「登录/注册」是秒回的。
+           60 秒后自动再探一次，后端修好了会自己连回去。 */
+        function markDead() { _mode = 'local'; _retryAt = Date.now() + 60000; }
+
+        function ls(k, d) { try { var v = localStorage.getItem('nexus_' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
+        function lsSet(k, v) { try { localStorage.setItem('nexus_' + k, JSON.stringify(v)); } catch (e) { } }
+
+        async function api(path, opts) {
+            opts = opts || {};
+            // 冷却期内直接判死，不再发请求（省掉 4.5 秒的干等）
+            if (Date.now() < _retryAt) {
+                var cool = new Error('acc-unavailable-cooling');
+                cool.cached = true;
+                throw cool;
+            }
+            var ctl = new AbortController();
+            var timer = setTimeout(function () { ctl.abort(); }, N26_ACC_TIMEOUT);
+            try {
+                var res = await fetch(N26_ACC_BASE + path, {
+                    method: opts.method || 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: opts.body ? JSON.stringify(opts.body) : undefined,
+                    signal: ctl.signal
+                });
+                clearTimeout(timer);
+                var j = null;
+                try { j = await res.json(); } catch (e) { j = null; }
+                if (!j) throw new Error('服务端返回不是 JSON');
+                if (res.status === 503) { markDead(); throw new Error('服务端未配置存储'); }
+                /* ★ v2.9.47：只有「业务上明确拒绝」才向上抛（参数错 400 / 密码错 401 / 重名 409）。
+                   404 表示这个 Worker 还没部署账号接口、5xx 是服务端故障 —— 这些都属于
+                   「云端暂时不可用」，一律降级到本地账号，不能把 "not found" 甩给用户。 */
+                if (!res.ok) {
+                    if (res.status === 400 || res.status === 401 || res.status === 409) {
+                        var err = new Error(j.error || ('HTTP ' + res.status));
+                        err.code = res.status;
+                        err.serverMessage = j.error;
+                        throw err;
+                    }
+                    markDead();
+                    throw new Error('acc-unavailable-' + res.status);
+                }
+                _mode = 'cloud';
+                _retryAt = 0;
+                return j;
+            } catch (e) {
+                clearTimeout(timer);
+                if (e && (e.name === 'AbortError' || e.code === undefined || e.code >= 500 || e instanceof TypeError)) {
+                    markDead();
+                }
+                throw e;
+            }
+        }
+
+        /* ── 本地模式：没有云端时的等价实现（UID 本地自增、密码做一次 sha256） ── */
+        function localDb() { return ls('local_acc', { seq: 0, list: {} }); }
+        function saveLocalDb(db) { lsSet('local_acc', db); }
+        async function sha(txt) {
+            try {
+                var b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
+                return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+            } catch (e) { return 'plain:' + txt; }
+        }
+        function pub(a) {
+            return {
+                accountName: a.accountName, userName: a.userName || a.accountName,
+                uid: a.uid, id: a.id || '', gender: a.gender || 'secret',
+                birthday: a.birthday || '', avatar: a.avatar || '',
+                aiApi: a.aiApi || null, createdAt: a.createdAt || 0, updatedAt: a.updatedAt || 0
+            };
+        }
+        function localFind(q) {
+            var db = localDb();
+            q = String(q || '').trim();
+            var byUid = null, byId = null, byName = null;
+            for (var k in db.list) {
+                var a = db.list[k];
+                if (/^\d{1,7}$/.test(q) && a.uid === q.padStart(7, '0')) byUid = a;
+                if (String(a.id || '').toLowerCase() === q.toLowerCase()) byId = a;
+                if (String(a.accountName).toLowerCase() === q.toLowerCase()) byName = a;
+            }
+            return byUid || byId || byName;
+        }
+
+        return {
+            mode: function () { return _mode; },
+
+            async register(o) {
+                try {
+                    var r = await api('/api/acc/register', { method: 'POST', body: o });
+                    if (r && r.ok) return r;
+                    throw new Error('注册失败');
+                } catch (e) {
+                    if (e && e.serverMessage) throw e;          // 服务端明确拒绝（重名等）要如实抛出
+                    // 云端不可用 → 本地注册
+                    var db = localDb();
+                    if (localFind(o.accountName)) { var err = new Error('该账户名已被占用'); err.code = 409; throw err; }
+                    db.seq = (db.seq || 0) + 1;
+                    var uid = String(db.seq).padStart(7, '0');
+                    var acc = {
+                        accountName: o.accountName,
+                        userName: o.userName || o.accountName,
+                        uid: uid, id: uid,
+                        passHash: await sha('local|' + o.pass),
+                        computerPass: '',
+                        gender: o.gender || 'secret',
+                        birthday: o.birthday || '',
+                        avatar: '', aiApi: null,
+                        createdAt: Date.now(), updatedAt: Date.now()
+                    };
+                    db.list[o.accountName.toLowerCase()] = acc;
+                    saveLocalDb(db);
+                    return { ok: true, account: pub(acc), token: 'local:' + acc.accountName, local: true };
+                }
+            },
+
+            async login(o) {
+                try {
+                    var r = await api('/api/acc/login', { method: 'POST', body: o });
+                    if (r && r.ok) return r;
+                    throw new Error('登录失败');
+                } catch (e) {
+                    if (e && e.serverMessage) throw e;
+                    var a = localFind(o.q);
+                    if (!a) { var e1 = new Error('账号不存在'); e1.code = 404; throw e1; }
+                    var h = await sha('local|' + o.pass);
+                    if (h !== a.passHash) { var e2 = new Error('密码错误'); e2.code = 401; throw e2; }
+                    return { ok: true, account: pub(a), token: 'local:' + a.accountName, local: true };
+                }
+            },
+
+            async check(o) {
+                try {
+                    var q = [];
+                    if (o.accountName) q.push('accountName=' + encodeURIComponent(o.accountName));
+                    if (o.id) q.push('id=' + encodeURIComponent(o.id));
+                    var r = await api('/api/acc/check?' + q.join('&'));
+                    return r;
+                } catch (e) {
+                    var out = { ok: true, local: true };
+                    if (o.accountName) out.accountNameTaken = !!localFind(o.accountName);
+                    if (o.id) out.idTaken = !!localFind(o.id);
+                    return out;
+                }
+            },
+
+            async lookup(q) {
+                try {
+                    var r = await api('/api/acc/lookup?q=' + encodeURIComponent(q));
+                    return r;
+                } catch (e) {
+                    var a = localFind(q);
+                    if (!a) return { ok: true, found: false, local: true };
+                    return {
+                        ok: true, found: true, local: true,
+                        user: {
+                            accountName: a.accountName, userName: a.userName || a.accountName,
+                            uid: a.uid, id: a.id || '', gender: a.gender || 'secret',
+                            birthday: a.birthday || '', avatar: a.avatar || ''
+                        }
+                    };
+                }
+            },
+
+            async update(patch) {
+                var tok = ls('acc_token', '');
+                try {
+                    var r = await api('/api/acc/update', { method: 'POST', body: { token: tok, patch: patch } });
+                    return r;
+                } catch (e) {
+                    if (e && e.serverMessage) throw e;
+                    // 本地模式：直接改本地库
+                    var db = localDb();
+                    var me = this.current();
+                    if (!me) throw new Error('未登录');
+                    var a = db.list[String(me.accountName).toLowerCase()];
+                    if (!a) throw new Error('账号不存在');
+                    ['userName', 'computerPass', 'gender', 'birthday', 'avatar', 'aiApi', 'id'].forEach(function (k) {
+                        if (patch[k] !== undefined) a[k] = patch[k];
+                    });
+                    if (patch.newPass) a.passHash = await sha('local|' + patch.newPass);
+                    a.updatedAt = Date.now();
+                    saveLocalDb(db);
+                    this.setCurrent(pub(a), 'local:' + a.accountName);
+                    return { ok: true, account: pub(a), local: true };
+                }
+            },
+
+            async me() {
+                var tok = ls('acc_token', '');
+                if (!tok) return null;
+                if (String(tok).indexOf('local:') === 0) {
+                    var a = localFind(String(tok).slice(6));
+                    return a ? { ok: true, account: pub(a), local: true } : null;
+                }
+                try { return await api('/api/acc/me?token=' + encodeURIComponent(tok)); }
+                catch (e) { return null; }
+            },
+
+            current: function () { return ls('account', null); },
+            setCurrent: function (acc, token) {
+                lsSet('account', acc || null);
+                if (token !== undefined) lsSet('acc_token', token || '');
+            },
+            logout: function () { lsSet('account', null); lsSet('acc_token', ''); }
+        };
+    })();
+    window.n26Acc = n26Acc;
+
+    function n26AccErrMsg(e) {
+        var m = (e && (e.serverMessage || e.message)) || '操作失败';
+        if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return '连不上账号服务器（后端可能还没部署），已退回本地账号';
+        if (/abort/i.test(m)) return '连接账号服务器超时';
+        return m;
+    }
+
+    /* ==================== v2.9.47 设置页：Nexus 账号中心 ====================
+       显示项 / 可改项完全按产品要求：
+         账户名（只读）· UID（只读）· ID 号（可改，唯一）· 用户名（可改）
+         性别（可改，可保密）· 生日（可改，可保密）· 头像（可改）· 电脑密码（可改）
+         账号密码（改要验旧密码）· AI 接口（跟随账号，登录自动带回） */
+    var _n26AccView = null;
+
+    function n26AccRenderSettings() {
+        var box = document.getElementById('n26AccBox');
+        if (!box) return;
+        var acc = n26Acc.current();
+        var localMode = !acc || String(localStorage.getItem('nexus_acc_token') || '').indexOf('local:') === 0;
+        var roleName = { admin: '管理员', member: '成员', guest: '访客' };
+        var genderTxt = { male: '男', female: '女', secret: '保密' };
+
+        if (!acc) {
+            box.innerHTML = '<h4><i class="fas fa-cloud" style="margin-right:6px;"></i>Nexus 账号</h4>'
+                + '<div style="font-size:12.5px;line-height:1.8;color:rgba(255,255,255,.6);">还没有登录 Nexus 账号。<br>'
+                + '<span style="opacity:.75;">登录后：换台电脑不用重配，AI 接口、头像、资料自动带过来；方聊也能被别人按 UID / ID 号找到。</span></div>'
+                + '<button class="glass-btn primary" style="margin-top:10px;" onclick="n26AccLoginNow()"><i class="fas fa-arrow-right-to-bracket"></i> 登录 / 注册</button>';
+            return;
+        }
+
+        box.innerHTML = '<h4><i class="fas fa-cloud" style="margin-right:6px;"></i>Nexus 账号'
+            + '<span style="margin-left:8px;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:20px;'
+            + (localMode ? 'background:rgba(251,191,36,.16);color:#fbbf24;border:1px solid rgba(251,191,36,.35);'
+                : 'background:rgba(74,222,128,.14);color:#4ade80;border:1px solid rgba(74,222,128,.32);') + '">'
+            + (localMode ? '本地账号' : '已连云端') + '</span></h4>'
+
+            // 只读两项
+            + '<div class="settings-row"><span>账户名 <small style="opacity:.55;">注册后不可更改</small></span>'
+            + '<b style="font-size:12.5px;">' + (acc.accountName || '—') + '</b></div>'
+            + '<div class="settings-row"><span>UID <small style="opacity:.55;">按注册顺序分配</small></span>'
+            + '<b style="font-size:12.5px;font-variant-numeric:tabular-nums;letter-spacing:1.5px;color:#4A9BF5;">' + (acc.uid || '—') + '</b></div>'
+
+            // ID 号（可改、唯一、可含符号）
+            + '<div class="settings-row"><span>ID 号 <small style="opacity:.55;">字母/数字/符号，唯一，可改</small></span>'
+            + '<span style="display:flex;gap:6px;align-items:center;">'
+            + '<input class="form-input" id="n26AccId" value="' + String(acc.id || '').replace(/"/g, '&quot;') + '" maxlength="20" '
+            + 'style="width:130px;padding:5px 9px;font-size:12px;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.14);border-radius:8px;color:inherit;">'
+            + '<button class="glass-btn" style="padding:5px 11px;font-size:11.5px;" onclick="n26AccSaveId()">保存</button></span></div>'
+            + '<div id="n26AccIdHint" style="font-size:11px;margin:-4px 0 8px;min-height:14px;"></div>'
+
+            // 用户名（= 电脑名，可改）
+            + '<div class="settings-row"><span>用户名 <small style="opacity:.55;">当前电脑名，随时可改</small></span>'
+            + '<span style="display:flex;gap:6px;align-items:center;">'
+            + '<input class="form-input" id="n26AccUserName" value="' + String(acc.userName || acc.accountName || '').replace(/"/g, '&quot;') + '" maxlength="20" '
+            + 'style="width:130px;padding:5px 9px;font-size:12px;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.14);border-radius:8px;color:inherit;">'
+            + '<button class="glass-btn" style="padding:5px 11px;font-size:11.5px;" onclick="n26AccSaveUserName()">保存</button></span></div>'
+
+            // 性别 / 生日
+            + '<div class="settings-row"><span>性别 <small style="opacity:.55;">方聊里显示，可保密</small></span>'
+            + '<select class="form-input" onchange="n26AccSaveField(\'gender\', this.value)" '
+            + 'style="width:110px;padding:5px 9px;font-size:12px;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.14);border-radius:8px;color:inherit;">'
+            + ['male', 'female', 'secret'].map(function (g) {
+                return '<option value="' + g + '"' + ((acc.gender || 'secret') === g ? ' selected' : '') + '>' + genderTxt[g] + '</option>';
+            }).join('') + '</select></div>'
+            + '<div class="settings-row"><span>生日 <small style="opacity:.55;">留空即保密</small></span>'
+            + '<span style="display:flex;gap:6px;align-items:center;">'
+            + '<input type="date" class="form-input" id="n26AccBirth" value="' + (acc.birthday || '') + '" '
+            + 'style="width:140px;padding:5px 9px;font-size:12px;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.14);border-radius:8px;color:inherit;">'
+            + '<button class="glass-btn" style="padding:5px 11px;font-size:11.5px;" onclick="n26AccSaveField(\'birthday\', document.getElementById(\'n26AccBirth\').value)">保存</button></span></div>'
+
+            // 电脑密码（本机，可随便改）
+            + '<div class="settings-row"><span>电脑密码 <small style="opacity:.55;">开机/锁屏用，留空即取消</small></span>'
+            + '<span style="display:flex;gap:6px;align-items:center;">'
+            + '<input type="password" class="form-input" id="n26AccPcPass" placeholder="新电脑密码" '
+            + 'style="width:130px;padding:5px 9px;font-size:12px;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.14);border-radius:8px;color:inherit;">'
+            + '<button class="glass-btn" style="padding:5px 11px;font-size:11.5px;" onclick="n26AccSavePcPass()">保存</button></span></div>'
+
+            // 账号密码
+            + '<div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:7px;">'
+            + '<span>账号密码 <small style="opacity:.55;">修改需要先输原密码</small></span>'
+            + '<div style="display:flex;gap:6px;flex-wrap:wrap;width:100%;">'
+            + '<input type="password" class="form-input" id="n26AccOldPass" placeholder="原密码" style="flex:1;min-width:100px;padding:5px 9px;font-size:12px;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.14);border-radius:8px;color:inherit;">'
+            + '<input type="password" class="form-input" id="n26AccNewPass" placeholder="新密码" style="flex:1;min-width:100px;padding:5px 9px;font-size:12px;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.14);border-radius:8px;color:inherit;">'
+            + '<button class="glass-btn" style="padding:5px 11px;font-size:11.5px;" onclick="n26AccChangePass()">修改</button></div></div>'
+
+            // AI 配置跟随账号
+            + '<div class="settings-row"><span>AI 接口 <small style="opacity:.55;">跟随账号，换设备自动带过来</small></span>'
+            + '<b style="font-size:11.5px;opacity:.8;">' + (acc.aiApi && acc.aiApi.key
+                ? (acc.aiApi.provider || '自定义') + ' · ' + (acc.aiApi.model || '') : '未绑定') + '</b></div>'
+            + '<div class="settings-row"><span>绑定当前 AI 配置到账号</span>'
+            + '<button class="glass-btn" style="padding:5px 11px;font-size:11.5px;" onclick="n26AccBindAi()">上传</button></div>'
+
+            + '<div style="display:flex;gap:8px;margin-top:12px;">'
+            + '<button class="glass-btn" style="padding:6px 14px;font-size:12px;" onclick="n26AccRefresh()">刷新资料</button>'
+            + '<button class="glass-btn" style="padding:6px 14px;font-size:12px;color:#fca5a5;border-color:rgba(239,68,68,.35);" onclick="n26AccLogout()">退出账号</button>'
+            + '</div>';
+    }
+    window.n26AccRenderSettings = n26AccRenderSettings;
+
+    function _n26AccHint(text, ok) {
+        var el = document.getElementById('n26AccIdHint');
+        if (!el) { if (text) showNotification('Nexus 账号', text, ok ? 'success' : 'error'); return; }
+        el.style.color = ok ? '#86efac' : '#fca5a5';
+        el.textContent = text || '';
+        setTimeout(function () { if (el) el.textContent = ''; }, 3600);
+    }
+
+    window.n26AccLoginNow = function () {
+        // 在设置里登录：借 OOBE 的那套面板太长，直接给一个精简弹窗
+        var q = prompt('账户名 或 UID');
+        if (!q) return;
+        var p = prompt('账号密码');
+        if (!p) return;
+        n26Acc.login({ q: q, pass: p }).then(function (r) {
+            if (!r || !r.ok) throw new Error('登录失败');
+            n26Acc.setCurrent(r.account, r.token);
+            n26AccApplyToSystem(r.account);
+            showNotification('Nexus 账号', '已登录：' + r.account.accountName + '（UID ' + r.account.uid + '）', 'success');
+            n26AccRenderSettings();
+        }).catch(function (e) {
+            showNotification('登录失败', n26AccErrMsg(e), 'error');
+        });
+    };
+
+    window.n26AccSaveId = async function () {
+        var v = (document.getElementById('n26AccId').value || '').trim();
+        if (!v) return _n26AccHint('ID 号不能为空', false);
+        if (!/^@?[A-Za-z0-9._#+~-]{2,20}$/.test(v)) return _n26AccHint('只能用字母、数字和 . _ - # + ~ @，不能有中文', false);
+        _n26AccHint('正在保存…', true);
+        try {
+            var chk = await n26Acc.check({ id: v });
+            if (chk.idTaken) return _n26AccHint('这个 ID 号已被占用', false);
+            var r = await n26Acc.update({ id: v });
+            if (!r || !r.ok) throw new Error('保存失败');
+            n26Acc.setCurrent(r.account);
+            // 同步到本机账户记录（方便方聊显示）
+            var accounts = getLS('accounts') || [];
+            accounts.forEach(function (a) { if (a.name === (currentUser && currentUser.name)) a.nid = v; });
+            setLS('accounts', accounts);
+            _n26AccHint('ID 号已更新为 ' + v, true);
+        } catch (e) { _n26AccHint(n26AccErrMsg(e), false); }
+    };
+
+    window.n26AccSaveUserName = async function () {
+        var v = (document.getElementById('n26AccUserName').value || '').trim();
+        if (!v) return showNotification('Nexus 账号', '用户名不能为空', 'error');
+        try {
+            var r = await n26Acc.update({ userName: v });
+            if (!r || !r.ok) throw new Error('保存失败');
+            n26Acc.setCurrent(r.account);
+            showNotification('Nexus 账号', '用户名已改为 ' + v, 'success');
+        } catch (e) { showNotification('保存失败', n26AccErrMsg(e), 'error'); }
+    };
+
+    window.n26AccSaveField = async function (k, v) {
+        try {
+            var r = await n26Acc.update({ [k]: v });
+            if (!r || !r.ok) throw new Error('保存失败');
+            n26Acc.setCurrent(r.account);
+            n26AccApplyToSystem(r.account);
+            showNotification('Nexus 账号', '已保存', 'success');
+        } catch (e) { showNotification('保存失败', n26AccErrMsg(e), 'error'); }
+    };
+
+    window.n26AccSavePcPass = async function () {
+        var v = document.getElementById('n26AccPcPass').value || '';
+        try {
+            var r = await n26Acc.update({ computerPass: v });
+            if (!r || !r.ok) throw new Error('保存失败');
+            n26Acc.setCurrent(r.account);
+            // 同步本机账户密码
+            var accounts = getLS('accounts') || [];
+            accounts.forEach(function (a) {
+                if (a.name === (currentUser && currentUser.name)) a.password = v ? hashPassword(v) : '';
+            });
+            setLS('accounts', accounts);
+            if (currentUser) currentUser.password = v ? hashPassword(v) : '';
+            showNotification('Nexus 账号', v ? '电脑密码已更新' : '已取消电脑密码', 'success');
+            document.getElementById('n26AccPcPass').value = '';
+        } catch (e) { showNotification('保存失败', n26AccErrMsg(e), 'error'); }
+    };
+
+    window.n26AccChangePass = async function () {
+        var o = document.getElementById('n26AccOldPass').value || '';
+        var n = document.getElementById('n26AccNewPass').value || '';
+        if (!o || !n) return showNotification('Nexus 账号', '原密码和新密码都要填', 'error');
+        if (n.length < 4) return showNotification('Nexus 账号', '新密码至少 4 位', 'error');
+        try {
+            var r = await n26Acc.update({ oldPass: o, newPass: n });
+            if (!r || !r.ok) throw new Error('修改失败');
+            showNotification('Nexus 账号', '账号密码已修改', 'success');
+            document.getElementById('n26AccOldPass').value = '';
+            document.getElementById('n26AccNewPass').value = '';
+        } catch (e) { showNotification('修改失败', n26AccErrMsg(e), 'error'); }
+    };
+
+    window.n26AccBindAi = async function () {
+        var st = getUserLS('settings') || {};
+        if (!st.aiKey && !st.aiBaseUrl) return showNotification('Nexus 账号', '本机还没配置 AI 接口', 'error');
+        try {
+            var r = await n26Acc.update({
+                aiApi: { provider: st.aiProvider || '', baseUrl: st.aiBaseUrl || '', model: st.aiModel || '', key: st.aiKey || '' }
+            });
+            if (!r || !r.ok) throw new Error('上传失败');
+            n26Acc.setCurrent(r.account);
+            showNotification('Nexus 账号', 'AI 配置已绑定到账号，下次换设备自动带过来', 'success');
+            n26AccRenderSettings();
+        } catch (e) { showNotification('上传失败', n26AccErrMsg(e), 'error'); }
+    };
+
+    window.n26AccRefresh = async function () {
+        var r = await n26Acc.me();
+        if (r && r.account) {
+            n26Acc.setCurrent(r.account);
+            showNotification('Nexus 账号', '资料已刷新', 'success');
+        } else {
+            showNotification('Nexus 账号', '拿不到云端资料（可能未登录或网络不通）', 'error');
+        }
+        n26AccRenderSettings();
+    };
+
+    window.n26AccLogout = function () {
+        n26Acc.logout();
+        showNotification('Nexus 账号', '已退出账号（本机账户和文件都还在）', 'info');
+        n26AccRenderSettings();
+    };
+
+    /* ==================== v2.9.47 OOBE：登录 / 注册 / 本机设置 三段式 ==================== */
+    var _accRegGender = 'secret';
+    var _accPending = null;      // 刚注册或登录成功的云端账号（还没落到本机账户）
+
+    function n26AccPane(which) {
+        ['login', 'register', 'local'].forEach(function (k) {
+            var el = document.getElementById('accPane' + k.charAt(0).toUpperCase() + k.slice(1));
+            if (el) el.style.display = (k === which ? '' : 'none');
+        });
+        var icon = document.getElementById('accPaneIcon');
+        if (icon) {
+            var map = { login: 'fa-arrow-right-to-bracket', register: 'fa-user-plus', local: 'fa-user-circle' };
+            icon.className = 'fas ' + (map[which] || 'fa-user-circle');
+        }
+        if (which === 'local') {
+            try { renderAvatars(); } catch (e) { }
+            var nameEl = document.getElementById('accountName');
+            if (nameEl && !nameEl.value) {
+                nameEl.value = (_accPending && (_accPending.userName || _accPending.accountName)) || '';
+            }
+            // 绑定了云端账号时顶部显示「已登录 as xxx」
+            var badge = document.getElementById('accBoundBadge');
+            if (badge && _accPending) {
+                badge.style.display = '';
+                badge.innerHTML = '<div style="display:flex;align-items:center;gap:9px;padding:10px 13px;border-radius:12px;background:rgba(59,130,246,0.10);border:1px solid rgba(59,130,246,0.28);margin-bottom:12px;">'
+                    + '<i class="fas fa-circle-check" style="color:#2f7bff;"></i>'
+                    + '<div style="font-size:12.5px;color:#1a3a6b;line-height:1.6;">已绑定账号 <b>' + (_accPending.accountName || '') + '</b>'
+                    + '<span style="opacity:.7;"> · UID ' + (_accPending.uid || '') + ' · ID ' + (_accPending.id || '') + '</span></div></div>';
+            } else if (badge) {
+                badge.style.display = 'none';
+            }
+        }
+    }
+    window.n26AccPane = n26AccPane;
+
+    function n26AccPickGender(el) {
+        document.querySelectorAll('.acc-gender').forEach(function (x) { x.classList.remove('selected'); });
+        el.classList.add('selected');
+        _accRegGender = el.dataset.g || 'secret';
+    }
+    window.n26AccPickGender = n26AccPickGender;
+
+    function _accMsg(box, text, kind) {
+        var el = document.getElementById(box);
+        if (!el) return;
+        if (!text) { el.style.display = 'none'; return; }
+        el.style.display = '';
+        var c = kind === 'error' ? ['rgba(229,72,77,.10)', 'rgba(229,72,77,.35)', '#b3261e']
+            : kind === 'ok' ? ['rgba(34,197,94,.10)', 'rgba(34,197,94,.35)', '#166534']
+                : ['rgba(59,130,246,.10)', 'rgba(59,130,246,.30)', '#1e40af'];
+        el.style.background = c[0];
+        el.style.border = '1px solid ' + c[1];
+        el.style.color = c[2];
+        el.textContent = text;
+    }
+
+    /* 账户名实时查重（1–20 位、不含空格；云端可用时问云端，否则查本地） */
+    var _accNameTimer = null;
+    function n26AccCheckName() {
+        var inp = document.getElementById('accRegName');
+        var hint = document.getElementById('accNameHint');
+        if (!inp || !hint) return;
+        var v = inp.value.trim();
+        if (!v) { hint.textContent = ''; return; }
+        if (!/^[\u4e00-\u9fa5A-Za-z0-9_-]{2,20}$/.test(v)) {
+            hint.style.color = '#b3261e';
+            hint.textContent = '只能用中英文、数字、下划线或连字符，2–20 位，不能有空格';
+            return;
+        }
+        hint.style.color = 'rgba(60,60,67,.6)';
+        hint.textContent = '正在检查是否已被占用…';
+        clearTimeout(_accNameTimer);
+        _accNameTimer = setTimeout(async function () {
+            try {
+                var r = await n26Acc.check({ accountName: v });
+                if (r.accountNameTaken) {
+                    hint.style.color = '#b3261e';
+                    hint.textContent = '该账户名已被占用，换一个吧';
+                } else {
+                    hint.style.color = '#166534';
+                    hint.textContent = '这个账户名可以用' + (r.local ? '（本地模式）' : '');
+                }
+            } catch (e) {
+                hint.style.color = 'rgba(60,60,67,.6)';
+                hint.textContent = '';
+            }
+        }, 420);
+    }
+    window.n26AccCheckName = n26AccCheckName;
+
+    async function n26AccDoRegister() {
+        var name = (document.getElementById('accRegName').value || '').trim();
+        var p1 = document.getElementById('accRegPass').value || '';
+        var p2 = document.getElementById('accRegPass2').value || '';
+        var bd = (document.getElementById('accRegBirthday').value || '').trim();
+
+        if (!/^[\u4e00-\u9fa5A-Za-z0-9_-]{2,20}$/.test(name)) {
+            return _accMsg('accRegMsg', '账户名只能用中英文、数字、下划线或连字符（2–20 位，不能有空格）', 'error');
+        }
+        if (p1.length < 4) return _accMsg('accRegMsg', '账号密码至少 4 位', 'error');
+        if (p1 !== p2) return _accMsg('accRegMsg', '两次输入的密码不一致', 'error');
+
+        var btn = document.getElementById('accRegBtn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 注册中…'; }
+        _accMsg('accRegMsg', '正在注册…', 'info');
+        try {
+            var r = await n26Acc.register({ accountName: name, pass: p1, gender: _accRegGender, birthday: bd });
+            if (!r || !r.ok) throw new Error('注册失败');
+            n26Acc.setCurrent(r.account, r.token);
+            _accPending = r.account;
+            _accMsg('accRegMsg', '注册成功！UID ' + r.account.uid + ' · ID ' + (r.account.id || '') + (r.local ? '（本地账号，云端未连通）' : ''), 'ok');
+            // 把账号里的 AI 配置（新账号为空）与本机偏好对齐后进入本机设置
+            n26AccApplyToSystem(r.account);
+            setTimeout(function () { n26AccPane('local'); }, 700);
+        } catch (e) {
+            _accMsg('accRegMsg', n26AccErrMsg(e), 'error');
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-user-plus"></i> 注册'; }
+        }
+    }
+    window.n26AccDoRegister = n26AccDoRegister;
+
+    async function n26AccDoLogin() {
+        var q = (document.getElementById('accLoginQ').value || '').trim();
+        var p = document.getElementById('accLoginPass').value || '';
+        if (!q) return _accMsg('accLoginMsg', '请输入账户名或 UID', 'error');
+        if (!p) return _accMsg('accLoginMsg', '请输入账号密码', 'error');
+
+        var btn = document.getElementById('accLoginBtn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 登录中…'; }
+        _accMsg('accLoginMsg', '正在登录…', 'info');
+        try {
+            var r = await n26Acc.login({ q: q, pass: p });
+            if (!r || !r.ok) throw new Error('登录失败');
+            n26Acc.setCurrent(r.account, r.token);
+            _accPending = r.account;
+            n26AccApplyToSystem(r.account);
+            _accMsg('accLoginMsg', '登录成功：' + r.account.accountName + '（UID ' + r.account.uid + '）' + (r.local ? '· 本地账号' : ''), 'ok');
+            setTimeout(function () { n26AccPane('local'); }, 700);
+        } catch (e) {
+            _accMsg('accLoginMsg', n26AccErrMsg(e), 'error');
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> 登录'; }
+        }
+    }
+    window.n26AccDoLogin = n26AccDoLogin;
+
+    /* 把云端账号的资料落到这台机器上：
+       头像、用户名（电脑名）、AI 配置（key/baseUrl/model/provider）—— 登录后不用重新配 */
+    function n26AccApplyToSystem(acc) {
+        if (!acc) return;
+        try {
+            // 1) 头像 + 用户名预填到本机设置面板
+            var nameEl = document.getElementById('accountName');
+            if (nameEl && !nameEl.value) nameEl.value = acc.userName || acc.accountName || '';
+
+            // 2) AI 配置直接写进系统设置（AI 小方与 FangClaw 共用这一份）
+            if (acc.aiApi && (acc.aiApi.key || acc.aiApi.baseUrl)) {
+                var st = getUserLS('settings') || {};
+                st.aiProvider = acc.aiApi.provider || st.aiProvider || '';
+                st.aiBaseUrl = acc.aiApi.baseUrl || st.aiBaseUrl || '';
+                st.aiModel = acc.aiApi.model || st.aiModel || '';
+                st.aiKey = acc.aiApi.key || st.aiKey || '';
+                setUserLS('settings', st);
+                try { if (typeof updateApiFields === 'function') updateApiFields(); } catch (e) { }
+            }
+            // 3) 性别 / 生日一并记在账号档案里（方聊要用）
+            var prof = getUserLS('profile') || {};
+            prof.accountName = acc.accountName;
+            prof.uid = acc.uid;
+            prof.nid = acc.id || '';
+            prof.gender = acc.gender || 'secret';
+            prof.birthday = acc.birthday || '';
+            if (acc.avatar) prof.cloudAvatar = acc.avatar;
+            setUserLS('profile', prof);
+        } catch (e) { }
+    }
+    window.n26AccApplyToSystem = n26AccApplyToSystem;
+
     function createAccountAndFinish(skip = false) {
         let name = document.getElementById('accountName').value.trim();
         let pass = document.getElementById('accountPass').value;
@@ -20108,7 +20936,11 @@
                 password: hashPassword(pass),
                 role: newRole,
                 avatar: avatar,
-                createdAt: Date.now()
+                createdAt: Date.now(),
+                // v2.9.47：绑定云端账号（账户名不可改 / UID 只读 / ID 号可改）
+                accountName: (_accPending && _accPending.accountName) || '',
+                uid: (_accPending && _accPending.uid) || '',
+                nid: (_accPending && _accPending.id) || ''
             };
             accounts.push(newAcc);
             setLS('accounts', accounts);
@@ -20606,6 +21438,7 @@
         'bili':         '../Desktop icon/方哩方哩.png',
         'git':          '../Desktop icon/git.png',
         'float':        'apps/brand/floatide.png',   // v2.9.42：Float IDE（fangwork/Float 转制）
+        'necta':        'apps/brand/necta.svg',      // v2.9.46：Necta 远程桌面（自绘）
         'ide':          'apps/brand/floatide.png',   // 旧别名：NaveIDE 已退役，统一落到 Float IDE
         'calculator':   '../Desktop icon/计算器.png',
         'word-editor':  '../Desktop icon/Word.png',
@@ -20664,7 +21497,7 @@
         //   FangWork + 生产力套件（Strata / Reelix / 以后新增的都往这里加）+ FangClaw
         // 这几个**无论图标包选哪档都用自绘**，因为它们各有品牌色与字标，
         // 换成扁平色块或 FA 字形就是品牌走样。新增套件应用时记得同步加进来。
-        const N26_ALWAYS_DRAWN = { agent: 1, fangclaw: 1, fangwork: 1, strata: 1, reelix: 1, studio: 1, float: 1, ide: 1 };
+        const N26_ALWAYS_DRAWN = { agent: 1, fangclaw: 1, fangwork: 1, strata: 1, reelix: 1, studio: 1, float: 1, ide: 1, necta: 1 };
         // 原始扁平图标：彩色圆底 + 白色 FA 图标（与初代 NexusOS 风格一致）
         if (pack === 'flat' && !opts.forceN26 && !N26_ALWAYS_DRAWN[appId]) {
             return `<span class="app-icon-flat" style="--app-color:${color};width:${s}px;height:${s}px;border-radius:${Math.max(8, Math.round(r * 0.9))}px;"><i class="fas ${fa}"></i></span>`;
@@ -23407,6 +24240,13 @@
         dock.style.display = 'flex';
         // v2.9.43：进桌面时做一次运行环境自检（file:// / 无 IndexedDB / 非 Chromium / 小内存）
         try { if (typeof n26EnvCheck === 'function') n26EnvCheck(); } catch (e) { }
+        // v2.9.46：支持 ?app=<id> 直接唤起应用（Necta 分享链接走这条路）
+        try {
+            var _qa = new URLSearchParams(location.search).get('app');
+            if (_qa && typeof openApp === 'function') {
+                setTimeout(function () { try { openApp(_qa); } catch (e) { } }, 900);
+            }
+        } catch (e) { }
         if (finder) finder.style.display = 'flex';
         // 强制重排，确保 transform: translateX(-50%) 在动画开始前已应用，防止 Dock 水平跳变
         void dock.offsetHeight;
@@ -24025,11 +24865,14 @@
     function n26CurrentThemeStaticUrl(s) {
         const themes = {
             abstract: N26_WALLPAPERS.abstract, island: N26_WALLPAPERS.island,
+            // v2.9.48 新增的两个壁纸种类
+            minecraft: N26_WALLPAPERS.minecraft, cleanlight: N26_WALLPAPERS.cleanlight,
+            // 旧主题兼容映射（老账户平滑迁移到本地壁纸）
             beach: N26_WALLPAPERS.island, cloud: N26_WALLPAPERS.abstract,
             desert: N26_WALLPAPERS.abstract, night: N26_WALLPAPERS.abstract,
             dynamic: N26_WALLPAPERS.abstract, builtin: N26_WALLPAPERS.abstract
         };
-        const wallpapers = themes[s.theme] || themes.abstract;
+        const wallpapers = themes[n26NormTheme(s.theme)] || themes.abstract;
         const wpIdx = (typeof s.wallpaper === 'number') ? (s.wallpaper % wallpapers.length) : 0;
         return wallpapers[wpIdx] || wallpapers[0];
     }
@@ -24214,18 +25057,8 @@
         const s = getUserLS('settings') || {};
         // 图标包：'flat'（FA 图标，默认）/ 'n26'（自绘图标 Beta）。v2.9.19 起 Dock 也跟随。
         window.N26_ICON_PACK = s.iconPack || 'flat';
-        // N26：壁纸全部来自 Wallpaper 本地文件夹，旧主题名做兼容映射
-        const themes = {
-            abstract: N26_WALLPAPERS.abstract,
-            island: N26_WALLPAPERS.island,
-            // 旧主题兼容映射（老账户平滑迁移到本地壁纸）
-            beach: N26_WALLPAPERS.island,
-            cloud: N26_WALLPAPERS.abstract,
-            desert: N26_WALLPAPERS.abstract,
-            night: N26_WALLPAPERS.abstract,
-            dynamic: N26_WALLPAPERS.abstract,
-            builtin: N26_WALLPAPERS.abstract
-        };
+        /* v2.9.48：这里原来有一张 themes 映射表，但全文件没有任何地方读它（死代码），
+           已删除。主题 → 壁纸的映射统一在 n26CurrentThemeStaticUrl() 里维护。 */
         // 桌面壁纸：动态 MP4 > 自定义静态图 > 内置主题壁纸
         applyN26DesktopWallpaper(s);
         // 锁屏壁纸：可独立设置（默认与桌面一致）
@@ -25280,6 +26113,7 @@
         agent: { name: 'FangClaw', icon: 'fa-hand-pointer', color: '#3b82f6', defaultWidth: 920, defaultHeight: 660 },
         monitor: { name: '资源监视器', icon: 'fa-chart-line', color: '#10b981', defaultWidth: 720, defaultHeight: 560 },
         vm: { name: '虚拟机', icon: 'fa-server', color: '#6366f1', defaultWidth: 900, defaultHeight: 620 },
+        necta: { name: 'Necta 远程桌面', icon: 'fa-tower-broadcast', color: '#2ee6d0', defaultWidth: 1080, defaultHeight: 700 },
         games: { name: '小游戏合集', icon: 'fa-gamepad', color: '#f97316', defaultWidth: 880, defaultHeight: 620 },
         // ===== v2.9.12 小方创作套件：三个各自独立的软件 =====
         // FangWork 只负责「一键启动 + 检查更新」，不捆绑；Strata / Reelix 是真正的独立应用。
@@ -25305,6 +26139,7 @@
         duolingo: 'apps/duolingo.html',
         focus: 'apps/focus.html',
         float: 'apps/float/index.html',   // v2.9.42：Float IDE 网页版（fangwork/Float 转制，CW Script）
+        necta: 'apps/necta/index.html',   // v2.9.46：Necta 远程桌面（远程软件规划落地）
         image: 'apps/image.html',
         video: 'apps/video.html',
         music: 'apps/music.html',
@@ -25426,6 +26261,35 @@
             getLS: function (a) { return n26BridgeReadLS(a[0]); },
             setLS: function (a) { if (N26_BRIDGE_SECRET_KEYS[a[0]]) return false; setLS(a[0], a[1]); return true; },
             getUser: function () { return { name: (typeof currentUser !== 'undefined' && currentUser?.name), role: (typeof currentUser !== 'undefined' && currentUser?.role), avatar: (typeof currentUser !== 'undefined' && currentUser?.avatar) }; },
+            /* v2.9.46：桌面状态快照 —— 给 Necta 的「共享我的 Nexus 桌面」（形态 B）用。
+               只给窗口几何 + 标题 + 应用 id，不含任何窗口内容与输入，流量几 KB。 */
+            getDesktopState: function () {
+                try {
+                    var list = (typeof windows !== 'undefined' ? windows : []).map(function (w) {
+                        return {
+                            id: w.id, appId: w.appId, title: w.title,
+                            x: w.x, y: w.y, width: w.width, height: w.height,
+                            zIndex: w.zIndex, state: w.state
+                        };
+                    });
+                    var wp = '';
+                    try {
+                        var bg = document.getElementById('nexus-bg');
+                        if (bg) {
+                            var bi = bg.style.backgroundImage || '';
+                            var u = bi.replace(/url\(['"]?|['"]?\)/g, '');
+                            if (u && !/^(data:|blob:)/i.test(u)) wp = u;   // 用户自己的照片不外传
+                        }
+                    } catch (e2) { }
+                    return {
+                        windows: list,
+                        vw: window.innerWidth, vh: window.innerHeight,
+                        dark: document.body.classList.contains('dark-mode'),
+                        wallpaper: wp,
+                        user: { name: (typeof currentUser !== 'undefined' && currentUser?.name) }
+                    };
+                } catch (e) { return { windows: [] }; }
+            },
             getSettings: function () { return n26BridgeFilterSettings(getUserLS('settings') || {}); },
             getContext: function (a, winId) {
                 var st = n26BridgeFilterSettings(getUserLS('settings') || {});
@@ -26725,6 +27589,7 @@
         { id: 'strata', appId: 'strata', emoji: '🖌️', tag: '创作工具', name: 'Strata', desc: '专业位图编辑与数字绘画，图层、蒙版、矢量、批处理齐备。', grad: 'linear-gradient(135deg,#38bdf8,#0369a1)' },
         { id: 'reelix', appId: 'reelix', emoji: '🎬', tag: '创作工具', name: 'Reelix', desc: '特效合成与剪辑：多轨时间线、37 个效果节点、3D 图层与关键帧。', grad: 'linear-gradient(135deg,#a3e635,#4d7c0f)' },
         { id: 'games', appId: 'games', emoji: '🕹️', tag: '作品集', name: '小游戏合集', desc: '47 款自研小游戏，即点即玩，涵盖休闲、益智、棋牌、解谜、体育等门类。', grad: 'linear-gradient(135deg,#8b5cf6,#5b21b6)' },
+        { id: 'necta', appId: 'necta', emoji: '🛰️', tag: '系统', name: 'Necta 远程桌面', desc: '从浏览器接管另一台电脑；也能把你这套 Nexus 桌面共享给别人跟着操作。', grad: 'linear-gradient(135deg,#2ee6d0,#0b3f66)' },
         { id: 'float', appId: 'float', emoji: '🧠', tag: '开发工具', name: 'Float IDE', desc: 'CW Script 专用 IDE：智能补全、断点调试、真编译执行，学习中心带整本教程。', grad: 'linear-gradient(135deg,#0e7490,#083344)' },
         { id: 'agent', appId: 'agent', emoji: '🤖', tag: 'AI', name: 'FangClaw', desc: '能替你动手干活的本地 Agent：开应用、改设置、截图、总结，逐条审批。', grad: 'linear-gradient(135deg,#ef4444,#991b1b)' },
         { id: 'terminal', appId: 'terminal', emoji: '⌨️', tag: '系统', name: '终端', desc: 'Linux 风格终端，支持管道、重定向、Tab 补全与命令历史。', grad: 'linear-gradient(135deg,#334155,#0f172a)' },
@@ -26905,6 +27770,13 @@
             var _q = [];
             // v2.9.42：自发布应用（Float IDE 发布）把包 id 带给受限框架壳
             if (appId.indexOf('sp_') === 0) _q.push('pkg=' + encodeURIComponent(appId.slice(3)));
+            // v2.9.46：Necta 的分享链接 —— ?app=necta&join=xxxxxx，把连接码透传进 iframe
+            if (appId === 'necta') {
+                try {
+                    var _nj = new URLSearchParams(location.search).get('join');
+                    if (_nj) _q.push('join=' + encodeURIComponent(_nj));
+                } catch (e) { }
+            }
             _q.push('v=' + encodeURIComponent(typeof NEXUS_OS_VERSION !== 'undefined' ? NEXUS_OS_VERSION : '1'));
             _src += '?' + _q.join('&');
             content.innerHTML = `<iframe class="app-iframe" src="${_src}" allow="autoplay; fullscreen; clipboard-read; clipboard-write; microphone; camera; geolocation" title="${appId}"></iframe>`;
@@ -27794,6 +28666,7 @@
         studio:   { min: [720, 500] },
         news:     { min: [640, 460] },
         float:    { min: [720, 480] },   // Float IDE：菜单栏 + 侧栏 + 编辑器 + 控制台
+        necta:    { min: [900, 600] },   // Necta：远程画面 + 控制中心（规划第七章定的下限）
         terminal: { min: [480, 300] },
         music:    { min: [420, 380] },
         // 轻量小工具：允许缩得比较小
@@ -32961,6 +33834,8 @@
             panel.classList.add('animating');
         }
         renderSettingsPanel();
+        // v2.9.47：切到「账户」页时填充 Nexus 账号卡片（渲染完面板再填，时机最稳）
+        if (id === 'accounts') { try { n26AccRenderSettings(); } catch (e) { } }
     }
 
     /* ============================================================
@@ -33215,13 +34090,16 @@
                     </div>
                 `;
                 break;
-            }
+            
+}
 
             case 'accounts': {
-                const _accRoleName = r => r === 'admin' ? t('role_admin') : r === 'member' ? t('role_member') : t('role_guest');
+                const _accRoleName = r => r === 'admin' ? t('role_admin') : r === 'member' ? t('role_member') : r === 'guest' ? t('role_guest') : t('role_guest');
                 const accounts = getLS('accounts') || [];
                 panel.innerHTML = `
                     <h3>${t('settings_tab_accounts')}</h3>
+                    <!-- ★ v2.9.47 Nexus 账号（云端）：账户名/UID 只读，ID 号/用户名/性别/生日/头像/密码可改 -->
+                    <div class="settings-section" id="n26AccBox"></div>
                     <div class="settings-section">
                         <h4>${t('settings_all_accounts')}</h4>
                         ${accounts.map((acc, idx) => `
@@ -33319,6 +34197,116 @@
                     <div class="settings-section">
                         <h4>更新日志</h4>
                         <div class="changelog">
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.49</div>
+                                <div class="changelog-date">2026-11-01</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm fix">修</span><b>🎚️ 深色模式开关点了不动</b><br>
+                                        「启用深色模式」和「系统随时间改变」两个开关按下去界面真变深色了，
+                                        但开关本身一动不动。根因：面板渲染时读的是 <code>settings.darkMode</code>，
+                                        而开关写入的是 <code>extraSettings.darkMode</code> —— 两个 localStorage 键不是同一个。
+                                        现在渲染读对了，点击时也直接同步视觉，不再依赖重渲染。</li>
+                                    <li><span class="tag-sm fix">修</span><b>💬 创建账号不再弹浏览器对话框</b><br>
+                                        「这台设备已经有账号」原来用浏览器 <code>confirm()</code> 问，在真系统里很突兀。
+                                        换成系统自己的确认弹窗（和删文件、退出账号同一套），
+                                        按钮写「创建新账号 / 登录已有账号」。</li>
+                                    <li><span class="tag-sm fix">修</span><b>🅝 N 图标底色跟随主题</b><br>
+                                        原来浅色、深色两档都是墨色方块，浅面板上压着很突兀。
+                                        现在浅色模式白底（给玻璃 N 加一层柔和投影勾轮廓，不然白字白底看不见），
+                                        深色模式才是黑底。</li>
+                                    <li><span class="tag-sm fix">修</span><b>🔌 账号弹窗真正接上后端</b><br>
+                                        设置/开始菜单点开账号中心，一直报「未配置账号后端地址」。
+                                        根因：那个弹窗走的是早期一套 <code>/api/account/*</code> + <code>N26_ACCOUNT_API</code>，
+                                        这个常量从来没赋过值 —— 等于一直是死的。<br>
+                                        现在整个弹窗改走 <code>n26Acc</code>（和 OOBE、设置页同一套服务层）：
+                                        注册字段改成新模型（账户名 / 密码 / 性别 / 生日），登录支持账户名或 UID，
+                                        好友列表读本机好友表。邮箱验证码与自助重置密码撤掉（后端没有邮件服务，
+                                        改密码请走 设置 → 账户）。<br>
+                                        另外加了 60 秒冷却：后端连不上时不会每次都干等 4.5 秒超时。</li>
+                                    <li><span class="tag-sm fix">修</span><b>⚙️ Worker 配置的一处硬错误</b><br>
+                                        <code>server/wrangler.toml</code> 里写了两个 <code>[vars]</code> 段，
+                                        TOML 不允许重复表 —— 一部署就会把 AI 转发用的
+                                        <code>MX_STORE_BASE / ALLOW_ORIGIN / MOCK_AI</code> 全冲掉。
+                                        已合并成一个。<br>
+                                        <b>账号接口目前线上还是 404（没部署过）</b>，双击
+                                        <code>server/部署账号服务-Deploy-Account.bat</code> 可以一键建 KV + 部署 + 验证。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.48</div>
+                                <div class="changelog-date">2026-11-01</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm new">新</span><b>🖼️ 两个新壁纸种类上线：我的世界 / 清新光影</b><br>
+                                        ① <b>我的世界</b>（1 张）：旷野孤树，方块草地 + 远山雪顶，
+                                           原始分辨率 2559×1599 转 JPEG q3，817 KB；<br>
+                                        ② <b>清新光影</b>（2 张）：黑白光栅 / 彩色光栅，同一构图的明暗两版，
+                                           分别是 141 KB 与 177 KB；<br>
+                                        ③ 素材放在 <code>Wallpaper/我的世界/</code> 与 <code>Wallpaper/清新光影/</code>，
+                                           文件名改成语义名（<code>meadow-tree</code> / <code>cleanlight-01·02</code>），
+                                           不再是「屏幕截图 2026-11-01 165338.png」这种；<br>
+                                        ④ 主题卡从 4 张变 4 张真图（抽象艺术 / 海岛假日 / 我的世界 / 清新光影），
+                                           个性化的主题区、壁纸区、OOBE 主题网格全部同步；<br>
+                                        ⑤ 主题信息收拢成一个常量 <code>N26_THEME_INFO</code>：
+                                           以后再加壁纸种类，只需往 <code>N26_WALLPAPERS</code> 加数组 +
+                                           往 <code>N26_THEME_INFO</code> 加一条名字，所有界面自动出现，不用改渲染代码；<br>
+                                        ⑥ 老账号兼容：v2.9.47 存的 <code>reserved1/reserved2</code> 会自动映射到
+                                           <code>minecraft/cleanlight</code>，不用手动改设置。<br>
+                                        ⑦ 顺手清掉 <code>applyUserSettings()</code> 里一张从没被读取过的主题映射表（死代码）。</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.47</div>
+                                <div class="changelog-date">2026-11-01</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm new">新</span><b>👤 Nexus 账号体系（后端 + 前端全链路）</b><br>
+                                        ① 六个必存字段全落地：<b>账户名</b>（注册定型、不可改、全局唯一）、
+                                            <b>用户名</b>（= 电脑名，可改）、<b>UID</b>（7 位按注册顺序 0000001 起）、
+                                            <b>ID 号</b>（字母/数字/符号，可改、唯一、不许中文）、
+                                            <b>账号密码</b>、<b>电脑密码</b>（可随便改）；<br>
+                                        ② 额外还存：性别、生日（都可保密，方聊里显示）、头像、
+                                            <b>AI 接口配置</b>——登录后自动带回来，换设备不用重新配；<br>
+                                        ③ OOBE 的账户步骤改成三段式：<b>登录 / 注册 / 本机设置</b>。
+                                            登录支持「账户名 或 UID」；注册要填账户名（实时查重，被占用直接提示「该账户名已被占用」）、
+                                            密码两遍、性别、生日；注册/登录成功后才进头像 + 电脑名 + 电脑密码；<br>
+                                        ④ 设置 → 账户 新增「Nexus 账号」卡片：账户名 / UID 只读展示，
+                                            ID 号、用户名、性别、生日、电脑密码、账号密码可改（改密码验原密码），
+                                            还能把本机 AI 配置一键绑到账号上；<br>
+                                        ⑤ 方聊加好友支持<b>三种方式</b>：账户名 / UID / ID 号，加完显示对方基础信息
+                                            （用户名、UID、ID、性别、生日、头像）；<br>
+                                        ⑥ 后端：Worker 新增 <code>/api/acc/register|login|check|lookup|me|update</code>，
+                                            密码存 sha256(salt+pass) 不存明文，登录发 30 天签名 token；
+                                            数据放 Cloudflare KV（<code>ACC_KV</code>，键位 acc:/uid:/hid: 三套索引）。<br>
+                                            <b>没绑 KV 或后端没部署时自动退回「本地账号」模式</b>，注册登录照样能用，
+                                            设置里会标「本地账号」；<br>
+                                        ⑦ 进去之后系统是空白的：账号只带资料与 AI 配置，应用要重新下（按你的要求）。</li>
+                                    <li><span class="tag-sm new">预留</span><b>🖼️ 个性化预留两个壁纸种类</b><br>
+                                        两个空分类已经占好位：主题卡与壁纸面板都会显示虚线占位。
+                                        壁纸上齐之后直接把路径填进壁纸数组即可，别的渲染代码不用动。
+                                        <i>（已在 v2.9.48 落地：我的世界 / 清新光影）</i></li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div class="changelog-version">v2.9.46</div>
+                                <div class="changelog-date">2026-11-01</div>
+                                <ul class="changelog-list">
+                                    <li><span class="tag-sm new">新</span><b>🛰️ Necta 远程桌面：把《远程软件规划》做出来了</b><br>
+                                        ① <b>本机 ID + 临时密码</b>配对，不注册、不留账号；ID 由设备指纹生成，重装才变，可手动刷新；<br>
+                                        ② <b>共享我的 Nexus 桌面</b>（规划里的形态 B / 独家功能）：对方用浏览器打开分享链接，
+                                            看到的是<b>你窗口的实时布局</b>——传的是窗口状态不是像素，几 KB/s；
+                                            点镜像里的窗口可以请求你那边聚焦；<br>
+                                        ③ <b>连接别人的电脑</b>（形态 A）：ID + 密码发起，链路（信令 + 被控端 agent）没通时
+                                            如实说明卡在哪一步，不假装连上了；<br>
+                                        ④ <b>本机画面自测</b>：浏览器真捕获本机屏幕，实时显示分辨率/帧率，
+                                            用来验证画面链路与码率；<br>
+                                        ⑤ <b>iOS 磁贴控制中心</b>：360px / 4 列 / 28px 圆角，13 块磁贴（连接 · 画质 · 帧率 ·
+                                            显示器 · 音量 · 语音 · 剪贴板 · 文件 · 隐私屏 · 录制 · 全屏 · 更多 · 断开），
+                                            短按切档、音量条直接在磁贴上拖、长按 400ms 原地展开详情、磁贴可拖动重排并记住、
+                                            方向键 + 空格 + Enter 全键盘可操作、延迟按色带分档、断线整体变灰并显示重连；<br>
+                                        ⑥ 悬浮球可拖动、吸附四边、闲置 3 秒淡到 25%，<code>Ctrl+Shift+Space</code> 呼出；<br>
+                                        ⑦ 分享链接走 <code>Nexus OS 26.html?app=necta&amp;join=xxxxxx</code>——
+                                            对方点开就是整个系统自动唤起 Necta 并加入，不会打开一个没有宿主的裸页面。</li>
+                                </ul>
+                            </div>
                             <div class="changelog-item">
                                 <div class="changelog-version">v2.9.45</div>
                                 <div class="changelog-date">2026-11-01</div>
@@ -34790,24 +35778,34 @@
 
             case 'personalize': {
                 // N26：主题全部本地化（抽象/海岛），网络壁纸与旧主题移除
-                const themes = [
-                    { id: 'abstract', name: '抽象艺术', previews: N26_WALLPAPERS.abstract.slice(0, 4) },
-                    { id: 'island', name: '海岛假日', previews: N26_WALLPAPERS.island.slice(0, 4) }
-                ];
+                /* v2.9.48：主题卡统一从 N26_THEME_INFO 生成，加新壁纸种类只改那一个常量。
+                   没图的分类自动渲染成虚线「待加入」占位，不会冒充已有壁纸。 */
+                const themes = Object.keys(N26_THEME_INFO).map(function (id) {
+                    return { id: id, name: N26_THEME_INFO[id].name, previews: (N26_WALLPAPERS[id] || []).slice(0, 4) };
+                });
                 const _themeName = th => t('theme_' + th.id) !== ('theme_' + th.id) ? t('theme_' + th.id) : th.name;
-                const currentTheme = themes.find(th => th.id === s.theme) || themes[0];
+                const _themeId = n26NormTheme(s.theme);
+                const currentTheme = themes.find(th => th.id === _themeId) || themes[0];
                 // v2.9.21：老账户里存的是 'beach' 这类已下线的主题名，会让两张卡都不高亮、
                 // 看着像「主题不能选」。这里归一化到实际存在的主题上。
-                const _activeThemeId = themes.some(th => th.id === s.theme) ? s.theme : themes[0].id;
+                const _activeThemeId = themes.some(th => th.id === _themeId) ? _themeId : themes[0].id;
+                /* ★ v2.9.49：深色模式开关的状态在 extraSettings，不在 settings。
+                   以前这里读 s.darkMode（settings 里根本没有这个字段）→ 永远 undefined →
+                   开关永远显示关闭，而 toggleExtraSetting 又把值写进 extraSettings 让界面真变深色，
+                   于是「功能生效了但开关不动」。 */
+                const _es = getUserLS('extraSettings') || {};
                 panel.innerHTML = `
                     <h3>${t('settings_tab_personalize')}</h3>
                     <div class="settings-section">
                         <h4>${t('settings_theme')}</h4>
                         <div class="theme-grid">
                             ${themes.map(th => `
-                                <div class="theme-card ${_activeThemeId === th.id ? 'active' : ''}" onclick="setTheme('${th.id}')">
+                                <div class="theme-card ${_activeThemeId === th.id ? 'active' : ''} ${th.previews.length ? '' : 'theme-card-empty'}"
+                                     ${th.previews.length ? `onclick="setTheme('${th.id}')"` : 'role="img" aria-disabled="true"'}>
                                     <div class="theme-preview">
-                                        ${th.previews.map(p => `<div style="background-image:url('${p}');"></div>`).join('')}
+                                        ${th.previews.length
+                                            ? th.previews.map(p => `<div style="background-image:url('${p}');${th.previews.length === 1 ? 'grid-column:1/-1;' : ''}"></div>`).join('')
+                                            : '<div class="theme-preview-todo"><i class="fas fa-images"></i><span>待加入</span></div>'}
                                     </div>
                                     <div class="theme-name">${_themeName(th)}</div>
                                 </div>
@@ -34817,11 +35815,17 @@
                     <div class="settings-section">
                         <h4>${t('settings_wallpaper')}</h4>
                         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;">
-                            ${currentTheme.previews.map((p, i) => `
+                            ${currentTheme.previews.length ? currentTheme.previews.map((p, i) => `
                                 <div onclick="setWallpaper(${i})" style="cursor:pointer;border:2px solid ${s.wallpaper === i ? 'var(--primary)' : 'transparent'};border-radius:8px;overflow:hidden;transition:all 0.2s var(--ease-out);aspect-ratio:16/9;background-image:url('${p}');background-size:cover;background-position:center;"
                                      onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                                 </div>
-                            `).join('')}
+                            `).join('') : `
+                                <div class="n26-wp-todo">
+                                    <i class="fas fa-images"></i>
+                                    <div>${currentTheme.name}</div>
+                                    <small>暂无壁纸</small>
+                                </div>
+                            `}
                         </div>
                     </div>
                     <div class="settings-section">
@@ -34984,12 +35988,12 @@
                         <h4>${t('settings_dark_mode')}</h4>
                         <div class="settings-row">
                             <span>${t('settings_dark_mode_enable')}</span>
-                            <div class="toggle-switch ${s.darkMode ? 'active' : ''}" onclick="toggleExtraSetting('darkMode')"></div>
+                            <div class="toggle-switch ${_es.darkMode ? 'active' : ''}" data-extra="darkMode" onclick="toggleExtraSetting('darkMode')"></div>
                         </div>
                         <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:6px;">${t('settings_dark_mode_desc')}</div>
                         <div class="settings-row" style="margin-top:14px;">
                             <span><i class="fas fa-clock" style="margin-right:6px;"></i>系统随时间改变</span>
-                            <div class="toggle-switch ${(getUserLS('extraSettings') || {}).autoDarkMode ? 'active' : ''}" onclick="this.classList.toggle('active'); toggleExtraSetting('autoDarkMode');"></div>
+                            <div class="toggle-switch ${_es.autoDarkMode ? 'active' : ''}" data-extra="autoDarkMode" onclick="toggleExtraSetting('autoDarkMode')"></div>
                         </div>
                         <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:6px;">开启后，系统会在晚上（19:00-7:00）自动切换到深色模式，白天自动换回浅色模式。</div>
                     </div>
@@ -35713,8 +36717,9 @@
         // 桌面元素与壁纸协同淡入淡出
         switchWallpaperWithFade(() => { applyUserSettings(); });
         renderSettingsPanel();
-        const _thName = { abstract: '抽象艺术', island: '海岛假日' };
-        showNotification('主题已切换', '已切换到' + (_thName[theme] || '新主题'), 'success');
+        // 主题名统一查 N26_THEME_INFO，加新分类不用再来改这张表
+        const _thName = (N26_THEME_INFO[theme] || {}).name || '新主题';
+        showNotification('主题已切换', '已切换到' + _thName, 'success');
     }
 
     function setAccentColor(color) {
@@ -37129,12 +38134,12 @@
                     <div class="settings-section">
                         <div class="settings-row">
                             <span>深色模式</span>
-                            <div class="toggle-switch ${s.darkMode ? 'active' : ''}" onclick="toggleExtraSetting('darkMode')"></div>
+                            <div class="toggle-switch ${s.darkMode ? 'active' : ''}" data-extra="darkMode" onclick="toggleExtraSetting('darkMode')"></div>
                         </div>
                         <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:8px;">开启后系统界面切换为深色背景+白色文字的液态玻璃风格</div>
                         <div class="settings-row" style="margin-top:10px;">
                             <span><i class="fas fa-clock" style="margin-right:6px;"></i>系统随时间改变</span>
-                            <div class="toggle-switch ${s.autoDarkMode ? 'active' : ''}" onclick="toggleExtraSetting('autoDarkMode')"></div>
+                            <div class="toggle-switch ${s.autoDarkMode ? 'active' : ''}" data-extra="autoDarkMode" onclick="toggleExtraSetting('autoDarkMode')"></div>
                         </div>
                         <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:8px;">晚上（19:00-7:00）自动开启深色模式，白天自动换回浅色模式</div>
                     </div>
@@ -37262,6 +38267,12 @@
         setUserLS('extraSettings', s);
         applyExtraSettings();
         renderExtraPanel();
+        /* ★ v2.9.49：设置面板里同名的开关必须同步视觉。
+           以前 toggleExtraSetting 只重渲染 extraPanel，个性化页里那两个开关
+           （深色模式 / 系统随时间改变）点了永远是原样 —— 功能生效了，开关不动。 */
+        document.querySelectorAll('.settings-panel .toggle-switch[data-extra="' + key + '"]').forEach(function (el) {
+            el.classList.toggle('active', !!s[key]);
+        });
         if (key === 'showFPS') toggleFPSOverlay(s[key]);
         if (key === 'perfMonitor') togglePerfMonitor(s[key]);
     }
@@ -39515,7 +40526,7 @@
     /* ---------- ⑤ 壁纸推荐：本地墙纸画廊 ---------- */
     function renderWallpaperPickWidget(settings) {
         const pool = (typeof N26_WALLPAPERS !== 'undefined')
-            ? N26_WALLPAPERS.abstract.concat(N26_WALLPAPERS.island) : [];
+            ? N26_WALLPAPERS.abstract.concat(N26_WALLPAPERS.island, N26_WALLPAPERS.minecraft, N26_WALLPAPERS.cleanlight) : [];
         const picks = pool.slice(0, 12);
         const cards = picks.map((src, i) =>
             '<div class="w-wp-item" onclick="n26WallpaperPick(event,' + i + ')" style="background-image:url(\'' + src + '\')">'
@@ -39528,7 +40539,7 @@
     function n26WallpaperPool() {
         if (N26_WP_CACHE) return N26_WP_CACHE;
         N26_WP_CACHE = (typeof N26_WALLPAPERS !== 'undefined')
-            ? N26_WALLPAPERS.abstract.concat(N26_WALLPAPERS.island) : [];
+            ? N26_WALLPAPERS.abstract.concat(N26_WALLPAPERS.island, N26_WALLPAPERS.minecraft, N26_WALLPAPERS.cleanlight) : [];
         return N26_WP_CACHE;
     }
     function n26WallpaperPick(e, i) {
@@ -42890,6 +43901,7 @@
         { id: 'alarm', name: '闹钟', icon: 'fa-clock', color: '#fbbf24', category: '工具', type: 'ui', url: null, downloads: '4.2亿', desc: '闹钟和倒计时，支持多个闹钟。', longDesc: '闹钟应用，支持多个闹钟设置、重复闹钟、贪睡模式和倒计时功能。支持自定义铃声和振动提醒。' },
         { id: 'game2048', name: '休闲小游戏', icon: 'fa-gamepad', color: '#8b5cf6', category: '游戏', type: 'ui', url: null, downloads: '6700万', desc: '内置休闲小游戏合集。', longDesc: '休闲小游戏合集，包含 2048、贪吃蛇、俄罗斯方块等多种经典小游戏。消磨时间的最佳选择。' },
         { id: 'git', name: 'Git', icon: 'fa-code-branch', color: '#f05032', category: '开发', type: 'ui', url: null, downloads: '950万', desc: 'Git 版本管理工具。', longDesc: 'Git 版本管理应用，支持提交、分支、合并、历史查看。可视化分支树和差异对比，开发者必备工具。' },
+        { id: 'necta', name: 'Necta 远程桌面', icon: 'fa-tower-broadcast', color: '#2ee6d0', category: '系统', type: 'ui', url: null, downloads: '—', desc: '不用登录、不留账号：从浏览器接管另一台电脑，或把你这套桌面共享给别人。', longDesc: 'Necta 是小方工作室的远程桌面。两条路：① 连接装了被控端的电脑（ID + 临时密码配对，不注册、不上传画面）；② 共享你的 Nexus OS 桌面——别人用浏览器打开就能看到你的窗口布局并跟着操作，传的是状态不是像素，几 KB/s。自带 iOS 风格磁贴控制中心：画质、帧率、显示器、音量、隐私屏、录制一屏切完，磁贴可拖动重排、长按展开。' },
         { id: 'float', name: 'Float IDE', icon: 'fa-code', color: '#0e7490', category: '开发', type: 'ui', url: null, downloads: '9600万', desc: 'CW Script 专用 IDE：补全、调试、真编译执行。', longDesc: 'Float IDE 是小方工作室自研的 CW Script 语言 IDE（对标 PyCharm）：Monaco 编辑器、智能补全、断点调试、变量面板、跨文件查找、Git 面板与整本学习中心。F5 编译执行，工程保存在本地，写完还能一键发布到 Nexus 应用商店。' },
         { id: 'calculator', name: '计算器', icon: 'fa-calculator', color: '#f59e0b', category: '工具', type: 'ui', downloads: '5000万', desc: '基础计算器，支持加减乘除运算。', longDesc: 'Nexus OS 26 基础计算器，支持加法、减法、乘法、除法运算，支持小数点，界面简洁易用。' },
         { id: 'taskmgr', name: '活动监视器', icon: 'fa-chart-line', color: '#ef4444', category: '工具', type: 'ui', url: null, downloads: '1.8亿', desc: '实时查看当前运行的应用与窗口，一键关闭卡住的程序。', longDesc: '活动监视器实时列出系统中打开的窗口与运行中的应用，展示窗口状态与资源占用概况，支持一键关闭失去响应的程序，是排查问题的好帮手。' },
@@ -43021,7 +44033,7 @@
         const id = (app && app.id) || '';
         const pack = (typeof getIconPack === 'function') ? getIconPack() : 'flat';
         // 品牌锁定：与 n26IconHTML 里的 N26_ALWAYS_DRAWN 保持同一份名单
-        const LOCKED = { agent: 1, fangclaw: 1, fangwork: 1, strata: 1, reelix: 1, studio: 1, float: 1, ide: 1 };
+        const LOCKED = { agent: 1, fangclaw: 1, fangwork: 1, strata: 1, reelix: 1, studio: 1, float: 1, ide: 1, necta: 1 };
         const drawnSrc = (typeof N26_APP_ICONS === 'object' && N26_APP_ICONS[id]) ? N26_APP_ICONS[id] : '';
         // ★ sz-96 之前没有对应尺寸类（详情页那个 96px 图标其实渲染成了字形大小），一并补上兜底
         const KNOWN = { 52: 1, 60: 1, 88: 1, 96: 1, 104: 1 };
@@ -44863,7 +45875,11 @@
             已有账号 → 提示"新账号 or 老账号登录"
        登录方式：账户名 / 账户号（7 位）/ UID（可定制，限改 3 次）+ 密码
        邮箱非必填，可后期绑定，用于忘记密码收验证码。 */
-    const N26_ACCOUNT_API = window.N26_ACCOUNT_API || '';   // 部署后填 Worker 地址，如 https://xxx.workers.dev
+    /* ★ v2.9.49：N26_ACCOUNT_API 已是废弃链路 —— 早期那套 /api/account/* 后端从未部署过，
+       调它只会得到「未配置账号后端地址」（用户看到的就是这句）。
+       账号功能已整体改走 n26Acc（文件前部的账号服务层，云端 /api/acc/* + 本地降级）。
+       下面这个常量和 n26AcctFetch 保留仅为兼容可能残留的调用点，不要再新增使用。 */
+    const N26_ACCOUNT_API = window.N26_ACCOUNT_API || '';
     let n26Account = null;
     let n26RegStep = 1;
 
@@ -44871,15 +45887,17 @@
        ★ 原来这四个函数在前端**一个都没有定义**，可注册第二步的「下一步：设密码」、
          账户名失焦提示、创建账号、忘记密码的「获取验证码」、重置密码全都在调它们 ——
          一点就 ReferenceError，注册流程根本走不完。这里按后端同一套正则补齐。 */
-    const N26_ACCOUNT_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{3,19}$/;   // 4-20 位，字母开头
+    /* ★ v2.9.49：规则跟后端 RE_ACCOUNT 对齐（2-20 位，中英文/数字/下划线/连字符）。
+       原来是「4-20 位且必须字母开头」，会把中文账户名挡在外面，而后端是收的 —— 两套规则不一致。 */
+    const N26_ACCOUNT_NAME_RE = /^[\u4e00-\u9fa5A-Za-z0-9_-]{2,20}$/;
     const N26_UID_RE = /^[A-Za-z0-9_]{3,16}$/;                    // UID：3-16 位字母/数字/下划线
     const N26_ACCOUNT_NO_RE = /^\d{7}$/;                          // 账户号：系统分配的 7 位数字
 
     function validateAccountName(v) {
         v = String(v || '').trim();
         if (!v) return '账户名不能为空（必填）';
-        if (v.length < 4 || v.length > 20) return '账户名需 4-20 位';
-        if (!N26_ACCOUNT_NAME_RE.test(v)) return '账户名只能含字母/数字/下划线，且以字母开头';
+        if (v.length < 2 || v.length > 20) return '账户名需 2-20 位';
+        if (!N26_ACCOUNT_NAME_RE.test(v)) return '账户名只能用中英文、数字、下划线或连字符（不能有空格）';
         return '';
     }
     function validateDisplayName(v) {
@@ -44964,12 +45982,17 @@
         return false;
     }
 
-    function n26OpenAccount(mode) {
+    async function n26OpenAccount(mode) {
         const ov = document.getElementById('n26AccountOverlay');
         if (!ov) return;
-        // 已有账号且是首次进入 → 先给"新账号 or 老账号"的选择提示
+        /* ★ v2.9.49：这里原来用浏览器 confirm()，在真系统里非常突兀。
+           换成系统自己的确认弹窗（和删除文件、退出账号那些是同一套）。 */
         if (!mode && n26HasLocalAccount()) {
-            const goNew = confirm('检测到这台设备已经创建过 Nexus 账号了。\n\n【确定】→ 创建新账号\n【取消】→ 用老账号登录');
+            const goNew = await nexusConfirm(
+                '这台设备已经有 Nexus 账号',
+                '要创建一个新账号，还是用已有的账号登录？',
+                { okText: '创建新账号', cancelText: '登录已有账号', okClass: 'primary', icon: 'fa-user-circle', iconBg: 'rgba(74,155,245,0.16)', iconColor: '#4A9BF5' }
+            );
             mode = goNew ? 'register' : 'login';
         }
         n26AcctSwitch(mode || 'login');
@@ -45020,58 +46043,24 @@
     }
     window.n26AcctSwitch = n26AcctSwitch;
 
-    // 注册分步：1=头像 2=账户名/用户名 3=密码+人机验证
+    /* ★ v2.9.49：注册不再分三步，字段一屏铺开（跟 OOBE 的注册面板一致）。
+       函数保留是因为 n26AcctSwitch('register') 还在调它，n26AcctRegNext 也还挂着。 */
     function n26AcctRegStep(n) {
-        n26RegStep = n;
+        n26RegStep = n || 1;
         const pane = document.getElementById('n26AcctPaneReg');
         if (!pane) return;
-        const groups = pane.querySelectorAll('.form-group');
-        // 0:账户名 1:用户名 2:密码 3:确认密码 4:邮箱
-        const show = { 1: [], 2: [0, 1], 3: [2, 3, 4] }[n] || [];
-        groups.forEach(function (g, i) { g.style.display = show.indexOf(i) !== -1 ? '' : 'none'; });
+        pane.querySelectorAll('.form-group').forEach(function (g) { g.style.display = ''; });
         const av = pane.querySelector('.n26acct-avatar-row');
-        if (av) av.style.display = (n === 1) ? '' : 'none';
-        const ts = document.getElementById('acctTurnstile');
-        if (ts) ts.style.display = (n === 3) ? '' : 'none';
+        if (av) av.style.display = '';
+        const nav = pane.querySelector('.n26acct-regnav');
+        if (nav) nav.remove();
         const staticRow = document.getElementById('n26AcctRegStaticRow');
-        if (staticRow) staticRow.style.display = 'none';   // 导航只留 regnav 一处
-
-        // 步骤按钮（下一步 / 上一步 / 创建）
-        let nav = pane.querySelector('.n26acct-regnav');
-        if (!nav) {
-            nav = document.createElement('div');
-            nav.className = 'n26acct-row n26acct-regnav';
-            pane.appendChild(nav);
-        }
-        if (n === 1) {
-            nav.innerHTML = '<button class="glass-btn primary n26acct-go" onclick="n26AcctRegNext(2)">下一步：填名字 <i class="fas fa-arrow-right"></i></button>';
-        } else if (n === 2) {
-            nav.innerHTML =
-                '<button class="glass-btn n26acct-mini" onclick="n26AcctRegStep(1)"><i class="fas fa-arrow-left"></i> 上一步</button>' +
-                '<button class="glass-btn primary n26acct-go" onclick="n26AcctRegNext(3)">下一步：设密码 <i class="fas fa-arrow-right"></i></button>';
-        } else {
-            nav.innerHTML =
-                '<button class="glass-btn n26acct-mini" onclick="n26AcctRegStep(2)"><i class="fas fa-arrow-left"></i> 上一步</button>' +
-                '<button class="glass-btn primary n26acct-go" onclick="n26AcctRegister()"><i class="fas fa-user-plus"></i> 创建账号</button>';
-        }
+        if (staticRow) staticRow.style.display = '';
     }
     window.n26AcctRegStep = n26AcctRegStep;
 
-    // 步骤 2 → 3 前先做前端校验（后端仍会再校验一次，双保险）
-    function n26AcctRegNext(n) {
-        if (n === 3) {
-            const an = (document.getElementById('acctRegName').value || '').trim();
-            const dn = (document.getElementById('acctRegDisplay').value || '').trim();
-            const e1 = validateAccountName(an);
-            const e2 = validateDisplayName(dn);
-            if (e1 || e2) {
-                const h = document.getElementById('acctNameHint');
-                if (h) { h.className = 'n26acct-hint bad'; h.textContent = e1 || e2; }
-                return;
-            }
-        }
-        n26AcctRegStep(n);
-    }
+    // 保留旧入口名（v2.9.49 已取消分步，直接铺平）
+    function n26AcctRegNext(n) { n26AcctRegStep(n); }
     window.n26AcctRegNext = n26AcctRegNext;
 
     // 账户名实时提示：是否可用（本地查已有账号列表，后端权威校验在提交时）
@@ -45093,106 +46082,107 @@
         if (!v || !h) return;
         const e = validateAccountName(v);
         if (e) { h.className = 'n26acct-hint bad'; h.textContent = e; return; }
-        if (!N26_ACCOUNT_API) { h.className = 'n26acct-hint wait'; h.textContent = '离线模式：仅本地账号'; return; }
-        n26AcctFetch('/api/account/check', { accountName: v }).then(function (r) {
-            if (r.ok && r.taken) { h.className = 'n26acct-hint bad'; h.textContent = '这个账户名已经被注册过了，换一个吧'; }
-            else if (r.ok) { h.className = 'n26acct-hint ok'; h.textContent = '账户名可用 ✓'; }
-            else { h.className = 'n26acct-hint wait'; h.textContent = '暂时无法校验（离线）'; }
+        h.className = 'n26acct-hint wait';
+        h.textContent = '正在校验是否已被占用…';
+        /* ★ v2.9.49：改走 n26Acc（与 OOBE、设置页同一套服务层）。
+           原来这里判断 N26_ACCOUNT_API —— 那个常量从没赋过值，永远走"离线模式"分支。 */
+        n26Acc.check({ accountName: v }).then(function (r) {
+            if (r && r.accountNameInvalid) { h.className = 'n26acct-hint bad'; h.textContent = '账户名格式不符合要求'; }
+            else if (r && r.accountNameTaken) { h.className = 'n26acct-hint bad'; h.textContent = '该账户名已被占用'; }
+            else { h.className = 'n26acct-hint ok'; h.textContent = '账户名可用 ✓' + (r && r.local ? '（本地校验）' : ''); }
+        }).catch(function () {
+            h.className = 'n26acct-hint wait';
+            h.textContent = '暂时无法校验，稍后再试';
         });
     }
     window.n26AcctCheckName = n26AcctCheckName;
 
     function n26AcctRegister() {
         const g = function (id) { const el = document.getElementById(id); return el ? el.value : ''; };
-        const draft = {
-            accountName: g('acctRegName').trim(),
-            displayName: g('acctRegDisplay').trim(),
-            password: g('acctRegPw'),
-            confirmPassword: g('acctRegPw2')
-        };
         const errEl = document.getElementById('acctRegErr');
-        const e = validateAccountName(draft.accountName) || validateDisplayName(draft.displayName) ||
-                  validatePassword(draft.password, draft.confirmPassword);
-        if (e) { if (errEl) errEl.textContent = e; return; }
-        draft.avatar = window.__n26RegAvatar || '';
-        draft.email = g('acctRegEmail').trim();
-        draft.turnstileToken = window.__n26TurnstileToken || '';
-        if (!N26_ACCOUNT_API) {
-            // 离线兜底：仍把账号写入本地，保证系统可用（后端就绪后自动走线上）
-            if (errEl) errEl.textContent = '';
-            try { n26AcctSaveLocal(draft); } catch (err) {}
-            if (typeof showNotification === 'function') showNotification('已创建本地账号', draft.displayName, 'success');
+        const name = g('acctRegName').trim();
+        const p1 = g('acctRegPw'), p2 = g('acctRegPw2');
+        const say = function (t) { if (errEl) errEl.textContent = t; };
+
+        const e = validateAccountName(name);
+        if (e) return say(e);
+        if (p1.length < 4) return say('账号密码至少 4 位');
+        if (p1 !== p2) return say('两次输入的密码不一致');
+
+        const btn = document.querySelector('#n26AcctPaneReg .n26acct-go');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 创建中…'; }
+        say('');
+
+        /* ★ v2.9.49：注册走 n26Acc（与 OOBE 完全同一条链路，同一套后端）。
+           原来的 /api/account/register + displayName + 邮箱 + 人机验证是另一套模型，
+           那条线上的 Worker 从来没部署过，点下去只会看到「未配置账号后端地址」。 */
+        n26Acc.register({
+            accountName: name,
+            pass: p1,
+            gender: g('acctRegGender') || 'secret',
+            birthday: g('acctRegBirthday') || ''
+        }).then(function (r) {
+            if (!r || !r.ok) throw new Error('注册失败');
+            n26Acc.setCurrent(r.account, r.token);
+            n26AccApplyToSystem(r.account);
+            // 头像：注册成功后再补写（register 不接受头像字段）
+            if (window.__n26RegAvatar) {
+                n26Acc.update({ avatar: window.__n26RegAvatar }).catch(function () { });
+            }
+            if (typeof n26AcctLoadFriends === 'function') { try { n26AcctLoadFriends(); } catch (e2) { } }
+            showNotification('账号已创建', 'UID ' + r.account.uid + ' · ID ' + (r.account.id || '') + (r.local ? '（本地账号，云端未连通）' : ''), 'success');
             n26CloseAccount();
-            return;
-        }
-        n26AcctFetch('/api/account/register', draft).then(function (r) {
-            if (!r.ok) { if (errEl) errEl.textContent = r.error || '注册失败'; return; }
-            n26Account = r.account; n26Account.token = r.token;
-            try { localStorage.setItem('nexusAccount', JSON.stringify(n26Account)); } catch (err) {}
-            if (typeof showNotification === 'function') showNotification('账号已创建', r.account.displayName + '（账户号 ' + r.account.accountNo + '）', 'success');
-            n26CloseAccount();
+            if (typeof n26AccRenderSettings === 'function') { try { n26AccRenderSettings(); } catch (e3) { } }
+        }).catch(function (err) {
+            say(n26AccErrMsg(err));
+        }).then(function () {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-user-plus"></i> 创建账号'; }
         });
     }
     window.n26AcctRegister = n26AcctRegister;
 
     function n26AcctLogin() {
         const g = function (id) { const el = document.getElementById(id); return el ? el.value : ''; };
-        const payload = { identifier: g('acctLoginId').trim(), password: g('acctLoginPw') };
+        const q = g('acctLoginId').trim(), p = g('acctLoginPw');
         const errEl = document.getElementById('acctLoginErr');
-        const idErr = n26ValidateLoginId(payload.identifier);
-        if (idErr) { if (errEl) errEl.textContent = idErr; return; }
-        if (!payload.password) { if (errEl) errEl.textContent = '请输入密码'; return; }
-        if (!N26_ACCOUNT_API) { if (errEl) errEl.textContent = '未配置账号后端地址'; return; }
-        n26AcctFetch('/api/account/login', payload).then(function (r) {
-            if (!r.ok) { if (errEl) errEl.textContent = r.error || '登录失败'; return; }
-            n26Account = r.account; n26Account.token = r.token;
-            try { localStorage.setItem('nexusAccount', JSON.stringify(n26Account)); } catch (err) {}
-            if (typeof showNotification === 'function') showNotification('已登录', r.account.displayName, 'success');
+        const say = function (t) { if (errEl) errEl.textContent = t; };
+        if (!q) return say('请输入账户名 / UID / ID 号');
+        if (!p) return say('请输入密码');
+
+        const btn = document.querySelector('#n26AcctPaneLogin .n26acct-go');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 登录中…'; }
+        say('');
+
+        n26Acc.login({ q: q, pass: p }).then(function (r) {
+            if (!r || !r.ok) throw new Error('登录失败');
+            n26Acc.setCurrent(r.account, r.token);
+            n26AccApplyToSystem(r.account);
+            showNotification('已登录', r.account.userName || r.account.accountName, 'success');
             n26CloseAccount();
+            if (typeof n26AccRenderSettings === 'function') { try { n26AccRenderSettings(); } catch (e2) { } }
+        }).catch(function (err) {
+            say(n26AccErrMsg(err));
+        }).then(function () {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-right-to-bracket"></i> 登录'; }
         });
     }
     window.n26AcctLogin = n26AcctLogin;
 
+    /* ★ v2.9.49：邮箱验证码 / 自助重置密码这两条路撤掉了。
+       它们靠的是「绑定邮箱 + 后端发信」，现在后端没有邮件服务，点下去只会报未配置。
+       改密码统一走 设置 → 账户 → 账号密码（验原密码）。函数名保留，避免老调用点报错。 */
     function n26AcctSendCode() {
-        if (_n26CodeLeft > 0) return;                 // 倒计时中，别再打后端
-        const email = (document.getElementById('acctFpEmail').value || '').trim();
         const errEl = document.getElementById('acctFpErr');
-        if (!isEmail(email)) { if (errEl) errEl.textContent = '请输入有效邮箱'; return; }
-        if (!N26_ACCOUNT_API) { if (errEl) errEl.textContent = '未配置账号后端地址'; return; }
-        n26StartCodeCooldown(60);                     // 先锁按钮，避免连点把额度刷爆
-        n26AcctFetch('/api/email/send-code', { email: email, turnstileToken: window.__n26TurnstileToken || '' })
-            .then(function (r) {
-                if (!r.ok) {
-                    // 失败要把倒计时放开，否则用户被自己锁 60 秒
-                    _n26CodeLeft = 0;
-                    if (errEl) errEl.textContent = r.error || '发送失败';
-                    return;
-                }
-                if (r.sent) { if (errEl) errEl.textContent = ''; showNotification('验证码已发送', '请查收 ' + email, 'success'); }
-                else if (r.debugCode) { if (errEl) errEl.textContent = '调试验证码：' + r.debugCode; }
-            });
+        if (errEl) errEl.textContent = '当前版本未开启邮箱服务。改密码请去 设置 → 账户。';
     }
     window.n26AcctSendCode = n26AcctSendCode;
 
     function n26AcctResetPw() {
-        const g = function (id) { const el = document.getElementById(id); return el ? el.value : ''; };
-        const email = g('acctFpEmail').trim(), code = g('acctFpCode').trim();
-        const p1 = g('acctFpPw'), p2 = g('acctFpPw2');
         const errEl = document.getElementById('acctFpErr');
-        const e = validatePassword(p1, p2);
-        if (!isEmail(email)) { if (errEl) errEl.textContent = '请输入有效邮箱'; return; }
-        if (!code) { if (errEl) errEl.textContent = '请输入验证码'; return; }
-        if (e) { if (errEl) errEl.textContent = e; return; }
-        if (!N26_ACCOUNT_API) { if (errEl) errEl.textContent = '未配置账号后端地址'; return; }
-        n26AcctFetch('/api/account/reset-password', { email: email, code: code, password: p1, confirmPassword: p2 })
-            .then(function (r) {
-                if (!r.ok) { if (errEl) errEl.textContent = r.error || '重置失败'; return; }
-                if (errEl) errEl.textContent = '';
-                showNotification('密码已重置', '去用新密码登录吧', 'success');
-                n26AcctSwitch('login');
-            });
+        if (errEl) errEl.textContent = '当前版本未开启邮箱服务。改密码请去 设置 → 账户。';
     }
     window.n26AcctResetPw = n26AcctResetPw;
+
 
     // 头像：上传 / 随机
     function n26AcctPickAvatar(input) {
@@ -45267,24 +46257,39 @@
     }
     window.n26AcctSaveLocal = n26AcctSaveLocal;
 
+    /* ★ v2.9.47：加好友支持三种方式 —— 账户名 / UID / ID 号。
+       统一走 n26Acc.lookup（云端可用就问云端，不可用查本地账号库），
+       拿到后连同基础信息（用户名、UID、ID、性别、生日、头像）一起存进好友表。 */
     function n26AcctAddFriend() {
-        const id = (document.getElementById('acctFriendId').value || '').trim();
-        const errEl = document.getElementById('acctFpErr');
-        if (!id) return;
-        if (!N26_ACCOUNT_API) {
-            // 离线：本地好友表
+        const q = (document.getElementById('acctFriendId').value || '').trim();
+        const msg = document.getElementById('acctFriendMsg');
+        function say(t, ok) {
+            if (msg) { msg.style.color = ok ? '#166534' : '#b3261e'; msg.textContent = t; }
+        }
+        if (!q) return say('请输入对方的账户名、UID 或 ID 号', false);
+
+        say('正在查找…', true);
+        n26Acc.lookup(q).then(function (r) {
+            if (!r || !r.found) { say('没找到这个人：请确认账户名 / UID / ID 号是否写对了', false); return; }
+            const u = r.user;
             let fr = [];
             try { fr = JSON.parse(localStorage.getItem('nexusFriends') || '[]'); } catch (e) { fr = []; }
-            if (fr.indexOf(id) === -1) fr.push(id);
-            try { localStorage.setItem('nexusFriends', JSON.stringify(fr)); } catch (e) {}
+            // 老版本存的是纯字符串，这里统一成对象
+            fr = fr.map(function (x) { return typeof x === 'string' ? { accountName: x } : x; });
+            const exists = fr.some(function (f) { return f.uid && f.uid === u.uid; });
+            if (!exists) {
+                fr.push({
+                    accountName: u.accountName, userName: u.userName, uid: u.uid, id: u.id,
+                    gender: u.gender || 'secret', birthday: u.birthday || '', avatar: u.avatar || '',
+                    addedAt: Date.now()
+                });
+                try { localStorage.setItem('nexusFriends', JSON.stringify(fr)); } catch (e) { }
+            }
+            say(exists ? ('已经是好友了：' + u.userName) : ('已添加：' + u.userName + '（UID ' + u.uid + '）'), true);
             n26AcctLoadFriends();
-            showNotification('已添加', id, 'success');
-            return;
-        }
-        n26AcctFetch('/api/friend/add', { identifier: id }).then(function (r) {
-            if (!r.ok) { if (errEl) errEl.textContent = r.error || '添加失败'; return; }
-            showNotification('已添加好友', r.friend.displayName, 'success');
-            n26AcctLoadFriends();
+            showNotification('已添加好友', u.userName + ' · ' + (u.id || u.uid), 'success');
+        }).catch(function (e) {
+            say(n26AccErrMsg(e), false);
         });
     }
     window.n26AcctAddFriend = n26AcctAddFriend;
@@ -45292,33 +46297,35 @@
     function n26AcctLoadFriends() {
         const box = document.getElementById('acctFriendList');
         if (!box) return;
-        if (!N26_ACCOUNT_API) {
-            let fr = [];
-            try { fr = JSON.parse(localStorage.getItem('nexusFriends') || '[]'); } catch (e) { fr = []; }
-            box.innerHTML = fr.length
-                ? fr.map(function (f) { return '<div class="n26acct-friend"><div class="av">N</div><div class="meta"><b>' + f + '</b><small>本地好友</small></div></div>'; }).join('')
-                : '<div class="form-hint">还没有好友，输入对方的账户名或 UID 添加吧</div>';
+        /* ★ v2.9.49：好友列表只读本机好友表（加好友时已经通过 n26Acc.lookup 拿到对方基础信息并存下来了）。
+           原来还有一条 /api/friend/list 的线上分支，但那个接口在后端不存在，走不通。 */
+        let fr = [];
+        try { fr = JSON.parse(localStorage.getItem('nexusFriends') || '[]'); } catch (e) { fr = []; }
+        fr = fr.map(function (x) { return typeof x === 'string' ? { accountName: x } : x; });
+        if (!fr.length) {
+            box.innerHTML = '<div class="form-hint">还没有好友。输入对方的账户名、UID 或 ID 号就能加。</div>';
             return;
         }
-        n26AcctFetch('/api/friend/list', {}).then(function (r) {
-            if (!r.ok) return;
-            box.innerHTML = (r.friends || []).map(function (f) {
-                return '<div class="n26acct-friend"><div class="av">' +
-                    (f.avatar ? '<img src="' + f.avatar + '" alt="">' : 'N') +
-                    '</div><div class="meta"><b>' + (f.displayName || f.accountName) +
-                    '</b><small>UID ' + f.uid + ' · 账户号 ' + f.accountNo + '</small></div></div>';
-            }).join('');
-            if (!(r.friends || []).length) {
-                box.innerHTML = '<div class="form-hint">还没有好友，输入对方的账户名或 UID 添加吧</div>';
-            }
-        });
+        const gTxt = { male: '男', female: '女', secret: '保密' };
+        box.innerHTML = fr.map(function (f) {
+            const nm = f.userName || f.accountName || '未命名';
+            const line2 = [f.uid ? ('UID ' + f.uid) : '', f.id ? ('ID ' + f.id) : ''].filter(Boolean).join(' · ');
+            const extra = [gTxt[f.gender] || '保密', f.birthday || '生日保密'].join(' · ');
+            const av = f.avatar
+                ? '<img src="' + f.avatar + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\'">'
+                : nm.charAt(0).toUpperCase();
+            return '<div class="n26acct-friend"><div class="av">' + av + '</div>'
+                + '<div class="meta"><b>' + nm + '</b>'
+                + '<small>' + (line2 || '本地好友') + '</small>'
+                + '<small style="opacity:.55;">' + extra + '</small></div></div>';
+        }).join('');
     }
     window.n26AcctLoadFriends = n26AcctLoadFriends;
 
-    // 启动时恢复登录态
+    // 启动时恢复登录态（★ v2.9.49：统一读 n26Acc 的当前账号，不再用旧的 nexusAccount 键）
     try {
-        const saved = JSON.parse(localStorage.getItem('nexusAccount') || 'null');
-        if (saved && saved.id) n26Account = saved;
+        const cur = (typeof n26Acc !== 'undefined' && n26Acc.current) ? n26Acc.current() : null;
+        if (cur) n26Account = Object.assign({}, cur, { id: cur.id || cur.uid });
     } catch (e) {}
     window.n26GetAccount = function () { return n26Account; };
 
@@ -45586,7 +46593,7 @@
 
     // ==================== 账户管理弹窗 ====================
     /* 版本号唯一来源：更新日志里最新那条必须和这里一致，关于本机 / 控制中心 / 本机账户设置都读它 */
-    const NEXUS_OS_VERSION = 'v2.9.45';
+    const NEXUS_OS_VERSION = 'v2.9.49';
     const NEXUS_OS_BUILD_DATE = '2026-10-30';
 
     function openAccountModal() {

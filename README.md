@@ -169,6 +169,8 @@ python -m http.server 8080
 - 🧰 **本地桥接工具**：`tools/nexus-bridge.ps1` / `.py` + 一键启动脚本（`启动本地桥-Start-Bridge.bat`）——跨机器部署时打通系统能力
 - 📦 **vendor 库全部落盘**：three.js / html2canvas / fontawesome（含 webfonts），断网也能跑
 - 🖼️ **图片 / 音乐 / 视频 / 天气应用继续增强**，新增 `vm-os1` 虚拟系统入口
+- 🧩 **Necta 应用上线**（`apps/necta/`）+ 品牌图标
+- 🖼️ 新增「清新光影」「我的世界」系列壁纸
 - 📋 新增《部署与跨机器运行说明.md》——换机器怎么跑、路径怎么改，照着做就行
 
 ---

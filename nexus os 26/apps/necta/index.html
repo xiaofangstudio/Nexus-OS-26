@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Necta 远程桌面</title>
+<script src="../_bridge.js"></script>
+<script src="../_app.js"></script>
+<style>
+/* ==========================================================================
+   Necta · 远程桌面（小方工作室）
+   --------------------------------------------------------------------------
+   按《远程软件规划-Necta.md》实现：
+     · 形态 A：连接装了 agent 的电脑（本机回环用屏幕捕获真出画面）
+     · 形态 B：共享 Nexus OS 会话（状态同步，不传像素）
+     · 控制中心：iOS 磁贴网格（360px / 4 列 / 长按展开 / 拖动重排 / 键盘可操作）
+   变量统一带 --nt- 前缀，防 fangUI tokens.css 的 --bg/--text 撞名覆盖。
+   ========================================================================== */
+:root {
+  --nt-bg: #0b1016;
+  --nt-panel: rgba(18, 24, 32, 0.72);
+  --nt-card: rgba(255, 255, 255, 0.06);
+  --nt-card-hi: rgba(255, 255, 255, 0.12);
+  --nt-line: rgba(255, 255, 255, 0.10);
+  --nt-text: #eaf2f8;
+  --nt-sub: rgba(234, 242, 248, 0.58);
+  --nt-faint: rgba(234, 242, 248, 0.34);
+  --nt-accent: #2ee6d0;
+  --nt-accent-2: #0e9aa7;
+  --nt-danger: #ff6b6b;
+  --nt-ok: #4ade80;
+  --nt-warn: #fbbf24;
+  --nt-relay: #c084fc;
+  --nt-ease-ios: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --nt-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--nt-bg);
+  color: var(--nt-text);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+button { font-family: inherit; }
+
+/* ── 视图切换 ── */
+.nt-view { position: absolute; inset: 0; display: none; flex-direction: column; }
+.nt-view.on { display: flex; }
+
+/* ══════════════════════════ 首页 ══════════════════════════ */
+#ntHome {
+  background:
+    radial-gradient(900px 520px at 12% -10%, rgba(46, 230, 208, 0.16), transparent 62%),
+    radial-gradient(760px 460px at 100% 108%, rgba(14, 154, 167, 0.16), transparent 60%),
+    linear-gradient(160deg, #0c1218, #070b10);
+  padding: 22px 26px 18px;
+  overflow-y: auto;
+}
+.nt-topbar { display: flex; align-items: center; gap: 12px; flex: none; margin-bottom: 18px; }
+.nt-brand { display: flex; align-items: center; gap: 10px; }
+.nt-brand img { width: 30px; height: 30px; border-radius: 9px; }
+.nt-brand b { font-size: 16px; font-weight: 800; letter-spacing: 0.3px; }
+.nt-brand span { font-size: 11px; color: var(--nt-faint); margin-left: 2px; }
+.nt-topbar .sp { margin-left: auto; }
+.nt-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: 999px;
+  border: 1px solid var(--nt-line); background: rgba(255, 255, 255, 0.05);
+  font-size: 11.5px; color: var(--nt-sub);
+}
+.nt-pill.ok { color: #86efac; border-color: rgba(74, 222, 128, 0.35); background: rgba(74, 222, 128, 0.10); }
+.nt-pill.warn { color: #fcd34d; border-color: rgba(251, 191, 36, 0.35); background: rgba(251, 191, 36, 0.10); }
+.nt-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+.nt-grid-home { display: grid; grid-template-columns: 1.05fr 1fr; gap: 14px; align-items: start; }
+@media (max-width: 860px) { .nt-grid-home { grid-template-columns: 1fr; } }
+
+.nt-card {
+  border-radius: 20px;
+  border: 1px solid var(--nt-line);
+  background: var(--nt-card);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  padding: 16px 18px;
+}
+.nt-card h4 {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
+  color: var(--nt-sub); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 7px;
+}
+.nt-card h4 i { font-size: 11.5px; opacity: 0.8; }
+
+/* 本机 ID 卡 */
+.nt-idrow { display: flex; align-items: flex-end; gap: 12px; }
+.nt-id {
+  font-size: 34px; font-weight: 800; letter-spacing: 4px;
+  font-variant-numeric: tabular-nums;
+  color: #fff; line-height: 1;
+  text-shadow: 0 0 26px rgba(46, 230, 208, 0.35);
+}
+.nt-id-sub { font-size: 10.5px; color: var(--nt-faint); margin-top: 6px; letter-spacing: 0.2px; }
+.nt-idbtns { margin-left: auto; display: flex; gap: 6px; }
+.nt-mini {
+  border: 1px solid var(--nt-line); background: rgba(255, 255, 255, 0.06);
+  color: var(--nt-text); border-radius: 9px; padding: 6px 10px;
+  font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+  transition: background 0.16s ease;
+}
+.nt-mini:hover { background: rgba(255, 255, 255, 0.14); }
+.nt-mini:active { scale: 0.96; }
+
+.nt-passline {
+  margin-top: 14px; display: flex; align-items: center; gap: 10px;
+  padding: 11px 13px; border-radius: 14px;
+  background: rgba(46, 230, 208, 0.07); border: 1px solid rgba(46, 230, 208, 0.20);
+}
+.nt-passline .lb { font-size: 11px; color: var(--nt-sub); }
+.nt-pass {
+  font-size: 20px; font-weight: 800; letter-spacing: 3px;
+  font-variant-numeric: tabular-nums; color: var(--nt-accent);
+}
+.nt-passline .sp { margin-left: auto; }
+.nt-hint { font-size: 10.5px; color: var(--nt-faint); line-height: 1.7; margin-top: 8px; }
+
+/* 连接卡 */
+.nt-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 11px; }
+.nt-field label { font-size: 11px; color: var(--nt-sub); }
+.nt-input {
+  width: 100%; padding: 11px 13px; border-radius: 12px;
+  border: 1px solid var(--nt-line); background: rgba(0, 0, 0, 0.28);
+  color: var(--nt-text); font-size: 14px; font-family: inherit;
+  letter-spacing: 1.5px; font-variant-numeric: tabular-nums;
+  outline: none; transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+.nt-input::placeholder { color: rgba(234, 242, 248, 0.28); letter-spacing: 0.5px; }
+.nt-input:focus { border-color: rgba(46, 230, 208, 0.55); box-shadow: 0 0 0 3px rgba(46, 230, 208, 0.14); }
+.nt-connect {
+  width: 100%; padding: 12px; border: 0; border-radius: 13px;
+  background: linear-gradient(135deg, #2ee6d0, #0e9aa7);
+  color: #04222a; font-size: 14px; font-weight: 800; letter-spacing: 0.5px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  box-shadow: 0 8px 24px rgba(14, 154, 167, 0.32);
+  transition: filter 0.18s ease, box-shadow 0.18s ease, scale 0.18s ease;
+}
+.nt-connect:hover { filter: brightness(1.06); box-shadow: 0 10px 30px rgba(14, 154, 167, 0.42); }
+.nt-connect:active { scale: 0.985; }
+.nt-connect.ghost {
+  background: rgba(255, 255, 255, 0.06); color: var(--nt-text);
+  border: 1px solid var(--nt-line); box-shadow: none;
+}
+.nt-connect.ghost:hover { background: rgba(255, 255, 255, 0.12); }
+
+/* 最近设备 */
+.nt-recents { display: flex; flex-direction: column; gap: 7px; max-height: 168px; overflow-y: auto; }
+.nt-recent {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 11px; border-radius: 13px;
+  background: rgba(255, 255, 255, 0.04); border: 1px solid transparent;
+  cursor: pointer; transition: background 0.16s ease, border-color 0.16s ease;
+}
+.nt-recent:hover { background: rgba(255, 255, 255, 0.10); border-color: var(--nt-line); }
+.nt-recent .ic {
+  width: 30px; height: 30px; border-radius: 9px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(140deg, rgba(46, 230, 208, 0.24), rgba(14, 154, 167, 0.20));
+  color: var(--nt-accent); font-size: 12.5px;
+}
+.nt-recent .tx { min-width: 0; flex: 1; }
+.nt-recent .tx b { display: block; font-size: 12.5px; font-weight: 700; }
+.nt-recent .tx small { display: block; font-size: 10.5px; color: var(--nt-faint); margin-top: 1px; }
+.nt-empty {
+  padding: 22px 10px; text-align: center; font-size: 12px;
+  color: var(--nt-faint); line-height: 1.8;
+}
+
+/* ══════════════════════════ 会话视图 ══════════════════════════ */
+#ntSession { background: #05080c; }
+
+.nt-sbar {
+  flex: none; height: 34px; display: flex; align-items: center; gap: 10px;
+  padding: 0 12px; background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--nt-line);
+  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  position: relative; z-index: 20;
+  cursor: grab;
+}
+.nt-sbar:active { cursor: grabbing; }
+.nt-sbar .who { font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+.nt-sbar .who .lv { width: 7px; height: 7px; border-radius: 50%; background: var(--nt-ok); box-shadow: 0 0 8px currentColor; }
+.nt-sbar .who .lv.relay { background: var(--nt-relay); }
+.nt-sbar .who .lv.bad { background: var(--nt-danger); }
+.nt-sbar .stat { font-size: 11px; color: var(--nt-sub); font-variant-numeric: tabular-nums; display: flex; gap: 10px; }
+.nt-sbar .stat b { color: var(--nt-text); font-weight: 650; }
+.nt-sbar .sp { margin-left: auto; }
+.nt-sbar .nt-mini { padding: 4px 9px; font-size: 11px; }
+
+/* 画面区 */
+.nt-stage {
+  flex: 1 1 0; min-height: 0; position: relative;
+  background:
+    radial-gradient(700px 420px at 50% 0%, rgba(46, 230, 208, 0.06), transparent 60%),
+    #05080c;
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.nt-stage video, .nt-stage canvas {
+  max-width: 100%; max-height: 100%;
+  display: block; object-fit: contain;
+  border-radius: 8px;
+}
+.nt-mirror {
+  position: relative; width: 100%; height: 100%;
+  overflow: hidden;
+}
+/* 镜像里的“远程窗口”方块 */
+.nt-mwin {
+  position: absolute; border-radius: 10px; overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(24, 32, 44, 0.72);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+  transition: left 0.22s var(--nt-ease-out), top 0.22s var(--nt-ease-out),
+              width 0.22s var(--nt-ease-out), height 0.22s var(--nt-ease-out);
+  cursor: default;
+}
+.nt-mwin .bar {
+  height: 18px; display: flex; align-items: center; gap: 5px; padding: 0 6px;
+  background: rgba(255, 255, 255, 0.08); font-size: 9px; color: rgba(255, 255, 255, 0.72);
+}
+.nt-mwin .bar .d { width: 5px; height: 5px; border-radius: 50%; background: rgba(255, 255, 255, 0.35); }
+.nt-mwin .body {
+  position: absolute; inset: 18px 0 0; padding: 8px;
+  font-size: 10px; color: rgba(255, 255, 255, 0.42);
+  background: linear-gradient(160deg, rgba(46, 230, 208, 0.08), transparent 60%);
+}
+.nt-mwin.min { opacity: 0.4; }
+.nt-mirror .laser {
+  position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px;
+  border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255,255,255,0.95), rgba(46,230,208,0.35) 55%, transparent 72%);
+  box-shadow: 0 0 14px rgba(46, 230, 208, 0.8);
+  transition: left 0.08s linear, top 0.08s linear;
+}
+.nt-stage-empty {
+  text-align: center; color: var(--nt-faint); font-size: 12.5px; line-height: 2;
+  display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 30px;
+}
+.nt-stage-empty i { font-size: 34px; opacity: 0.4; }
+
+/* 只读/协作角标 */
+.nt-mode-badge {
+  position: absolute; left: 12px; top: 12px; z-index: 6;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: 999px; font-size: 11px; font-weight: 650;
+  background: rgba(10, 20, 28, 0.62); border: 1px solid var(--nt-line);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  color: var(--nt-sub);
+}
+
+/* ══════════════════════════ 悬浮球 ══════════════════════════ */
+.nt-orb {
+  position: absolute; right: 18px; top: 18px; z-index: 40;
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(12, 20, 28, 0.52);
+  -webkit-backdrop-filter: blur(14px) saturate(170%);
+  backdrop-filter: blur(14px) saturate(170%);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: #dff8f4; font-size: 12px;
+  transition: opacity 0.4s ease, transform 0.24s var(--nt-ease-ios), background 0.2s ease;
+  touch-action: none;
+}
+.nt-orb:hover { background: rgba(24, 42, 54, 0.72); transform: scale(1.08); }
+.nt-orb.idle { opacity: 0.25; }
+.nt-orb.rec::after {
+  content: ''; position: absolute; inset: -4px; border-radius: 50%;
+  border: 2px solid rgba(255, 90, 90, 0.85);
+  animation: ntRecPulse 1.6s ease-in-out infinite;
+}
+@keyframes ntRecPulse {
+  0%, 100% { opacity: 0.9; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(1.12); }
+}
+
+/* ══════════════════════════ 控制中心（iOS 磁贴） ══════════════════════════ */
+.nt-cc {
+  position: absolute; z-index: 50;
+  width: 360px;
+  padding: 16px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.66);
+  -webkit-backdrop-filter: blur(40px) saturate(1.8);
+  backdrop-filter: blur(40px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  color: #0f1c26;
+  /* 从悬浮球位置展开：transform-origin 由 JS 按球的位置设 */
+  transform: scale(0.72);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.38s var(--nt-ease-ios), opacity 0.22s ease;
+  transform-origin: 100% 0%;
+  display: flex; flex-direction: column; gap: 12px;
+}
+body.nt-dark .nt-cc {
+  background: rgba(28, 30, 40, 0.62);
+  border-color: rgba(255, 255, 255, 0.10);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  color: #eef2f8;
+}
+.nt-cc.show { transform: scale(1); opacity: 1; pointer-events: auto; }
+
+.nt-cc-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.4px;
+  opacity: 0.72; padding: 0 2px 2px;
+}
+.nt-cc-head .sp { margin-left: auto; }
+.nt-cc-head .nt-cc-x {
+  width: 22px; height: 22px; border-radius: 50%; border: 0;
+  background: rgba(120, 130, 150, 0.18); color: inherit;
+  cursor: pointer; font-size: 10px; display: inline-flex; align-items: center; justify-content: center;
+}
+.nt-cc-head .nt-cc-x:hover { background: rgba(120, 130, 150, 0.32); }
+
+/* 4 列网格 */
+.nt-cc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.nt-tile {
+  position: relative;
+  min-height: 72px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.32);
+  color: inherit; text-align: left;
+  padding: 9px 10px;
+  cursor: pointer; font-family: inherit;
+  display: flex; flex-direction: column; justify-content: space-between;
+  transition: background 0.18s ease, transform 0.2s var(--nt-ease-ios), box-shadow 0.18s ease;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+body.nt-dark .nt-tile {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.nt-tile:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14); }
+.nt-tile:active { scale: 0.97; }
+/* 开 = 高亮玻璃；关 = 低透明灰玻璃（不用色相区分，跟 iOS 一致） */
+.nt-tile.on {
+  background: rgba(255, 255, 255, 0.66);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+body.nt-dark .nt-tile.on {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.nt-tile.w2 { grid-column: span 2; }
+.nt-tile.h2 { grid-row: span 2; min-height: 156px; }
+.nt-tile.w2.h2 { grid-column: span 2; grid-row: span 2; border-radius: 22px; }
+.nt-tile .tt {
+  font-size: 11.5px; font-weight: 650; line-height: 1.25;
+  display: flex; align-items: center; gap: 5px;
+  opacity: 0.9;
+}
+.nt-tile .tt i { font-size: 11px; opacity: 0.85; }
+.nt-tile .tv {
+  font-size: 15px; font-weight: 750;
+  font-variant-numeric: tabular-nums; line-height: 1.2;
+}
+.nt-tile .tv small { font-size: 10.5px; font-weight: 600; opacity: 0.6; margin-left: 2px; }
+.nt-tile .sub { font-size: 10px; opacity: 0.55; line-height: 1.4; margin-top: 1px; }
+.nt-tile.danger { color: #c22828; border-color: rgba(194, 40, 40, 0.28); background: rgba(255, 90, 90, 0.10); }
+body.nt-dark .nt-tile.danger { color: #ff8f8f; }
+.nt-tile.danger .tt, .nt-tile.danger .tv { opacity: 1; }
+/* 长按断开的进度环 */
+.nt-tile .holdring {
+  position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  opacity: 0;
+}
+.nt-tile.holding .holdring {
+  opacity: 1;
+  box-shadow: inset 0 0 0 2px rgba(255, 90, 90, 0.9);
+  animation: ntHold 1s linear forwards;
+}
+@keyframes ntHold { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+/* 断线态 */
+.nt-cc.offline .nt-tile { filter: grayscale(0.85); opacity: 0.55; }
+.nt-cc-offline {
+  display: none; align-items: center; gap: 7px;
+  padding: 8px 10px; border-radius: 12px; font-size: 11px;
+  background: rgba(255, 90, 90, 0.12); border: 1px solid rgba(255, 90, 90, 0.3);
+  color: #b3261e;
+}
+body.nt-dark .nt-cc-offline { color: #ffb4b4; }
+.nt-cc.offline .nt-cc-offline { display: flex; }
+
+/* 磁贴上的滑块（音量） */
+.nt-tslider {
+  position: relative; height: 14px; border-radius: 8px;
+  background: rgba(120, 130, 150, 0.28);
+  margin-top: 4px; overflow: hidden; cursor: pointer;
+}
+.nt-tslider .fill {
+  position: absolute; inset: 0 auto 0 0; width: 70%;
+  background: linear-gradient(90deg, #7ff0e2, #14a6b0);
+  border-radius: 8px;
+}
+.nt-tslider .knob {
+  position: absolute; top: 50%; left: 70%; width: 16px; height: 16px;
+  margin: -8px 0 0 -8px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
+/* 磁贴上的延迟色带 */
+.nt-tile .latbar { display: flex; gap: 2px; margin-top: 5px; }
+.nt-tile .latbar i {
+  flex: 1; height: 3px; border-radius: 2px; background: rgba(120, 130, 150, 0.25);
+}
+.nt-tile .latbar i.on { background: currentColor; }
+
+/* 长按展开成详情（原地放大） */
+.nt-tile.expanded {
+  position: absolute; z-index: 60;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.34);
+}
+body.nt-dark .nt-tile.expanded { background: rgba(40, 44, 56, 0.96); }
+
+/* ══════════════════════════ 通用浮层提示 ══════════════════════════ */
+.nt-toast {
+  position: absolute; left: 50%; bottom: 26px; transform: translate(-50%, 12px);
+  padding: 9px 16px; border-radius: 12px;
+  background: rgba(10, 18, 26, 0.92); color: #fff;
+  border: 1px solid var(--nt-line); font-size: 12px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s var(--nt-ease-ios);
+  z-index: 90; max-width: 80%; text-align: center; line-height: 1.6;
+}
+.nt-toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.16); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.28); }
+
+/* 窄窗口 / 小屏适配 */
+@media (max-width: 700px) {
+  #ntHome { padding: 16px; }
+  .nt-id { font-size: 26px; letter-spacing: 3px; }
+  .nt-cc { width: min(360px, calc(100vw - 24px)); }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ 首页：连接 / 本机 ID / 最近设备 ══════════════════ -->
+<div id="ntHome" class="nt-view on">
+  <div class="nt-topbar">
+    <div class="nt-brand">
+      <img src="../brand/necta.svg" alt="Necta" draggable="false">
+      <b>Necta</b><span>远程桌面</span>
+    </div>
+    <span class="sp"></span>
+    <span class="nt-pill" id="ntAgentPill"><i class="fas fa-circle nt-dot"></i> 被控端未运行</span>
+  </div>
+
+  <div class="nt-grid-home">
+    <!-- 左：本机 ID -->
+    <div>
+      <div class="nt-card">
+        <h4><i class="fas fa-fingerprint"></i> 本机 ID</h4>
+        <div class="nt-idrow">
+          <div>
+            <div class="nt-id" id="ntMyId">---------</div>
+            <div class="nt-id-sub">让对方在主控端输入这串数字</div>
+          </div>
+          <div class="nt-idbtns">
+            <button class="nt-mini" onclick="ntCopyId()"><i class="fas fa-copy"></i> 复制</button>
+            <button class="nt-mini" onclick="ntRefreshId()" title="重装前不会变，慎用"><i class="fas fa-rotate"></i></button>
+          </div>
+        </div>
+        <div class="nt-passline">
+          <span class="lb">临时密码</span>
+          <span class="nt-pass" id="ntMyPass">------</span>
+          <span class="sp"></span>
+          <button class="nt-mini" onclick="ntRefreshPass()"><i class="fas fa-rotate"></i> 换一个</button>
+        </div>
+        <div class="nt-hint">
+          每次会话随机生成，用完即弃；不注册账号、不上传画面。<br>
+          被别人连接时，本机会弹窗要求你点「允许」。
+        </div>
+      </div>
+
+      <div class="nt-card" style="margin-top:14px;">
+        <h4><i class="fas fa-clock-rotate-left"></i> 最近设备</h4>
+        <div class="nt-recents" id="ntRecents"></div>
+      </div>
+    </div>
+
+    <!-- 右：连接 / 共享 -->
+    <div>
+      <div class="nt-card">
+        <h4><i class="fas fa-plug-circle-bolt"></i> 远程连接</h4>
+        <div class="nt-field">
+          <label>对方 ID</label>
+          <input class="nt-input" id="ntPeerId" inputmode="numeric" maxlength="9" placeholder="9 位数字">
+        </div>
+        <div class="nt-field">
+          <label>密码</label>
+          <input class="nt-input" id="ntPeerPass" inputmode="numeric" maxlength="6" placeholder="6 位数字" type="password">
+        </div>
+        <button class="nt-connect" onclick="ntConnect()"><i class="fas fa-arrow-right-to-bracket"></i> 连接</button>
+        <div class="nt-hint" style="margin-top:10px;">
+          连别人装好被控端的机器；只装一边也能用——你只做主控端就不用装。
+        </div>
+      </div>
+
+      <div class="nt-card" style="margin-top:14px;">
+        <h4><i class="fas fa-display"></i> 共享我的 Nexus 桌面</h4>
+        <div class="nt-hint" style="margin-top:0;margin-bottom:11px;">
+          别人用浏览器打开链接，就能看到<b style="color:var(--nt-accent);">你这个桌面</b>的实时状态并跟着操作。
+          不传像素，只同步窗口状态，几 KB/s。
+        </div>
+        <button class="nt-connect ghost" onclick="ntStartShare()"><i class="fas fa-share-nodes"></i> 生成共享链接</button>
+        <button class="nt-connect ghost" style="margin-top:8px;" onclick="ntJoinShare()"><i class="fas fa-user-plus"></i> 加入别人的共享</button>
+      </div>
+
+      <div class="nt-card" style="margin-top:14px;">
+        <h4><i class="fas fa-video"></i> 本机画面自测</h4>
+        <div class="nt-hint" style="margin-top:0;margin-bottom:11px;">
+          用浏览器捕获本机屏幕，先确认画面链路、码率和控制中心都正常（输入注入要等被控端 agent）。
+        </div>
+        <button class="nt-connect ghost" onclick="ntLoopback()"><i class="fas fa-play"></i> 捕获本机屏幕</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ 会话视图：画面 + 悬浮球 + 控制中心 ══════════════════ -->
+<div id="ntSession" class="nt-view">
+  <div class="nt-sbar" id="ntSbar">
+    <div class="who"><span class="lv" id="ntSbarLv"></span><span id="ntSbarWho">未连接</span></div>
+    <div class="stat">
+      <span><b id="ntSbarLat">—</b> ms</span>
+      <span><b id="ntSbarFps">—</b> fps</span>
+      <span id="ntSbarCodec" style="opacity:.6;">—</span>
+    </div>
+    <span class="sp"></span>
+    <button class="nt-mini" onclick="ntEndSession()"><i class="fas fa-xmark"></i> 结束</button>
+  </div>
+
+  <div class="nt-stage" id="ntStage">
+    <div class="nt-stage-empty" id="ntStageEmpty">
+      <i class="fas fa-satellite-dish"></i>
+      <div>等待画面…</div>
+    </div>
+    <div class="nt-mode-badge" id="ntModeBadge" style="display:none;"></div>
+  </div>
+
+  <!-- 悬浮球 -->
+  <div class="nt-orb" id="ntOrb" title="控制中心（Ctrl+Shift+Space）"><i class="fas fa-sliders"></i></div>
+
+  <!-- 控制中心 -->
+  <div class="nt-cc" id="ntCC">
+    <div class="nt-cc-head">
+      <span>控制中心</span>
+      <span class="sp"></span>
+      <button class="nt-cc-x" onclick="ntCCToggle(false)" title="收起"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="nt-cc-offline" id="ntCCOffline"><i class="fas fa-plug-circle-xmark"></i> 连接中断 · 正在重连（第 1 次）</div>
+    <div class="nt-cc-grid" id="ntCCGrid"></div>
+  </div>
+</div>
+
+<div class="nt-toast" id="ntToast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
