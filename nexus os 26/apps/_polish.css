@@ -134,3 +134,41 @@ img.n26-app-img,
 [class*="appicon"],
 [class*="-logo"] img,
 .ag-logo img { corner-shape: squircle; }
+
+/* ==========================================================================
+   v2.9.42 全应用美化增量（依旧只做加法、依旧 :where 低特异性）
+   --------------------------------------------------------------------------
+   上一版底座把「细节」补齐了；这一版补的是「呼吸感」：
+   按钮/卡片悬停有反馈、点击无安卓式高亮闪块、链接指针统一。
+   应用自己写了 hover 的完全不受影响（亮度是叠加的，不是替换）。
+   ========================================================================== */
+
+/* ── ⑩ 触屏/点击高亮：去掉安卓 Webview 的灰色闪块，观感立刻干净 ── */
+:where(html) {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* ── ⑪ 悬停呼吸感：按钮、卡片悬停轻微提亮（没有 hover 的应用自动获得） ── */
+:where(button, [role="button"], .fu-btn, .btn, .glass-btn, [data-act], [data-action]):not(:disabled):hover {
+    filter: brightness(1.07);
+}
+:where([class*="card"], [class*="item"], [class*="tile"]):hover {
+    filter: brightness(1.03);
+}
+
+/* ── ⑫ 链接指针：可点的字就该是一根手指 ── */
+:where(a[href], [onclick], [data-href], [data-link]) {
+    cursor: pointer;
+}
+
+/* ── ⑬ 降级同步：性能模式 / 减弱动态下悬停提亮也一并关掉 ── */
+body.perf-mode :where(button, [role="button"], .fu-btn, .btn, .glass-btn, [data-act], [data-action],
+                      [class*="card"], [class*="item"], [class*="tile"]):hover {
+    filter: none;
+}
+@media (prefers-reduced-motion: reduce) {
+    :where(button, [role="button"], .fu-btn, .btn, .glass-btn, [data-act], [data-action],
+           [class*="card"], [class*="item"], [class*="tile"]):hover {
+        filter: none;
+    }
+}

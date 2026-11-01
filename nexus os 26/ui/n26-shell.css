@@ -337,6 +337,20 @@ img.n26-app-img,
 .dock-item > img,
 .launchpad-icon { corner-shape: squircle; }
 
+/* ★ v2.9.42 图标垂直对齐统一：图标一律块级、行高归零、等比缩放不溢出。
+   根因回顾：行内 <img>/<i> 参与文本基线排版，行高会把图标"顶高一截"；
+   与等尺寸方盒（.n26-app-fallback）混排时高差尤其明显。统一块级后彻底对齐。 */
+img.n26-app-img,
+.n26-brand-img,
+.dock-item img,
+.launchpad-icon {
+    display: block;
+    vertical-align: middle;
+    line-height: 0;
+    object-fit: contain;
+    flex: none;
+}
+
 
 /* ══════════════════════════════════════════════════════════════════
    7. 桌面小组件：内容不再溢出卡片（v2.9.33）
@@ -366,4 +380,492 @@ img.n26-app-img,
 }
 .window.n26-win-focus {
     animation: n26WinFocus 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   v2.9.44 · 「关于本机」品牌大卡（HarmonyOS 软件更新页的同款语言）
+   ------------------------------------------------------------------
+   参考的是鸿蒙「软件更新」页那张卡：一整块图 + 中央大字标 + 右下角副标题，
+   卡下面居中排版本号 / 状态 / 标语，最后是一颗蓝色胶囊按钮。
+
+   我们自己的做法：
+     背景  用创作套件里的海岛壁纸（一张真实海岛照片，呼应「照亮未知的远方」）
+     大字  NexusOS（连写，比 "Nexus OS 26" 更像品牌字标），"OS" 下方一道蓝短横
+     副标  右下角四字「想象为光」——把品牌语的前半句浓缩成光源意象
+   可读性：海岛照片本身偏蓝、细节密，深色大字必须靠遮罩托住 ——
+           这里用「左上白色径向提亮 + 底部轻微压暗」两层，既保住照片质感又能读字。
+   ══════════════════════════════════════════════════════════════════ */
+
+/* 这一块不要卡片外框，让品牌卡自己撑满 */
+.settings-panel .settings-section.n26-hero {
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    margin-bottom: 16px !important;
+}
+
+.n26-hero-card {
+    position: relative;
+    width: 100%;
+    height: clamp(180px, 30vh, 268px);
+    border-radius: 22px;
+    overflow: hidden;
+    isolation: isolate;
+    background: url('../../Wallpaper/海岛/e1f19a82e7d1db8ab98353cbf0f27d7a.jpeg') center 62% / cover no-repeat;
+    box-shadow: 0 14px 34px rgba(12, 38, 62, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+/* ★ 压暗遮罩（用户定调：浅色大字，不是鸿蒙那种深色字）：
+   照片本身当主角，用一层冷蓝压暗保证白字可读，字标处再压深一点。
+   不是"盖成白板"，海岛必须看得见。 */
+.n26-hero-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background:
+        radial-gradient(66% 52% at 24% 48%,
+            rgba(4, 26, 46, 0.58) 0%,
+            rgba(5, 30, 52, 0.42) 40%,
+            rgba(6, 34, 58, 0.16) 68%,
+            rgba(6, 34, 58, 0) 84%),
+        linear-gradient(180deg,
+            rgba(6, 28, 48, 0.34) 0%,
+            rgba(6, 28, 48, 0.18) 44%,
+            rgba(2, 14, 26, 0.58) 100%);
+}
+/* 右上角那颗球体光斑——鸿蒙那张卡的标志性元素 */
+.n26-hero-card::after {
+    content: '';
+    position: absolute;
+    z-index: 1;
+    right: -8%;
+    top: -26%;
+    width: 46%;
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%,
+        rgba(255, 255, 255, 0.52) 0%,
+        rgba(226, 241, 253, 0.26) 44%,
+        rgba(170, 208, 240, 0.08) 70%,
+        rgba(170, 208, 240, 0) 80%);
+    pointer-events: none;
+}
+
+/* 中央字标 */
+.n26-hero-brand {
+    position: absolute;
+    left: 7.5%;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1;
+}
+.n26-hero-name,
+.settings-panel .settings-section.n26-hero .n26-hero-name {
+    font-size: clamp(30px, 4.2vw, 46px);
+    font-weight: 800;
+    letter-spacing: -0.8px;
+    /* ★ 浅色大字：白字压在海岛照片上，靠柔和投影托住。
+       !important 是必需的：设置面板有一条 body:not(.dark-mode) .settings-panel … 的
+       兜底 color: #1a1a1a（特异性 (0,10,1)），光写 .n26-hero-name 被它压住 → 大字变黑。 */
+    color: #fdfefe !important;
+    text-shadow: 0 2px 20px rgba(2, 18, 34, 0.55), 0 1px 2px rgba(2, 18, 34, 0.35);
+}
+.n26-hero-os {
+    position: relative;
+    display: inline-block;
+}
+/* 「OS」下方那道蓝短横 */
+.n26-hero-os::after {
+    content: '';
+    position: absolute;
+    left: 10%;
+    right: -3%;
+    bottom: -0.1em;
+    height: 0.1em;
+    min-height: 3px;
+    border-radius: 3px;
+    background: #6fd2ff;
+    box-shadow: 0 0 12px rgba(111, 210, 255, 0.6);
+}
+
+/* 右下角：四字副标题（玻璃胶囊，压在海水上也看得清） */
+.n26-hero-tag {
+    position: absolute;
+    z-index: 3;
+    right: 14px;
+    bottom: 13px;
+    padding: 4px 12px 4px 15px;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: #f7fbff !important;
+    text-shadow: 0 1px 6px rgba(4, 28, 46, 0.55);
+    background: rgba(10, 42, 66, 0.30);
+    border: 1px solid rgba(255, 255, 255, 0.32);
+    border-radius: 999px;
+    -webkit-backdrop-filter: blur(7px) saturate(150%);
+    backdrop-filter: blur(7px) saturate(150%);
+}
+
+/* 卡片下方：版本号 → 状态 → 标语 → 按钮，全部居中（鸿蒙的纵向节奏） */
+.n26-hero-version {
+    margin-top: 15px;
+    text-align: center;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    color: #0f1c2a;
+    font-variant-numeric: tabular-nums;
+}
+.n26-hero-state {
+    margin-top: 6px;
+    text-align: center;
+    font-size: 12.5px;
+    font-weight: 650;
+    color: #0a59f7;
+}
+.n26-hero .n26-about-slogan {
+    justify-content: center;
+    margin: 12px 0 16px;
+    font-size: 13px;
+}
+.n26-hero-update {
+    display: block;
+    margin: 0 auto;
+    min-width: 176px;
+    padding: 10px 34px;
+    border: 0;
+    border-radius: 999px;
+    background: #0a59f7;
+    color: #fff;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    box-shadow: 0 7px 20px rgba(10, 89, 247, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.30);
+    transition: filter 0.22s ease, box-shadow 0.22s ease;
+}
+.n26-hero-update:hover {
+    filter: brightness(1.08);
+    box-shadow: 0 9px 26px rgba(10, 89, 247, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+/* 深色模式：遮罩转暗、文字转白，照片质感保留 */
+body.dark-mode .n26-hero-card {
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+body.dark-mode .n26-hero-card::before {
+    background:
+        radial-gradient(66% 52% at 24% 48%, rgba(2, 14, 26, 0.66) 0%, rgba(3, 18, 32, 0.48) 40%, rgba(4, 22, 38, 0.18) 68%, rgba(4, 22, 38, 0) 84%),
+        linear-gradient(180deg, rgba(3, 16, 28, 0.42) 0%, rgba(3, 16, 28, 0.24) 44%, rgba(1, 8, 16, 0.66) 100%);
+}
+body.dark-mode .n26-hero-name,
+body.dark-mode .settings-panel .settings-section.n26-hero .n26-hero-name {
+    color: #ffffff !important;
+    text-shadow: 0 2px 22px rgba(0, 0, 0, 0.6), 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+body.dark-mode .n26-hero-version { color: #f2f5f9; }
+body.dark-mode .n26-hero-state { color: #7fb0ff; }
+
+/* 窄窗口：字标缩小、卡片压扁，别让字标顶到边缘 */
+@media (max-width: 760px) {
+    .n26-hero-card { height: clamp(150px, 26vh, 200px); border-radius: 18px; }
+    .n26-hero-name { font-size: clamp(24px, 7.4vw, 34px); }
+    .n26-hero-tag { font-size: 11px; letter-spacing: 2px; padding: 3px 10px 3px 12px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   v2.9.44 · 控制中心（从零重构）
+   ------------------------------------------------------------------
+   用户对旧版的意见（照抄）：
+     「控制面板用的是初代的，也没有消息列表的按钮在导航栏，控制面板应该从零重构」
+     「蓝牙标目前还是黑框框」—— 根因：fa-bluetooth 属于 brands 字体族，
+        写成 `fas fa-bluetooth` 就取不到字形，渲染成黑方块。新版用 `fab fa-bluetooth-b`。
+     「底下的滑块虽然有作用，但滑块就是个圆球在一根线上，也不是滑块」
+        —— 新版是 44px 粗轨道 + 左侧填充条 + 26px 圆钮，iOS/鸿蒙那种真滑块。
+
+   结构：顶部导航（含消息入口）→ 圆形开关条 → 连接磁贴 → 亮度/音量滑块
+        → 消息流卡 → 快捷动作 → 版本脚注。
+   ══════════════════════════════════════════════════════════════════ */
+
+/* 用 (0,2,1) 压住 style-glass / style-flat / style-skeuomorphic 那几条旧的 #control-center 规则 */
+body #control-center.n26cc {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: 396px;
+    max-width: calc(100vw - 16px);
+    height: auto;
+    padding: 14px 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-radius: 26px;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    background: rgba(248, 250, 253, 0.72);
+    -webkit-backdrop-filter: blur(34px) saturate(180%);
+    backdrop-filter: blur(34px) saturate(180%);
+    box-shadow: 0 24px 70px rgba(12, 26, 48, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    z-index: 2000;
+    transform: translateX(calc(100% + 24px)) scale(0.985);
+    transform-origin: right center;
+    transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.24s ease;
+    opacity: 0;
+    pointer-events: none;
+    color: #10202f;
+    font-family: inherit;
+}
+body #control-center.n26cc.show {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+body #control-center.n26cc.closing {
+    transform: translateX(calc(100% + 24px)) scale(0.985);
+    opacity: 0;
+    transition: transform 0.26s cubic-bezier(0.55, 0, 1, 0.45), opacity 0.2s ease;
+}
+body.dark-mode #control-center.n26cc {
+    background: rgba(24, 27, 36, 0.76);
+    border-color: rgba(255, 255, 255, 0.10);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    color: #eef2f8;
+}
+
+/* ── 顶部标题栏 ── */
+.n26cc-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 2px 4px 2px 6px;
+    flex: none;
+}
+.n26cc-title { font-size: 17px; font-weight: 750; letter-spacing: 0.2px; }
+.n26cc-hbtns { display: flex; align-items: center; gap: 6px; }
+.n26cc-hbtn {
+    position: relative;
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 1px solid rgba(120, 132, 152, 0.20);
+    background: rgba(120, 132, 152, 0.10);
+    color: inherit; font-size: 12.5px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background 0.18s ease, transform 0.18s ease;
+}
+.n26cc-hbtn:hover { background: rgba(120, 132, 152, 0.20); }
+.n26cc-hbtn:active { scale: 0.94; }
+.n26cc-badge {
+    position: absolute; top: -3px; right: -3px;
+    min-width: 15px; height: 15px; padding: 0 4px;
+    border-radius: 9px; background: #ef4444; color: #fff;
+    font-size: 9.5px; font-weight: 800; line-height: 15px; text-align: center;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.5);
+}
+
+/* ── 导航栏：一排圆形开关 ── */
+.n26cc-nav {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    flex: none;
+}
+.n26cc-pill {
+    height: 52px; border-radius: 16px;
+    border: 1px solid rgba(120, 132, 152, 0.16);
+    background: rgba(120, 132, 152, 0.10);
+    color: inherit; font-size: 17px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+}
+.n26cc-pill:hover { background: rgba(120, 132, 152, 0.18); }
+.n26cc-pill.on {
+    background: linear-gradient(160deg, #4da2ff, #0a59f7);
+    border-color: rgba(255, 255, 255, 0.30);
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(10, 89, 247, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+/* ── 卡片通用 ── */
+.n26cc-card {
+    flex: none;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.52);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    backdrop-filter: blur(16px) saturate(150%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 3px 12px rgba(12, 26, 48, 0.06);
+    padding: 12px;
+}
+body.dark-mode .n26cc-card {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 3px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* 连接磁贴 2×2 */
+.n26cc-conn {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+    padding: 10px;
+}
+.n26cc-tile {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 12px;
+    border-radius: 15px;
+    border: 1px solid rgba(120, 132, 152, 0.14);
+    background: rgba(120, 132, 152, 0.08);
+    color: inherit; cursor: pointer; font-family: inherit;
+    text-align: left;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+    min-width: 0;
+}
+.n26cc-tile:hover { background: rgba(120, 132, 152, 0.16); }
+.n26cc-tile-ic {
+    width: 34px; height: 34px; border-radius: 11px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: rgba(120, 132, 152, 0.16);
+    font-size: 15px;
+    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+.n26cc-tile-tx { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.n26cc-tile-tx b { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.n26cc-tile-tx small { font-size: 10.5px; opacity: 0.55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.n26cc-tile.on { background: rgba(10, 89, 247, 0.10); border-color: rgba(10, 89, 247, 0.28); }
+.n26cc-tile.on .n26cc-tile-ic {
+    background: linear-gradient(160deg, #4da2ff, #0a59f7);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(10, 89, 247, 0.34);
+}
+
+/* ── 真滑块：44px 粗轨道 + 填充 + 圆钮 ── */
+.n26cc-fader { padding: 11px 13px 13px; }
+.n26cc-fader-head {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 650; opacity: 0.9;
+    margin-bottom: 9px;
+}
+.n26cc-fader-head i { font-size: 12.5px; opacity: 0.75; }
+.n26cc-fader-head b { margin-left: auto; font-variant-numeric: tabular-nums; opacity: 0.7; font-weight: 700; }
+.n26cc-track {
+    position: relative;
+    height: 44px;
+    border-radius: 22px;
+    background: rgba(120, 132, 152, 0.20);
+    overflow: hidden;
+    box-shadow: inset 0 1px 3px rgba(16, 32, 52, 0.10);
+}
+body.dark-mode .n26cc-track { background: rgba(255, 255, 255, 0.12); }
+.n26cc-fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 80%;
+    border-radius: 22px;
+    background: linear-gradient(90deg, #8ec5ff, #2f7bff 70%, #0a59f7);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    transition: width 0.08s linear;
+    pointer-events: none;
+}
+.n26cc-knob {
+    position: absolute; top: 50%; left: 80%;
+    width: 30px; height: 30px; margin-top: -15px; margin-left: -15px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(10, 40, 80, 0.28), 0 0 0 0.5px rgba(16, 32, 52, 0.10);
+    pointer-events: none;
+    transition: left 0.08s linear, transform 0.16s ease;
+}
+.n26cc-range:active ~ .n26cc-knob { transform: scale(1.12); }
+/* 原生 range 铺满整个轨道、完全透明 —— 交互交给它，视觉交给上面两层 */
+.n26cc-range {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    margin: 0; padding: 0;
+    opacity: 0;
+    cursor: pointer;
+    -webkit-appearance: none; appearance: none;
+    background: transparent;
+    z-index: 3;
+}
+.n26cc-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: transparent;
+}
+
+/* ── 消息流 ── */
+.n26cc-msgs { padding: 11px 12px 6px; display: flex; flex-direction: column; min-height: 0; }
+.n26cc-msgs-head {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; font-weight: 700; opacity: 0.9;
+    margin-bottom: 8px;
+}
+.n26cc-msgs-head i { margin-right: 5px; opacity: 0.7; }
+.n26cc-mini {
+    border: 0; background: transparent; color: #0a59f7;
+    font-size: 11.5px; font-weight: 650; cursor: pointer; font-family: inherit;
+    padding: 2px 4px; border-radius: 6px;
+}
+.n26cc-mini:hover { background: rgba(10, 89, 247, 0.10); }
+.n26cc-msgs-list { display: flex; flex-direction: column; gap: 7px; max-height: 190px; overflow-y: auto; padding-bottom: 6px; }
+.n26cc-msg {
+    display: flex; gap: 9px;
+    padding: 9px 10px;
+    border-radius: 13px;
+    background: rgba(120, 132, 152, 0.08);
+    border: 1px solid rgba(120, 132, 152, 0.10);
+}
+body.dark-mode .n26cc-msg { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.06); }
+.n26cc-msg-ic {
+    width: 26px; height: 26px; border-radius: 9px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11.5px; color: #fff;
+    background: linear-gradient(160deg, #6fb0ff, #0a59f7);
+}
+.n26cc-msg-ic.ok { background: linear-gradient(160deg, #6ee7b7, #059669); }
+.n26cc-msg-ic.err { background: linear-gradient(160deg, #fca5a5, #dc2626); }
+.n26cc-msg-ic.warn { background: linear-gradient(160deg, #fcd34d, #d97706); }
+.n26cc-msg-tx { min-width: 0; flex: 1; }
+.n26cc-msg-tx b { display: block; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.n26cc-msg-tx span { display: block; font-size: 11px; opacity: 0.62; line-height: 1.5; margin-top: 1px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.n26cc-empty { padding: 18px 8px 20px; text-align: center; font-size: 12px; opacity: 0.45; }
+
+/* ── 快捷动作 ── */
+.n26cc-quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; flex: none; }
+.n26cc-quick button {
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    padding: 10px 4px;
+    border-radius: 16px;
+    border: 1px solid rgba(120, 132, 152, 0.14);
+    background: rgba(255, 255, 255, 0.45);
+    color: inherit; cursor: pointer; font-family: inherit;
+    transition: background 0.2s ease, transform 0.18s ease;
+}
+body.dark-mode .n26cc-quick button { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.08); }
+.n26cc-quick button:hover { background: rgba(120, 132, 152, 0.18); }
+.n26cc-quick button:active { scale: 0.96; }
+.n26cc-quick i { font-size: 16px; opacity: 0.85; }
+.n26cc-quick span { font-size: 10.5px; opacity: 0.75; }
+
+.n26cc-foot {
+    flex: none;
+    text-align: center;
+    font-size: 10.5px;
+    opacity: 0.38;
+    padding: 2px 0 2px;
+}
+
+@media (max-height: 720px) {
+    body #control-center.n26cc { gap: 8px; padding: 10px; }
+    .n26cc-pill { height: 44px; border-radius: 13px; font-size: 15px; }
+    .n26cc-track { height: 38px; }
+    .n26cc-knob { width: 26px; height: 26px; margin-top: -13px; margin-left: -13px; }
+    .n26cc-msgs-list { max-height: 130px; }
 }

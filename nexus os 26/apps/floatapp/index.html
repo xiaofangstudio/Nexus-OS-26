@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus 应用框架</title>
+<script src="../_app.js"></script>
+<style>
+  :root { --fa-bg: #0d1117; --fa-line: rgba(255,255,255,0.12); --fa-text: #e6edf3; --fa-sub: rgba(230,237,243,0.55); --fa-accent: #0e7490; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--fa-bg); color: var(--fa-text);
+    display: flex; flex-direction: column; overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* 受限框架顶栏 */
+  .fa-bar {
+    flex: none; height: 34px; display: flex; align-items: center; gap: 9px;
+    padding: 0 13px; background: rgba(255,255,255,0.05);
+    border-bottom: 1px solid var(--fa-line); backdrop-filter: blur(16px);
+  }
+  .fa-bar .shield {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10.5px; font-weight: 700; color: #86efac;
+    background: rgba(34,197,94,0.14); border: 1px solid rgba(34,197,94,0.4);
+    padding: 2px 9px; border-radius: 20px; white-space: nowrap;
+  }
+  .fa-bar .name { font-size: 12.5px; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fa-bar .meta { margin-left: auto; font-size: 10.5px; color: var(--fa-sub); white-space: nowrap; }
+  .fa-bar button {
+    border: 1px solid var(--fa-line); background: rgba(255,255,255,0.07); color: var(--fa-text);
+    border-radius: 7px; padding: 4px 10px; font-size: 11.5px; cursor: pointer; flex: none;
+  }
+  .fa-bar button:hover { background: rgba(255,255,255,0.16); }
+
+  /* ★ 框架本体：应用只被允许活在这块容器里，上下左右都出不去 */
+  .fa-frame {
+    flex: 1 1 0; min-height: 0; position: relative; margin: 12px;
+    border: 1px solid var(--fa-line); border-radius: 12px; overflow: hidden;
+    background: #05070c;
+  }
+  .fa-frame::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    border-radius: 12px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+  }
+  .fa-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; display: block; }
+
+  .fa-empty {
+    flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; color: var(--fa-sub); font-size: 13px; text-align: center; padding: 30px;
+  }
+</style>
+</head>
+<body>
+  <div class="fa-bar">
+    <span class="shield"><i class="fas fa-shield-halved"></i> 受限框架 · 已沙盒</span>
+    <span class="name" id="faName">加载中…</span>
+    <span class="meta" id="faMeta"></span>
+    <button onclick="faRerun()"><i class="fas fa-rotate-right"></i> 重新运行</button>
+  </div>
+  <div class="fa-frame" id="faFrame"></div>
+  <div class="fa-empty" id="faEmpty" style="display:none;">
+    <i class="fas fa-box-open" style="font-size:34px;opacity:.45;"></i>
+    <div>找不到这个应用包（可能已被卸载）</div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+  /* 应用清单存于宿主的用户级存储：主文件会把 n26_store_selfpub 同步到
+     用户 LS（n26SelfPub），这里只读。拿不到宿主桥时直接读兜底键。 */
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+    });
+  }
+  function getStore() {
+    try {
+      if (window.Nexus && Nexus.getUserLS) {
+        return Nexus.getUserLS('n26SelfPub') || [];
+      }
+    } catch (e) { }
+    try { return JSON.parse(localStorage.getItem('n26_store_selfpub') || '[]'); } catch (e) { return []; }
+  }
+  function findPkg(id) {
+    var list = getStore();
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && (list[i].pkgId === id || list[i].id === id)) return list[i];
+    }
+    return null;
+  }
+
+  var current = null;
+
+  /* 组装运行文档：CW 运行时 + 应用源码一起注入 sandbox iframe。
+     ★ sandbox="allow-scripts"（不带 allow-same-origin）：
+       里面的代码没有同源权限，碰不到 localStorage / 父文档 / Cookie，
+       再加上外层 overflow:hidden 的固定框架，物理上不可能超出框架。 */
+  function buildDoc(pkg) {
+    var runtime = '';
+    try {
+      runtime = window.__N26_CW_RUNTIME_SRC || '';
+    } catch (e) { }
+    var entry = pkg.entry || 'main.cw';
+    var sources = pkg.sources || {};
+    var cfg = { entry: entry, sources: sources };
+    return '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><style>' +
+      'html,body{height:100%;margin:0;background:#05070c;color:#c9d6e4;' +
+      'font:12.5px/1.8 Consolas,ui-monospace,SFMono-Regular,Menlo,monospace;}' +
+      '#bar{position:sticky;top:0;display:flex;gap:8px;align-items:center;padding:8px 14px;' +
+      'background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.08);font-size:11px;color:rgba(201,214,228,.55);}' +
+      '#bar b{color:#5eead4;}' +
+      '#out{padding:14px 18px;white-space:pre-wrap;word-break:break-word;}' +
+      '.err{color:#fda4af;}.dim{color:rgba(201,214,228,.45);}' +
+      '</style></head><body>' +
+      '<div id="bar"><b>' + esc(pkg.name || '应用') + '</b><span>CW Script · 沙盒内运行</span><span id="stat"></span></div>' +
+      '<div id="out">运行中…</div>' +
+      '<script>' + runtime + '<\/script>' +
+      '<script>var __CFG = ' + JSON.stringify(cfg).replace(/<\/script/gi, '<\\/script') + ';<\/script>' +
+      '<script>(function(){' +
+      'var out=document.getElementById("out"),st=document.getElementById("stat");out.textContent="";' +
+      'function line(t,e){var d=document.createElement("div");if(e)d.className="err";d.textContent=t;out.appendChild(d);}' +
+      'if(!window.__cwRun){line("运行时缺失：应用包不完整",true);st.textContent="失败";return;}' +
+      'window.__cwRun(__CFG.entry,__CFG.sources,function(t,e){line(t,e)}).then(function(r){' +
+      ' if(r.needInput){line("⏸ 脚本在等待输入（ask）——商店应用暂不支持交互输入，请回 Float IDE 运行",true);}' +
+      ' if(r.error){line("✕ "+r.error,true);st.textContent="运行出错";}' +
+      ' else{st.textContent="结束 · "+r.ms+"ms";}' +
+      ' var sep=document.createElement("div");sep.className="dim";sep.textContent="—— 程序退出（"+(r.error?"有错误":"正常")+"）——";out.appendChild(sep);' +
+      '});})();<\/script>' +
+      '</body></html>';
+  }
+
+  function run(pkg) {
+    current = pkg;
+    document.getElementById('faName').textContent = pkg.name || '未命名应用';
+    document.getElementById('faMeta').textContent = 'v' + (pkg.version || '0.1.0') + ' · ' + (pkg.publisher || '未知开发者');
+    var frame = document.getElementById('faFrame');
+    frame.innerHTML = '';
+    var ifr = document.createElement('iframe');
+    ifr.setAttribute('sandbox', 'allow-scripts');           // ★ 无同源，沙盒极限收紧
+    ifr.setAttribute('title', pkg.name || 'Nexus 应用');
+    frame.appendChild(ifr);
+    // runtime 源码：从壳自身目录拉一次（相对本文件），注入 srcdoc
+    if (!window.__N26_CW_RUNTIME_SRC) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', '../float/cw-runtime.js', true);
+      xhr.onload = function () {
+        window.__N26_CW_RUNTIME_SRC = xhr.responseText || '';
+        ifr.srcdoc = buildDoc(pkg);
+      };
+      xhr.onerror = function () {
+        window.__N26_CW_RUNTIME_SRC = '';
+        ifr.srcdoc = buildDoc(pkg);
+      };
+      xhr.send();
+    } else {
+      ifr.srcdoc = buildDoc(pkg);
+    }
+  }
+
+  window.faRerun = function () { if (current) run(current); };
+
+  /* 启动：?pkg=<id> */
+  var q = new URLSearchParams(location.search);
+  var id = q.get('pkg');
+  var pkg = id ? findPkg(id) : null;
+  if (pkg) {
+    run(pkg);
+  } else {
+    document.getElementById('faFrame').style.display = 'none';
+    document.getElementById('faEmpty').style.display = '';
+    document.getElementById('faName').textContent = 'Nexus 应用框架';
+  }
+})();
+</script>
+</body>
+</html>

@@ -45,7 +45,7 @@
       if (document.querySelector('link[href*="font-awesome"]')) return;
       var l = document.createElement('link');
       l.rel = 'stylesheet';
-      l.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css';
+      l.href = '../vendor/fontawesome/all.min.css';
       l.crossOrigin = 'anonymous';
       (document.head || document.documentElement).appendChild(l);
     } catch (e) { /* 离线就退回无图标，不影响功能 */ }

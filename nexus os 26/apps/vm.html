@@ -10,44 +10,123 @@
   :root {
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-    --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
-    --ease-quart: cubic-bezier(0.76, 0, 0.24, 1);
     --primary: #6366f1;
-    --primary2: #8b5cf6;
-    --bg: #0b0e1a;
-    --card: rgba(255, 255, 255, 0.10);
+    /* ★ 变量加前缀，防 fangUI tokens.css 注入后 --bg/--text 类通用名被覆盖 */
+    --vm-bg: #0b0e1a;
     --line: rgba(255, 255, 255, 0.14);
-    --text: #f1f5f9;
+    --vm-text: #f1f5f9;
     --sub: rgba(226, 232, 240, 0.62);
-    --danger: #ef4444;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro SC", "PingFang SC", "Microsoft YaHei", sans-serif;
-    background: var(--bg);
-    color: var(--text);
+    background: var(--vm-bg);
+    color: var(--vm-text);
     overflow: hidden;
     -webkit-font-smoothing: antialiased;
+    display: flex; flex-direction: column;
   }
 
-  /* ===== 开机动画 ===== */
+  /* ===== 选择系统（首屏） ===== */
+  .vm-pick {
+    flex: 1 1 0; min-height: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 26px;
+    background:
+      radial-gradient(1100px 560px at 22% -8%, rgba(99,102,241,0.22), transparent 62%),
+      radial-gradient(880px 480px at 100% 108%, rgba(139,92,246,0.16), transparent 60%),
+      linear-gradient(160deg, #0d1124, #0a0d18);
+    padding: 30px;
+  }
+  .vm-pick h1 { font-size: 20px; font-weight: 800; letter-spacing: 0.4px; }
+  .vm-pick .tip { font-size: 12.5px; color: var(--sub); margin-top: -16px; text-align: center; max-width: 480px; }
+  .vm-os-grid { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; }
+  .vm-os-card {
+    width: 250px; border-radius: 16px; overflow: hidden; cursor: pointer;
+    background: rgba(255,255,255,0.07); border: 1px solid var(--line);
+    transition: transform 0.3s var(--ease-spring), box-shadow 0.3s var(--ease-out), border-color 0.2s;
+    text-align: left; color: var(--vm-text); font-family: inherit;
+    flex: none;
+  }
+  .vm-os-card:hover {
+    transform: translateY(-6px); border-color: rgba(129,140,248,0.65);
+    box-shadow: 0 18px 44px rgba(0,0,0,0.5), 0 0 0 1px rgba(129,140,248,0.3);
+  }
+  .vm-os-card .shot {
+    height: 118px; display: flex; align-items: center; justify-content: center;
+    font-size: 40px; font-weight: 800; color: #fff;
+    border-bottom: 1px solid var(--line); position: relative; overflow: hidden;
+  }
+  .vm-os-card.os26 .shot { background: linear-gradient(140deg, #4f46e5 0%, #7c3aed 55%, #0ea5e9 130%); }
+  .vm-os-card.os1  .shot { background: linear-gradient(140deg, #0e7490 0%, #155e75 60%, #083344 130%); }
+  .vm-os-card .shot::after {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(140px 60px at 70% 20%, rgba(255,255,255,0.22), transparent 70%);
+  }
+  .vm-os-card .meta { padding: 13px 15px 15px; }
+  .vm-os-card .nm { font-size: 14.5px; font-weight: 750; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .vm-os-card .tag {
+    font-size: 10px; padding: 2px 7px; border-radius: 20px; font-weight: 600;
+    background: rgba(255,255,255,0.12); color: #c7d2fe;
+  }
+  .vm-os-card .ds { font-size: 11.5px; color: var(--sub); margin-top: 7px; line-height: 1.65; }
+  .vm-os-card .go {
+    margin-top: 11px; font-size: 11.5px; font-weight: 700; color: #a5b4fc;
+    display: flex; align-items: center; gap: 5px;
+  }
+
+  /* ===== 运行中 ===== */
+  .vm-run { flex: 1 1 0; min-height: 0; display: none; flex-direction: column; }
+  .vm-run.on { display: flex; }
+  .vm-top {
+    flex: none; height: 38px; display: flex; align-items: center; gap: 10px;
+    padding: 0 14px;
+    background: rgba(255,255,255,0.06);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(18px);
+    position: relative; z-index: 20;
+  }
+  .vm-top .vm-title { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vm-top .vm-badge {
+    flex: none; font-size: 10.5px; color: #a5f3fc;
+    background: rgba(34, 211, 238, 0.14);
+    border: 1px solid rgba(34, 211, 238, 0.4);
+    padding: 2px 8px; border-radius: 20px; white-space: nowrap;
+  }
+  .vm-top .sp { margin-left: auto; }
+  .vm-tool {
+    border: 1px solid var(--line); background: rgba(255,255,255,0.08);
+    color: var(--vm-text); border-radius: 8px; padding: 5px 11px;
+    font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;
+    transition: all 0.22s var(--ease-out); flex: none;
+  }
+  .vm-tool:hover { background: rgba(255,255,255,0.18); transform: translateY(-1px); }
+  .vm-tool.danger { color: #fecaca; border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.18); }
+
+  /* 虚拟机屏幕：iframe 真正再开一台系统 */
+  .vm-screen { flex: 1 1 0; min-height: 0; position: relative; background: #000; }
+  .vm-screen iframe {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    border: none; background: #000; display: block;
+  }
+  /* 开机遮罩 */
   .vm-boot {
     position: absolute; inset: 0; z-index: 80;
     background: radial-gradient(circle at 50% 40%, #1b2240, #070a14 70%);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 22px;
+    gap: 20px;
     transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out);
   }
   .vm-boot.gone { opacity: 0; transform: scale(1.06); pointer-events: none; }
   .vm-logo {
-    width: 76px; height: 76px; border-radius: 20px;
+    width: 72px; height: 72px; border-radius: 20px;
     background: linear-gradient(135deg, #818cf8, #c084fc);
     display: flex; align-items: center; justify-content: center;
-    font-size: 34px; color: #fff; font-weight: 800;
+    font-size: 26px; color: #fff; font-weight: 800;
     box-shadow: 0 12px 40px rgba(99, 102, 241, 0.55);
-    animation: bootPulse 1.6s var(--ease-in-out-quart) infinite;
+    animation: bootPulse 1.6s ease-in-out infinite;
   }
+  .vm-os1 .vm-logo { background: linear-gradient(135deg, #22d3ee, #0e7490); box-shadow: 0 12px 40px rgba(14, 116, 144, 0.55); }
   @keyframes bootPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
   .vm-boot .t { font-size: 15px; font-weight: 700; letter-spacing: 0.5px; }
   .vm-boot .s { font-size: 12px; color: var(--sub); }
@@ -56,155 +135,68 @@
     background: linear-gradient(90deg, #818cf8, #c084fc);
     transition: width 0.3s var(--ease-out); }
 
-  /* ===== 顶栏 ===== */
-  .vm-top {
-    height: 38px; display: flex; align-items: center; gap: 10px;
-    padding: 0 14px;
-    background: rgba(255,255,255,0.06);
-    border-bottom: 1px solid var(--line);
-    backdrop-filter: blur(18px);
-    flex: none;
-    position: relative; z-index: 20;
-  }
-  .vm-top .vm-title { font-size: 13px; font-weight: 700; }
-  .vm-top .vm-badge {
-    font-size: 10.5px; color: #a5f3fc;
-    background: rgba(34, 211, 238, 0.14);
-    border: 1px solid rgba(34, 211, 238, 0.4);
-    padding: 2px 8px; border-radius: 20px;
-  }
-  .vm-top .sp { margin-left: auto; }
-  .vm-tool {
-    border: 1px solid var(--line); background: rgba(255,255,255,0.08);
-    color: var(--text); border-radius: 8px; padding: 5px 11px;
-    font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;
-    transition: all 0.22s var(--ease-out);
-  }
-  .vm-tool:hover { background: rgba(255,255,255,0.18); transform: translateY(-1px); }
-  .vm-tool.danger { color: #fecaca; border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.18); }
-
-  /* ===== 桌面 ===== */
-  .vm-desk {
-    flex: 1; position: relative; overflow: hidden;
-    background:
-      radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.20), transparent 60%),
-      radial-gradient(900px 500px at 100% 110%, rgba(139,92,246,0.18), transparent 60%),
-      linear-gradient(160deg, #0d1124, #0a0d18);
-    padding: 22px;
-  }
-  .vm-hint {
-    position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
-    font-size: 11px; color: var(--sub);
-    background: rgba(0,0,0,0.28); padding: 6px 14px; border-radius: 20px;
-    border: 1px solid var(--line); backdrop-filter: blur(8px);
-    display: flex; align-items: center; gap: 6px;
-  }
-  .vm-dropzone {
-    position: absolute; inset: 0; z-index: 40;
-    display: none; align-items: center; justify-content: center;
-    background: rgba(99,102,241,0.16); backdrop-filter: blur(4px);
-    border: 3px dashed rgba(165,180,252,0.8); border-radius: 18px;
-    font-size: 16px; font-weight: 700; color: #c7d2fe;
-    pointer-events: none;
-  }
-  .vm-desk.drag .vm-dropzone { display: flex; }
-
-  /* ===== 启动台 ===== */
-  .vm-launch {
-    display: flex; flex-wrap: wrap; gap: 18px; align-content: flex-start;
-    max-width: 720px;
-  }
-  .vm-app {
-    width: 84px; display: flex; flex-direction: column; align-items: center; gap: 7px;
-    cursor: pointer; user-select: none;
-    transition: transform 0.28s var(--ease-spring);
-  }
-  .vm-app:hover { transform: translateY(-6px) scale(1.04); }
-  .vm-app .ic {
-    width: 60px; height: 60px; border-radius: 16px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 26px; color: #fff;
-    box-shadow: 0 8px 22px rgba(0,0,0,0.35);
-  }
-  .vm-app .nm { font-size: 11.5px; color: var(--text); text-align: center; }
-  .vm-app.ext .ic { background: linear-gradient(135deg,#22d3ee,#0ea5e9); }
-
-  /* ===== 窗口 ===== */
-  .vm-win {
-    position: absolute; min-width: 260px; min-height: 160px;
-    background: rgba(20, 24, 40, 0.92);
-    border: 1px solid var(--line);
-    border-radius: 14px; overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    display: flex; flex-direction: column;
-    animation: winIn 0.32s var(--ease-spring);
-    z-index: 10;
-  }
-  @keyframes winIn { from { opacity: 0; transform: scale(0.92) translateY(8px); } to { opacity: 1; transform: none; } }
-  .vm-win .bar {
-    height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 10px;
-    background: rgba(255,255,255,0.06); cursor: move; flex: none;
-  }
-  .vm-win .bar .tt { font-size: 12px; font-weight: 600; }
-  .vm-win .bar .x {
-    margin-left: auto; width: 18px; height: 18px; border-radius: 50%;
-    background: rgba(239,68,68,0.85); border: none; color: #fff; cursor: pointer;
-    font-size: 10px; line-height: 1; display: flex; align-items: center; justify-content: center;
-  }
-  .vm-win .body { flex: 1; padding: 12px; overflow: auto; }
-  .vm-win .body::-webkit-scrollbar { width: 7px; }
-  .vm-win .body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
-
-  /* mini apps */
-  .np { width: 100%; height: 200px; resize: none; border-radius: 8px;
-    background: rgba(0,0,0,0.32); color: #e2e8f0; border: 1px solid var(--line);
-    padding: 8px; font-family: inherit; font-size: 13px; }
-  .calc { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-  .calc button { padding: 12px 0; border-radius: 8px; border: 1px solid var(--line);
-    background: rgba(255,255,255,0.08); color: #fff; font-size: 15px; cursor: pointer;
-    transition: background 0.15s; }
-  .calc button:hover { background: rgba(255,255,255,0.2); }
-  .calc .disp { grid-column: 1/5; background: rgba(0,0,0,0.4); border-radius: 8px;
-    padding: 10px; text-align: right; font-size: 20px; font-variant-numeric: tabular-nums; min-height: 44px; }
-  .paint-wrap { display: flex; flex-direction: column; gap: 8px; }
-  .paint-wrap canvas { background: #fff; border-radius: 6px; cursor: crosshair; touch-action: none; }
-  .paint-tools { display: flex; gap: 6px; align-items: center; }
-  .swatch { width: 18px; height: 18px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
-  .swatch.on { border-color: #fff; }
-  .files li { list-style: none; padding: 6px 8px; border-radius: 6px; background: rgba(255,255,255,0.05); margin-bottom: 5px; font-size: 12px; }
-  .empty-soft { color: var(--sub); font-size: 12px; text-align: center; padding: 18px; }
-  .ext-frame { width: 100%; height: 320px; border: none; background: #fff; border-radius: 6px; }
   .toast {
     position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%) translateY(16px);
     background: rgba(15, 18, 30, 0.92); color: #fff; padding: 9px 16px; border-radius: 10px;
     font-size: 12.5px; opacity: 0; transition: all 0.35s var(--ease-spring); z-index: 90;
-    border: 1px solid var(--line);
+    border: 1px solid var(--line); pointer-events: none; white-space: nowrap;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* 窄窗口适配：卡片竖排 */
+  @media (max-width: 620px) {
+    .vm-os-grid { flex-direction: column; align-items: center; }
+    .vm-os-card { width: 100%; max-width: 380px; }
+    .vm-pick h1 { font-size: 17px; }
+    .vm-pick { padding: 20px; gap: 18px; }
+  }
 </style>
 </head>
 <body>
-  <!-- 开机 -->
-  <div class="vm-boot" id="boot">
-    <div class="vm-logo">N</div>
-    <div class="t">Nexus OS 26 · 虚拟机</div>
-    <div class="s">正在初始化独立内存实例…</div>
-    <div class="vm-prog"><i id="prog"></i></div>
+  <!-- 选择系统版本 -->
+  <div class="vm-pick" id="pick">
+    <h1>虚拟机</h1>
+    <div class="tip">选择要启动的系统版本 —— 独立内存实例，与这台机器完全隔离，关机即焚</div>
+    <div class="vm-os-grid">
+      <button class="vm-os-card os26" onclick="vmStart('os26')">
+        <div class="shot">26</div>
+        <div class="meta">
+          <div class="nm">Nexus OS 26 <span class="tag">当前世代</span></div>
+          <div class="ds">液态玻璃 · 全屏磁贴开始菜单 · AI 小方 · 51 个应用。虚拟机里跑的就是你眼前这套系统的完整副本。</div>
+          <div class="go">启动 <i class="fas fa-arrow-right"></i></div>
+        </div>
+      </button>
+      <button class="vm-os-card os1" onclick="vmStart('os1')">
+        <div class="shot">初代</div>
+        <div class="meta">
+          <div class="nm">初代 Nexus OS <span class="tag">经典</span></div>
+          <div class="ds">2025 年的那台机器——伪系统的起点，标杆之作。回头看看我们从哪里出发。</div>
+          <div class="go">启动 <i class="fas fa-arrow-right"></i></div>
+        </div>
+      </button>
+    </div>
   </div>
 
-  <div class="vm-top">
-    <span class="vm-title">🖥 测试机 · VM-1</span>
-    <span class="vm-badge"><i class="fas fa-shield-alt"></i> 与宿主隔离</span>
-    <span class="sp"></span>
-    <button class="vm-tool" onclick="vmReboot()"><i class="fas fa-redo"></i>重启</button>
-    <button class="vm-tool" onclick="vmToggleFs()"><i class="fas fa-expand"></i>全屏</button>
-    <button class="vm-tool danger" onclick="vmPowerOff()"><i class="fas fa-power-off"></i>关机即焚</button>
-  </div>
-
-  <div class="vm-desk" id="desk">
-    <div class="vm-launch" id="launch"></div>
-    <div class="vm-dropzone" id="drop"><i class="fas fa-file-import"></i>&nbsp; 松开以安装此 HTML 应用（仅存于内存）</div>
-    <div class="vm-hint"><i class="fas fa-info-circle"></i> 关闭窗口后，虚拟机内一切（文件/应用）将永久销毁</div>
+  <!-- 运行中 -->
+  <div class="vm-run" id="run">
+    <div class="vm-top">
+      <span class="vm-title" id="vmt">🖥 虚拟机</span>
+      <span class="vm-badge"><i class="fas fa-shield-alt"></i> 与宿主隔离</span>
+      <span class="sp"></span>
+      <button class="vm-tool" onclick="vmReboot()"><i class="fas fa-redo"></i>重启</button>
+      <button class="vm-tool" onclick="vmToggleFs()"><i class="fas fa-expand"></i>全屏</button>
+      <button class="vm-tool" onclick="vmBack()"><i class="fas fa-arrow-left"></i>换系统</button>
+      <button class="vm-tool danger" onclick="vmPowerOff()"><i class="fas fa-power-off"></i>关机即焚</button>
+    </div>
+    <div class="vm-screen" id="screen">
+      <iframe id="vmFrame" title="虚拟机屏幕" allow="geolocation; clipboard-read; clipboard-write"></iframe>
+      <div class="vm-boot" id="boot">
+        <div class="vm-logo" id="bootLogo">26</div>
+        <div class="t" id="bootT">Nexus OS 26 · 虚拟机</div>
+        <div class="s">正在初始化独立内存实例…</div>
+        <div class="vm-prog"><i id="prog"></i></div>
+      </div>
+    </div>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -212,183 +204,92 @@
 <script>
 (function () {
   'use strict';
-  var vmFs = {};          // 仅存于内存，关闭即焚
-  var extApps = [];       // 拖入的外部应用 {name, html}
-  var zTop = 11;
-  var dragging = null;
+  var cur = null;           // 'os26' | 'os1'
+
+  var OS = {
+    os26: {
+      src: '../Nexus OS 26.html',
+      title: 'Nexus OS 26 · 虚拟机',
+      logo: '26', cls: ''
+    },
+    os1: {
+      src: 'vm-os1/Nexus OS.html',
+      title: '初代 Nexus OS · 虚拟机',
+      logo: '初', cls: 'vm-os1'
+    }
+  };
 
   function $(id) { return document.getElementById(id); }
   function toast(m) {
     var t = $('toast'); t.textContent = m; t.classList.add('show');
-    clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove('show'); }, 2200);
+    clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove('show'); }, 2400);
   }
 
-  /* ===== 开机动画 ===== */
-  (function boot() {
-    var p = $('prog'), v = 0;
+  /* 开机进度条 */
+  function runBoot() {
+    var b = $('boot'), p = $('prog');
+    b.classList.remove('gone');
+    p.style.width = '0%';
+    var v = 0;
     var iv = setInterval(function () {
-      v = Math.min(100, v + 8 + Math.random() * 14);
+      v = Math.min(100, v + 9 + Math.random() * 15);
       p.style.width = v + '%';
       if (v >= 100) {
         clearInterval(iv);
-        setTimeout(function () { $('boot').classList.add('gone'); }, 260);
+        setTimeout(function () { b.classList.add('gone'); }, 280);
       }
-    }, 110);
-  })();
-
-  /* ===== 内置迷你应用 ===== */
-  var BUILTINS = [
-    { id: 'np', name: '便签', icon: '📝', color: 'linear-gradient(135deg,#f59e0b,#f97316)' },
-    { id: 'calc', name: '计算器', icon: '🧮', color: 'linear-gradient(135deg,#10b981,#059669)' },
-    { id: 'paint', name: '画图', icon: '🎨', color: 'linear-gradient(135deg,#ec4899,#db2777)' },
-    { id: 'files', name: '文件盒', icon: '🗂', color: 'linear-gradient(135deg,#3b82f6,#6366f1)' }
-  ];
-
-  function renderLaunch() {
-    var html = BUILTINS.map(function (a) {
-      return '<div class="vm-app" onclick="vmOpen(\'' + a.id + '\')">' +
-        '<div class="ic" style="background:' + a.color + '">' + a.icon + '</div>' +
-        '<div class="nm">' + a.name + '</div></div>';
-    }).join('');
-    html += extApps.map(function (a, i) {
-      return '<div class="vm-app ext" onclick="vmOpenExt(' + i + ')">' +
-        '<div class="ic">📦</div><div class="nm">' + esc(a.name) + '</div></div>';
-    }).join('');
-    $('launch').innerHTML = html;
+    }, 105);
   }
 
-  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
-
-  /* ===== 窗口 ===== */
-  function openWin(title, contentHTML) {
-    var id = 'w' + Date.now() + Math.floor(Math.random() * 999);
-    var w = document.createElement('div');
-    w.className = 'vm-win'; w.id = id;
-    w.style.left = (60 + Math.random() * 80) + 'px';
-    w.style.top = (50 + Math.random() * 60) + 'px';
-    w.style.zIndex = (++zTop);
-    w.innerHTML = '<div class="bar"><span class="tt">' + esc(title) + '</span><button class="x" onclick="vmClose(\'' + id + '\')">✕</button></div><div class="body">' + contentHTML + '</div>';
-    $('desk').appendChild(w);
-    enableDrag(w);
-    return w;
-  }
-  window.vmClose = function (id) { var e = $(id); if (e) e.remove(); };
-
-  function enableDrag(win) {
-    var bar = win.querySelector('.bar');
-    bar.addEventListener('mousedown', function (e) {
-      if (e.target.classList.contains('x')) return;
-      dragging = { win: win, dx: e.clientX - win.offsetLeft, dy: e.clientY - win.offsetTop };
-      win.style.zIndex = (++zTop);
-    });
-  }
-  document.addEventListener('mousemove', function (e) {
-    if (!dragging) return;
-    dragging.win.style.left = (e.clientX - dragging.dx) + 'px';
-    dragging.win.style.top = (e.clientY - dragging.dy) + 'px';
-  });
-  document.addEventListener('mouseup', function () { dragging = null; });
-
-  /* ===== 迷你应用实现 ===== */
-  window.vmOpen = function (id) {
-    if (id === 'np') {
-      var w = openWin('便签', '<textarea class="np" id="np" placeholder="输入内容（仅存于内存）">' + (vmFs.note || '') + '</textarea>');
-      w.querySelector('#np').addEventListener('input', function (e) { vmFs.note = e.target.value; });
-    } else if (id === 'calc') {
-      openWin('计算器', '<div class="calc"><div class="disp" id="cd">0</div>' +
-        ['C', '÷', '×', '⌫', '7', '8', '9', '−', '4', '5', '6', '+', '1', '2', '3', '=', '0', '.', '%', '±'].map(function (k) {
-          return '<button onclick="vmCalc(\'' + k + '\')">' + k + '</button>';
-        }).join('') + '</div>');
-    } else if (id === 'paint') {
-      var w = openWin('画图', '<div class="paint-wrap"><div class="paint-tools" id="pts"></div><canvas id="cv" width="360" height="220"></canvas></div>');
-      var cv = w.querySelector('#cv'), ctx = cv.getContext('2d'), drawing = false, color = '#111827';
-      ['#111827', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'].forEach(function (c, i) {
-        var s = document.createElement('div'); s.className = 'swatch' + (i === 0 ? ' on' : ''); s.style.background = c;
-        s.onclick = function () { color = c; w.querySelectorAll('.swatch').forEach(function (x) { x.classList.remove('on'); }); s.classList.add('on'); };
-        w.querySelector('#pts').appendChild(s);
-      });
-      var pos = function (e) { var r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * (cv.width / r.width), y: (e.clientY - r.top) * (cv.height / r.height) }; };
-      cv.addEventListener('mousedown', function (e) { drawing = true; var p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
-      cv.addEventListener('mousemove', function (e) { if (!drawing) return; var p = pos(e); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineTo(p.x, p.y); ctx.stroke(); });
-      cv.addEventListener('mouseup', function () { drawing = false; });
-    } else if (id === 'files') {
-      var keys = Object.keys(vmFs);
-      var lst = keys.length ? '<ul class="files">' + keys.map(function (k) { return '<li>📄 ' + esc(k) + '</li>'; }).join('') + '</ul>' : '<div class="empty-soft">内存文件盒为空</div>';
-      openWin('文件盒', lst);
-    }
+  /* ===== 启动一台系统 ===== */
+  window.vmStart = function (which) {
+    var o = OS[which]; if (!o) return;
+    cur = which;
+    $('pick').style.display = 'none';
+    $('run').classList.add('on');
+    $('vmt').textContent = '🖥 ' + o.title;
+    $('bootT').textContent = o.title;
+    $('bootLogo').textContent = o.logo;
+    $('boot').className = 'vm-boot ' + (o.cls || '');
+    var f = $('vmFrame');
+    f.src = 'about:blank';
+    // 先挂遮罩再换 src，避免闪一下上一台机器的画面
+    setTimeout(function () { f.src = o.src; }, 60);
+    runBoot();
+    toast('已启动 ' + o.title.replace(' · 虚拟机', '') + '，里面的一切关机即焚');
   };
 
-  var calcBuf = '0', calcOp = null, calcAcc = null;
-  window.vmCalc = function (k) {
-    var d = $('cd');
-    if (k === 'C') { calcBuf = '0'; calcOp = calcAcc = null; }
-    else if (k === '⌫') { calcBuf = calcBuf.length > 1 ? calcBuf.slice(0, -1) : '0'; }
-    else if (k === '±') { calcBuf = String(parseFloat(calcBuf) * -1); }
-    else if (k === '%') { calcBuf = String(parseFloat(calcBuf) / 100); }
-    else if (['+', '−', '×', '÷'].includes(k)) { calcAcc = parseFloat(calcBuf); calcOp = k; calcBuf = '0'; }
-    else if (k === '=') {
-      if (calcOp && calcAcc != null) {
-        var b = parseFloat(calcBuf), a = calcAcc, r = a;
-        if (calcOp === '+') r = a + b; else if (calcOp === '−') r = a - b;
-        else if (calcOp === '×') r = a * b; else if (calcOp === '÷') r = b ? a / b : 'Err';
-        calcBuf = String(r); calcOp = calcAcc = null;
-      }
-    } else {
-      calcBuf = (calcBuf === '0') ? k : calcBuf + k;
-    }
-    d.textContent = calcBuf;
+  window.vmBack = function () {
+    $('vmFrame').src = 'about:blank';
+    $('run').classList.remove('on');
+    $('pick').style.display = '';
+    cur = null;
   };
 
-  /* ===== 拖入外部 HTML 应用 ===== */
-  window.vmOpenExt = function (i) {
-    var a = extApps[i]; if (!a) return;
-    var w = openWin(a.name, '<iframe class="ext-frame" srcdoc="' + escAttr(a.html) + '"></iframe>');
-  };
-
-  var desk = $('desk');
-  desk.addEventListener('dragover', function (e) { e.preventDefault(); desk.classList.add('drag'); });
-  desk.addEventListener('dragleave', function (e) { if (e.target === desk) desk.classList.remove('drag'); });
-  desk.addEventListener('drop', function (e) {
-    e.preventDefault(); desk.classList.remove('drag');
-    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if (f && /\.html?$/i.test(f.name)) {
-      var r = new FileReader();
-      r.onload = function () { extApps.push({ name: f.name.replace(/\.html?$/i, ''), html: r.result }); renderLaunch(); toast('已安装：' + f.name + '（内存中）'); };
-      r.readAsText(f);
-    } else {
-      toast('请拖入 .html 文件');
-    }
-  });
-  function escAttr(s) { return String(s).replace(/"/g, '&quot;'); }
-
-  /* ===== 顶栏操作 ===== */
   window.vmReboot = function () {
-    extApps = []; vmFs = {};
-    $('desk').querySelectorAll('.vm-win').forEach(function (w) { w.remove(); });
-    renderLaunch();
-    var b = $('boot'); b.classList.remove('gone');
-    var p = $('prog'); p.style.width = '0%';
-    var v = 0; var iv = setInterval(function () {
-      v = Math.min(100, v + 10 + Math.random() * 14); p.style.width = v + '%';
-      if (v >= 100) { clearInterval(iv); setTimeout(function () { b.classList.add('gone'); }, 240); }
-    }, 100);
+    if (!cur) return;
+    var f = $('vmFrame');
+    f.src = 'about:blank';
+    setTimeout(function () { f.src = OS[cur].src; }, 80);
+    runBoot();
     toast('虚拟机已重启，内存已清空');
   };
+
   window.vmToggleFs = function () {
-    if (!document.fullscreenElement) document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
-    else document.exitFullscreen && document.exitFullscreen();
+    if (!document.fullscreenElement) {
+      if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+    } else if (document.exitFullscreen) {
+      document.exitFullscreen();
+    }
   };
+
   window.vmPowerOff = function () {
-    // 关闭即焚：清空内存、销毁一切
-    extApps = []; vmFs = {};
+    // 关闭即焚：卸载系统、清空引用，然后关掉这个窗口
+    $('vmFrame').src = 'about:blank';
+    cur = null;
     if (window.Nexus && Nexus.closeWindow) Nexus.closeWindow();
     else window.close();
   };
-
-  Nexus.ready(function () {
-    renderLaunch();
-    toast('虚拟机就绪 · 与宿主完全隔离');
-  });
 })();
 </script>
 </body>

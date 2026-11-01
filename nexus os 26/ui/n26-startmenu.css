@@ -315,3 +315,104 @@ body.dock-hidden #dock.dock-peek {
     display: none;
 }
 body.dock-hidden #n26DockHotZone { display: block; }
+
+/* ══════════════════════════════════════════════════════════════════
+   v2.9.45 · 磁贴入场动效 + Win10 边缘光
+   ------------------------------------------------------------------
+   用户反馈（原话）：
+     「全屏的开始菜单启动的时候动画太快，没有一点动画，应该那些卡片那么平移过来的」
+     「像 Windows 10 一样，鼠标挪过去，在对应卡片的边缘那里就会有光，但也就只限边缘那里」
+
+   两条都只动「磁贴自己」，不碰整体菜单的淡入（那条已经调慢了）。
+
+   ★ 入场用独立的 `translate` 属性，不用 `transform`：
+     磁贴上 transform 被「拖拽排序」占用，拿 transform 做入场动画会和拖动打架；
+     而且固定/绝对定位元素加 fill-mode:both 的 transform 动画会焊死最后一帧，
+     translate 不参与那套栈，安全。
+   ══════════════════════════════════════════════════════════════════ */
+
+/* 磁贴错落入场：从左下方轻微平移到位，一块比一块晚一点（--smt-i 由渲染时写入） */
+@keyframes smtTileIn {
+    from {
+        opacity: 0;
+        translate: -14px 18px;
+    }
+    to {
+        opacity: 1;
+        translate: 0 0;
+    }
+}
+#smTileMenu .smt-tile {
+    opacity: 0;
+}
+#smTileMenu.show .smt-tile {
+    /* 0.52s + 每块 26ms 递延：一屏十几块，收尾约 0.9s，能看清"一块接一块推过来" */
+    animation: smtTileIn 0.52s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: calc(var(--smt-i, 0) * 26ms + 70ms);
+}
+/* 菜单关掉时把动画清掉，下次打开重新播（否则动画只跑一次） */
+#smTileMenu:not(.show) .smt-tile {
+    animation: none;
+    opacity: 0;
+}
+
+/* 整体入场也再慢一点、柔一点（原来 0.26s 太"啪"） */
+#smTileMenu {
+    transition: opacity 0.34s var(--ease-out, ease),
+                transform 0.46s cubic-bezier(0.2, 0.9, 0.3, 1),
+                filter 0.34s ease,
+                visibility 0s linear 0.34s;
+}
+#smTileMenu.show {
+    transition: opacity 0.34s var(--ease-out, ease),
+                transform 0.46s cubic-bezier(0.2, 0.9, 0.3, 1),
+                filter 0.34s ease,
+                visibility 0s linear 0s;
+}
+
+/* ── Win10 边缘光 ──
+   只有「边缘」亮：1px 亮边 + 向内 16px 快速衰减的柔光。
+   中间不亮，所以不是整块发光；同时把原来 hover 的整块 brightness 提亮压到几乎无感。 */
+.smt-tile::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 3;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    /* 双层：细亮边 + 贴边柔光（box-shadow 的 inset 只在边缘出现，中间是空的） */
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.72),
+        inset 0 0 16px rgba(255, 255, 255, 0.30),
+        inset 0 0 3px rgba(255, 255, 255, 0.55);
+}
+.smt-tile:hover::after { opacity: 1; }
+.smt-tile:hover {
+    /* 整块不再明显提亮——用户要的是"光只在边缘" */
+    filter: none;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.30),
+        0 8px 20px rgba(0, 0, 0, 0.26);
+    scale: 1.012;
+}
+/* 键盘聚焦也走同一套边缘光（可访问性） */
+.smt-tile:focus-visible::after { opacity: 1; }
+
+/* 性能/减弱动效下关掉入场与边缘光 */
+body.perf-mode #smTileMenu .smt-tile,
+body.perf-mode #smTileMenu.show .smt-tile {
+    animation: none !important;
+    opacity: 1 !important;
+    translate: none !important;
+}
+body.perf-mode .smt-tile::after { display: none; }
+@media (prefers-reduced-motion: reduce) {
+    #smTileMenu .smt-tile,
+    #smTileMenu.show .smt-tile {
+        animation: none !important;
+        opacity: 1 !important;
+        translate: none !important;
+    }
+}
