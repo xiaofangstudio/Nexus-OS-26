@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>图片</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+<title data-i18n="doc_title">图片</title>
+<link rel="stylesheet" href="../vendor/fontawesome/all.min.css">
 <script src="_bridge.js"></script>
-<script src="_app.js"></script>
+<script src="_app.js?v=2.9.57"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; overflow: hidden; }
@@ -57,8 +57,8 @@
     padding: 6px;
     border-radius: 14px;
     background: rgba(22, 26, 36, 0.62);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur, 24px)) saturate(180%);
+    backdrop-filter: blur(var(--glass-blur, 24px)) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
     z-index: 20;
@@ -92,8 +92,8 @@
     padding: 5px 14px;
     border-radius: 999px;
     background: rgba(22, 26, 36, 0.5);
-    -webkit-backdrop-filter: blur(16px);
-    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(var(--glass-blur, 16px));
+    backdrop-filter: blur(var(--glass-blur, 16px));
     border: 1px solid rgba(255, 255, 255, 0.1);
     font-size: 11.5px; color: rgba(255, 255, 255, 0.72);
     white-space: nowrap;
@@ -113,8 +113,8 @@
     padding: 8px 10px;
     border-radius: 16px;
     background: rgba(22, 26, 36, 0.62);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur, 24px)) saturate(180%);
+    backdrop-filter: blur(var(--glass-blur, 24px)) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     z-index: 20;
@@ -197,6 +197,197 @@
   }
   #loading.show { display: block; }
   @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+  /* ============================================================
+     v2.9.55：浅色主题全覆盖 / 液态玻璃动画 / 沉浸全屏 / 幻灯片
+     ★ 沿用 video.html 做法：原深色 CSS 不动，追加 light 覆盖层。
+     ★ 模糊层仍只有「工具栏」+「胶片条」两个玻璃元素；沉浸视图复用
+       同一个 filmstrip（移动 DOM），不新增第三层 backdrop。
+     ============================================================ */
+
+  /* ---------- 浅色主题覆盖 ---------- */
+  html[data-mode="light"] body { background: #f2f5fa; color: #17202c; }
+  html[data-mode="light"] #stage {
+    background:
+      radial-gradient(1200px 700px at 50% 40%, rgba(180, 205, 240, 0.55), transparent 70%),
+      #eef3fa;
+  }
+  html[data-mode="light"] #toolbar,
+  html[data-mode="light"] #filmstrip {
+    background: rgba(255, 255, 255, 0.66);
+    border-color: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 12px 40px rgba(30, 50, 80, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+  html[data-mode="light"] #infoBar {
+    background: rgba(255, 255, 255, 0.72);
+    border-color: rgba(255, 255, 255, 0.85);
+    color: rgba(23, 32, 44, 0.72);
+    box-shadow: 0 8px 24px rgba(30, 50, 80, 0.12);
+  }
+  html[data-mode="light"] .tbtn { color: rgba(23, 32, 44, 0.8); }
+  html[data-mode="light"] .tbtn:hover { background: rgba(20, 40, 70, 0.08); color: #17202c; }
+  html[data-mode="light"] .tbtn.on { background: rgba(46, 124, 214, 0.18); color: #2e7cd6; }
+  html[data-mode="light"] .tsep { background: rgba(20, 40, 70, 0.14); }
+  html[data-mode="light"] #zoomLabel { color: rgba(23, 32, 44, 0.75); }
+  html[data-mode="light"] #empty h2 { color: rgba(23, 32, 44, 0.9); }
+  html[data-mode="light"] #empty p { color: rgba(23, 32, 44, 0.5); }
+  html[data-mode="light"] #empty .icon {
+    background: rgba(20, 40, 70, 0.05);
+    border-color: rgba(20, 40, 70, 0.22);
+    color: rgba(23, 32, 44, 0.5);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 14px 40px rgba(46, 124, 214, 0.12);
+  }
+  html[data-mode="light"] #pickBtn { background: #2e7cd6; }
+  html[data-mode="light"] #pickBtn:hover { background: #4a90e2; }
+  html[data-mode="light"] .thumb { background: #dfe7f2 center/cover no-repeat; }
+  html[data-mode="light"] .thumb.active { border-color: #2e7cd6; }
+  html[data-mode="light"] #dropHint {
+    background: rgba(46, 124, 214, 0.12);
+    border-color: rgba(46, 124, 214, 0.55);
+    color: #2e7cd6;
+  }
+  html[data-mode="light"] #loading { border-color: rgba(20, 40, 70, 0.12); border-top-color: #2e7cd6; }
+  html[data-mode="light"] #mainImg { box-shadow: 0 24px 80px rgba(30, 50, 80, 0.22); }
+
+  /* 跟随宿主玻璃材质：solid 时完全不透明、无模糊 */
+  body.mat-solid #toolbar,
+  body.mat-solid #infoBar,
+  body.mat-solid #filmstrip {
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  body.mat-solid #toolbar,
+  body.mat-solid #filmstrip { background: #161a24; }
+  body.mat-solid #infoBar { background: #161a24; }
+  html[data-mode="light"] body.mat-solid #toolbar,
+  html[data-mode="light"] body.mat-solid #infoBar,
+  html[data-mode="light"] body.mat-solid #filmstrip { background: #fafcff; }
+
+  /* ---------- 液态玻璃细节 + 动画 ---------- */
+  /* 斜向液态反光 + 内描边高光 */
+  #toolbar::after, #filmstrip::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: linear-gradient(125deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.02) 34%, transparent 58%, rgba(255, 255, 255, 0.06) 100%);
+  }
+  #toolbar > *, #filmstrip > * { position: relative; z-index: 1; }
+  #toolbar, #filmstrip, body, #stage { transition: background-color 0.32s ease, color 0.32s ease, box-shadow 0.32s ease; }
+  /* 空态图标呼吸浮动 */
+  #empty .icon { animation: igFloat 4.5s ease-in-out infinite; }
+  @keyframes igFloat { 0%, 100% { translate: 0 0; } 50% { translate: 0 -7px; } }
+  /* 缩略图错峰进入（仅首次渲染，之后由 JS 关掉避免切图重播） */
+  .thumb { animation: igThumbIn 0.3s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both; }
+  @keyframes igThumbIn { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
+  /* 图片切换淡入（只用 opacity，不与 transform 的平移/缩放叠加） */
+  #mainImg.img-in { animation: igFade 0.42s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)); }
+  @keyframes igFade { from { opacity: 0; } to { opacity: 1; } }
+  /* 工具栏按钮液态按压：用独立 scale 属性，屏蔽原 transform 免得叠加缩太小 */
+  .tbtn { transition: background 0.16s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)), color 0.16s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)), scale 0.16s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)); }
+  #toolbar .tbtn:active, #filmstrip .tbtn:active { transform: none; scale: 0.9; }
+  .tbtn:focus-visible { outline: 2px solid #4a9bf5; outline-offset: 2px; }
+  #btnSlide.on { background: rgba(10, 132, 255, 0.32); color: #7cc0ff; }
+  html[data-mode="light"] #btnSlide.on { background: rgba(46, 124, 214, 0.18); color: #2e7cd6; }
+
+  /* ---------------- 沉浸全屏视图 ---------------- */
+  #immersive {
+    position: fixed; inset: 0; z-index: 60;
+    display: none; flex-direction: column;
+    background:
+      radial-gradient(1100px 760px at 20% 16%, rgba(74, 155, 245, 0.20), transparent 62%),
+      radial-gradient(1000px 720px at 84% 86%, rgba(56, 189, 248, 0.16), transparent 60%),
+      linear-gradient(150deg, #0a1120, #12233c);
+    opacity: 0;
+    transition: opacity 0.42s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+    overflow: hidden;
+  }
+  html[data-mode="light"] #immersive {
+    background:
+      radial-gradient(1100px 760px at 20% 16%, rgba(46, 124, 214, 0.16), transparent 62%),
+      radial-gradient(1000px 720px at 84% 86%, rgba(56, 189, 248, 0.12), transparent 60%),
+      linear-gradient(150deg, #eaf1fa, #d4e4f6);
+  }
+  #immersive.open { opacity: 1; }
+  #immersive.closing { opacity: 0; }
+  #immersive .im-glow {
+    position: absolute; width: 60vw; height: 60vw; left: -10vw; top: -18vw;
+    background: radial-gradient(circle, rgba(74, 155, 245, 0.18), transparent 66%);
+    filter: blur(30px); pointer-events: none;
+    animation: igDrift 16s ease-in-out infinite alternate;
+  }
+  html[data-mode="light"] #immersive .im-glow { background: radial-gradient(circle, rgba(46, 124, 214, 0.16), transparent 66%); }
+  @keyframes igDrift { from { translate: 0 0; } to { translate: 18vw 10vw; } }
+
+  /* 顶栏 */
+  #immersive .im-head {
+    position: relative; z-index: 2;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 18px 26px 10px;
+  }
+  #immersive .im-title {
+    display: flex; align-items: center; gap: 10px; min-width: 0;
+    font-size: 15px; font-weight: 650; color: rgba(255, 255, 255, 0.92);
+  }
+  html[data-mode="light"] #immersive .im-title { color: #17202c; }
+  #immersive .im-title i { color: #4a9bf5; }
+  #immersive .im-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #immersive .im-count { font-size: 12px; opacity: 0.7; flex: 0 0 auto; }
+  #immersive .im-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+  #immersive .im-btn {
+    width: 36px; height: 36px; border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.88); font-size: 14px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background 0.16s, scale 0.16s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
+  }
+  html[data-mode="light"] #immersive .im-btn { background: rgba(255, 255, 255, 0.6); border-color: rgba(20, 40, 70, 0.12); color: #17202c; }
+  #immersive .im-btn:hover { background: rgba(255, 255, 255, 0.16); }
+  #immersive .im-btn:active { scale: 0.9; }
+  #immersive .im-btn.on { background: rgba(74, 155, 245, 0.3); color: #bfe0ff; }
+
+  /* 中央舞台：imgWrap 移进来 */
+  #immersive .im-stage { position: relative; flex: 1 1 0; min-height: 0; }
+  #immersive .im-stage #mainImg { box-shadow: 0 30px 90px rgba(0, 0, 0, 0.5); }
+  html[data-mode="light"] #immersive .im-stage #mainImg { box-shadow: 0 30px 90px rgba(30, 50, 80, 0.22); }
+
+  /* 底部：filmstrip 移进来 + 幻灯片进度条 */
+  #immersive .im-bottom {
+    position: relative; flex: 0 0 auto; padding: 12px 20px 18px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  /* barIn 是 forwards，会持续覆盖 transform → 沉浸里必须整条关掉动画并显式归位 */
+  #immersive .im-bottom #filmstrip {
+    position: relative; left: auto; bottom: auto; transform: none;
+    animation: none; opacity: 1;
+    max-width: min(92vw, 860px);
+  }
+  #imProgressTrack {
+    width: min(60vw, 520px); height: 4px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.2); overflow: hidden;
+  }
+  html[data-mode="light"] #imProgressTrack { background: rgba(20, 40, 70, 0.14); }
+  #imProgressFill {
+    height: 100%; width: 0%; border-radius: 999px;
+    background: linear-gradient(90deg, #0a84ff, #4aa8ff);
+    box-shadow: 0 0 10px rgba(10, 132, 255, 0.4);
+    transition: width 0.35s ease;
+  }
+  /* 分层进场 + 自动隐藏 UI */
+  #immersive .im-head { translate: 0 -14px; }
+  #immersive .im-bottom { translate: 0 16px; }
+  #immersive .im-head, #immersive .im-bottom {
+    opacity: 0;
+    transition: translate 0.5s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)), opacity 0.4s ease;
+  }
+  #immersive.open .im-head, #immersive.open .im-bottom { translate: 0 0; opacity: 1; }
+  #immersive.hide-ui .im-head, #immersive.hide-ui .im-bottom { opacity: 0; pointer-events: none; }
+
+  /* 减弱动态 / 性能模式降级 */
+  @media (prefers-reduced-motion: reduce) {
+    #immersive, #immersive .im-head, #immersive .im-bottom { transition-duration: 0.01ms !important; }
+    #mainImg.img-in, .thumb { animation-duration: 0.01ms !important; }
+    #immersive .im-glow, #empty .icon { animation: none !important; }
+  }
+  body.perf-mode #immersive .im-glow { animation: none !important; }
+  body.perf-mode #empty .icon { animation: none !important; }
 </style>
 </head>
 <body>
@@ -205,38 +396,56 @@
     <div id="imgWrap"><img id="mainImg" class="hidden" alt="" draggable="false"></div>
 
     <div id="toolbar">
-      <button class="tbtn" id="btnPrev" title="上一张 (←)"><i class="fas fa-chevron-left"></i></button>
-      <button class="tbtn" id="btnNext" title="下一张 (→)"><i class="fas fa-chevron-right"></i></button>
+      <button class="tbtn" id="btnPrev" title="上一张 (←)" data-i18n-title="img_prev"><i class="fas fa-chevron-left"></i></button>
+      <button class="tbtn" id="btnNext" title="下一张 (→)" data-i18n-title="img_next"><i class="fas fa-chevron-right"></i></button>
       <div class="tsep"></div>
-      <button class="tbtn" id="btnZoomOut" title="缩小 (-)"><i class="fas fa-magnifying-glass-minus"></i></button>
+      <button class="tbtn" id="btnZoomOut" title="缩小 (-)" data-i18n-title="img_zoom_out"><i class="fas fa-magnifying-glass-minus"></i></button>
       <span id="zoomLabel">100%</span>
-      <button class="tbtn" id="btnZoomIn" title="放大 (+)"><i class="fas fa-magnifying-glass-plus"></i></button>
-      <button class="tbtn" id="btnFit" title="适应窗口 (0)"><i class="fas fa-expand"></i></button>
+      <button class="tbtn" id="btnZoomIn" title="放大 (+)" data-i18n-title="img_zoom_in"><i class="fas fa-magnifying-glass-plus"></i></button>
+      <button class="tbtn" id="btnFit" title="适应窗口 (0)" data-i18n-title="img_fit"><i class="fas fa-expand"></i></button>
       <div class="tsep"></div>
-      <button class="tbtn" id="btnRotate" title="旋转 (R)"><i class="fas fa-rotate-right"></i></button>
-      <button class="tbtn" id="btnInfo" title="信息 (I)"><i class="fas fa-circle-info"></i></button>
+      <button class="tbtn" id="btnRotate" title="旋转 (R)" data-i18n-title="img_rotate"><i class="fas fa-rotate-right"></i></button>
+      <button class="tbtn" id="btnInfo" title="信息 (I)" data-i18n-title="img_info"><i class="fas fa-circle-info"></i></button>
       <div class="tsep"></div>
-      <button class="tbtn" id="btnOpen" title="打开图片文件"><i class="fas fa-folder-open"></i></button>
-      <button class="tbtn" id="btnFull" title="全屏 (F)"><i class="fas fa-arrow-up-right-and-arrow-down-left-from-center"></i></button>
+      <button class="tbtn" id="btnOpen" title="打开图片文件" data-i18n-title="img_open"><i class="fas fa-folder-open"></i></button>
+      <button class="tbtn" id="btnSlide" title="幻灯片播放 (P)" data-i18n-title="img_slide"><i class="fas fa-circle-play"></i></button>
+      <button class="tbtn" id="btnFull" title="沉浸全屏 (F)" data-i18n-title="img_full"><i class="fas fa-arrow-up-right-and-arrow-down-left-from-center"></i></button>
     </div>
 
     <div id="infoBar"></div>
 
     <div id="filmstrip">
-      <button class="tbtn" id="btnFilmPrev" title="上一张"><i class="fas fa-chevron-left"></i></button>
+      <button class="tbtn" id="btnFilmPrev" title="上一张" data-i18n-title="img_prev"><i class="fas fa-chevron-left"></i></button>
       <div id="filmList"></div>
-      <button class="tbtn" id="btnFilmNext" title="下一张"><i class="fas fa-chevron-right"></i></button>
+      <button class="tbtn" id="btnFilmNext" title="下一张" data-i18n-title="img_next"><i class="fas fa-chevron-right"></i></button>
     </div>
 
     <div id="empty">
       <div class="icon"><i class="fas fa-image"></i></div>
-      <h2>还没有图片</h2>
-      <p>把图片文件拖进来即可查看<br>也可以从文件系统的「图片」文件夹中自动收集<br>支持 Ctrl+V 粘贴剪贴板图片</p>
-      <button id="pickBtn">选择图片</button>
+      <h2 data-i18n="img_empty_title">还没有图片</h2>
+      <p data-i18n-html="img_empty_desc">把图片文件拖进来即可查看<br>也可以从文件系统的「图片」文件夹中自动收集<br>支持 Ctrl+V 粘贴剪贴板图片</p>
+      <button id="pickBtn" data-i18n="img_pick">选择图片</button>
     </div>
 
-    <div id="dropHint"><i class="fas fa-cloud-arrow-up" style="margin-right:8px;"></i>松开鼠标，打开图片</div>
+    <div id="dropHint" data-i18n="img_drop_hint"><i class="fas fa-cloud-arrow-up" style="margin-right:8px;"></i>松开鼠标，打开图片</div>
     <div id="loading"></div>
+  </div>
+
+  <!-- v2.9.55 沉浸全屏视图：同一个 imgWrap / filmstrip 运行时移入，缩放与选图状态零中断 -->
+    <div id="immersive" role="dialog" aria-label="沉浸查看" data-i18n-aria="img_immersive_label">
+      <div class="im-glow" aria-hidden="true"></div>
+      <div class="im-head">
+        <div class="im-title"><i class="fas fa-image" aria-hidden="true"></i><span id="imName">—</span><span class="im-count" id="imCount"></span></div>
+        <div class="im-actions">
+          <button class="im-btn" id="imSlide" title="幻灯片播放" aria-label="幻灯片播放" data-i18n-title="img_slide" data-i18n-aria="img_slide"><i class="fas fa-play" aria-hidden="true"></i></button>
+          <button class="im-btn" id="imNative" title="浏览器全屏" aria-label="浏览器全屏" data-i18n-title="img_native" data-i18n-aria="img_native"><i class="fas fa-expand" aria-hidden="true"></i></button>
+          <button class="im-btn" id="imExit" title="退出沉浸 (Esc)" aria-label="退出沉浸" data-i18n-title="img_exit" data-i18n-aria="img_exit"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+        </div>
+      </div>
+    <div class="im-stage" id="imStage"></div>
+    <div class="im-bottom" id="imBottom">
+      <div id="imProgressTrack"><div id="imProgressFill"></div></div>
+    </div>
   </div>
 </div>
 <input type="file" id="filePicker" accept="image/*" multiple style="display:none;">
@@ -244,6 +453,65 @@
 (function () {
   'use strict';
   var N = window.Nexus;
+
+  /* ===== i18n 字典：图片查看器（v2.9.57） ===== */
+  window.APP_I18N = {
+    zh: {
+      doc_title: '图片',
+      img_prev: '上一张 (←)',
+      img_next: '下一张 (→)',
+      img_zoom_out: '缩小 (-)',
+      img_zoom_in: '放大 (+)',
+      img_fit: '适应窗口 (0)',
+      img_rotate: '旋转 (R)',
+      img_info: '信息 (I)',
+      img_open: '打开图片文件',
+      img_slide: '幻灯片播放 (P)',
+      img_full: '沉浸全屏 (F)',
+      img_empty_title: '还没有图片',
+      img_empty_desc: '把图片文件拖进来即可查看<br>也可以从文件系统的「图片」文件夹中自动收集<br>支持 Ctrl+V 粘贴剪贴板图片',
+      img_pick: '选择图片',
+      img_drop_hint: '松开鼠标，打开图片',
+      img_native: '浏览器全屏',
+      img_exit: '退出沉浸 (Esc)',
+      img_immersive_label: '沉浸查看',
+      img_not_browsing: '未在浏览',
+      img_slideshow: '幻灯片',
+      img_local_path: '本地文件',
+      img_nf_title: '无法打开',
+      img_nf_body: '图片「{n}」格式不受支持或已损坏',
+      img_fs_title: '全屏',
+      img_fs_body: '当前环境不支持浏览器全屏'
+    },
+    en: {
+      doc_title: 'Image',
+      img_prev: 'Previous (←)',
+      img_next: 'Next (→)',
+      img_zoom_out: 'Zoom out (-)',
+      img_zoom_in: 'Zoom in (+)',
+      img_fit: 'Fit window (0)',
+      img_rotate: 'Rotate (R)',
+      img_info: 'Info (I)',
+      img_open: 'Open image file',
+      img_slide: 'Slideshow (P)',
+      img_full: 'Immersive fullscreen (F)',
+      img_empty_title: 'No images yet',
+      img_empty_desc: 'Drag image files here to view<br>Or auto-collected from the "Pictures" folder in Files<br>Ctrl+V to paste images from clipboard',
+      img_pick: 'Choose image',
+      img_drop_hint: 'Release to open image',
+      img_native: 'Browser fullscreen',
+      img_exit: 'Exit immersive (Esc)',
+      img_immersive_label: 'Immersive view',
+      img_not_browsing: 'Not viewing',
+      img_slideshow: 'Slideshow',
+      img_local_path: 'Local files',
+      img_nf_title: 'Cannot open',
+      img_nf_body: 'Image "{n}" is unsupported or corrupted',
+      img_fs_title: 'Fullscreen',
+      img_fs_body: 'Browser fullscreen is not supported here'
+    }
+  };
+  function T(k, a) { var s = N.t(k); if (a != null) s = String(s).replace(/\{n\}/g, a); return s; }
 
   /* ---------- 状态 ---------- */
   var images = [];          // { name, path, src, w, h, size }
@@ -321,7 +589,7 @@
         images.push({ name: f.name, path: f.path, src: srcOf(f.node), w: 0, h: 0, size: approxSize(f.node) });
       });
       renderFilm();
-      if (images.length && cur < 0) show(0);
+      if (images.length && cur < 0 && !pendingState) show(0);   // v2.9.55：有待恢复的状态时不抢先显示
       refreshEmpty();
     }).catch(function () { refreshEmpty(); });
   }
@@ -342,9 +610,13 @@
       th.src = im.src;
       th.loading = 'lazy';
       t.appendChild(th);
+      /* v2.9.55：缩略图仅首次错峰进入，之后关掉动画避免切图时整条重播 */
+      if (filmAnimated) t.style.animation = 'none';
+      else t.style.animationDelay = (i * 0.028) + 's';
       t.onclick = function () { show(i); };
       filmList.appendChild(t);
     });
+    filmAnimated = true;
     var act = filmList.children[cur];
     if (act && act.scrollIntoView) act.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
   }
@@ -360,13 +632,23 @@
       im.w = probe.naturalWidth; im.h = probe.naturalHeight;
       img.classList.remove('hidden');
       img.src = im.src;
+      /* v2.9.55：切图淡入（强制重排触发动画重播） */
+      img.classList.remove('img-in');
+      void img.offsetWidth;
+      img.classList.add('img-in');
       resetView();
       renderFilm();
+      paintImMeta();
       if (showInfo) updateInfo();
+      broadcastNow(true);
+      saveState();
+      restoring = false;      /* 关窗恢复的异步尾巴结束，之后可正常持久化 */
+      scheduleImHide();
     };
     probe.onerror = function () {
       loading.classList.remove('show');
-      N.notify('无法打开', '图片「' + im.name + '」格式不受支持或已损坏', 'error');
+      restoring = false;
+      N.notify(T('img_nf_title'), T('img_nf_body', im.name), 'error');
     };
     probe.src = im.src;
   }
@@ -483,11 +765,8 @@
     if (showInfo) updateInfo();
   };
   document.getElementById('btnOpen').onclick = function () { filePicker.click(); };
-  document.getElementById('btnFull').onclick = function () {
-    var el = document.documentElement;
-    if (document.fullscreenElement) document.exitFullscreen();
-    else if (el.requestFullscreen) el.requestFullscreen();
-  };
+  /* v2.9.55：全屏按钮进入沉浸视图（浏览器原生全屏改由沉浸视图内 imNative 提供） */
+  document.getElementById('btnFull').onclick = toggleImmersive;
   filePicker.onchange = function () {
     addFiles(filePicker.files);
     filePicker.value = '';
@@ -502,7 +781,7 @@
     arr.forEach(function (f) {
       var r = new FileReader();
       r.onload = function () {
-        images.push({ name: f.name, path: '本地文件/' + f.name, src: r.result, w: 0, h: 0, size: f.size });
+        images.push({ name: f.name, path: T('img_local_path') + '/' + f.name, src: r.result, w: 0, h: 0, size: f.size });
         if (--pending === 0) { renderFilm(); refreshEmpty(); show(start); }
       };
       r.readAsDataURL(f);
@@ -549,12 +828,199 @@
       case '1': fitMode = false; scale = 1; applyTransform(false); e.preventDefault(); break;
       case 'r': case 'R': rotate(); break;
       case 'i': case 'I': document.getElementById('btnInfo').onclick(); break;
-      case 'f': case 'F': document.getElementById('btnFull').onclick(); break;
+      case 'f': case 'F': toggleImmersive(); break;
+      case 'p': case 'P': toggleSlide(); break;
+      case 'Escape': if (immersiveOpen) { closeImmersive(); return; } break;
     }
   });
 
+  /* ============================================================
+     v2.9.55：沉浸全屏 / 幻灯片 / 小主页联动 / 状态恢复 / Media Session
+     与 music / video 同款规律。图片没有音轨 →「后台播放」语义 =
+     幻灯片状态持久 + 关窗后桌面「正在播放」部件仍能通过 n26ImageCmd 控制。
+     ============================================================ */
+  var immersiveOpen = false;
+  var immersiveEl = document.getElementById('immersive');
+  var imStage = document.getElementById('imStage');
+  var imBottom = document.getElementById('imBottom');
+  var imName = document.getElementById('imName');
+  var imCount = document.getElementById('imCount');
+  var imProgressFill = document.getElementById('imProgressFill');
+  var slideOn = false, slideTimer = null;
+  var imHideTimer = null;
+  var lastBroadcast = 0;
+  var pendingState = null;
+  var SLIDE_MS = 3500;
+  var filmAnimated = false;
+  var restoring = false;   /* 关窗恢复期间抑制 saveState 回写，避免刚清掉的状态被 onload 写回 */
+
+  /* ---- 沉浸视图：把同一个 imgWrap / filmstrip 移动进来 ---- */
+  function openImmersive() {
+    if (immersiveOpen) return;
+    immersiveOpen = true;
+    immersiveEl.classList.remove('closing');
+    paintImMeta();
+    imStage.appendChild(imgWrap);
+    imBottom.appendChild(document.getElementById('filmstrip'));
+    immersiveEl.style.display = 'flex';
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { immersiveEl.classList.add('open'); });
+    });
+    document.getElementById('btnFull').classList.add('on');
+    scheduleImHide();
+    broadcastNow(true);
+  }
+  function closeImmersive() {
+    if (!immersiveOpen) return;
+    immersiveOpen = false;
+    immersiveEl.classList.remove('open');
+    immersiveEl.classList.add('closing');
+    document.getElementById('btnFull').classList.remove('on');
+    clearTimeout(imHideTimer);
+    setTimeout(function () {
+      if (immersiveOpen) return;
+      immersiveEl.style.display = 'none';
+      immersiveEl.classList.remove('closing');
+      stage.insertBefore(imgWrap, stage.firstChild);
+      stage.appendChild(document.getElementById('filmstrip'));
+      applyTransform(true);
+    }, 430);
+  }
+  function toggleImmersive() { if (immersiveOpen) closeImmersive(); else openImmersive(); }
+  document.getElementById('imExit').onclick = closeImmersive;
+  document.getElementById('imNative').onclick = function () {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else if (immersiveEl.requestFullscreen) immersiveEl.requestFullscreen();
+    } catch (e) { N.notify(T('img_fs_title'), T('img_fs_body'), 'warning'); }
+  };
+  /* 沉浸式自动隐藏 UI（幻灯片播放时常驻，方便看进度） */
+  function scheduleImHide() {
+    clearTimeout(imHideTimer);
+    immersiveEl.classList.remove('hide-ui');
+    if (!immersiveOpen || slideOn) return;
+    imHideTimer = setTimeout(function () { immersiveEl.classList.add('hide-ui'); }, 2800);
+  }
+  immersiveEl.addEventListener('mousemove', scheduleImHide);
+  immersiveEl.addEventListener('mouseleave', function () { if (!slideOn && immersiveOpen) immersiveEl.classList.add('hide-ui'); });
+  /* 双击图片进入 / 退出沉浸 */
+  stage.addEventListener('dblclick', function () { if (cur >= 0) toggleImmersive(); });
+  immersiveEl.addEventListener('dblclick', function (e) {
+    if (e.target === imgWrap || e.target === img) toggleImmersive();
+  });
+  /* 沉浸式滚轮缩放（转发到现有 zoomBy，stage 与沉浸层 rect 一致） */
+  immersiveEl.addEventListener('wheel', function (e) {
+    if (cur < 0) return;
+    e.preventDefault();
+    zoomBy(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX, e.clientY);
+  }, { passive: false });
+
+  /* ---- 沉浸视图元信息 ---- */
+  function paintImMeta() {
+    var im = images[cur];
+    if (imName) imName.textContent = im ? im.name : T('img_not_browsing');
+    if (imCount) imCount.textContent = images.length ? (cur + 1) + ' / ' + images.length : '';
+    var pct = images.length > 1 ? ((cur + 1) / images.length * 100) : 0;
+    if (imProgressFill) imProgressFill.style.width = pct + '%';
+  }
+
+  /* ---- 幻灯片播放 ---- */
+  function setSlide(on) {
+    slideOn = !!on;
+    clearInterval(slideTimer);
+    var b1 = document.getElementById('btnSlide'), b2 = document.getElementById('imSlide');
+    if (b1) { b1.classList.toggle('on', slideOn); b1.innerHTML = '<i class="fas ' + (slideOn ? 'fa-pause' : 'fa-circle-play') + '"></i>'; }
+    if (b2) { b2.classList.toggle('on', slideOn); b2.innerHTML = '<i class="fas ' + (slideOn ? 'fa-pause' : 'fa-play') + '"></i>'; }
+    if (slideOn && images.length > 1) {
+      slideTimer = setInterval(function () { show((cur + 1) % images.length); }, SLIDE_MS);
+    }
+    scheduleImHide();
+    broadcastNow(true);
+    setupMediaSession();
+    saveState();
+  }
+  function toggleSlide() { setSlide(!slideOn); }
+  document.getElementById('btnSlide').onclick = toggleSlide;
+  document.getElementById('imSlide').onclick = toggleSlide;
+
+  /* ---- 状态广播：n26ImageNow（600ms 节流，★绝不写图片 dataURL 以免爆 localStorage） ---- */
+  function broadcastNow(force) {
+    var now = Date.now();
+    if (!force && now - lastBroadcast < 600) return;
+    lastBroadcast = now;
+    var im = images[cur];
+    var payload = {
+      name: im ? im.name : '',
+      count: images.length,
+      index: cur >= 0 ? cur + 1 : 0,
+      pos: cur >= 0 ? cur + 1 : 0,
+      dur: images.length,
+      playing: slideOn,
+      hue: 200, ts: now
+    };
+    try { localStorage.setItem('n26ImageNow', JSON.stringify(payload)); } catch (e) {}
+  }
+  /* 关窗状态持久（只存索引与开关，不存 src） */
+  function saveState() {
+    if (restoring) return;
+    try { localStorage.setItem('n26ImageState', JSON.stringify({ cur: cur, slide: slideOn, ts: Date.now() })); } catch (e) {}
+  }
+  window.addEventListener('pagehide', saveState);
+  /* 小主页控制命令 */
+  window.addEventListener('storage', function (e) {
+    if (e.key !== 'n26ImageCmd' || !e.newValue) return;
+    var cmd = null;
+    try { cmd = JSON.parse(e.newValue); } catch (er) { return; }
+    if (!cmd) return;
+    if (cmd.act === 'toggle') toggleSlide();
+    else if (cmd.act === 'next') show(cur + 1);
+    else if (cmd.act === 'prev') show(cur - 1);
+    else if (cmd.act === 'fs') openImmersive();
+  });
+  /* ---- 重开恢复（列表来自文件系统，顺序稳定 → 恢复索引即可） ---- */
+  function takeOverState(st) {
+    if (!st) return;
+    /* show() 的 saveState 在图片 onload 里异步执行：恢复期间先抑制回写，
+       否则 removeItem 刚清掉的 n26ImageState 会被随后触发的 onload 重新写回。 */
+    restoring = true;
+    if (typeof st.cur === 'number' && images.length && st.cur >= 0 && st.cur < images.length) show(st.cur);
+    else restoring = false;
+    if (st.slide && images.length > 1) setSlide(true);
+    try { localStorage.removeItem('n26ImageState'); } catch (e) {}
+    /* 兜底：图片解码异常时别把 restoring 永久卡住 */
+    setTimeout(function () { restoring = false; }, 2000);
+  }
+  /* ---- Media Session ---- */
+  function setupMediaSession() {
+    if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
+    var im = images[cur];
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: im ? im.name : T('img_not_browsing'), artist: T('img_slideshow'), album: 'Nexus OS 26'
+      });
+      navigator.mediaSession.playbackState = slideOn ? 'playing' : 'paused';
+      [
+        ['play', function () { if (!slideOn) setSlide(true); }],
+        ['pause', function () { if (slideOn) setSlide(false); }],
+        ['previoustrack', function () { show(cur - 1); }],
+        ['nexttrack', function () { show(cur + 1); }]
+      ].forEach(function (p) { try { navigator.mediaSession.setActionHandler(p[0], p[1]); } catch (e) {} });
+    } catch (e) {}
+  }
+
+  /* ---------- 语言热切换：重绘随语言变化的动态内容 ---------- */
+  N.onLanguageChange(function () {
+    paintImMeta();
+    if (showInfo) updateInfo();
+    setupMediaSession();
+  });
+
   /* ---------- 启动 ---------- */
-  N.ready(function () { loadFromFS(); });
+  N.ready(function () {
+    try { pendingState = JSON.parse(localStorage.getItem('n26ImageState') || 'null'); } catch (e) {}
+    loadFromFS().then(function () { takeOverState(pendingState); });
+    broadcastNow(true);   // 即便无图也广播一次，让小部件能显示「未在浏览」
+  });
 })();
 </script>
 </body>

@@ -112,24 +112,35 @@ body.dark-mode #install-screen .covi-p-count { color: rgba(255, 255, 255, 0.72);
 #install-screen .covi-p-count b { color: #0a84ff; font-weight: 800; }
 body.dark-mode #install-screen .covi-p-count b { color: #64d2ff; }
 
-/* ---------- 卡片可点击暗示：右下角小箭头（非交互元素上才有） ---------- */
+/* v2.9.60：重启是纯黑过渡屏，进度胶囊跟着转深色，别顶着一块灰白 */
+#install-screen:has(#step-reboot.active) .install-steps-indicator {
+    background: rgba(255, 255, 255, 0.11);
+    border-color: rgba(255, 255, 255, 0.16);
+    box-shadow: none;
+}
+#install-screen:has(#step-reboot.active) .covi-p-track { background: rgba(255, 255, 255, 0.18); }
+#install-screen:has(#step-reboot.active) .covi-p-count { color: rgba(255, 255, 255, 0.82); }
+
+/* v2.9.60：FluentOS 语言——「单击任意位置以继续」底部居中一行小灰字，不再右下角飘箭头 */
 #install-screen .covi-tap-hint {
     position: absolute;
-    right: 18px;
-    bottom: 16px;
+    left: 50%;
+    bottom: 20px;
+    transform: translateX(-50%);
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 11px;
-    font-weight: 600;
-    color: rgba(60, 60, 67, 0.45);
+    font-weight: 500;
+    letter-spacing: .2px;
+    color: rgba(60, 60, 67, 0.42);
     pointer-events: none;
     animation: coviTapHintFloat 2.4s ease-in-out infinite;
 }
 body.dark-mode #install-screen .covi-tap-hint { color: rgba(255, 255, 255, 0.45); }
 @keyframes coviTapHintFloat {
-    0%, 100% { transform: translateX(0); opacity: 0.55; }
-    50%      { transform: translateX(4px); opacity: 1; }
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 1; }
 }
 
 /* ---------- 降级 ---------- */
@@ -144,3 +155,43 @@ body.perf-mode #install-screen .install-step.active .oobe-card[class*="covi-card
     #install-screen .install-step.active .oobe-card[class*="covi-card-"] { animation-duration: 0.15s; }
     #install-screen .covi-tap-hint { animation: none; }
 }
+
+/* ============================================================
+   v2.9.58 OOBE 灵动感三件套（参考 FluentOS 青山湖，克制版）
+   ① 3D 鼠标视差：只让卡片左侧动画区「探头」（±2.6°，lerp 平滑），
+      不动卡片本体——翻牌动画的 transform 不能被干扰
+   ② 步骤标题逐字弹跳（进 26ms/字，回弹曲线）
+   ③ OOBE 收尾交棒：渐隐同时放大 + 景深模糊（finishInstallation 里加 transform/filter）
+   ============================================================ */
+
+/* ① 视差：作用于 .oobe-card-anim（图标/插画区），preserve-3d 保留层叠 */
+#install-screen .oobe-card-anim {
+    transform-style: preserve-3d;
+}
+#install-screen.oobe-tilt-live .oobe-card-anim {
+    transform: perspective(900px)
+               rotateX(var(--oobe-tilt-x, 0deg))
+               rotateY(var(--oobe-tilt-y, 0deg));
+    transition: transform 0.16s var(--ease-out);
+}
+body.perf-mode #install-screen.oobe-tilt-live .oobe-card-anim { transform: none; transition: none; }
+
+/* ② 标题逐字：oobeShowStep 时由 JS 把 .step-title 拆成 .oobe-letter */
+.step-title .oobe-letter {
+    display: inline-block;
+    animation: oobeLetterPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    will-change: transform, opacity;
+}
+@keyframes oobeLetterPop {
+    0%   { opacity: 0; transform: translateY(9px) scale(0.86); }
+    62%  { opacity: 1; transform: translateY(-2.5px) scale(1.04); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+body.perf-mode .step-title .oobe-letter { animation: none; opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+    .step-title .oobe-letter { animation-duration: 0.01ms; }
+}
+
+/* ③ 交棒：finishInstallation 给 #install-screen 内联加 transform/filter，无需 CSS 类；
+   这里只保证 will-change 不常驻（性能铁律：不留常驻合成层） */
+#install-screen.oobe-leaving { will-change: opacity, transform, filter; }

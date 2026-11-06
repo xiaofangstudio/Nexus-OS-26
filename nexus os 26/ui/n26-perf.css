@@ -1,0 +1,159 @@
+/* ==========================================================================
+   n26-perf.css · Nexus OS 26 性能层   v2.9.16
+   --------------------------------------------------------------------------
+   一句话目标：让「看不见的东西」真正停止计算。
+
+   实测基线（1600×900 / Edge 156）：
+     · 118 个元素带 backdrop-filter，累计覆盖 572% 个屏幕
+     · 其中 113 个「实际不可见却仍在算」 → 浪费 535% 个屏幕
+     · 拖动窗口只有 19.8 fps
+
+   根因：弹层/侧栏都用 `opacity:0` 或 `transform: translateX(100%)` 藏起来。
+        视觉上是没了，但它们仍在渲染树里，backdrop-filter 照样为它们
+        做离屏采样 + 高斯模糊 —— 5 层全屏模糊白算。
+
+   手法（关键）：
+       用 `visibility: hidden` + 延迟切换，把它们真正移出「绘制」环节，
+       同时**完整保留**原本的淡入 / 淡出 / 位移过渡。
+       visibility 不像 display 那样会丢失尺寸信息，因此不影响任何
+       依赖 offsetWidth / getBoundingClientRect 的 JS 逻辑。
+
+   原则：可见态的模糊参数一个字都不改 —— 用户能看到的每一帧，
+        玻璃质感和以前完全一致。降的是「看不见的开销」，不是质感。
+   ========================================================================== */
+
+/* ══════════════════════════════════════════════════════════════════════
+   1. 五个全屏弹层（各 100% 屏，合计 500%）
+      默认 visibility:hidden；.show 时立刻 visible；
+      移除 .show 时，等淡出动画跑完再 hidden。
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* 1-1 小组件面板 */
+.widget-panel-overlay {
+    visibility: hidden;
+    transition: opacity 0.32s var(--ease-spring), visibility 0s linear 0.32s;
+}
+.widget-panel-overlay.show {
+    visibility: visible;
+    transition: opacity 0.32s var(--ease-spring), visibility 0s linear 0s;
+}
+
+/* 1-2 待办小组件弹窗 */
+.widget-todo-modal-overlay {
+    visibility: hidden;
+    transition: opacity 0.32s var(--ease-spring), visibility 0s linear 0.32s;
+}
+.widget-todo-modal-overlay.show {
+    visibility: visible;
+    transition: opacity 0.32s var(--ease-spring), visibility 0s linear 0s;
+}
+
+/* 1-3 通用弹窗遮罩 */
+.nex-modal-overlay {
+    visibility: hidden;
+    transition: opacity 0.3s var(--ease-out), visibility 0s linear 0.3s;
+}
+.nex-modal-overlay.show {
+    visibility: visible;
+    transition: opacity 0.3s var(--ease-out), visibility 0s linear 0s;
+}
+
+/* 1-4 账户弹窗遮罩（带 .closing 收尾动画） */
+.account-modal-overlay {
+    visibility: hidden;
+    transition: opacity 0.3s var(--ease-out), visibility 0s linear 0.3s;
+}
+.account-modal-overlay.show,
+.account-modal-overlay.closing {
+    visibility: visible;
+    transition: opacity 0.3s var(--ease-out), visibility 0s linear 0s;
+}
+
+/* 1-5 确认框遮罩（带 .closing 收尾动画） */
+.nexus-confirm-overlay {
+    visibility: hidden;
+    transition: opacity 0.25s var(--ease-out), visibility 0s linear 0.25s;
+}
+.nexus-confirm-overlay.show,
+.nexus-confirm-overlay.closing {
+    visibility: visible;
+    transition: opacity 0.25s var(--ease-out), visibility 0s linear 0s;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   2. 被 transform 推出屏幕、但仍在算模糊的侧栏 / 面板
+      （通知侧栏 23% @blur30px、控制中心 20% @blur30px）
+   ══════════════════════════════════════════════════════════════════════ */
+
+#notification-sidebar {
+    visibility: hidden;
+    transition: transform 0.3s var(--ease-standard), visibility 0s linear 0.3s;
+}
+#notification-sidebar.show,
+#notification-sidebar.closing {
+    visibility: visible;
+    transition: transform 0.3s var(--ease-standard), visibility 0s linear 0s;
+}
+
+#control-center {
+    visibility: hidden;
+    transition: transform 0.3s var(--ease-spring), visibility 0s linear 0.3s;
+}
+#control-center.show,
+#control-center.closing {
+    visibility: visible;
+    transition: transform 0.3s var(--ease-spring), visibility 0s linear 0s;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   3. 拖动 / 缩放窗口时：全局关模糊（最立竿见影的一招）
+      画面本来就在高速运动，没人会注意玻璃糊没糊，
+      但把 5 层全屏模糊临时摘掉，帧率能直接翻倍。
+      松手瞬间恢复，视觉上察觉不到。
+      由 startDrag / startResize 加 class，endDrag 移除。
+   ══════════════════════════════════════════════════════════════════════ */
+
+body.n26-busy *,
+body.n26-busy *::before,
+body.n26-busy *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* 兜底：主文件里有几条 `#id .class { backdrop-filter: … !important }`（电源按钮等），
+   ID 特异性 (1,2,0) 会压过上面的 `body.n26-busy *` (0,1,1)。
+   这里借 `:is()`「取参数里最高特异性」的规则，把整条选择器抬到 (3,1,1)，
+   把这类 !important 也一并摘干净（#n26a/#n26b/#n26c 永不匹配，只用来抬特异性）。 */
+body.n26-busy :is(#n26a #n26b #n26c, *),
+body.n26-busy :is(#n26a #n26b #n26c, *)::before,
+body.n26-busy :is(#n26a #n26b #n26c, *)::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   4. 兜底：任何被祖先藏起来的玻璃面板都不该再算模糊
+      （覆盖 .glass 之类通用类在隐藏容器里的情况）
+   ══════════════════════════════════════════════════════════════════════ */
+
+.widget-panel-overlay:not(.show) .glass,
+.widget-todo-modal-overlay:not(.show) .glass {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   5. 尊重系统的「减少动态效果」与省电偏好
+   ══════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+    .widget-panel-overlay,
+    .widget-todo-modal-overlay,
+    .nex-modal-overlay,
+    .account-modal-overlay,
+    .nexus-confirm-overlay,
+    #notification-sidebar,
+    #control-center {
+        transition-duration: 0.01ms !important;
+    }
+}

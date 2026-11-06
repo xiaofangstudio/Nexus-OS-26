@@ -18,6 +18,10 @@
  * ============================================================
  */
 
+import { handleAccount } from './account.js';
+import { handleStore } from './store.js';
+import { handleMusic } from './music.js';
+
 /** 内置供应商（只含地址与默认模型，绝不含密钥） */
 const PROVIDERS = {
   deepseek:   { name: 'DeepSeek',    baseUrl: 'https://api.deepseek.com/v1',                       model: 'deepseek-chat' },
@@ -299,11 +303,14 @@ async function handleBili(request, env, url) {
     'Origin': 'https://www.bilibili.com',
     'Accept': 'application/json, text/plain, */*',
   };
-  const cookie = request.headers.get('X-Bili-Cookie');
+  const cookie = request.headers.get('X-Bili-Cookie')
+    // ★ 服务器级兜底：wrangler.toml [vars] 里配 BILI_COOKIE = "buvid3=...; SESSDATA=..."
+    //   （从你自己浏览器拷 B站 Cookie，住宅身份基本必过风控；不配则用自动设备指纹）
+    || (env.BILI_COOKIE ? String(env.BILI_COOKIE) : '');
   if (cookie) {
-    headers['Cookie'] = cookie; // 用户自带，服务器不存
+    headers['Cookie'] = cookie; // 用户/站长自带，服务器不额外落盘
   } else {
-    const buvid = await getBiliBuvid(); // 无用户 cookie 时带设备指纹过风控
+    const buvid = await getBiliBuvid(); // 无 cookie 时带设备指纹过风控
     if (buvid) headers['Cookie'] = buvid;
   }
 
@@ -312,18 +319,64 @@ async function handleBili(request, env, url) {
     try { init.body = await request.arrayBuffer(); } catch (e) { /* ignore */ }
   }
 
-  let upstream;
-  try {
-    upstream = await fetch(target, init);
-  } catch (e) {
-    return json({ ok: false, error: 'bili upstream unreachable: ' + (e && e.message) }, 502, env);
+  /** 发一次请求；云 IP 被风控时 B站回 412，这种情况换一把新 buvid 再试一次 */
+  const go = async () => {
+    let up;
+    try { up = await fetch(target, init); } catch (e) { return { err: 'bili upstream unreachable: ' + (e && e.message) }; }
+    return { up };
+  };
+
+  let r1 = await go();
+  if (r1.err) return json({ ok: false, error: r1.err }, 502, env);
+  // 412 = 风控。若带的是自动 buvid，刷新指纹重试一次（若用户自带 cookie 则重试无意义，直接回）
+  if (r1.up.status === 412 && !cookie && !env.BILI_COOKIE) {
+    BILI_BUVID = null;   // 强制重新取
+    const b2 = await getBiliBuvid();
+    if (b2) headers['Cookie'] = b2;
+    r1 = await go();
+    if (r1.err) return json({ ok: false, error: r1.err }, 502, env);
   }
+  const upstream = r1.up;
 
   const out = corsHeaders(env);
   const upCt = upstream.headers.get('Content-Type');
   if (upCt) out['Content-Type'] = upCt;
   out['X-Bili-Upstream-Status'] = String(upstream.status);
   return new Response(request.method === 'HEAD' ? null : upstream.body, { status: upstream.status, headers: out });
+}
+
+/**
+ * v2.9.61 · 必应每日壁纸（服务端反代）
+ * 前端零外部 CDN 铁律：不直连 bing.com，统一走自有 Worker 补 CORS + 缓存。
+ * 只返回元信息（图片 URL / 标题 / 版权），不代存图片，不落任何用户数据。
+ */
+async function handleBingDaily(request, env) {
+  const cors = corsHeaders(env);
+  const mkt = new URL(request.url).searchParams.get('mkt') || 'zh-CN';
+  try {
+    const upstream = await fetch(
+      'https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=' + encodeURIComponent(mkt),
+      { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NexusOS26/1.0)' }, cf: { cacheTtl: 3600 } }
+    );
+    if (!upstream.ok) throw new Error('upstream ' + upstream.status);
+    const j = await upstream.json();
+    const im = j && j.images && j.images[0];
+    if (!im || !im.url) throw new Error('empty image');
+    const full = /^https?:\/\//.test(im.url) ? im.url : 'https://www.bing.com' + im.url;
+    return new Response(JSON.stringify({
+      ok: true,
+      url: full,
+      title: im.title || '',
+      copyright: im.copyright || '',
+      date: im.startdate || ''
+    }), {
+      headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }
+    });
+  } catch (e) {
+    return new Response(JSON.stringify({ ok: false, reason: String(e && e.message || e) }), {
+      status: 502, headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8' }
+    });
+  }
 }
 
 export default {
@@ -354,8 +407,30 @@ export default {
     if (url.pathname === '/v1/models') {
       return json({ object: 'list', data: Object.keys(PROVIDERS).map(id => ({ id: PROVIDERS[id].model, object: 'model', owned_by: id })) }, 200, env);
     }
+    // v2.9.47：Nexus 账号服务（注册 / 登录 / 查重 / 改资料 / 加好友查询）
+    if (url.pathname.startsWith('/api/acc')) {
+      const res = await handleAccount(request, env, url);
+      // 统一补 CORS（account.js 里只写了 Content-Type）
+      const h = new Headers(res.headers);
+      Object.entries(corsHeaders(env)).forEach(([k, v]) => h.set(k, v));
+      return new Response(res.body, { status: res.status, headers: h });
+    }
     if (url.pathname.startsWith('/api/mx')) return handleMx(request, env, url);
     if (url.pathname.startsWith('/api/bili')) return handleBili(request, env, url);
+    // v2.9.61：必应每日壁纸（前端走同源反代，失败自动降级到内置壁纸）
+    if (url.pathname === '/api/bing/daily') return handleBingDaily(request, env);
+    // v2.9.52：应用/插件市场（上传 → 审核 → 上架 → 下载 → 后台管理）
+    if (url.pathname.startsWith('/api/store')) {
+      const res = await handleStore(request, env, url);
+      const h = new Headers(res.headers);
+      Object.entries(corsHeaders(env)).forEach(([k, v]) => h.set(k, v));
+      return new Response(res.body, { status: res.status, headers: h });
+    }
+    // v2.9.53：音乐聚合层（网易/Deezer/iTunes；KV 复用 STORE_KV，键空间 music:* 隔离）
+    if (url.pathname.startsWith('/api/music')) {
+      env.MUSIC_KV = env.MUSIC_KV || env.STORE_KV;
+      return handleMusic(request, env, url);
+    }
 
     if (url.pathname === '/' || url.pathname === '') {
       return json({ ok: true, hint: 'Nexus OS 26 AI backend (BYOK). POST /api/chat with your own key in Authorization header.' }, 200, env);

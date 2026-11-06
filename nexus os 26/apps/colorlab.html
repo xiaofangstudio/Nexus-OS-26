@@ -108,7 +108,7 @@
 <div class="cl-toast" id="clToast"></div>
 <script src="../ui/motion.js"></script>
 <script src="_bridge.js"></script>
-<script src="_app.js"></script>
+<script src="_app.js?v=2.9.57"></script>
 <script>
 (function () {
   'use strict';
@@ -260,7 +260,7 @@
   function fallbackAccent(msg) {
     Nexus.getUserLS('settings').then(function (st) {
       st = st || {};
-      var map = { blue: '#4A9BF5', green: '#34D399', purple: '#A78BFA', orange: '#FB923C', pink: '#F472B6' };
+      var map = { blue: '#4A9BF5', green: '#34D399', purple: '#38bdf8', orange: '#FB923C', pink: '#F472B6' };
       setBase(map[st.accentColor] || '#4A9BF5', false);
       toast(msg);
     }).catch(function () { setBase('#4A9BF5', false); toast(msg); });

@@ -12,3 +12,6 @@ desktop.ini
 __pycache__/
 *.pyc
 **/node_modules/
+
+# Edge 自动化测试档案（>1GB，不入库）
+.edge-*/

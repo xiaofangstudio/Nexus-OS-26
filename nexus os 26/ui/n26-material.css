@@ -1,0 +1,280 @@
+/* ==========================================================================
+   n26-material.css · 材质与质感（三档）   v2.9.16
+   --------------------------------------------------------------------------
+   设计依据（今天实测，1600×900 / Edge 156，3 个应用开着）：
+
+     模糊半径 26 → 10px ........ 帧率几乎不变（57.3 → 57.0）
+     完全去掉模糊 .............. 帧率翻倍（57 → 108）
+
+   结论：**花的钱是「有几层在做模糊」，不是「糊得多狠」**。
+   所以三档的区别必须做成「保留几层」，而不是「把半径调小」——
+   后者既省不了电，还会白白损失质感。
+
+     液态玻璃 = 全部保留（默认，质感拉满）
+     磨砂玻璃 = 只留主要面板（窗口/Dock/侧栏/弹层），卡片菜单等次级面改实心
+     固态塑料 = 一层不留（低端机救命档）
+
+   真值统一在 settings.glass = { material, blur }，由 n26ApplyGlass() 派生
+   body.mat-* 类名 + --glass-blur，纯 CSS 切换、不逐个改元素样式。
+   ========================================================================== */
+
+/* ────────────────────────────────────────────────────────────────
+   1. 固态塑料：全系统一层模糊都不留
+      （:is(#a #b #c, *) 用来把特异性抬到 (3,1,1)，
+        压过主文件里 body.style-glass .window 这类规则）
+   ──────────────────────────────────────────────────────────────── */
+body.mat-solid :is(#n26a #n26b #n26c, *),
+body.mat-solid :is(#n26a #n26b #n26c, *)::before,
+body.mat-solid :is(#n26a #n26b #n26c, *)::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* ────────────────────────────────────────────────────────────────
+   2. 磨砂玻璃：只保留「主要面板」的模糊，次级面（卡片/菜单/
+      气泡/胶囊/按钮/桌面小组件）改为实心半透明
+      保留名单之外的一律去模糊。
+   ──────────────────────────────────────────────────────────────── */
+body.mat-frost :is(#n26a #n26b #n26c, *):not(.window):not(#dock):not(#control-center):not(#notification-sidebar):not(#settingsPanel):not(#finder-bar):not(.widget-panel-overlay):not(.widget-todo-modal-overlay):not(.nex-modal-overlay):not(.account-modal-overlay):not(.nexus-confirm-overlay):not(#n26LeftDock):not(#n26RightDock):not(#dockBar) {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* ────────────────────────────────────────────────────────────────
+   3. 三档的底色 / 描边（走已有变量，不改结构）
+      模糊没了，底色就要更实一点，否则文字会浮在壁纸上读不清。
+   ──────────────────────────────────────────────────────────────── */
+
+/* 液态玻璃：保持原样 */
+body.mat-liquid { --glass-border: rgba(255, 255, 255, 0.30); }
+
+/* 磨砂玻璃：底实一点、边光收敛 */
+body.mat-frost {
+    --glass-bg: rgba(255, 255, 255, 0.62);
+    --glass-border: rgba(255, 255, 255, 0.18);
+}
+body.mat-frost.dark-mode {
+    --glass-bg: rgba(30, 32, 40, 0.72);
+    --glass-border: rgba(255, 255, 255, 0.10);
+}
+
+/* 固态塑料：接近实色 + 深色描边 */
+body.mat-solid {
+    --glass-bg: rgba(250, 251, 253, 0.97);
+    --glass-border: rgba(0, 0, 0, 0.08);
+}
+body.mat-solid.dark-mode {
+    --glass-bg: rgba(31, 33, 41, 0.97);
+    --glass-border: rgba(255, 255, 255, 0.10);
+}
+
+/* 固态塑料 / 磨砂：关掉液态玻璃的折射高光（省一层渐变绘制） */
+body.mat-solid .n26-frost-1, body.mat-solid .n26-frost-2, body.mat-solid .n26-frost-3,
+body.mat-frost .n26-frost-1, body.mat-frost .n26-frost-2, body.mat-frost .n26-frost-3 {
+    background-image: none !important;
+    background-blend-mode: normal !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   6. 模糊强度滑块真正驱动全系统（v2.9.22 修）
+   ------------------------------------------------------------------
+   以前这个滑块只写 --glass-blur，而主文件里真正干活的模糊值是写死的
+   （窗口 26px / 控制中心 44px / Dock 由液态玻璃脚本内联注入……），
+   所以拖滑块「什么都没变」。现在统一由一个 --n26-blur 派生，
+   各表面按原来的层级比例跟着放大缩小，视觉层次不变、但真的能调了。
+   ══════════════════════════════════════════════════════════════════ */
+
+/* —— 液态玻璃：全部跟随滑块（保留各自原本的 saturate / brightness 比例） —— */
+body.mat-liquid .window,
+body.mat-liquid .password-panel {
+    backdrop-filter: blur(var(--n26-blur, 26px)) saturate(180%) brightness(1.05);
+    -webkit-backdrop-filter: blur(var(--n26-blur, 26px)) saturate(180%) brightness(1.05);
+}
+body.mat-liquid #finder-bar {
+    backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.92)) saturate(180%) brightness(1.05);
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.92)) saturate(180%) brightness(1.05);
+}
+body.mat-liquid #notification-sidebar {
+    backdrop-filter: blur(calc(var(--n26-blur, 26px) * 1.15)) saturate(185%) brightness(1.04);
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 26px) * 1.15)) saturate(185%) brightness(1.04);
+}
+body.mat-liquid #control-center {
+    backdrop-filter: blur(calc(var(--n26-blur, 26px) * 1.7)) saturate(195%) brightness(1.06);
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 26px) * 1.7)) saturate(195%) brightness(1.06);
+}
+body.mat-liquid #n26LeftDock,
+body.mat-liquid #n26RightDock {
+    backdrop-filter: blur(calc(var(--n26-blur, 26px) * 1.3)) saturate(190%) brightness(1.06);
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 26px) * 1.3)) saturate(190%) brightness(1.06);
+}
+body.mat-liquid #dockBar {
+    backdrop-filter: blur(calc(var(--n26-blur, 26px) * 1.3)) saturate(220%);
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 26px) * 1.3)) saturate(220%);
+}
+/* 磨砂面板三档：按原来的 30 / 44 / 56 相对 26 的比例换算 */
+body.mat-liquid.style-glass .n26-frost,
+body.mat-liquid.style-glass .n26-frost-1 { --frost-blur: var(--n26-blur, 26px); }
+body.mat-liquid.style-glass .n26-frost-2 { --frost-blur: calc(var(--n26-blur, 26px) * 1.7); }
+body.mat-liquid.style-glass .n26-frost-3 { --frost-blur: calc(var(--n26-blur, 26px) * 2.15); }
+
+/* —— 磨砂玻璃：Dock 也要降级（以前它在保留名单里，所以纹丝不动） —— */
+body.mat-frost #dock {
+    /* 和左右胶囊同一个倍率，保证三段看起来是同一种材质 */
+    backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(120%) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(120%) !important;
+}
+body.mat-frost .window,
+body.mat-frost .password-panel {
+    backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.55)) saturate(115%) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.55)) saturate(115%) !important;
+}
+body.mat-frost #finder-bar,
+body.mat-frost #notification-sidebar,
+body.mat-frost #control-center {
+    backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(115%) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(115%) !important;
+}
+body.mat-frost #n26LeftDock,
+body.mat-frost #n26RightDock,
+body.mat-frost #dockBar {
+    backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(115%) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(115%) !important;
+}
+body.mat-frost.style-glass .n26-frost,
+body.mat-frost.style-glass .n26-frost-1,
+body.mat-frost.style-glass .n26-frost-2,
+body.mat-frost.style-glass .n26-frost-3 { --frost-blur: calc(var(--n26-blur, 26px) * 0.5); }
+
+/* —— 固态塑料：Dock 要变成真正的实心，否则只是「没模糊」还是半透明白 —— */
+body.mat-solid #dock,
+body.mat-solid #n26LeftDock,
+body.mat-solid #n26RightDock {
+    background: rgba(250, 251, 253, 0.97) !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+}
+body.mat-solid.dark-mode #dock,
+body.mat-solid.dark-mode #n26LeftDock,
+body.mat-solid.dark-mode #n26RightDock {
+    background: rgba(31, 33, 41, 0.97) !important;
+    border-color: rgba(255, 255, 255, 0.10) !important;
+}
+body.mat-solid #finder-bar { background: rgba(250, 251, 253, 0.97) !important; }
+body.mat-solid.dark-mode #finder-bar { background: rgba(31, 33, 41, 0.97) !important; }
+body.mat-solid #dockBar { background: rgba(250, 251, 253, 0.97) !important; }
+
+/* ══════════════════════════════════════════════════════════════════
+   4. 设置面板里的三张材质卡（带真实材质缩略图，不是纯文字）
+   ══════════════════════════════════════════════════════════════════ */
+.mat-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+.mat-card {
+    border-radius: 12px;
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    cursor: pointer;
+    transition: border-color 0.18s var(--ease-out), background 0.18s var(--ease-out);
+    text-align: center;
+}
+.mat-card:hover { background: rgba(255, 255, 255, 0.12); }
+.mat-card.active {
+    border-color: var(--primary, #4f8cff);
+    background: rgba(79, 140, 255, 0.16);
+}
+.mat-thumb {
+    position: relative;
+    height: 46px;
+    border-radius: 9px;
+    overflow: hidden;
+    margin-bottom: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+}
+/* 底图：彩色渐变，用来看出材质到底透不透 */
+.mat-thumb::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: conic-gradient(from 210deg at 40% 40%, #ff9a3c, #ff5f6d, #a06bff, #3ec9ff, #46e0a8, #ff9a3c);
+}
+/* 前景：一小块该材质的面板 */
+.mat-thumb::after {
+    content: '';
+    position: absolute;
+    top: 7px; bottom: 7px; left: 24px; right: 7px;
+    border-radius: 7px;
+}
+.mat-thumb-liquid::after {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12));
+    backdrop-filter: blur(14px) saturate(180%) brightness(1.06);
+    -webkit-backdrop-filter: blur(14px) saturate(180%) brightness(1.06);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+}
+.mat-thumb-frost::after {
+    background: rgba(255, 255, 255, 0.62);
+    backdrop-filter: blur(8px) saturate(115%);
+    -webkit-backdrop-filter: blur(8px) saturate(115%);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+}
+.mat-thumb-solid::after {
+    background: rgba(250, 251, 253, 0.97);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid rgba(0, 0, 0, 0.10);
+}
+.mat-name { font-size: 12.5px; font-weight: 600; color: #fff; }
+.mat-desc { font-size: 10.5px; color: rgba(255, 255, 255, 0.5); margin-top: 2px; }
+
+/* ────────────────────────────────────────────────────────────────
+   5. 模糊强度滑杆
+      不能复用全局 .volume-slider —— 它的轨道是半透明白，
+      在浅色设置面板上等于隐形（只剩一个圆点漂着）。
+      这里自建一套，深浅两套主题都看得见。
+   ──────────────────────────────────────────────────────────────── */
+.n26-mat-range {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    height: 20px;
+    margin: 8px 0 0;
+    padding: 0;
+    background: transparent;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+.n26-mat-range::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(120, 120, 128, 0.32);
+}
+.n26-mat-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    margin-top: -6px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+}
+.n26-mat-range::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(120, 120, 128, 0.32);
+}
+.n26-mat-range::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+}
+.n26-mat-range:disabled { opacity: 0.38; cursor: not-allowed; }
+
+body.dark-mode .n26-mat-range::-webkit-slider-runnable-track { background: rgba(255, 255, 255, 0.24); }
+body.dark-mode .n26-mat-range::-moz-range-track { background: rgba(255, 255, 255, 0.24); }
+body.dark-mode .n26-mat-range::-webkit-slider-thumb { border-color: rgba(0, 0, 0, 0.35); }

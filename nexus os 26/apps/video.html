@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>视频</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+<title data-i18n="doc_title">视频</title>
+<link rel="stylesheet" href="../vendor/fontawesome/all.min.css">
 <script src="_bridge.js"></script>
-<script src="_app.js"></script>
+<script src="_app.js?v=2.9.57"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; overflow: hidden; }
@@ -44,8 +44,8 @@
     width: 76px; height: 76px;
     border: none; border-radius: 50%;
     background: rgba(10, 132, 255, 0.88);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur, 26px) * 0.4));
+    backdrop-filter: blur(calc(var(--glass-blur, 26px) * 0.4));
     color: #fff; font-size: 28px;
     display: none;
     align-items: center; justify-content: center;
@@ -176,14 +176,15 @@
     padding: 6px;
     border-radius: 12px;
     background: rgba(14, 17, 24, 0.92);
-    -webkit-backdrop-filter: blur(20px);
-    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur, 26px) * 0.78));
+    backdrop-filter: blur(calc(var(--glass-blur, 26px) * 0.78));
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
     display: none;
     z-index: 30;
   }
   #rateMenu.show { display: block; animation: menuPop 0.18s cubic-bezier(0.22, 1, 0.36, 1); }
+  body.mat-solid #rateMenu { -webkit-backdrop-filter: none; backdrop-filter: none; background: #0e1118; }
   @keyframes menuPop { from { opacity: 0; transform: scale(0.9) translateY(6px); } to { opacity: 1; transform: scale(1) translateY(0); } }
   .rate-item {
     padding: 7px 12px;
@@ -295,6 +296,214 @@
     z-index: 40; pointer-events: none;
   }
   #dropHint.show { display: flex; }
+
+  /* ============================================================
+     v2.9.53 浅色主题层：外壳跟随系统，视频画面区保持黑底（行业标准）。
+     控制条浮在视频上方，浅色模式下依然用深色半透明（YouTube 同款）。
+     ============================================================ */
+  html[data-mode="light"] body { background: #f2f5fa; color: #17202c; }
+  html[data-mode="light"] #empty { color: #17202c; }
+  html[data-mode="light"] #empty .icon {
+    background: rgba(20, 40, 70, 0.06);
+    border: 1px dashed rgba(20, 40, 70, 0.24);
+    color: rgba(23, 32, 44, 0.5);
+  }
+  html[data-mode="light"] #empty p { color: rgba(23, 32, 44, 0.5); }
+  html[data-mode="light"] #playlist {
+    background: rgba(250, 252, 255, 0.97);
+    border-left: 1px solid rgba(20, 40, 70, 0.10);
+  }
+  html[data-mode="light"] #playlistHead { color: #17202c; }
+  html[data-mode="light"] #playlistHead button { color: rgba(23, 32, 44, 0.55); }
+  html[data-mode="light"] #playlistHead button:hover { background: rgba(20, 40, 70, 0.08); color: #17202c; }
+  html[data-mode="light"] #plList::-webkit-scrollbar-thumb { background: rgba(20,40,70,0.16); }
+  html[data-mode="light"] .pl-item { color: rgba(23, 32, 44, 0.78); }
+  html[data-mode="light"] .pl-item:hover { background: rgba(20, 40, 70, 0.07); }
+  html[data-mode="light"] .pl-item.active { background: rgba(46, 124, 214, 0.14); color: #17202c; }
+  html[data-mode="light"] #dropHint { color: #2e7cd6; }
+
+  /* ============================================================
+     v2.9.54 液态玻璃层：磨砂抽屉 + 液态按压 + 行进入动画。
+     模糊只加在播放列表抽屉一处（性能铁律：模糊层数是唯一杠杆）。
+     ============================================================ */
+  /* 抽屉玻璃化：滑出时能透出视频画面（半透明磨砂） */
+  #playlist {
+    background: rgba(13, 16, 23, 0.72);
+    -webkit-backdrop-filter: blur(var(--glass-blur, 26px)) saturate(1.3);
+    backdrop-filter: blur(var(--glass-blur, 26px)) saturate(1.3);
+    box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.06), -18px 0 46px rgba(0, 0, 0, 0.3);
+  }
+  /* 跟随宿主玻璃材质：solid 时完全不透明、无模糊 */
+  body.mat-solid #playlist { background: #0d1017; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html[data-mode="light"] body.mat-solid #playlist { background: #fafcff; }
+  html[data-mode="light"] #playlist {
+    background: rgba(250, 252, 255, 0.78);
+    box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.65), -18px 0 46px rgba(30, 50, 80, 0.16);
+  }
+  /* 空态图标：液态玻璃砖 + 呼吸光晕 */
+  #empty .icon {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 14px 40px rgba(10, 132, 255, 0.12);
+    animation: veFloat 4.5s ease-in-out infinite;
+  }
+  @keyframes veFloat { 0%, 100% { translate: 0 0; } 50% { translate: 0 -7px; } }
+  html[data-mode="light"] #empty .icon { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 14px 40px rgba(46, 124, 214, 0.14); }
+  /* 列表行进入动画 + 液态按压 */
+  .pl-item { animation: plIn 0.26s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both; transition: background 0.16s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)), scale 0.15s ease; }
+  .pl-item:active { scale: 0.985; }
+  @keyframes plIn { from { opacity: 0; translate: 10px 0; } to { opacity: 1; translate: 0 0; } }
+  /* 中央大播放钮：液态玻璃盘 */
+  #bigPlay {
+    background: rgba(10, 132, 255, 0.55);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 12px 44px rgba(10, 132, 255, 0.45);
+  }
+  /* 进度条填充加液态高光 */
+  #seekFill { background: linear-gradient(90deg, #0a84ff, #4aa8ff); box-shadow: 0 0 10px rgba(10, 132, 255, 0.4); }
+
+  /* ============================================================
+     v2.9.55 影院沉浸视图：与 music 全屏播放同款规律。
+     ★ 不复制第二个 <video>：把同一个 video / bigPlay / controls / rateMenu
+       运行时「移动」进影院容器，播放状态零中断、零进度同步逻辑、零重复解码。
+     ★ 模糊层仍只有「播放列表抽屉」+「影院底栏」两处（性能铁律）。
+     ============================================================ */
+  :root { --v-cn-a: #070d16; --v-cn-b: #10243c; --v-cn-accent: #4a9bf5; }
+  html[data-mode="light"] { --v-cn-a: #eaf1fa; --v-cn-b: #d4e4f6; --v-cn-accent: #2e7cd6; }
+
+  /* 控制条内描边高光（不叠 backdrop：浮在视频上是行业标准） */
+  #controls::before {
+    content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+    pointer-events: none;
+  }
+  .cbtn { transition: background 0.16s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)), transform 0.16s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)), scale 0.16s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)); }
+  .cbtn:active { scale: 0.88; }
+  .cbtn:focus-visible { outline: 2px solid #4aa8ff; outline-offset: 2px; }
+
+  /* ---- 影院容器 ---- */
+  #cinema {
+    position: fixed; inset: 0; z-index: 60;
+    display: none; flex-direction: column;
+    background:
+      radial-gradient(1100px 760px at 20% 16%, rgba(74, 155, 245, 0.20), transparent 62%),
+      radial-gradient(1000px 720px at 84% 86%, rgba(56, 189, 248, 0.16), transparent 60%),
+      linear-gradient(150deg, var(--v-cn-a), var(--v-cn-b));
+    opacity: 0;
+    transition: opacity 0.42s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+    overflow: hidden;
+  }
+  html[data-mode="light"] #cinema {
+    background:
+      radial-gradient(1100px 760px at 20% 16%, rgba(46, 124, 214, 0.16), transparent 62%),
+      radial-gradient(1000px 720px at 84% 86%, rgba(56, 189, 248, 0.12), transparent 60%),
+      linear-gradient(150deg, var(--v-cn-a), var(--v-cn-b));
+  }
+  #cinema.open { opacity: 1; }
+  #cinema.closing { opacity: 0; }
+  /* 缓慢漂移的氛围光斑 */
+  #cinema .cn-glow {
+    position: absolute; width: 60vw; height: 60vw; left: -10vw; top: -18vw;
+    background: radial-gradient(circle, rgba(74, 155, 245, 0.18), transparent 66%);
+    filter: blur(30px); pointer-events: none;
+    animation: cnDrift 16s ease-in-out infinite alternate;
+  }
+  html[data-mode="light"] #cinema .cn-glow { background: radial-gradient(circle, rgba(46, 124, 214, 0.16), transparent 66%); }
+  @keyframes cnDrift { from { translate: 0 0; } to { translate: 18vw 10vw; } }
+
+  /* 顶部：标题 + 退出 */
+  #cinema .cn-head {
+    position: relative; z-index: 2;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 18px 26px 10px;
+    translate: 0 -14px; opacity: 0;
+    transition: translate 0.5s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) 0.06s, opacity 0.5s ease 0.06s;
+  }
+  #cinema.open .cn-head { translate: 0 0; opacity: 1; }
+  #cinema .cn-title {
+    display: flex; align-items: center; gap: 10px; min-width: 0;
+    font-size: 15px; font-weight: 650;
+    color: rgba(255, 255, 255, 0.92);
+  }
+  html[data-mode="light"] #cinema .cn-title { color: #17202c; }
+  #cinema .cn-title i { color: var(--v-cn-accent); }
+  #cinema .cn-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #cinema .cn-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+  #cinema .cn-btn {
+    width: 36px; height: 36px; border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.07);
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur, 26px) * 0.46)); backdrop-filter: blur(calc(var(--glass-blur, 26px) * 0.46));
+    color: rgba(255, 255, 255, 0.88); font-size: 14px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background 0.16s, scale 0.16s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
+  }
+  html[data-mode="light"] #cinema .cn-btn { background: rgba(255, 255, 255, 0.6); border-color: rgba(20, 40, 70, 0.12); color: #17202c; }
+  #cinema .cn-btn:hover { background: rgba(255, 255, 255, 0.16); }
+  #cinema .cn-btn:active { scale: 0.9; }
+
+  /* 中央舞台：video / bigPlay 被移动进来 */
+  #cinema .cn-stage {
+    position: relative; flex: 1 1 0; min-height: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #cinema .cn-stage video { background: transparent; }
+  #cinema .cn-stage #bigPlay { width: 88px; height: 88px; font-size: 32px; }
+
+  /* 底部：控制条移进来，贴底磨砂玻璃 */
+  #cinema .cn-bottom {
+    position: relative; flex: 0 0 108px;
+    translate: 0 16px; opacity: 0;
+    transition: translate 0.5s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) 0.06s, opacity 0.5s ease 0.06s;
+  }
+  #cinema.open .cn-bottom { translate: 0 0; opacity: 1; }
+  #cinema .cn-bottom #controls {
+    background: rgba(10, 14, 22, 0.55);
+    -webkit-backdrop-filter: blur(var(--glass-blur, 26px)) saturate(1.3);
+    backdrop-filter: blur(var(--glass-blur, 26px)) saturate(1.3);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    padding: 18px 30px 20px;
+  }
+  /* 跟随宿主玻璃材质：solid 时完全不透明、无模糊 */
+  body.mat-solid #cinema .cn-bottom #controls { background: #0a0e16; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html[data-mode="light"] body.mat-solid #cinema .cn-bottom #controls { background: #f8fbff; }
+  html[data-mode="light"] #cinema .cn-bottom #controls {
+    background: rgba(248, 251, 255, 0.62);
+    border-top: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  }
+  /* 控件原本是「浮在黑色视频上的白字」；移进浅色玻璃底栏后整体转深色，
+     只作用于影院，普通模式（浮在视频上）仍保持白字不变。 */
+  html[data-mode="light"] #cinema .cn-bottom #controls .cbtn { color: rgba(23, 32, 44, 0.82); }
+  html[data-mode="light"] #cinema .cn-bottom #controls .cbtn:hover { background: rgba(20, 40, 70, 0.10); }
+  html[data-mode="light"] #cinema .cn-bottom #controls .cbtn.on { color: #2e7cd6; }
+  html[data-mode="light"] #cinema .cn-bottom #controls #timeLabel { color: rgba(23, 32, 44, 0.72); }
+  html[data-mode="light"] #cinema .cn-bottom #controls #seekTrack { background: rgba(20, 40, 70, 0.18); }
+  html[data-mode="light"] #cinema .cn-bottom #controls #seekBuffered { background: rgba(20, 40, 70, 0.26); }
+  html[data-mode="light"] #cinema .cn-bottom #controls #seekKnob { background: #2e7cd6; box-shadow: 0 2px 8px rgba(20, 40, 70, 0.28); }
+  html[data-mode="light"] #cinema .cn-bottom #controls #volSlider { background: rgba(20, 40, 70, 0.22); }
+  html[data-mode="light"] #cinema .cn-bottom #controls::before { background: linear-gradient(90deg, transparent, rgba(20, 40, 70, 0.10), transparent); }
+  html[data-mode="light"] #cinema .cn-bottom #rateMenu {
+    background: rgba(248, 251, 255, 0.94);
+    border-color: rgba(20, 40, 70, 0.12);
+    box-shadow: 0 12px 40px rgba(20, 40, 70, 0.16);
+  }
+  html[data-mode="light"] #cinema .cn-bottom #rateMenu .rate-item { color: rgba(23, 32, 44, 0.85); }
+  html[data-mode="light"] #cinema .cn-bottom #rateMenu .rate-item:hover { background: rgba(20, 40, 70, 0.08); }
+  html[data-mode="light"] #cinema .cn-bottom #rateMenu .rate-item.on { color: #2e7cd6; }
+  #cinema .cn-bottom #controls::before { top: 0; }
+  /* 影院里控制条常驻，不受自动隐藏影响 */
+  #cinema .cn-bottom #controls { opacity: 1 !important; transform: none !important; pointer-events: auto !important; }
+  /* 影院里倍速菜单相对底栏定位 */
+  #cinema .cn-bottom #rateMenu { bottom: 96px; right: 30px; }
+
+  /* 减弱动态 / 性能模式降级 */
+  @media (prefers-reduced-motion: reduce) {
+    #cinema, #cinema .cn-head, #cinema .cn-bottom { transition-duration: 0.01ms !important; }
+    #cinema .cn-glow { animation: none !important; }
+  }
+  body.perf-mode #cinema .cn-bottom #controls { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  body.perf-mode #cinema .cn-glow { animation: none !important; }
 </style>
 </head>
 <body>
@@ -316,20 +525,20 @@
         <div id="seekTip">00:00</div>
       </div>
       <div id="btnRow">
-        <button class="cbtn" id="btnPlay" title="播放/暂停 (空格)"><i class="fas fa-play"></i></button>
-        <button class="cbtn" id="btnBack" title="后退 5 秒 (←)"><i class="fas fa-rotate-left"></i></button>
-        <button class="cbtn" id="btnFwd" title="前进 5 秒 (→)"><i class="fas fa-rotate-right"></i></button>
+        <button class="cbtn" id="btnPlay" data-i18n-title="title_play"><i class="fas fa-play"></i></button>
+        <button class="cbtn" id="btnBack" data-i18n-title="title_back"><i class="fas fa-rotate-left"></i></button>
+        <button class="cbtn" id="btnFwd" data-i18n-title="title_fwd"><i class="fas fa-rotate-right"></i></button>
         <span id="timeLabel">00:00 / 00:00</span>
-        <button class="cbtn" id="btnPrev" title="上一个"><i class="fas fa-backward-step"></i></button>
-        <button class="cbtn" id="btnNext" title="下一个"><i class="fas fa-forward-step"></i></button>
+        <button class="cbtn" id="btnPrev" data-i18n-title="title_prev"><i class="fas fa-backward-step"></i></button>
+        <button class="cbtn" id="btnNext" data-i18n-title="title_next"><i class="fas fa-forward-step"></i></button>
         <div id="volWrap">
-          <button class="cbtn" id="btnMute" title="静音 (M)"><i class="fas fa-volume-high"></i></button>
+          <button class="cbtn" id="btnMute" data-i18n-title="title_mute"><i class="fas fa-volume-high"></i></button>
           <input type="range" id="volSlider" min="0" max="100" value="80">
         </div>
-        <button class="cbtn" id="rateBtn" title="播放速度">1.0×</button>
-        <button class="cbtn" id="btnPip" title="画中画"><i class="fas fa-clone"></i></button>
-        <button class="cbtn" id="btnFull" title="全屏 (F)"><i class="fas fa-expand"></i></button>
-        <button class="cbtn" id="btnList" title="播放列表"><i class="fas fa-list"></i></button>
+        <button class="cbtn" id="rateBtn" data-i18n-title="title_rate">1.0×</button>
+        <button class="cbtn" id="btnPip" data-i18n-title="title_pip"><i class="fas fa-clone"></i></button>
+        <button class="cbtn" id="btnFull" data-i18n-title="title_cinema"><i class="fas fa-expand"></i></button>
+        <button class="cbtn" id="btnList" data-i18n-title="title_list"><i class="fas fa-list"></i></button>
       </div>
     </div>
 
@@ -337,17 +546,31 @@
 
     <div id="empty">
       <div class="icon"><i class="fas fa-film"></i></div>
-      <h2>还没有视频</h2>
-      <p>把视频文件拖进来即可播放<br>也会自动收集文件系统中的视频文件<br>支持 MP4 / WebM / MOV 等浏览器可播格式</p>
-      <button id="pickV">选择视频</button>
+      <h2 data-i18n="empty_title">还没有视频</h2>
+      <p data-i18n-html="empty_desc">把视频文件拖进来即可播放<br>也会自动收集文件系统中的视频文件<br>支持 MP4 / WebM / MOV 等浏览器可播格式</p>
+      <button id="pickV" data-i18n="btn_pick">选择视频</button>
     </div>
 
-    <div id="dropHint"><i class="fas fa-cloud-arrow-up" style="margin-right:8px;"></i>松开鼠标，播放视频</div>
+    <div id="dropHint" data-i18n="drop_hint"><i class="fas fa-cloud-arrow-up" style="margin-right:8px;"></i>松开鼠标，播放视频</div>
   </div>
 
   <div id="playlist">
-    <div id="playlistHead"><span>播放列表</span><button id="plClose">完成</button></div>
+    <div id="playlistHead"><span data-i18n="playlist_title">播放列表</span><button id="plClose" data-i18n="btn_done">完成</button></div>
     <div id="plList"></div>
+  </div>
+
+  <!-- v2.9.55 影院沉浸视图：同一个 video / bigPlay / controls / rateMenu 运行时移入，播放零中断 -->
+  <div id="cinema" role="dialog" aria-label="影院模式">
+    <div class="cn-glow" aria-hidden="true"></div>
+    <div class="cn-head">
+      <div class="cn-title"><i class="fas fa-film" aria-hidden="true"></i><span id="cnName">—</span></div>
+      <div class="cn-actions">
+        <button class="cn-btn" id="cnNative" data-i18n-title="title_native" data-i18n-aria="title_native"><i class="fas fa-expand" aria-hidden="true"></i></button>
+        <button class="cn-btn" id="cnExit" data-i18n-title="title_cinema_exit" data-i18n-aria="title_cinema_exit"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+      </div>
+    </div>
+    <div class="cn-stage" id="cnStage"></div>
+    <div class="cn-bottom" id="cnBottom"></div>
   </div>
 </div>
 <input type="file" id="filePicker" accept="video/*" multiple style="display:none;">
@@ -355,6 +578,37 @@
 (function () {
   'use strict';
   var N = window.Nexus;
+
+  /* ==================== 多语言（v2.9.57） ==================== */
+  window.APP_I18N = {
+    zh: {
+      doc_title: '视频', title_play: '播放/暂停 (空格)', title_back: '后退 5 秒 (←)', title_fwd: '前进 5 秒 (→)',
+      title_prev: '上一个', title_next: '下一个', title_mute: '静音 (M)', title_rate: '播放速度',
+      title_pip: '画中画', title_cinema: '影院全屏 (F)', title_list: '播放列表', title_native: '浏览器全屏', title_cinema_exit: '退出影院 (Esc)',
+      empty_title: '还没有视频', empty_desc: '把视频文件拖进来即可播放<br>也会自动收集文件系统中的视频文件<br>支持 MP4 / WebM / MOV 等浏览器可播格式',
+      btn_pick: '选择视频', drop_hint: '松开鼠标，播放视频', playlist_title: '播放列表', btn_done: '完成',
+      pl_empty: '列表为空<br>把视频文件拖进来即可播放', not_playing: '未在播放', bg_video: '后台视频', media_video: '视频播放',
+      nf_fail_title: '播放失败', nf_fail_body: '视频「{n}」无法播放（格式不受支持或文件损坏）',
+      nf_pip_title: '画中画', nf_pip_body: '当前浏览器不支持画中画',
+      nf_add_title: '无法添加', nf_add_body: '请选择视频文件',
+      nf_fs_title: '全屏', nf_fs_body: '当前环境不支持浏览器全屏',
+      nf_takeover_title: '已接管后台播放', nf_takeover_body: '「{n}」继续播放'
+    },
+    en: {
+      doc_title: 'Video', title_play: 'Play/Pause (Space)', title_back: 'Back 5s (←)', title_fwd: 'Forward 5s (→)',
+      title_prev: 'Previous', title_next: 'Next', title_mute: 'Mute (M)', title_rate: 'Playback Speed',
+      title_pip: 'Picture in Picture', title_cinema: 'Cinema (F)', title_list: 'Playlist', title_native: 'Browser Fullscreen', title_cinema_exit: 'Exit Cinema (Esc)',
+      empty_title: 'No Video Yet', empty_desc: 'Drop a video file to play<br>Videos in your file system are auto-collected<br>Supports MP4 / WebM / MOV and other browser-playable formats',
+      btn_pick: 'Choose Video', drop_hint: 'Release to play video', playlist_title: 'Playlist', btn_done: 'Done',
+      pl_empty: 'List is empty<br>Drop a video file to play', not_playing: 'Nothing Playing', bg_video: 'Background Video', media_video: 'Video',
+      nf_fail_title: 'Playback Failed', nf_fail_body: 'Video “{n}” cannot play (unsupported format or corrupted file)',
+      nf_pip_title: 'Picture in Picture', nf_pip_body: 'Picture-in-Picture is not supported in this browser',
+      nf_add_title: 'Cannot Add', nf_add_body: 'Please select a video file',
+      nf_fs_title: 'Fullscreen', nf_fs_body: 'Browser fullscreen is not supported here',
+      nf_takeover_title: 'Resumed Background Playback', nf_takeover_body: '“{n}” continues playing'
+    }
+  };
+  function T(k, a) { var s = N.t(k); if (a != null) s = String(s).replace(/\{n\}/g, a); return s; }
 
   var stage = document.getElementById('stage');
   var video = document.getElementById('video');
@@ -418,7 +672,7 @@
         videos.push({ name: f.name, path: f.path, src: f.node.content, dur: 0 });
       });
       renderList();
-      if (videos.length) play(0);
+      if (videos.length && !pendingBg) play(0);   // v2.9.55：有待接管的后台视频时不抢播
       refreshEmpty();
     }).catch(function () { refreshEmpty(); });
   }
@@ -431,7 +685,7 @@
   function renderList() {
     plList.innerHTML = '';
     if (!videos.length) {
-      plList.innerHTML = '<div class="pl-empty">列表为空<br>把视频文件拖进来即可播放</div>';
+      plList.innerHTML = '<div class="pl-empty">' + T('pl_empty') + '</div>';
       return;
     }
     videos.forEach(function (v, i) {
@@ -453,6 +707,7 @@
     var v = videos[i];
     video.src = v.src;
     topbar.textContent = v.name;
+    if (cnName) cnName.textContent = v.name;
     renderList();
     video.play().then(function () {
       bigPlay.classList.remove('show');
@@ -460,6 +715,8 @@
       bigPlay.classList.add('show');
     });
     scheduleHide();
+    broadcastNow(true);
+    setupMediaSession();
     if (window.Nexus && Nexus.call) {
       try { Nexus.call('setWindowTitle', v.name); } catch (e) {}
     }
@@ -487,6 +744,7 @@
     seekFill.style.width = pct + '%';
     seekKnob.style.left = pct + '%';
     timeLabel.textContent = fmt(video.currentTime) + ' / ' + fmt(video.duration);
+    broadcastNow();
   });
   video.addEventListener('progress', function () {
     if (video.buffered.length && video.duration) {
@@ -495,18 +753,18 @@
     }
   });
   video.addEventListener('loadedmetadata', function () {
-    videos[cur].dur = video.duration;
-    renderList();
+    if (videos[cur]) { videos[cur].dur = video.duration; renderList(); }
     timeLabel.textContent = fmt(video.currentTime) + ' / ' + fmt(video.duration);
+    broadcastNow(true);
   });
-  video.addEventListener('play', updatePlayIcon);
-  video.addEventListener('pause', updatePlayIcon);
+  video.addEventListener('play', function () { updatePlayIcon(); broadcastNow(true); });
+  video.addEventListener('pause', function () { updatePlayIcon(); broadcastNow(true); });
   video.addEventListener('ended', function () {
     if (cur < videos.length - 1) play(cur + 1);
-    else { bigPlay.classList.add('show'); updatePlayIcon(); }
+    else { bigPlay.classList.add('show'); updatePlayIcon(); broadcastNow(true); }
   });
   video.addEventListener('error', function () {
-    N.notify('播放失败', '视频「' + (videos[cur] ? videos[cur].name : '') + '」无法播放（格式不受支持或文件损坏）', 'error');
+    N.notify(T('nf_fail_title'), T('nf_fail_body', (videos[cur] ? videos[cur].name : '')), 'error');
   });
 
   function seekFromEvent(e) {
@@ -557,13 +815,10 @@
     try {
       if (document.pictureInPictureElement) document.exitPictureInPicture();
       else if (video.requestPictureInPicture) video.requestPictureInPicture();
-    } catch (e) { N.notify('画中画', '当前浏览器不支持画中画', 'warning'); }
+    } catch (e) { N.notify(T('nf_pip_title'), T('nf_pip_body'), 'warning'); }
   };
-  document.getElementById('btnFull').onclick = function () {
-    var el = document.documentElement;
-    if (document.fullscreenElement) document.exitFullscreen();
-    else if (el.requestFullscreen) el.requestFullscreen();
-  };
+  /* v2.9.55：全屏按钮进入影院沉浸视图（浏览器原生全屏改由影院内 cnNative 提供） */
+  document.getElementById('btnFull').onclick = toggleCinema;
   document.getElementById('btnList').onclick = function () { playlist.classList.toggle('open'); };
   document.getElementById('plClose').onclick = function () { playlist.classList.remove('open'); };
 
@@ -597,6 +852,7 @@
   function scheduleHide() {
     clearTimeout(hideTimer);
     stage.classList.remove('hide-ui');
+    if (cinemaOpen) return;   // v2.9.55：影院里控制条常驻，不自动隐藏
     hideTimer = setTimeout(function () {
       if (!video.paused && !seekDrag && !rateMenu.classList.contains('show')) stage.classList.add('hide-ui');
     }, 2600);
@@ -610,7 +866,7 @@
   /* ---------- 本地文件 / 拖放 ---------- */
   function addFiles(fileList) {
     var arr = Array.prototype.slice.call(fileList || []).filter(function (f) { return /^video\//.test(f.type) || VID_EXT.indexOf(extOf(f.name)) >= 0; });
-    if (!arr.length) { N.notify('无法添加', '请选择视频文件', 'warning'); return; }
+    if (!arr.length) { N.notify(T('nf_add_title'), T('nf_add_body'), 'warning'); return; }
     var start = videos.length, pending = arr.length;
     arr.forEach(function (f) {
       var r = new FileReader();
@@ -652,15 +908,185 @@
       case 'ArrowUp': video.volume = Math.min(1, video.volume + 0.1); document.getElementById('volSlider').value = video.volume * 100; e.preventDefault(); break;
       case 'ArrowDown': video.volume = Math.max(0, video.volume - 0.1); document.getElementById('volSlider').value = video.volume * 100; e.preventDefault(); break;
       case 'm': case 'M': document.getElementById('btnMute').onclick(); break;
-      case 'f': case 'F': document.getElementById('btnFull').onclick(); break;
-      case 'Escape': if (playlist.classList.contains('open')) playlist.classList.remove('open'); break;
+      case 'f': case 'F': toggleCinema(); break;
+      case 'Escape':
+        if (cinemaOpen) { closeCinema(); return; }
+        if (playlist.classList.contains('open')) playlist.classList.remove('open');
+        break;
     }
     scheduleHide();
   });
 
+  /* ============================================================
+     v2.9.55：影院沉浸 / 后台播放 / 小主页联动 / Media Session
+     与 apps/music.html 的全屏播放 + 后台托管 + storage 联动同款规律。
+     ============================================================ */
+  var cinemaOpen = false;
+  var cinemaEl = document.getElementById('cinema');
+  var cnStage = document.getElementById('cnStage');
+  var cnBottom = document.getElementById('cnBottom');
+  var cnName = document.getElementById('cnName');
+  var pendingBg = null;
+  var lastBroadcast = 0;
+
+  /* ---- 影院：把同一个 video / 控制条移动进来，播放零中断 ---- */
+  function openCinema() {
+    if (cinemaOpen) return;
+    cinemaOpen = true;
+    clearTimeout(hideTimer);
+    cinemaEl.classList.remove('closing');
+    stage.classList.remove('hide-ui');
+    cnName.textContent = (cur >= 0 && videos[cur]) ? videos[cur].name : (topbar.textContent || T('not_playing'));
+    cnStage.appendChild(video);
+    cnStage.appendChild(bigPlay);
+    cnBottom.appendChild(controls);
+    cnBottom.appendChild(rateMenu);
+    cinemaEl.style.display = 'flex';
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { cinemaEl.classList.add('open'); });
+    });
+    document.getElementById('btnFull').classList.add('on');
+    broadcastNow(true);
+  }
+  function closeCinema() {
+    if (!cinemaOpen) return;
+    cinemaOpen = false;
+    cinemaEl.classList.remove('open');
+    cinemaEl.classList.add('closing');
+    document.getElementById('btnFull').classList.remove('on');
+    setTimeout(function () {
+      if (cinemaOpen) return;                 // 期间又打开了，取消回移
+      cinemaEl.style.display = 'none';
+      cinemaEl.classList.remove('closing');
+      stage.insertBefore(video, stage.firstChild);
+      stage.appendChild(bigPlay);
+      stage.appendChild(controls);
+      stage.appendChild(rateMenu);
+      scheduleHide();
+    }, 430);
+  }
+  function toggleCinema() { if (cinemaOpen) closeCinema(); else openCinema(); }
+  document.getElementById('cnExit').onclick = closeCinema;
+  document.getElementById('cnNative').onclick = function () {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else if (cinemaEl.requestFullscreen) cinemaEl.requestFullscreen();
+    } catch (e) { N.notify(T('nf_fs_title'), T('nf_fs_body'), 'warning'); }
+  };
+
+  /* ---- 状态广播：n26VideoNow（600ms 节流），桌面「正在播放」部件读它 ---- */
+  function broadcastNow(force) {
+    var now = Date.now();
+    if (!force && now - lastBroadcast < 600) return;
+    lastBroadcast = now;
+    var v = videos[cur];
+    var payload = {
+      name: v ? v.name : '',
+      dur: (video.duration && isFinite(video.duration)) ? Math.round(video.duration) : (v ? (v.dur || 0) : 0),
+      pos: video.currentTime || 0,
+      playing: !!(cur >= 0 && !video.paused && !video.ended),
+      hue: 205, ts: now
+    };
+    try { localStorage.setItem('n26VideoNow', JSON.stringify(payload)); } catch (e) {}
+  }
+
+  /* ---- 小主页控制命令（storage 事件跨 frame 广播） ---- */
+  window.addEventListener('storage', function (e) {
+    if (e.key !== 'n26VideoCmd' || !e.newValue) return;
+    var cmd = null;
+    try { cmd = JSON.parse(e.newValue); } catch (er) { return; }
+    if (!cmd) return;
+    if (cmd.act === 'toggle') togglePlay();
+    else if (cmd.act === 'next') play(cur + 1);
+    else if (cmd.act === 'prev') play(cur - 1);
+    else if (cmd.act === 'fs') openCinema();
+  });
+
+  /* ---- 关窗移交：正在播时把状态交给宿主隐藏视频元素，实现后台播放 ---- */
+  window.addEventListener('pagehide', function () {
+    if (cur < 0 || !video.src || video.paused) {
+      try { localStorage.removeItem('n26VideoBg'); } catch (e) {}
+      return;
+    }
+    var v = videos[cur];
+    var bg = {
+      src: video.src, pos: video.currentTime || 0, playing: !video.paused,
+      name: v ? v.name : '',
+      dur: (video.duration && isFinite(video.duration)) ? Math.round(video.duration) : 0,
+      hue: 205, ts: Date.now()
+    };
+    try { localStorage.setItem('n26VideoBg', JSON.stringify(bg)); } catch (e) {}
+    try { parent.postMessage({ __nexusBgVideo: bg }, '*'); } catch (e) {}
+  });
+
+  /* ---- 重开：无缝接管回后台视频 ---- */
+  function takeOverBg(bg) {
+    if (!bg || !bg.src) return;
+    videos.unshift({ name: bg.name || T('bg_video'), path: '后台恢复', src: bg.src, dur: bg.dur || 0 });
+    cur = 0;
+    renderList(); refreshEmpty();
+    video.src = bg.src;
+    topbar.textContent = bg.name || T('bg_video');
+    cnName.textContent = bg.name || T('bg_video');
+    if (window.Nexus && Nexus.call) { try { Nexus.call('setWindowTitle', bg.name || T('bg_video')); } catch (e) {} }
+    if (bg.playing) {
+      video.play().then(function () {
+        if (isFinite(bg.pos) && bg.pos > 0) { try { video.currentTime = bg.pos; } catch (e) {} }
+      }).catch(function () { bigPlay.classList.add('show'); });
+    } else {
+      video.addEventListener('loadedmetadata', function once() {
+        try { video.currentTime = bg.pos || 0; } catch (e) {}
+        video.removeEventListener('loadedmetadata', once);
+      });
+      bigPlay.classList.add('show');
+    }
+    try { localStorage.removeItem('n26VideoBg'); } catch (e) {}
+    try { parent.postMessage({ __nexusVideoCmd: 'bg-stop' }, '*'); } catch (e) {}
+    try { N.notify(T('nf_takeover_title'), T('nf_takeover_body', bg.name || ''), 'success'); } catch (e) {}
+    broadcastNow(true);
+    setupMediaSession();
+  }
+
+  /* ---- Media Session：系统媒体键 ---- */
+  function setupMediaSession() {
+    if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
+    var v = videos[cur];
+    if (!v) return;
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: v.name, artist: T('media_video'), album: 'Nexus OS 26'
+      });
+      navigator.mediaSession.playbackState = video.paused ? 'paused' : 'playing';
+      [
+        ['play', function () { if (video.paused) togglePlay(); }],
+        ['pause', function () { if (!video.paused) togglePlay(); }],
+        ['previoustrack', function () { play(cur - 1); }],
+        ['nexttrack', function () { play(cur + 1); }],
+        ['seekbackward', function (d) { video.currentTime = Math.max(0, video.currentTime - (d.seekOffset || 5)); }],
+        ['seekforward', function (d) { video.currentTime = Math.min(video.duration || 0, video.currentTime + (d.seekOffset || 5)); }],
+        ['seekto', function (d) { if (d.seekTime != null) video.currentTime = d.seekTime; }]
+      ].forEach(function (p) {
+        try { navigator.mediaSession.setActionHandler(p[0], p[1]); } catch (e) {}
+      });
+    } catch (e) {}
+  }
+
+  /* ==================== 多语言热切换（v2.9.57） ==================== */
+  N.onLanguageChange(function () {
+    if (videos[cur]) setupMediaSession();
+    else cnName.textContent = T('not_playing');
+    renderList();
+  });
+
   /* ---------- 启动 ---------- */
   video.volume = 0.8;
-  N.ready(function () { loadFromFS(); });
+  N.ready(function () {
+    /* 关窗前若留有后台视频，先读出来；等文件系统列表加载完再接管，避免被 play(0) 覆盖 */
+    try { pendingBg = JSON.parse(localStorage.getItem('n26VideoBg') || 'null'); } catch (e) {}
+    if (pendingBg && !pendingBg.src) pendingBg = null;
+    loadFromFS().then(function () { if (pendingBg) takeOverBg(pendingBg); });
+    broadcastNow(true);   // 即便无内容也广播一次，让小部件能显示「未在播放」
+  });
 })();
 </script>
 </body>
