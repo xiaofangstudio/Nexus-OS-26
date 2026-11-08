@@ -53,8 +53,10 @@
     --covi-tint-g: 186 240 214;  /* 绿：更亮更淡的薄荷（替代 #30D158） */
     --covi-tint-b: 170 214 255;  /* 蓝 */
     --covi-tint-y: 255 226 168;  /* 暖黄 */
+    --covi-teal: 118 236 208;    /* 青绿：四边光的主色 */
+    --covi-ice: 214 255 244;     /* 冰青白：贴边亮芯，带一点青，不发灰 */
     --covi-core: 255 252 246;    /* 光源白：微暖，不发灰 */
-    --covi-halo: 1;              /* 彩色层倍率（状态调节） */
+    --covi-halo: 0.5;            /* 彩色层倍率：待命 0.32（明显可见），说话时 JS 写到 1.10 */
     --covi-blur-1: 70px;
     --covi-blur-2: 46px;
     --covi-br-1: 1;              /* 关键帧里读它，状态切换不会打断动画 */
@@ -95,8 +97,11 @@
     transition: opacity 0.55s ease;
 }
 
-/* ---------- L0 弥散：3 个大气团，替代四边彩色阴影 ---------- */
+/* ---------- L0 弥散：v3.2 停用 ----------
+   这三团大气云是全屏铺色，叠起来就是一层"绿色塑料膜"，和用户要的"四边一圈光"冲突。
+   现在光只活在四条边（.covi-ring-edge + .covi-edge-core），屏幕中间保持原画。 */
 #covi-ambient {
+    display: none;
     position: absolute;
     inset: -8%;
     z-index: 4;
@@ -286,10 +291,10 @@ body.n26-a11y-reduce-motion #covi-voice { filter: blur(14px); }
     --covi-ox: 50%;
     --covi-oy: 97%;
     background: radial-gradient(circle at var(--covi-ox) var(--covi-oy),
-        rgba(255, 255, 255, 0.42) 0%,
-        rgba(226, 240, 255, 0.18) 24%,
-        rgba(200, 224, 255, 0.07) 48%,
-        rgba(255, 255, 255, 0) 74%);
+        rgba(255, 255, 255, 0.24) 0%,
+        rgba(226, 240, 255, 0.10) 24%,
+        rgba(200, 224, 255, 0.03) 48%,
+        rgba(255, 255, 255, 0) 70%);
 }
 #covi-wash.play { animation: coviWash 1.05s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 @keyframes coviWash {
@@ -405,8 +410,8 @@ body.dark-mode #covi-stage {
     --covi-gain: 1.12;
     --covi-dim: 0.20;
 }
-body.dark-mode .covi-edge-wash  { --covi-halo: 1.05; }
-body.dark-mode .covi-edge-core  { --covi-halo: 1.05; }
+/* v3：.covi-edge-wash 已隐藏、.covi-edge-core 复用为贴边亮芯，
+   它们不再各自覆盖 --covi-halo（否则语音联动会被写死成 1.05） */
 
 /* ---------- ⑫ 性能降级 ---------- */
 /* 预算：同时运行动画的 filter:blur 层 ≤ 3（wash / bloom / core）。
@@ -415,18 +420,17 @@ body.perf-mode #covi-white,
 body.perf-mode #covi-ripple,
 body.perf-mode #covi-stage::after { display: none; }
 body.perf-mode .covi-edge-wash,
-body.perf-mode .covi-edge-bloom,
+body.perf-mode .covi-edge-bloom { animation: none; }
+body.perf-mode .covi-edge-bloom { display: none; }
+/* 贴边亮芯是一层静态 box-shadow，不烧 GPU，性能档保留 */
 body.perf-mode .covi-edge-core { animation: none; }
-body.perf-mode .covi-edge-bloom,
-body.perf-mode .covi-edge-core { display: none; }
 body.perf-mode .covi-edge-wash { filter: blur(38px); opacity: calc(0.5 * var(--covi-gain)); }
 body.perf-mode #covi-ambient { animation: none; }
 body.perf-mode #desktop.covi-squish { animation: none; }
 body.perf-mode #nexus-bg.covi-warp { filter: none; }
 
 body.n26-frost-lite #covi-stage::after { display: none; }
-body.n26-frost-lite .covi-edge-bloom,
-body.n26-frost-lite .covi-edge-core { display: none; }
+body.n26-frost-lite .covi-edge-bloom { display: none; }
 body.n26-frost-lite .covi-edge-wash { filter: blur(52px); }
 
 @media (prefers-reduced-motion: reduce) {
@@ -445,4 +449,302 @@ body.n26-frost-lite .covi-edge-wash { filter: blur(52px); }
         0%   { opacity: calc(0.42 * var(--covi-gain)); }
         100% { opacity: calc(1 * var(--covi-gain)); }
     }
+}
+
+/* ==========================================================================
+   四边蓝绿流光（v3）
+   --------------------------------------------------------------------------
+   v2 的光只铺在屏幕上方，读起来像"顶部一条白绸带"，不是用户要的"四边一圈"。
+   v3 改成四条边各自成光：每条边 = 宽色晕 + 近白亮芯 + 贴着边走的光斑；
+   三层都向屏幕内侧淡出，所以整屏看到的是一圈包住画面的光，而不是贴边绿带。
+   底层仍是普通 alpha（不依赖祖先混合），白芯负责"真实光"的亮度层次，
+   青绿只做低 alpha 的色相，避免塑料感；再叠慢速呼吸与流动，光会"活"。
+   ========================================================================== */
+/* 旧绸带不再参与合成；.covi-edge-core 复用为「贴边亮芯 + 内溢光」 */
+.covi-edge-wash, .covi-edge-bloom { display: none; }
+
+/* —— 贴边亮芯：一层 box-shadow 就出亮度层次（2px 硬边 → 12px 软芯 → 150px 溢光） ——
+   四边色晕负责「颜色与流动」，这一层负责「真实光的芯」：够亮、够细、贴着屏边。
+   v3.2：溢光半径 92px→150px、色晕 30px→44px —— 用户口径「静态就要明显看到一圈蓝绿光」。 */
+.covi-edge-core {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 7;
+    pointer-events: none;
+    background: none;
+    transform: none;
+    filter: none;
+    mix-blend-mode: normal;
+    animation: none;
+    box-shadow:
+        inset 0 0 0 2px rgb(var(--covi-ice) / 0.74),
+        inset 0 0 10px 2px rgb(var(--covi-ice) / 0.54),
+        inset 0 0 40px 12px rgb(var(--covi-teal) / 0.52),
+        inset 0 0 150px 46px rgb(var(--covi-teal) / 0.18);
+    opacity: 0;
+    transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#covi-stage.on .covi-edge-core {
+    opacity: calc((0.52 + 0.48 * var(--covi-halo)) * var(--covi-gain));
+}
+/* 浅色主题：白底上白芯几乎不可见，改用「青绿细边 + 青晕」保证读得出来 */
+body:not(.dark-mode) .covi-edge-core {
+    box-shadow:
+        inset 0 0 0 3px rgb(56 232 216 / 0.80),
+        inset 0 0 11px 3px rgb(64 236 220 / 0.48),
+        inset 0 0 44px 13px rgb(72 216 198 / 0.38),
+        inset 0 0 150px 46px rgb(80 206 196 / 0.14);
+}
+body.dark-mode #covi-stage.on .covi-edge-core {
+    opacity: calc((0.52 + 0.48 * var(--covi-halo)) * var(--covi-gain) * 1.06);
+}
+
+.covi-ring-edge {
+    position: absolute;
+    z-index: 6;
+    pointer-events: none;
+    background-repeat: no-repeat;
+    opacity: 0;                       /* 待命熄灭；点亮由 #covi-stage.on 抬起 */
+    transform: translateZ(0);
+    will-change: opacity, background-position;
+    transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* —— 上边 —— */
+.covi-ring-top {
+    left: 0; right: 0; top: 0; height: 20vh;
+    background-image:
+        linear-gradient(180deg,
+            rgb(var(--covi-teal) / 0.84) 0%,
+            rgb(var(--covi-teal) / 0.54) 6%,
+            rgb(var(--covi-teal) / 0.18) 26%,
+            rgba(0, 0, 0, 0) 56%),
+        linear-gradient(180deg,
+            rgb(var(--covi-ice) / 0.95) 0%,
+            rgb(var(--covi-ice) / 0.34) 5%,
+            rgba(0, 0, 0, 0) 14%),
+        radial-gradient(ellipse 46% 100% at 50% 0%,
+            rgb(var(--covi-ice) / 0.62) 0%,
+            rgb(var(--covi-teal) / 0.30) 42%,
+            rgba(0, 0, 0, 0) 72%);
+    background-size: 100% 100%, 100% 100%, 46% 100%;
+    background-position: 0 0, 0 0, 0 0;
+    -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.78) 18%, rgba(0, 0, 0, 0) 84%);
+    mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.78) 18%, rgba(0, 0, 0, 0) 84%);
+    filter: blur(10px) saturate(1.34);
+    animation: coviRingBreathA 5.6s ease-in-out infinite alternate,
+               coviRingFlowX 9s ease-in-out infinite alternate;
+}
+
+/* —— 下边 —— */
+.covi-ring-bottom {
+    left: 0; right: 0; bottom: 0; height: 20vh;
+    background-image:
+        linear-gradient(0deg,
+            rgb(var(--covi-teal) / 0.86) 0%,
+            rgb(var(--covi-teal) / 0.56) 6%,
+            rgb(var(--covi-teal) / 0.19) 26%,
+            rgba(0, 0, 0, 0) 56%),
+        linear-gradient(0deg,
+            rgb(var(--covi-ice) / 0.96) 0%,
+            rgb(var(--covi-ice) / 0.36) 5%,
+            rgba(0, 0, 0, 0) 15%),
+        radial-gradient(ellipse 46% 100% at 50% 100%,
+            rgb(var(--covi-ice) / 0.66) 0%,
+            rgb(var(--covi-teal) / 0.34) 42%,
+            rgba(0, 0, 0, 0) 72%);
+    background-size: 100% 100%, 100% 100%, 52% 100%;
+    background-position: 0 0, 0 0, 0 0;
+    -webkit-mask-image: linear-gradient(0deg, #000 0%, rgba(0, 0, 0, 0.78) 18%, rgba(0, 0, 0, 0) 84%);
+    mask-image: linear-gradient(0deg, #000 0%, rgba(0, 0, 0, 0.78) 18%, rgba(0, 0, 0, 0) 84%);
+    filter: blur(10px) saturate(1.34);
+    animation: coviRingBreathA 5.6s ease-in-out infinite alternate,
+               coviRingFlowX 9s ease-in-out infinite alternate;
+}
+
+/* —— 左边 —— */
+.covi-ring-left {
+    top: 0; bottom: 0; left: 0; width: 20vh;
+    background-image:
+        linear-gradient(90deg,
+            rgb(var(--covi-teal) / 0.80) 0%,
+            rgb(var(--covi-teal) / 0.52) 6%,
+            rgb(var(--covi-teal) / 0.17) 26%,
+            rgba(0, 0, 0, 0) 58%),
+        linear-gradient(90deg,
+            rgb(var(--covi-ice) / 0.90) 0%,
+            rgb(var(--covi-ice) / 0.32) 5%,
+            rgba(0, 0, 0, 0) 15%),
+        radial-gradient(ellipse 100% 46% at 0% 50%,
+            rgb(var(--covi-ice) / 0.58) 0%,
+            rgb(var(--covi-teal) / 0.30) 46%,
+            rgba(0, 0, 0, 0) 74%);
+    background-size: 100% 100%, 100% 100%, 100% 52%;
+    background-position: 0 0, 0 0, 0 0;
+    -webkit-mask-image: linear-gradient(90deg, #000 0%, rgba(0, 0, 0, 0.78) 18%, rgba(0, 0, 0, 0) 84%);
+    mask-image: linear-gradient(90deg, #000 0%, rgba(0, 0, 0, 0.78) 18%, rgba(0, 0, 0, 0) 84%);
+    filter: blur(10px) saturate(1.34);
+    animation: coviRingBreathB 6.4s ease-in-out infinite alternate,
+               coviRingFlowY 10.5s ease-in-out infinite alternate;
+}
+
+/* —— 右边 —— */
+.covi-ring-right {
+    top: 0; bottom: 0; right: 0; width: 20vh;
+    background-image:
+        linear-gradient(270deg,
+            rgb(var(--covi-teal) / 0.80) 0%,
+            rgb(var(--covi-teal) / 0.52) 6%,
+            rgb(var(--covi-teal) / 0.17) 26%,
+            rgba(0, 0, 0, 0) 58%),
+        linear-gradient(270deg,
+            rgb(var(--covi-ice) / 0.90) 0%,
+            rgb(var(--covi-ice) / 0.32) 5%,
+            rgba(0, 0, 0, 0) 15%),
+        radial-gradient(ellipse 100% 46% at 100% 50%,
+            rgb(var(--covi-ice) / 0.58) 0%,
+            rgb(var(--covi-teal) / 0.30) 46%,
+            rgba(0, 0, 0, 0) 74%);
+    background-size: 100% 100%, 100% 100%, 100% 52%;
+    background-position: 0 0, 0 0, 0 0;
+    -webkit-mask-image: linear-gradient(270deg, #000 0%, rgba(0, 0, 0, 0.78) 18%, rgba(0, 0, 0, 0) 84%);
+    mask-image: linear-gradient(270deg, #000 0%, rgba(0, 0, 0, 0.78) 18%, rgba(0, 0, 0, 0) 84%);
+    filter: blur(10px) saturate(1.34);
+    animation: coviRingBreathB 6.4s ease-in-out infinite alternate,
+               coviRingFlowY 10.5s ease-in-out infinite alternate-reverse;
+}
+
+/* 说话时「变大」：光带向屏内扩张（不是只改透明度），静止→开口肉眼可见范围变化 */
+.covi-ring-top { transform-origin: 50% 0%; }
+.covi-ring-bottom { transform-origin: 50% 100%; }
+.covi-ring-left { transform-origin: 0% 50%; }
+.covi-ring-right { transform-origin: 100% 50%; }
+.covi-ring-top, .covi-ring-bottom { scale: 1 calc(1 + 0.30 * var(--covi-boost)); }
+.covi-ring-left, .covi-ring-right { scale: calc(1 + 0.30 * var(--covi-boost)) 1; }
+
+/* 点亮：底边先亮，两侧跟上，顶边最后 —— 光从下方"升"起来 */
+/* v3.3：基础亮度 0.46→0.56（静态 halo 0.32 时约 0.70），静态就能看到一圈蓝绿光；
+   说话时 halo≈1.09 叠满增益 + 光带扩张 30%，明显更亮更大。 */
+#covi-stage.on .covi-ring-edge {
+    opacity: calc((0.56 + 0.44 * var(--covi-halo)) * var(--covi-gain) * (1 + var(--covi-boost) * 0.34));
+}
+#covi-stage.on .covi-ring-bottom { transition-delay: 0ms; }
+#covi-stage.on .covi-ring-left,
+#covi-stage.on .covi-ring-right { transition-delay: 90ms; }
+#covi-stage.on .covi-ring-top { transition-delay: 170ms; }
+body.dark-mode #covi-stage.on .covi-ring-edge {
+    opacity: calc((0.56 + 0.44 * var(--covi-halo)) * var(--covi-gain) * 1.06 * (1 + var(--covi-boost) * 0.34));
+}
+
+/* 呼吸：亮度与模糊轻微起伏；两个不同周期，永远看不出循环点
+   v3.3：模糊收敛到 15~21px（原 25~29px）—— 贴边留得住亮芯，不再糊成一团雾；
+   brightness 读 --covi-boost：说话时亮度继续上抬，形成"真实的光"的强弱层次。 */
+@keyframes coviRingBreathA {
+    0%   { filter: blur(17px) saturate(1.30) brightness(calc(1.00 + 0.34 * var(--covi-boost))); }
+    50%  { filter: blur(21px) saturate(1.44) brightness(calc(1.06 + 0.40 * var(--covi-boost))); }
+    100% { filter: blur(15px) saturate(1.26) brightness(calc(1.02 + 0.34 * var(--covi-boost))); }
+}
+@keyframes coviRingBreathB {
+    0%   { filter: blur(19px) saturate(1.36) brightness(calc(1.05 + 0.36 * var(--covi-boost))); }
+    50%  { filter: blur(15px) saturate(1.28) brightness(calc(0.98 + 0.36 * var(--covi-boost))); }
+    100% { filter: blur(18px) saturate(1.32) brightness(calc(1.03 + 0.34 * var(--covi-boost))); }
+}
+/* 流动：只有第三层（贴边光斑）在动，速度由 JS 按真实音量改 playbackRate */
+@keyframes coviRingFlowX {
+    from { background-position: 0 0, 0 0, -30% 0; }
+    to   { background-position: 0 0, 0 0, 130% 0; }
+}
+@keyframes coviRingFlowY {
+    from { background-position: 0 0, 0 0, 0 -30%; }
+    to   { background-position: 0 0, 0 0, 0 130%; }
+}
+
+/* ==========================================================================
+   屏幕水波（真扭曲）：SVG feTurbulence + feDisplacementMap 作用在合成层
+   --------------------------------------------------------------------------
+   #covi-wave 是一块铺满全屏的 backdrop-filter 层：它把"身后已经合成好的
+   整屏画面"（桌面 + 窗口）用位移图真扭曲，而不是模糊/缩放/半透明渐变假冒。
+   滤镜里 feOffset 的 dy 从 +150 走到 -90：噪声图案整体上移（波一路推上去），
+   feDisplacementMap scale 走 0→26→0 的包络：入水变强、离开收平。
+   动画期只有这一层 backdrop-filter；结束即 display:none，空闲不跑任何 rAF。
+   ========================================================================== */
+/* 水波外层：只做显隐。不要在这里加 mask/clip/opacity<1：
+   这些都会让子层成为新的 backdrop root，backdrop-filter 会改采样组内背景而失效（已实测）。
+   "自下而上"交给滤镜里的 feOffset dy（+150 → -90）+ 强度包络，屏幕不会整段平移。 */
+#covi-wave {
+    position: fixed;
+    inset: 0;
+    z-index: 9390;                    /* 低于光效舞台 9400，高于所有窗口 */
+    display: none;
+    pointer-events: none;             /* 绝不挡点击 */
+    opacity: 1;
+    will-change: opacity;
+}
+/* 水波内层：真正的位移（SVG feTurbulence + feDisplacementMap 作用于整屏合成层）
+   ★ P0：只在语音水波动效播放期间（#covi-wave.play）才挂 url() 滤镜；
+   静止态不匹配任何规则 → computed backdrop-filter = none，审计命中数为 0。 */
+#covi-wave.play #covi-wave-fx {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    -webkit-backdrop-filter: url(#coviWaveWarp) !important;
+    backdrop-filter: url(#coviWaveWarp) !important;
+}
+/* n26-glass-system.css 有一条全局杀伤规则：
+   `html body :is(#n26a #n26b #n26c, *) { backdrop-filter:none!important }`
+   :is() 取最高特异性 → (3 id, 2 元素) = 3,0,2；单/双 ID 都会被压掉（实测 computed 仍是 none）。
+   这里用 4 个 ID 把特异性抬到 4,0,2，确保水波位移真正作用在合成层上。 */
+html body #covi-wave.play #covi-wave-fx#covi-wave-fx#covi-wave-fx#covi-wave-fx {
+    -webkit-backdrop-filter: url(#coviWaveWarp) !important;
+    backdrop-filter: url(#coviWaveWarp) !important;
+}
+
+/* 时间轴：0.10s 起、0.66s 行程（由 SVG SMIL 驱动，见主壳 #coviWaveWarp 里的 animate） */
+#covi-wave.play { display: block; }
+
+/* 减少动效：不做扭曲，只留极简边缘光（边缘光不呼吸、不流动，静态常亮） */
+body.n26-a11y-reduce-motion #covi-wave { display: none !important; }
+body.n26-a11y-reduce-motion .covi-ring-edge { animation: none !important; filter: blur(20px) saturate(1.12); }
+@media (prefers-reduced-motion: reduce) {
+    #covi-wave { display: none !important; }
+    .covi-ring-edge { animation: none !important; filter: blur(22px) saturate(1.1); }
+}
+
+/* 性能档：保留四边静态光，不做呼吸/流动 */
+body.perf-mode .covi-ring-edge { animation: none !important; }
+body.perf-mode #covi-stage.on .covi-ring-edge {
+    opacity: calc(0.55 * var(--covi-gain) * var(--covi-halo));
+}
+
+
+/* ==========================================================================
+   对话窗无光（用户口径 2026-11-08）
+   #n26AiChat 是「实底无光」面：点左下角玻璃球弹出时不要任何流光 / 呼吸光 / 发光描边。
+   这里只锁底色、阴影与伪元素；布局/尺寸/圆角/内边距仍由主壳原规则负责，未改动。
+   覆盖 ui/n26-glass-system.css 里 html body :is(..., #n26AiChat) 的 3-ID !important，
+   必须 4 个 ID 才压得住（:is 取参数里最高特异性）。
+   ========================================================================== */
+html body #n26AiChat#n26AiChat#n26AiChat#n26AiChat {
+    background-color: #fbfcff !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    box-shadow: 0 30px 90px rgba(12, 18, 32, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.72) !important;
+}
+body.dark-mode #n26AiChat#n26AiChat#n26AiChat#n26AiChat {
+    background-color: #181b25 !important;
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+/* 跑马灯描边 / 任何伪元素发光层都不要 */
+#n26AiChat::before,
+#n26AiChat::after {
+    content: none !important;
+    display: none !important;
+    animation: none !important;
+}
+/* 面板内的「呼吸灯点」与思考呼吸一律停掉（不是流光，只是小亮点闪烁） */
+#n26AiChat .t-dot,
+#n26AiChat .n26ai-status::before,
+#n26AiChat .n26ai-avatar {
+    animation: none !important;
 }

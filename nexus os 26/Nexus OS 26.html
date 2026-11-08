@@ -188,7 +188,7 @@
     <link rel="stylesheet" href="fangui/core/tokens.css">
     <link rel="stylesheet" href="fangui/core/flat.css">
     <link rel="stylesheet" href="fangui/core/neu.css">
-    <link rel="stylesheet" href="fangui/core/liquid.css">
+    <link rel="stylesheet" href="fangui/core/liquid.css?v=20261108">
     <!-- AI 小方「长按 Space」Siri 风格光效（边缘光带/白爆/波纹/扭曲） -->
     <link rel="stylesheet" href="ui/covi-glow.css?v=2964">
     <!-- AI 小方 HUD：底部悬浮输入条 + 悬空回复气泡 -->
@@ -4052,7 +4052,7 @@
         }
         #dockBar .db-btn:hover { background: rgba(120, 130, 150, 0.32); transform: translateY(-2px); }
         #dockBar .db-btn:active { transform: scale(0.94); }
-        #dockBar .db-btn.accent { background: linear-gradient(135deg, #6366f1, #0ea5e9); color: #fff; }
+        #dockBar .db-btn.accent { background: linear-gradient(135deg, #38bdf8, #0284c7); color: #fff; }
         #dockBar .db-btn.danger { background: linear-gradient(135deg, #ef4444, #f97316); color: #fff; }
         #dockBar .db-btn.rec { background: rgba(239, 68, 68, 0.9); color: #fff; animation: dbRecBreath 1.4s ease-in-out infinite; }
         @keyframes dbRecBreath { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.55); } 50% { box-shadow: 0 0 0 7px rgba(239,68,68,0); } }
@@ -4694,7 +4694,8 @@
         /* v2.9.80：切换动画已下线。历史残留 / 并发会话挂上的 os-transitioning
            绝不能再把底栏变透明 —— 显式钉死 opacity:1，作为最后一道兜底。 */
         body.os-transitioning #dock,
-        body.os-transitioning #finder-bar {
+        body.os-transitioning #finder-bar,
+        body.os-transitioning #win-taskbar {
             opacity: 1 !important;
         }
 
@@ -7721,7 +7722,7 @@
         }
         @keyframes startMenuOut {
             from { opacity: 1; transform: var(--sm-base) scale(1); }
-            to   { opacity: 0; transform: var(--sm-base) translate(var(--sm-dx, 0px), var(--sm-dy, 18px)) scale(0.96); }
+            to   { opacity: 0; transform: var(--sm-base) translate(var(--sm-dx, 0px), var(--sm-dy, 18px)) scale(var(--sm-s0, 0.94)); }
         }
         /* 减弱动画：开始菜单退化为 100ms 纯淡入淡出（keyframes 不写 transform，保留基准定位） */
         @keyframes startMenuFadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -11251,9 +11252,10 @@
             #n26AiChat { grid-template-columns: 0 1fr; }
             #n26AiSide { display: none; }
         }
-        /* 跑马灯边框：打开即常驻（轻声），思考时增强 */
+        /* v3.2：对话窗实底无光 —— 跑马灯发光描边整体停用（content:none 后不再生成任何描边） */
         .n26-ai-marquee::before {
-            content: '';
+            content: none;
+            display: none;
             position: absolute; inset: -3px;
             border-radius: 28px;
             padding: 3px;
@@ -11555,7 +11557,8 @@
             border-radius: 24px;
         }
         .n26-ai-marquee.ai-thinking::before {
-            content: '';
+            content: none;            /* 思考态也不加光：对话窗全程无发光描边 */
+            display: none;
             position: absolute;
             inset: -3px;
             border-radius: 26px;
@@ -17945,7 +17948,7 @@
     <link rel="stylesheet" href="ui/n26-material.css?v=231">
     <link rel="stylesheet" href="ui/n26-startmenu.css?v=232">
     <link rel="stylesheet" href="ui/n26-shell.css?v=254">
-    <link rel="stylesheet" href="ui/n26-docknav.css?v=2973">
+    <link rel="stylesheet" href="ui/n26-docknav.css?v=2974">
     <link rel="stylesheet" href="ui/n26-widgets.css?v=20261108mat">
     <link rel="stylesheet" href="ui/n26-widgets-v2.css?v=w2m">
     <script src="ui/n26-widgets-v2.js?v=w2m"></script>
@@ -19874,14 +19877,14 @@
         </filter>
         <!-- v3 水波位移：只做"真扭曲"，由 #covi-wave 的 backdrop-filter 引用 -->
         <filter id="coviWaveWarp" x="-8%" y="-8%" width="116%" height="116%" color-interpolation-filters="sRGB">
-            <feTurbulence type="fractalNoise" baseFrequency="0.005 0.011" numOctaves="2" seed="11" result="coviWaveNoise"/>
-            <!-- dy 由 +150 走到 -90：噪声图案整体上移约两圈半 → 波纹自下而上流，不是原地抖动 -->
+            <feTurbulence type="fractalNoise" baseFrequency="0.014 0.022" numOctaves="2" seed="11" result="coviWaveNoise"/>
+            <!-- dy 由 +150 走到 -90：噪声图案整体上移（约五个波纹周期）→ 波一路自下而上推，不是原地抖动 -->
             <feOffset in="coviWaveNoise" dy="0" result="coviWaveShift">
                 <animate attributeName="dy" values="150;-90" dur="0.66s" calcMode="linear" fill="freeze" begin="indefinite"/>
             </feOffset>
-            <!-- scale 0→26→0：入水时逐渐变强、离开时收平，屏幕不会整段一直扭 -->
+            <!-- scale 0→240→0：feDisplacementMap 的实际位移 ≈ scale×(通道-0.5)，峰值能看到整屏被推弯 -->
             <feDisplacementMap in="SourceGraphic" in2="coviWaveShift" scale="0" xChannelSelector="R" yChannelSelector="G">
-                <animate attributeName="scale" values="0;16;26;26;13;0" keyTimes="0;0.18;0.45;0.62;0.82;1" dur="0.66s" fill="freeze" begin="indefinite"/>
+                <animate attributeName="scale" values="0;120;240;240;110;0" keyTimes="0;0.18;0.45;0.62;0.82;1" dur="0.66s" fill="freeze" begin="indefinite"/>
             </feDisplacementMap>
         </filter>
     </svg>
@@ -24771,8 +24774,8 @@
     const N26_TILE_COLORS = {
         browser:    '#2F80ED',   // 浏览器 · 蓝
         files:      '#7FB3E8',   // 文件管理 · 浅蓝（v2.9.75 用户要求，替换原琥珀黄）
-        appstore:   '#7C5CFF',   // 应用商城 · 靛紫
-        games:      '#7C3AED',   // 小游戏合集 · 紫（v2.9.76 去暖橙）
+        appstore:   '#38bdf8',   // 应用商城 · 天蓝（v2.9.83 禁紫回归，替换靛紫）
+        games:      '#0ea5e9',   // 小游戏合集 · 天蓝（v2.9.83 禁紫回归）
         computer:   '#8E8E93',   // 此电脑 · 中性灰
         settings:   '#8E8E93',   // 系统设置 · 中性灰
         trash:      '#6B7280',   // 回收站 · 中性灰
@@ -25431,16 +25434,9 @@
         try { n26AiPositionPanel(); } catch (e) { /* 定位失败就退回默认左上角，不挡住聊天 */ }
         // 点 backdrop 关闭（轻量交互；点卡片本身不关）
         overlay.onclick = function (ev) { if (ev.target === overlay) closeN26AiChat(); };
-        // 光效沿用「长按 Space 呼出」那一套：白爆闪 + 光晕 + 彩环 + 弹性挤压 + 边缘光带。
-        // 只借用舞台光效，不弹底部语音 HUD、不自动开麦（开窗即可打字）。
-        _n26AiWindowOwnsStage = true;
-        try {
-            coviWhiteBurst();
-            coviWash();
-            coviRipple();
-            coviSquish();
-            coviGlowOn();
-        } catch (e) { /* 光效失败不影响开窗 */ }
+        // 对话窗是「实底无光」面：点玻璃球开窗不点亮光效舞台（不爆闪 / 不彩环 / 不挤压 / 无边缘流光）。
+        // 发光只属于「长按 Space 唤出」那一套（#covi-hud + 四边流光）。面板本体见 #n26AiChat 实底规则。
+        _n26AiWindowOwnsStage = false;
         const cfg = getAiConfig();
         const status = document.getElementById('n26AiStatus');
         if (status) {
@@ -25922,22 +25918,22 @@
         m.level += (raw - m.level) * k;
         var L = m.level;
 
-        st.style.setProperty('--covi-halo', (0.22 + 0.78 * L).toFixed(3));   // 不说话时近乎收敛
+        st.style.setProperty('--covi-halo', (0.32 + 0.78 * L).toFixed(3));   // 静态就有 0.32（明显一圈光），大声到 1.10
         st.style.setProperty('--covi-boost', L.toFixed(3));
 
         var v = coviVoiceEl();
         if (v) {
-            v.style.opacity = (0.05 + 0.95 * L).toFixed(3);
+            v.style.opacity = (0.12 + 0.88 * L).toFixed(3);
             v.style.transform = m.reduced
                 ? 'translateX(-50%) scale(.9)'
-                : 'translateX(-50%) scale(' + (0.6 + 0.9 * L).toFixed(3) + ')';   // 声音越大光越大
+                : 'translateX(-50%) scale(' + (0.7 + 1.15 * L).toFixed(3) + ')';   // 声音越大光越大
         }
 
         // 声音越大流动越快：真实改播放速率（不重启动画、不跳帧）
         var now = performance.now();
         if (!m.reduced && now - m.lastFlow > 200) {
             m.lastFlow = now;
-            var rate = 0.55 + 1.65 * L;                 // 静音 ~0.55x，大声 ~2.2x
+            var rate = 0.6 + 2.5 * L;                  // 静音 ~0.6x（周期 15s），大声 ~3.1x（周期 ~2.9s）
             var anims = [];
             try { anims = st.getAnimations({ subtree: true }) || []; } catch (e) { anims = []; }
             anims.forEach(function (a) {
@@ -26006,7 +26002,7 @@
         if (document.body.classList.contains('n26-a11y-reduce-motion')) return;
         var ctx = cv.getContext('2d');
         if (!ctx) return;
-        var dpr = Math.min(2, window.devicePixelRatio || 1);
+        var dpr = Math.min(1.5, window.devicePixelRatio || 1);   // 硬约束：全屏光效 DPR ≤1.5
         var W = cv.width = Math.max(1, window.innerWidth * dpr);
         var H = cv.height = Math.max(1, window.innerHeight * dpr);
         var ox = W * 0.5, oy = H * 0.97;     // 爆点：底部中央（空格键位置）
@@ -26998,20 +26994,50 @@
     // v2.9.70：同一尺寸只生成一次；首次 canvas/toDataURL 初始化很贵（实测单次可达秒级），
     //          缓存后 Dock/侧栏/开始菜单重复同步不再重复付这笔钱。
     const _n26LgMapCache = new Map();
+    /* ★ P3 能力探测：检测 backdrop-filter 是否真的接受 url(#svgfilter) 引用。
+       注意：探针必须用「行内 !important」——glass-system 第 1 节的
+       `html body :is(#a #b #c, *) { backdrop-filter: none !important }` 会压过普通行内值，
+       否则真支持也会被读成 none（之前的假阴性就是这么来的，实测本机 Chromium 支持）。 */
+    const N26_LG_SVG_OK = (function () {
+        try {
+            const NS = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(NS, 'svg');
+            svg.setAttribute('width', '1'); svg.setAttribute('height', '1');
+            svg.style.cssText = 'position:fixed;left:-9999px;top:0';
+            const f = document.createElementNS(NS, 'filter');
+            f.setAttribute('id', 'n26LgCapProbe');
+            const fb = document.createElementNS(NS, 'feGaussianBlur');
+            fb.setAttribute('stdDeviation', '2');
+            f.appendChild(fb); svg.appendChild(f);
+            const p = document.createElement('div');
+            p.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px';
+            p.style.setProperty('-webkit-backdrop-filter', 'url(#n26LgCapProbe)', 'important');
+            p.style.setProperty('backdrop-filter', 'url(#n26LgCapProbe)', 'important');
+            document.body.appendChild(svg); document.body.appendChild(p);
+            const v = getComputedStyle(p).backdropFilter || '';
+            p.remove(); svg.remove();
+            return v.indexOf('url(') >= 0;
+        } catch (e) { return false; }
+    })();
+    try { window.n26LgSvgOK = N26_LG_SVG_OK; } catch (e) {}
     function n26LgMapSize(w, h, opts) {
         opts = opts || {};
         const inset = opts.inset != null ? opts.inset : 0.2;
         const thresh = opts.thresh != null ? opts.thresh : -0.15;
+        /* ★ P3：可选 SDF 半宽/半高（参照 roundedRectSDF(ix,iy,0.3,0.2,0.6)）。
+           不传时仍按老路径 hw=hh=0.5−inset，Dock/胶囊的参数与观感逐像素不变。 */
+        const hw = opts.hw != null ? opts.hw : 0.5 - inset;
+        const hh = opts.hh != null ? opts.hh : 0.5 - inset;
         const mapMax = 240;
         const k = Math.min(1, mapMax / Math.max(w, h));
         const mw = Math.max(8, Math.round(w * k));
         const mh = Math.max(8, Math.round(h * k));
-        return { mw, mh, inset, thresh, key: mw + 'x' + mh + ':' + inset + ':' + thresh };
+        return { mw, mh, inset, thresh, hw, hh, key: mw + 'x' + mh + ':' + hw + ':' + hh + ':' + thresh };
     }
     function makeN26LgMap(w, h, opts) {
         opts = opts || {};
         const size = n26LgMapSize(w, h, opts);
-        const inset = size.inset, thresh = size.thresh, mw = size.mw, mh = size.mh;
+        const thresh = size.thresh, mw = size.mw, mh = size.mh, hw = size.hw, hh = size.hh;
         const cacheKey = size.key;
         const cached = _n26LgMapCache.get(cacheKey);
         if (cached) return cached;
@@ -27019,7 +27045,6 @@
         canvas.width = mw; canvas.height = mh;
         const ctx = canvas.getContext('2d');
         const img = ctx.createImageData(mw, mh);
-        const hw = 0.5 - inset, hh = 0.5 - inset;
         const raw = new Float32Array(mw * mh * 2);
         let maxScale = 0;
         for (let y = 0; y < mh; y++) {
@@ -27060,8 +27085,8 @@
         'function sstep(a,b,t){t=Math.max(0,Math.min(1,(t-a)/(b-a)));return t*t*(3-2*t);}',
         'function sdf(x,y,hw,hh,r){var qx=Math.abs(x)-hw+r,qy=Math.abs(y)-hh+r;return Math.min(Math.max(qx,qy),0)+Math.hypot(Math.max(qx,0),Math.max(qy,0))-r;}',
         'onmessage=function(e){',
-        'var d=e.data,mw=d.mw,mh=d.mh,w=d.w,h=d.h,inset=d.inset,thresh=d.thresh;',
-        'var hw=0.5-inset,hh=0.5-inset,raw=new Float32Array(mw*mh*2),maxScale=0;',
+        'var d=e.data,mw=d.mw,mh=d.mh,w=d.w,h=d.h,hw=d.hw,hh=d.hh,thresh=d.thresh;',
+        'var raw=new Float32Array(mw*mh*2),maxScale=0;',
         'for(var y=0;y<mh;y++){var iy=y/mh-0.5;for(var x=0;x<mw;x++){var ix=x/mw-0.5,d0=sdf(ix,iy,hw,hh,0.6),s=sstep(0,1,sstep(0.8,0,d0-thresh)),i=(y*mw+x)*2;',
         'raw[i]=ix*s*w;raw[i+1]=iy*s*h;var ax=Math.abs(raw[i]),ay=Math.abs(raw[i+1]);if(ax>maxScale)maxScale=ax;if(ay>maxScale)maxScale=ay;}}',
         'maxScale*=0.5;if(maxScale<0.0001)maxScale=0.0001;',
@@ -27115,7 +27140,7 @@
         if (waiting) { waiting.cbs.push(cb); return; }
         const entry = { w: w, h: h, opts: opts, cbs: [cb] };
         _n26LgPending.set(size.key, entry);
-        _n26LgWorker.postMessage({ key: size.key, mw: size.mw, mh: size.mh, w: w, h: h, inset: size.inset, thresh: size.thresh });
+        _n26LgWorker.postMessage({ key: size.key, mw: size.mw, mh: size.mh, w: w, h: h, hw: size.hw, hh: size.hh, thresh: size.thresh });
     }
     function _n26LgEnsureSvg() {
         let svg = document.getElementById('n26LgSvg');
@@ -27133,25 +27158,63 @@
         if (!el || !N26_LG_OK || el._n26Lg || el._n26LgWait) return;
         const rect = el.getBoundingClientRect();
         /* size 覆盖：侧栏指示器尺寸随项变化，调用方按 8px/4px 量化后传入，贴图可复用缓存 */
-        const w = Math.max(40, Math.round((size && size.w) || rect.width));
-        const h = Math.max(40, Math.round((size && size.h) || rect.height));
+        const w = Math.max(12, Math.round((size && size.w) || rect.width));
+        const h = Math.max(12, Math.round((size && size.h) || rect.height));
+        /* 尺寸为 0 / 元素不可见：绝不注入，保持 CSS 的普通磨砂 */
+        if (!(rect.width > 0) || !(rect.height > 0)) return;
         el._n26LgWait = true;
         makeN26LgMapAsync(w, h, opts, function (map) {
             el._n26LgWait = false;
+            /* 贴图未生成 / 生成失败 / 不是 data:image：直接放弃注入 → 回退普通磨砂 */
+            if (!map || typeof map.url !== 'string' || map.url.indexOf('data:image/png') !== 0 || !(map.scale > 0)) return;
             try { _n26LgInject(el, id, w, h, map, opts); } catch (e) {}
         });
     }
     /* 摘除：尺寸变化 / 材质回退 / 色散开关翻转都走这里，确保不残留折射引用 */
     function _n26LgClear(el) {
-        if (!el || !el._n26Lg) return;
-        const f = document.getElementById(el._n26Lg.id);
-        if (f) f.remove();
-        el.style.backdropFilter = '';
+        if (!el) return;
+        const lg = el._n26Lg;
+        if (lg) {
+            const f = document.getElementById(lg.id);
+            if (f && f.parentNode) f.parentNode.removeChild(f);
+        }
         el.style.removeProperty('--n26-lg-filter');
+        el.style.removeProperty('backdrop-filter');
+        el.style.removeProperty('-webkit-backdrop-filter');
         el.classList.remove('n26-liquid-on');
+        el.removeAttribute('data-n26-lg-fallback');
         el._n26Lg = null;
         el._n26LgWait = false;
     }
+    /* ★ P0 安全网：全站只允许 4 类折射面出现 url(#n26Lg*)。
+       ① 非白名单元素只要带折射变量 → 立刻摘除，退回普通磨砂/实底；
+       ② 白名单元素若滤镜节点缺失、或 feDisplacementMap 的 in2 指向不存在的 result
+          （这种情况滤镜会把位移贴图当背景直接画出来 = 整块红/绿），也立刻摘除。 */
+    const N26_LG_WHITELIST = '#dock,#dockBar,#n26LeftDock,#n26RightDock,#n26PzDemoWin,.n26-dng,.n26-lg-ctrl,.fu-knob';
+    function _n26LgFilterHealthy(id) {
+        const f = document.getElementById(id);
+        if (!f || String(f.tagName).toLowerCase() !== 'filter') return false;
+        const disp = f.querySelector('feDisplacementMap');
+        if (!disp) return false;
+        const in2 = (disp.getAttribute('in2') || '').trim();
+        if (!in2) return false;
+        let ok = false;
+        Array.prototype.forEach.call(f.children, function (p) {
+            if (p.getAttribute && p.getAttribute('result') === in2) ok = true;
+        });
+        const img = f.querySelector('feImage');
+        if (!img || (img.getAttribute('href') || '').indexOf('data:image/png') !== 0 || !img.getAttribute('width')) ok = false;
+        return ok;
+    }
+    function n26LgGuard() {
+        Array.prototype.forEach.call(document.querySelectorAll('[style*="n26-lg-filter"]'), function (el) {
+            let allowed = false;
+            try { allowed = el.matches(N26_LG_WHITELIST); } catch (e) {}
+            if (!allowed || !el._n26Lg || !_n26LgFilterHealthy(el._n26Lg.id)) _n26LgClear(el);
+        });
+    }
+    /* 这两个函数在块作用域里，必须就地挂到 window 供外部/自检调用 */
+    try { window.n26LgGuard = n26LgGuard; window.n26LgClear = _n26LgClear; } catch (e) {}
     /* 折射强度系数：滑杆 55 = 参照物原版 1×，100 ≈ 1.8× */
     function _n26LgRefrK() {
         try {
@@ -27203,7 +27266,11 @@
         filter.setAttribute('x', '0'); filter.setAttribute('y', '0');
         filter.setAttribute('width', String(w)); filter.setAttribute('height', String(h));
         const feImage = document.createElementNS(svgNS, 'feImage');
+        /* ★ P0：必须同时写 result —— SVG 的 in/in2 只认 result 名，不认元素 id。
+           只写 id 时 feDisp 的 in2 解析失败会被禁用，滤镜输出退回 feImage 本体
+           （那张 dx/dy 红绿位移图被当成背景铺满整块 = 用户截图里的「整块鲜红」）。 */
         feImage.setAttribute('id', id + '_map');
+        feImage.setAttribute('result', id + '_map');
         feImage.setAttribute('width', String(w)); feImage.setAttribute('height', String(h));
         feImage.setAttribute('preserveAspectRatio', 'none');
         feImage.setAttributeNS('http://www.w3.org/1999/xlink', 'href', map.url);
@@ -27243,9 +27310,22 @@
         svg.firstChild.appendChild(filter);
         el.style.backdropFilter = '';
         /* ★ v3.5：滤镜链照参照物 Liquid Glass Web —— 微模糊 0.25–3px（不是全局 18px 磨砂），
-           再加 contrast/brightness 形成玻璃厚度；位移才不会被大模糊抹平，折射才看得见。 */
-        el.style.setProperty('--n26-lg-filter',
-            'url(#' + id + ') blur(var(--n26-lg-blur, 0.25px)) contrast(1.2) brightness(1.05) saturate(var(--n26-glass-sat, 148%)) var(--n26-grain-fn)');
+           再加 contrast/brightness 形成玻璃厚度；位移才不会被大模糊抹平，折射才看得见。
+           ★ P3：opts.noBlur = 开关旋钮专用 —— 只折射 + 厚度，不加任何 blur()/grain（磨砂只由滑块控制）。 */
+        const noBlur = !!(opts && opts.noBlur);
+        if (N26_LG_SVG_OK) {
+            el.style.setProperty('--n26-lg-filter',
+                'url(#' + id + ')' +
+                (noBlur ? '' : ' blur(var(--n26-lg-blur, 0.25px))') +
+                ' contrast(1.2) brightness(1.05) saturate(var(--n26-glass-sat, 148%))' +
+                (noBlur ? '' : ' var(--n26-grain-fn)'));
+        } else {
+            /* 降级链：不带任何 url()，绝不把位移贴图铺出来；开关旋钮按用户要求不加 blur */
+            el.setAttribute('data-n26-lg-fallback', '1');
+            el.style.setProperty('--n26-lg-filter', noBlur
+                ? 'saturate(var(--n26-glass-sat, 148%)) brightness(1.06) contrast(1.12)'
+                : 'blur(var(--n26-lg-blur, 0.25px)) saturate(var(--n26-glass-sat, 148%))');
+        }
         el.classList.add('n26-liquid-on');
         el._n26Lg = {
             id: id, w: w, h: h, disp: feDisp, baseScale: map.scale,
@@ -27270,6 +27350,21 @@
             if (typeof n26GlassPref !== 'function') return true;
             return n26GlassPref().material === 'liquid';
         } catch (e) { return true; }
+    }
+    /* v2.9.91：getBoundingClientRect 会包含元素自身的 scale 形变（水滴滑动/按压等），
+       比对贴图尺寸前先除掉 —— 否则形变期误判「尺寸变了」→ 反复拆建折射贴图 = 玻璃抖动 */
+    function n26LgUnscaled(el, r) {
+        let sx = 1, sy = 1;
+        try {
+            const sc = getComputedStyle(el).scale;
+            if (sc && sc !== 'none') {
+                const parts = String(sc).trim().split(/[\s,]+/).map(parseFloat);
+                if (parts.length >= 1 && isFinite(parts[0]) && parts[0] > 0) sx = parts[0];
+                if (parts.length >= 2 && isFinite(parts[1]) && parts[1] > 0) sy = parts[1];
+                else sy = sx;
+            }
+        } catch (err) { }
+        return { w: r.width / sx, h: r.height / sy };
     }
     // 按材质档位同步：液态 → 注入折射贴图；磨砂 / 固态 → 摘掉，交给 CSS 规则
     function n26LgSync() {
@@ -27301,10 +27396,11 @@
                 else setTimeout(run, 300);
                 return;
             }
-            if (Math.abs(r.width - el._n26Lg.w) > 1 || Math.abs(r.height - el._n26Lg.h) > 1) {
+            const q = n26LgUnscaled(el, r);
+            if (Math.abs(q.w - el._n26Lg.w) > 2 || Math.abs(q.h - el._n26Lg.h) > 2) {
                 const opts = el._n26Lg.opts;
                 _n26LgClear(el);
-                _n26LgApply(el, id, opts);
+                _n26LgApply(el, id, opts, { w: Math.round(q.w), h: Math.round(q.h) });
             }
         });
         /* 侧栏指示器（动态元素，不在 N26_LG_TARGETS 里）：材质回退时一并摘掉，
@@ -27331,12 +27427,15 @@
                 else setTimeout(run, 320);
                 return;
             }
-            if (Math.abs(r.width - el._n26Lg.w) > 2 || Math.abs(r.height - el._n26Lg.h) > 2) {
+            const qc = n26LgUnscaled(el, r);
+            if (Math.abs(qc.w - el._n26Lg.w) > 2 || Math.abs(qc.h - el._n26Lg.h) > 2) {
                 const opts = el._n26Lg.opts;
                 _n26LgClear(el);
-                _n26LgApply(el, 'n26LgCtrl' + i, opts);
+                _n26LgApply(el, 'n26LgCtrl' + i, opts, { w: Math.round(qc.w), h: Math.round(qc.h) });
             }
         });
+        /* 每次同步后做一次安全网巡检：非白名单残留 / 断链滤镜当场摘除 */
+        try { n26LgGuard(); } catch (e) {}
     }
     function n26LgRefresh() { n26LgSync(); }
     window.n26LgSync = n26LgSync;
@@ -27351,10 +27450,12 @@
             if (window.MutationObserver) {
                 let t = 0;
                 const bump = () => { clearTimeout(t); t = setTimeout(n26LgRefresh, 300); };
-                new MutationObserver(bump).observe(dock, { childList: true });
+                /* v2.9.91：subtree:true —— 图标增删发生在嵌套容器里（应用后台化/新装应用），
+                   只盯直接子节点会漏 → 折射贴图一直是旧尺寸（「还是原来那一小块」的根源） */
+                new MutationObserver(bump).observe(dock, { childList: true, subtree: true });
                 ['#n26LeftDock', '#n26RightDock'].forEach(function (sel) {
                     const el = document.querySelector(sel);
-                    if (el) new MutationObserver(bump).observe(el, { childList: true });
+                    if (el) new MutationObserver(bump).observe(el, { childList: true, subtree: true });
                 });
             }
             window.addEventListener('resize', () => {
@@ -30406,7 +30507,7 @@
         camera: { name: '相机', icon: 'fa-camera', color: '#0ea5e9', defaultWidth: 760, defaultHeight: 600 },
         agent: { name: 'FangClaw', icon: 'fa-hand-pointer', color: '#3b82f6', defaultWidth: 920, defaultHeight: 660 },
         monitor: { name: '资源监视器', icon: 'fa-chart-line', color: '#10b981', defaultWidth: 720, defaultHeight: 560 },
-        vm: { name: '虚拟机', icon: 'fa-server', color: '#6366f1', defaultWidth: 900, defaultHeight: 620 },
+        vm: { name: '虚拟机', icon: 'fa-server', color: '#0ea5e9', defaultWidth: 900, defaultHeight: 620 },
         necta: { name: 'Necta 远程桌面', icon: 'fa-tower-broadcast', color: '#2ee6d0', defaultWidth: 1080, defaultHeight: 700 },
         games: { name: '小游戏合集', icon: 'fa-gamepad', color: '#f97316', defaultWidth: 880, defaultHeight: 620 },
         // ===== v2.9.12 小方创作套件：三个各自独立的软件 =====
@@ -31270,7 +31371,7 @@
         var cur = getDockBarAppearance().material;
         box.innerHTML = DOCK_BAR_MATERIALS.map(function (m) {
             var on = m.id === cur;
-            return '<button class="glass-btn" style="padding:5px 13px;font-size:12px;' + (on ? 'background:linear-gradient(135deg,#6366f1,#0ea5e9);color:#fff;border-color:transparent;' : '') + '" onclick="setDockBarMaterial(\'' + m.id + '\')">' + m.name + (on ? ' ✓' : '') + '</button>';
+            return '<button class="glass-btn" style="padding:5px 13px;font-size:12px;' + (on ? 'background:linear-gradient(135deg,#38bdf8,#0284c7);color:#fff;border-color:transparent;' : '') + '" onclick="setDockBarMaterial(\'' + m.id + '\')">' + m.name + (on ? ' ✓' : '') + '</button>';
         }).join('');
     }
 
@@ -31696,7 +31797,7 @@
           body: ['当日两市成交额重新站上万亿关口，半导体设备、光模块、算力租赁等细分方向涨幅居前。市场人士认为这轮上涨与近期算力招标落地有关。',
                  '资金面上，北向资金单日净买入规模创下近三个月新高，融资余额同步回升。',
                  '机构提示，主题性行情波动较大，需警惕高位股回调风险。'] },
-        { id: 'n08', cat: 'os', src: 'Nexus 官方', emoji: '🔒', grad: 'linear-gradient(135deg,#6366f1,#4338ca)', mins: 205, cmts: 214,
+        { id: 'n08', cat: 'os', src: 'Nexus 官方', emoji: '🔒', grad: 'linear-gradient(135deg,#3b82f6,#1e3a8a)', mins: 205, cmts: 214,
           title: 'Nexus OS 26 收紧应用权限：iframe 应用不再能拿到你的密钥',
           sum: '一次彻底的权限梳理：ai_config、账号库、壁纸原图全部拉黑，写入也会先过一道闸门。',
           body: '系统对应用桥接做了一次全面收紧。现在 iframe 应用读取 localStorage 时，ai_config、ai_providers、ai_active、accounts 等键一律返回空；读取设置时会自动剔除壁纸原图这类动辄几 MB 的 base64 字段。\n\n写入侧同样加了闸门：应用想改 ai_config 会被直接拒绝并返回 false。普通数据键的读写不受影响，已有应用无需改造。\n\n如果你在开发自己的应用，可以通过 Nexus.getSetting(key) 拿单个配置项，敏感项会自动返回空值。',
@@ -31777,7 +31878,7 @@
           body: ['最新数据显示制造业投资增速回升，其中设备工器具购置投资的贡献超过一半。',
                  '高技术制造业是主要拉动方向，半导体设备、工业机器人、精密仪器的采购需求增长较快。',
                  '分析认为这与大规模设备更新政策落地节奏有关，后续仍需观察订单的持续性。'] },
-        { id: 'n22', cat: 'tech', src: 'InfoQ', emoji: '⚙️', grad: 'linear-gradient(135deg,#4f46e5,#312e81)', mins: 1268, cmts: 244,
+        { id: 'n22', cat: 'tech', src: 'InfoQ', emoji: '⚙️', grad: 'linear-gradient(135deg,#0ea5e9,#0369a1)', mins: 1268, cmts: 244,
           title: '前端构建工具新趋势：原生 ESM 直出， bundler 退居二线',
           sum: '开发态不再打包，生产态才做一次完整构建，冷启动时间大幅缩短。',
           body: ['新一代构建工具普遍转向「开发态原生 ESM 直出」：开发服务器不再预先打包整个依赖图，而是按需转换单个模块，冷启动时间从几十秒缩短到毫秒级。',
@@ -32046,7 +32147,7 @@
         { id: 'terminal', appId: 'terminal', emoji: '⌨️', tag: '系统', name: '终端', desc: 'Linux 风格终端，支持管道、重定向、Tab 补全与命令历史。', grad: 'linear-gradient(135deg,#334155,#0f172a)' },
         { id: 'appstore', appId: 'appstore', emoji: '🛍️', tag: '系统', name: '应用商城', desc: '43 款上架应用，支持一键安装卸载，带精选与分类浏览。', grad: 'linear-gradient(135deg,#3b82f6,#1d4ed8)' },
         { id: 'screenshot', appId: 'screenshot', emoji: '📸', tag: '系统', name: '截图录屏', desc: '真实捕获屏幕内容，自动存入系统盘的图片目录。', grad: 'linear-gradient(135deg,#ec4899,#9d174d)' },
-        { id: 'starmap', appId: 'starmap', emoji: '🌌', tag: '创意', name: '星图', desc: 'Three.js 渲染的可交互星空，可旋转缩放，点击星座看故事。', grad: 'linear-gradient(135deg,#6366f1,#312e81)' },
+        { id: 'starmap', appId: 'starmap', emoji: '🌌', tag: '创意', name: '星图', desc: 'Three.js 渲染的可交互星空，可旋转缩放，点击星座看故事。', grad: 'linear-gradient(135deg,#2563eb,#1e3a8a)' },
         { id: 'music', appId: 'music', emoji: '🎵', tag: '创意', name: '音乐', desc: '拖拽导入音频，自动收集文件系统中的音乐，带播放列表。', grad: 'linear-gradient(135deg,#0ea5e9,#0369a1)' },
         { id: 'git', appId: 'git', emoji: '🌿', tag: '开发工具', name: 'Git', desc: '可视化提交、分支与历史，读写真实的文件系统数据。', grad: 'linear-gradient(135deg,#f97316,#9a3412)' },
         { id: 'vm', appId: 'vm', emoji: '🖥️', tag: '系统', name: '虚拟机', desc: '再开一台完整的 Nexus OS：可选初代 Nexus OS 或 Nexus OS 26，关机即焚。', grad: 'linear-gradient(135deg,#14b8a6,#0f766e)' }
@@ -38928,6 +39029,8 @@
     function renderSettingsPanel() {
         const panel = document.getElementById('settingsPanel');
         if (!panel) return;
+        /* v2.9.83 修「点一下跳回最上面」：整块重建 innerHTML 会丢滚动位置，先存后还 */
+        const __n26KeepScroll = panel.scrollTop;
         n26SetUptimeTicker(false);   // 先停旧表，等下面确定是不是「系统」页再按需重启
         /* 离开「个性化」时回到一级目录，避免下次进来还停在二级页 */
         if (typeof _n26PzCat !== 'undefined' && settingsActiveTab !== 'personalize') _n26PzCat = 'root';
@@ -41829,6 +41932,7 @@
             n26SetApplyDepth(panel);
         }
         n26SetUptimeTicker(settingsActiveTab === 'system');
+        try { panel.scrollTop = __n26KeepScroll; } catch (e) { }
     }
 
     function toggleSetting(key) {
@@ -41963,7 +42067,8 @@
        模糊值优先沿用 blurStrength，没有就按原档位给 12/26/40。 */
     /* ★ v3.0 单一参数模型：材质 + 7 个数值参数，全部落在 CSS 变量上。
        任何面板都只读写这一份，不允许各自写死 backdrop-filter。 */
-    var N26_GLASS_DEFAULTS = { opacity: 55, blur: 18, saturation: 148, highlight: 35, radius: 14, refraction: 55, dispersion: 6, noise: 8 };
+    /* ★ P0：色散默认 0（零成本、绝不泛彩）；只有用户主动拉高才做 R/B 第二次采样 */
+    var N26_GLASS_DEFAULTS = { opacity: 55, blur: 18, saturation: 148, highlight: 35, radius: 14, refraction: 55, dispersion: 0, noise: 8 };
     var N26_GLASS_LIMITS = {
         opacity: [20, 90], blur: [0, 40], saturation: [100, 200],
         highlight: [0, 100], radius: [6, 26], refraction: [0, 100], dispersion: [0, 20], noise: [0, 100]
@@ -41985,6 +42090,11 @@
                 s.glass = g;
                 setUserLS('settings', s);      // 迁移结果落盘，只跑一次
             }
+            /* 旧版把 6 写成默认值（并非用户意图）：一次性回落到 0 */
+            if (g.dispersion === 6 && !g.dispMigrated) {
+                g.dispersion = 0; g.dispMigrated = 1;
+                try { s.glass = g; setUserLS('settings', s); } catch (e) {}
+            }
             var out = { material: N26_GLASS_MATERIALS[g.material] ? g.material : 'liquid' };
             Object.keys(N26_GLASS_DEFAULTS).forEach(function (k) {
                 var d = (typeof g[k] === 'number' && isFinite(g[k])) ? g[k] : N26_GLASS_DEFAULTS[k];
@@ -41993,7 +42103,7 @@
             });
             return out;
         } catch (e) {
-            return { material: 'liquid', opacity: 55, blur: 18, saturation: 148, highlight: 35, radius: 14, refraction: 55, dispersion: 6, noise: 8 };
+            return { material: 'liquid', opacity: 55, blur: 18, saturation: 148, highlight: 35, radius: 14, refraction: 55, dispersion: 0, noise: 8 };
         }
     }
     /* opts.light === true：拖动中的每帧调用，只改数值变量；
@@ -42840,7 +42950,9 @@
             }
         } catch (e) {}
     };
-    window.n26LgClear = function (el) { try { _n26LgClear(el); } catch (e) {} };
+    /* n26LgClear / n26LgGuard 已在引擎块作用域内挂到 window，这里不再重复赋值 */
+    /* 启动兜底：首帧之后巡检一次；之后每次 n26LgSync 也会巡检 */
+    setTimeout(function () { try { if (window.n26LgGuard) window.n26LgGuard(); } catch (e) {} }, 900);
 
     window.n26GlassPref = n26GlassPref;
     window.n26ApplyGlass = n26ApplyGlass;
@@ -46250,7 +46362,7 @@
         schedule:      { title: '作息计划', icon: 'fa-list-check', cols: 6, rows: 3, color: '#f97316' },
         stopwatch:     { title: '计时秒表', icon: 'fa-stopwatch', cols: 2, rows: 2, color: '#10b981' },
         wallpaperpick: { title: '壁纸推荐', icon: 'fa-image', cols: 6, rows: 3, color: '#0ea5e9' },
-        smartdevice:   { title: '智能设备', icon: 'fa-house-signal', cols: 6, rows: 3, color: '#6366f1' },
+        smartdevice:   { title: '智能设备', icon: 'fa-house-signal', cols: 6, rows: 3, color: '#0ea5e9' },
         // ===== 本轮新增：其余补齐的桌面组件 =====
         countdown:     { title: '倒计时', icon: 'fa-hourglass-half', cols: 2, rows: 2, color: '#eab308' },
         clipboard:     { title: '剪贴板', icon: 'fa-clipboard', cols: 2, rows: 3, color: '#14b8a6' },
@@ -51339,7 +51451,7 @@
         { id: 'music', name: '音乐', icon: 'fa-music', color: '#ec4899', category: '媒体', type: 'ui', url: null, downloads: '4.5亿', desc: '音乐，支持播放列表和音效。', longDesc: 'Nexus 音乐，支持本地音乐文件播放、播放列表管理、均衡器调节和可视化效果。支持 MP3、WAV、OGG 等格式。' },
         { id: 'screenshot', name: '截图录屏', icon: 'fa-camera', color: '#0ea5e9', category: '媒体', type: 'ui', url: null, downloads: '9.2亿', desc: '全屏/区域截图与屏幕录制，自动存入系统盘。', longDesc: '截图录屏工作室：支持全屏截图、区域截图、延时截图与屏幕录制（真实屏幕捕获）。所有截图自动保存到 C:/图片/Screenshots/，录屏保存为 WebM 到 C:/视频/ScreenRecordings/，可在资源管理器中查看，也能一键保存到电脑真实磁盘。' },
         { id: 'monitor', name: '资源监视器', icon: 'fa-chart-line', color: '#10b981', category: '系统', type: 'ui', url: null, downloads: '2.2亿', desc: '实时查看内存、存储、帧率与进程。', longDesc: '资源监视器实时展示系统资源：JS 堆内存、存储占用（localStorage 配额）、实时帧率 FPS、窗口进程列表与 CPU 核心数。数据全部来自浏览器真实 API，不是摆设。' },
-        { id: 'vm', name: '虚拟机', icon: 'fa-server', color: '#6366f1', category: '系统', type: 'ui', url: null, downloads: '5600万', desc: '再开一台完整的 Nexus OS：可选初代或 26，关机即焚。', longDesc: '虚拟机会真正再启动一台完整的 Nexus OS：启动时可以选择系统版本——初代 Nexus OS（经典）或 Nexus OS 26（当前世代）。它使用独立的内存存储，与主系统信息完全不互通；关闭虚拟机后，里面创建的一切都会永久消失。' },
+        { id: 'vm', name: '虚拟机', icon: 'fa-server', color: '#0ea5e9', category: '系统', type: 'ui', url: null, downloads: '5600万', desc: '再开一台完整的 Nexus OS：可选初代或 26，关机即焚。', longDesc: '虚拟机会真正再启动一台完整的 Nexus OS：启动时可以选择系统版本——初代 Nexus OS（经典）或 Nexus OS 26（当前世代）。它使用独立的内存存储，与主系统信息完全不互通；关闭虚拟机后，里面创建的一切都会永久消失。' },
         { id: 'games', name: '小游戏合集', icon: 'fa-gamepad', color: '#f97316', category: '娱乐', type: 'ui', url: null, downloads: '8.8亿', desc: '小方工作室全部小游戏，即点即玩。', longDesc: '小游戏合集收录小方工作室官网「工具与小游戏」页面的全部小游戏：俄罗斯小方、贪吃方、台球、坦克震荡、魔方大合集、我的世界、森林冰火方、恶魔轮盘等 40+ 款，即点即玩，无需下载。' },
         // ===== v2.9.12 小方创作套件（三个独立应用，各自可单装）=====
         { id: 'fangwork', name: 'FangWork', icon: 'fa-layer-group', color: '#2ee6b0', category: '创作', type: 'ui', url: null, downloads: '86万', desc: '小方创作套件启动器：一键拉起 Strata / Reelix，并检查它们有没有新版本。', longDesc: 'FangWork 是小方创作套件的入口。它本身不做创作，只做两件事：一键启动 Strata 与 Reelix，以及检查它们有没有新版本。三个软件互相独立——你可以只装 FangWork 不装它们，也可以直接单装 Strata 或 Reelix，都不影响使用。内核 Tauri + Rust/WASM，工程与素材全部存在本地 IndexedDB，不上传任何服务器。' },
@@ -62821,8 +62933,9 @@
 <link rel="stylesheet" href="ui/n26-tour.css?v=2962">
 <script src="ui/n26-tour.js?v=2962"></script>
 <script src="ui/n26-store.js?v=2973"></script>
-<script src="ui/n26-switch.js?v=2968"></script>
-<script src="ui/n26-docknav.js?v=2974"></script>
+<script src="ui/n26-scrollkeep.js?v=sk1"></script>
+<script src="ui/n26-switch.js?v=sw9"></script>
+<script src="ui/n26-docknav.js?v=dn10"></script>
 <script src="ui/n26-a11y.js?v=20261107"></script>
 <script src="ui/n26-files.js?v=20261107d"></script>
 <script src="ui/n26-browser.js?v=20261107c"></script>
@@ -62840,7 +62953,7 @@
 <script src="ui/n26-widget-sky-bg.js?v=sky2"></script>
 <script src="ui/n26-widget-sky.js?v=sky2"></script>
 <!-- v3.1 玻璃总账：唯一裁决层，必须最后加载（见 ui/n26-glass-system.css） -->
-<link rel="stylesheet" href="ui/n26-glass-system.css?v=g1">
+<link rel="stylesheet" href="ui/n26-glass-system.css?v=g2">
 <script src="ui/n26-widget-gallery.js?v=gal5"></script>
 </body>
 </html>
