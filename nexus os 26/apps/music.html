@@ -635,6 +635,38 @@ body.dark-mode #dropMask{ background: rgba(14,16,21,.8); }
   #player, #player .pl-top, #player .pl-meta, #player .pl-acts, #player .pl-right, #player .pl-bottom,
   #queue, .seek .knob, .lrc-inner, .bar-cover, .card{ transition-duration: 1ms; }
 }
+
+/* ============================================================
+   沉浸播放层（应用内全覆盖；Three.js 单 canvas 渲染）
+   ============================================================ */
+#imm{
+  position:fixed; inset:0; z-index: 1180; display:none; overflow:hidden;
+  background:#05080c; color:#eef6f4;
+}
+#imm.on{ display:block; }
+#imm canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+.imm-hud{
+  position:absolute; left:0; right:0; top:0; z-index:2;
+  display:flex; align-items:center; gap:12px; padding:14px 18px;
+  pointer-events:none;
+}
+.imm-track{
+  font-size: var(--fs-12, 12px); letter-spacing:.4px; color: rgba(233,246,243,.58);
+  max-width:62%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.imm-exit{
+  margin-left:auto; pointer-events:auto; width:34px; height:34px; flex:none;
+  border-radius:50%; border:1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.06); color: rgba(255,255,255,.82); cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center; font-size:13px;
+  transition: background var(--dur-fast,160ms) var(--ease-out-quart,cubic-bezier(.25,1,.5,1));
+}
+.imm-exit:hover{ background: rgba(255,255,255,.15); }
+.imm-hint{
+  position:absolute; left:50%; bottom:18px; transform:translateX(-50%); z-index:2;
+  font-size: var(--fs-11, 11px); letter-spacing:.6px; color: rgba(233,246,243,.34);
+  pointer-events:none;
+}
 </style>
 </head>
 <body>
@@ -681,6 +713,7 @@ body.dark-mode #dropMask{ background: rgba(14,16,21,.8); }
     <button class="ico" id="plClose" type="button" aria-label="收起" title="收起"><i class="fa-solid fa-chevron-down"></i></button>
     <span class="pl-crumb" id="plCrumb">正在播放</span>
     <span class="sp"></span>
+    <button class="ico" id="plImmersive" type="button" aria-label="沉浸模式" title="沉浸模式"><i class="fa-solid fa-expand"></i></button>
     <button class="ico" id="plQueue" type="button" aria-label="播放队列" title="播放队列"><i class="fa-solid fa-list-ul"></i></button>
   </header>
   <div class="pl-body">
@@ -738,6 +771,14 @@ body.dark-mode #dropMask{ background: rgba(14,16,21,.8); }
   </div>
 </div>
 
+<div id="imm" aria-hidden="true">
+  <div class="imm-hud">
+    <span class="imm-track" id="immTrack"></span>
+    <button class="imm-exit" id="immExit" type="button" aria-label="退出沉浸模式" title="退出沉浸模式"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="imm-hint" id="immHint">Esc 退出沉浸</div>
+</div>
+
 <div id="qScrim"></div>
 <aside id="queue" aria-label="播放队列" aria-hidden="true">
   <header class="q-head">
@@ -765,7 +806,7 @@ body.dark-mode #dropMask{ background: rgba(14,16,21,.8); }
 <div id="toastHost"></div>
 <div id="edgeHint"><i class="fa-solid fa-chevron-right"></i></div>
 <div id="dropMask"><i class="fa-solid fa-file-arrow-down"></i><span id="dropTx">松手导入音频</span></div>
-<audio id="audio" preload="auto"></audio>
+<audio id="audio" preload="auto" crossorigin="anonymous"></audio>
 <input type="file" id="fileInput" accept="audio/*" multiple hidden>
 
 <script>
@@ -814,6 +855,7 @@ var STR = {
     ariaUnfav: '取消收藏', ariaQueue: '播放队列', ariaCollapse: '收起', ariaShuffle: '随机播放',
     ariaRepeat: '循环模式', ariaMute: '静音', ariaSeek: '播放进度', ariaSearch: '搜索',
     ariaExpand: '播放详情', ariaClose: '关闭', tQMove: '已调整队列顺序',
+    ariaImm: '沉浸模式', tImmExit: '退出沉浸模式', tImmHint: 'Esc 退出沉浸',
     tAlbum: '专辑', tArtist: '歌手', tBack: '返回', tDetailEmpty: '没有找到相关曲目',
     tDetailHint: '曲库里暂时没有更多匹配内容', ariaOpenAlbum: '查看专辑', ariaOpenArtist: '查看歌手',
     barEmpty: '未在播放', barHint: '选一首歌开始'
@@ -851,6 +893,7 @@ var STR = {
     ariaUnfav: 'Remove favorite', ariaQueue: 'Queue', ariaCollapse: 'Collapse', ariaShuffle: 'Shuffle',
     ariaRepeat: 'Repeat mode', ariaMute: 'Mute', ariaSeek: 'Seek', ariaSearch: 'Search',
     ariaExpand: 'Now playing', ariaClose: 'Close', tQMove: 'Queue reordered',
+    ariaImm: 'Immersive mode', tImmExit: 'Exit immersive mode', tImmHint: 'Esc to exit',
     tAlbum: 'Album', tArtist: 'Artist', tBack: 'Back', tDetailEmpty: 'No tracks found',
     tDetailHint: 'Nothing else matches in the catalogue yet', ariaOpenAlbum: 'Open album', ariaOpenArtist: 'Open artist',
     barEmpty: 'Nothing playing', barHint: 'Pick a track to start'
@@ -928,7 +971,7 @@ function releaseMedia() {
 }
 function externalStop() {
   if (A.paused && !S.playing) return;
-  try { A.pause(); } catch (e) { }
+  sysPause(A); // 别的应用主动播放 → 后起者接管，这是明确意图，不算宿主抢停
   S.playing = false; S.loading = false;
   if (S.cur && A.currentTime > 0) S.last = { track: plain(S.cur), pos: A.currentTime || 0, at: Date.now() };
   paintAll(); renderPage(); save();
@@ -950,15 +993,24 @@ window.addEventListener('storage', function (e) {
    主壳在“开新窗口 / 最小化 / 切后台”时会直接 pause iframe 里的 audio，
    那不是用户意图，必须在 pause 事件里立刻续播。 */
 var PAUSE_INTENT = 0;
+/* pause 落账：UI 与媒体权同步到“已暂停” */
+function markPaused() {
+  S.playing = false;
+  releaseMedia();
+  paintTransport(); paintBar(); paintQueue(); broadcast();
+}
+
 function sysPause(el) {
+  var a = el || A;
+  if (a.paused) return; // 已经停着：不记账，避免意图计数泄漏把下一次外部暂停当成自己人
   PAUSE_INTENT++;
-  try { (el || A).pause(); } catch (e) { }
+  try { a.pause(); } catch (e) { }
 }
 /* 判断宿主窗口是否还活着：关窗时主壳会同步把 windows 条目 splice 掉，
    最小化 / 开别的应用 / 切后台时条目仍在。 */
 function hostWindowAlive() {
   try {
-    if (!window.frameElement) return false;
+    if (!window.frameElement) return true; // 独立打开：没有宿主可抢停
     var P = window.parent;
     if (!P || !Array.isArray(P.windows)) return true;
     var host = window.frameElement.closest('.window');
@@ -966,9 +1018,23 @@ function hostWindowAlive() {
     return P.windows.some(function (w) { return 'window-' + w.id === host.id; });
   } catch (e) { return true; }
 }
+/* 主壳 Windows 是闭包变量，iframe 侧拿不到；用宿主窗口元素上的状态判断「关窗」这一种真暂停：
+   关窗走 n26MorphOut（el.__n26Morph），最小化走 genie（el._n26Minimizing）。 */
+function hostWindowClosing() {
+  try {
+    var fe = window.frameElement;
+    if (!fe) return false;
+    var host = fe.closest('.window');
+    if (!host) return false;
+    if (host._n26Minimizing) return false; // 最小化：窗口仍在，只是收进 Dock
+    if (host.__n26Morph) return true;      // 退场 morph = 正在关窗
+    return !host.isConnected;
+  } catch (e) { return false; }
+}
 
 /* 离开应用（仅真正的关闭 / 页面卸载时调用）：暂停并释放音频 */
 function leaveApp(full) {
+  try { if (IMM && IMM.open) closeImmersive(); } catch (e) { }
   if (S.cur) {
     var pos = (A.src && isFinite(A.duration) && A.duration > 0) ? (A.currentTime || 0)
       : ((S.last && same(S.last.track, S.cur)) ? S.last.pos : 0);
@@ -1295,7 +1361,7 @@ function toggle() {
     claimMedia();
     A.play().catch(function () { fail('net'); });
   } else {
-    A.pause();
+    sysPause(A);
   }
 }
 function next(auto) {
@@ -1309,7 +1375,7 @@ function next(auto) {
     i = i + 1;
     if (i >= S.queue.length) {
       if (S.repeat === 1) i = 0;
-      else { A.pause(); A.currentTime = 0; paintAll(); return; }
+      else { sysPause(A); A.currentTime = 0; paintAll(); return; }
     }
   }
   play(S.queue[i], S.queue, i);
@@ -2550,9 +2616,17 @@ function bindAudio() {
     paintTransport(); paintBar(); paintQueue(); broadcast();
   });
   A.addEventListener('pause', function () {
-    S.playing = false;
-    releaseMedia();
-    paintTransport(); paintBar(); paintQueue(); broadcast();
+    // 宿主（主壳）在失焦 / 切窗 / 最小化 / 开别的应用 / 切后台 / 被别的全屏应用盖住时，
+    // 会直接 pause 本 iframe 里的 audio。那不是用户意图，必须立刻续播、进度原地不动。
+    // 只有「我们自己主动暂停（sysPause 记账）」或「宿主窗口真的被关掉（windows 条目已移除）」才允许停。
+    if (PAUSE_INTENT > 0) { PAUSE_INTENT--; }
+    else if (S.playing && hostWindowAlive() && !hostWindowClosing()) {
+      claimMedia();
+      var p = A.play();
+      if (p && p.catch) p.catch(function () { markPaused(); });
+      return;
+    }
+    markPaused();
   });
   A.addEventListener('waiting', function () { S.loading = true; paintTransport(); });
   A.addEventListener('playing', function () { S.loading = false; S.playing = true; paintTransport(); });
@@ -2717,6 +2791,557 @@ function flush() {
   writeJSON(KEY, st); writeJSON(KEY_FAV, S.fav.map(plain));
 }
 
+/* ============================================================
+   沉浸播放（应用内全覆盖 · Three.js 单 canvas）
+   —— 歌词是 3D 空间里的精灵（随真实相机推/拉/环绕运动），不是 DOM 文本
+   —— 背景 = 当前封面的磨砂玻璃（大半径模糊 + 暗化），拿不到封面用品牌色渐变
+   —— 声波/水波纹由 AnalyserNode 的频谱能量驱动（非随机数）
+   ============================================================ */
+var IMM_FONT = '"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif';
+var IMM_VS = 'varying vec2 vUv;uniform float uTime;uniform float uAmp;uniform float uAmpHi;' +
+  'void main(){vUv=uv;vec3 p=position;float r=length(p.xy*vec2(1.0,0.72));' +
+  'p.z+=(sin(r*2.1-uTime*1.9)*0.55+sin(p.y*2.6+uTime*1.15)*0.28)*(0.16+uAmp*1.15);' +
+  'p.z+=sin(p.x*1.4+uTime*0.7)*uAmpHi*0.55;' +
+  'gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}';
+var IMM_FS = 'varying vec2 vUv;uniform float uTime;uniform float uAmp;uniform vec3 uCol;' +
+  'void main(){float d=length((vUv-0.5)*vec2(1.5,1.0));' +
+  'float band=fract(d*9.0-uTime*0.55);float line=smoothstep(0.5,0.0,abs(band-0.5));' +
+  'float fade=smoothstep(0.66,0.10,d);' +
+  'float a=(line*0.55+0.10)*fade*(0.16+uAmp*0.9);' +
+  'gl_FragColor=vec4(uCol*(0.55+uAmp*0.7),a);}';
+
+var IMM = null;
+function imm() {
+  if (!IMM) {
+    IMM = {
+      open: false, raf: 0, threeP: null, T: null, canvas: null, renderer: null,
+      scene: null, camera: null, wave: null, pts: null,
+      cur: null, next: null, trash: [], noLyric: null,
+      idx: -2, dolly: 0, t0: 0, last: 0, track: null, lrcRef: null, lrcState: '',
+      bgKey: '', bgTex: null,
+      fps: 0, frames: 0, maxMs: 0, maxMsEver: 0, statT: 0,
+      ctx: null, srcNode: null, analyser: null, freq: null, amp: 0, ampHi: 0
+    };
+  }
+  return IMM;
+}
+
+/* 音频能量：懒创建（首次进入沉浸时在用户手势里建），创建后不再关闭——
+   关掉 AudioContext 会让 <audio> 永久静音，这是 WebAudio 的已知行为。 */
+function immAudio() {
+  var I = imm();
+  if (I.ctx) {
+    try { if (I.ctx.state === 'suspended') I.ctx.resume(); } catch (e) { }
+    return;
+  }
+  var AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  try {
+    I.ctx = new AC();
+    I.srcNode = I.ctx.createMediaElementSource(A);
+    I.analyser = I.ctx.createAnalyser();
+    I.analyser.fftSize = 512;
+    I.analyser.smoothingTimeConstant = 0.72;
+    I.freq = new Uint8Array(I.analyser.frequencyBinCount);
+    I.srcNode.connect(I.analyser);
+    I.analyser.connect(I.ctx.destination);
+  } catch (e) {
+    I.ctx = null; I.srcNode = null; I.analyser = null; I.freq = null;
+  }
+}
+
+function immThree() {
+  var I = imm();
+  if (window.THREE) { I.T = window.THREE; return Promise.resolve(I.T); }
+  if (I.threeP) return I.threeP;
+  I.threeP = new Promise(function (res, rej) {
+    var s = document.createElement('script');
+    s.src = '../vendor/three.min.js';
+    s.onload = function () { if (window.THREE) { I.T = window.THREE; res(window.THREE); } else rej(new Error('three')); };
+    s.onerror = function () { rej(new Error('three')); };
+    document.head.appendChild(s);
+  });
+  return I.threeP;
+}
+
+/* 歌词贴图（主句 + 译文小字；没有译文就不画，不留空行） */
+function immTextTex(text, sub, small) {
+  var T3 = imm().T;
+  var W = 1200, H = 320;
+  var cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  var c = cv.getContext('2d');
+  c.clearRect(0, 0, W, H);
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  var main = String(text || '');
+  var tr = String(sub || '');
+  var fs = small ? 58 : 74;
+  c.font = '700 ' + fs + 'px ' + IMM_FONT;
+  while (fs > 34 && c.measureText(main).width > W - 96) {
+    fs -= 2;
+    c.font = '700 ' + fs + 'px ' + IMM_FONT;
+  }
+  c.shadowColor = 'rgba(87,195,174,.6)';
+  c.shadowBlur = small ? 16 : 26;
+  c.fillStyle = small ? 'rgba(226,242,239,.72)' : 'rgba(247,252,251,.98)';
+  c.fillText(main, W / 2, tr ? H * 0.40 : H * 0.5);
+  if (tr) {
+    c.font = '400 30px ' + IMM_FONT;
+    while (c.measureText(tr).width > W - 120) { /* 极长译文也不出画 */ break; }
+    c.shadowBlur = 12;
+    c.fillStyle = 'rgba(205,226,223,.62)';
+    c.fillText(tr, W / 2, H * 0.73);
+  }
+  var tex = new T3.CanvasTexture(cv);
+  if (T3.sRGBEncoding) tex.encoding = T3.sRGBEncoding;
+  tex.needsUpdate = true;
+  return tex;
+}
+function immSprite(tex, w) {
+  var T3 = imm().T;
+  var h = w * (320 / 1200);
+  var m = new T3.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false, opacity: 0 });
+  var sp = new T3.Sprite(m);
+  sp.scale.set(w, h, 1);
+  sp.renderOrder = 3;
+  sp.userData = { state: 'in', t0: performance.now(), baseW: w, baseH: h };
+  return sp;
+}
+function immDrop(sp) {
+  var I = imm();
+  if (!sp) return;
+  try { if (I.scene) I.scene.remove(sp); } catch (e) { }
+  try {
+    if (sp.material) {
+      if (sp.material.map) sp.material.map.dispose();
+      sp.material.dispose();
+    }
+  } catch (e) { }
+  var k = I.trash.indexOf(sp);
+  if (k >= 0) I.trash.splice(k, 1);
+  if (I.cur === sp) I.cur = null;
+  if (I.next === sp) I.next = null;
+  if (I.noLyric === sp) I.noLyric = null;
+}
+function immOut(sp) {
+  if (!sp) return;
+  sp.userData.state = 'out';
+  sp.userData.t0 = performance.now();
+  imm().trash.push(sp);
+}
+function immClearLyrics() {
+  var I = imm();
+  if (I.cur) { immDrop(I.cur); I.cur = null; }
+  if (I.next) { immDrop(I.next); I.next = null; }
+  if (I.noLyric) { immDrop(I.noLyric); I.noLyric = null; }
+  for (var i = I.trash.length - 1; i >= 0; i--) immDrop(I.trash[i]);
+  I.idx = -2;
+}
+function immSyncLyrics() {
+  var I = imm();
+  I.lrcRef = S.lrc;
+  I.lrcState = S.lrcState;
+  immClearLyrics();
+  if (!I.scene) return;
+  if (!S.lrc.length) {
+    var msg = S.lrcState === 'loading' ? T('tLyricsLoading') : T('tNoLyrics');
+    var sp = immSprite(immTextTex(msg, ''), 5.2);
+    sp.material.opacity = 0.9;
+    sp.position.set(0, 0, 0);
+    sp.userData.state = 'empty';
+    I.scene.add(sp);
+    I.noLyric = sp;
+  }
+}
+function immSetLine(idx) {
+  var I = imm();
+  if (idx === I.idx) return;
+  I.idx = idx;
+  if (I.cur) { immOut(I.cur); I.cur = null; }
+  if (I.next) { immDrop(I.next); I.next = null; }
+  if (idx < 0 || !S.lrc[idx]) return;
+  var L = S.lrc[idx];
+  var sp = immSprite(immTextTex(L.text, L.tr || ''), 6.3);
+  sp.position.set(0, 0.35, 0.2);
+  sp.userData.t0 = performance.now();
+  I.scene.add(sp);
+  I.cur = sp;
+  I.dolly = -1.6; // 每句换行 → 相机推近一点再回弹
+  var L2 = S.lrc[idx + 1];
+  if (L2) {
+    var sp2 = immSprite(immTextTex(L2.text, L2.tr || '', true), 3.7);
+    sp2.position.set(0, -1.32, 0.9);
+    sp2.userData.state = 'pre';
+    sp2.userData.t0 = performance.now();
+    I.scene.add(sp2);
+    I.next = sp2;
+  }
+}
+
+/* ---------- 背景：封面磨砂玻璃 / 品牌色渐变 ---------- */
+function immSetBg(tex) {
+  var I = imm();
+  if (!I.scene) { try { tex.dispose(); } catch (e) { } return; }
+  if (I.bgTex) { try { I.bgTex.dispose(); } catch (e) { } }
+  I.bgTex = tex;
+  I.scene.background = tex;
+}
+function immBgGrad() {
+  var I = imm(), T3 = I.T;
+  if (!T3 || !I.scene) return;
+  var cv = document.createElement('canvas');
+  cv.width = 512; cv.height = 512;
+  var c = cv.getContext('2d');
+  var g = c.createRadialGradient(300, 190, 24, 256, 256, 400);
+  g.addColorStop(0, '#2f8f82');
+  g.addColorStop(0.45, '#15463f');
+  g.addColorStop(1, '#05080c');
+  c.fillStyle = g;
+  c.fillRect(0, 0, 512, 512);
+  var g2 = c.createLinearGradient(0, 0, 512, 512);
+  g2.addColorStop(0, 'rgba(87,195,174,.24)');
+  g2.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = g2;
+  c.fillRect(0, 0, 512, 512);
+  var tex = new T3.CanvasTexture(cv);
+  if (T3.sRGBEncoding) tex.encoding = T3.sRGBEncoding;
+  immSetBg(tex);
+}
+function immBgPaint(bmp, key) {
+  var I = imm(), T3 = I.T;
+  if (!T3 || !I.scene || I.bgKey !== key) { try { if (bmp.close) bmp.close(); } catch (e) { } return; }
+  var cv = document.createElement('canvas');
+  cv.width = 800; cv.height = 500;
+  var c = cv.getContext('2d');
+  c.fillStyle = '#05080c';
+  c.fillRect(0, 0, 800, 500);
+  try { c.filter = 'blur(30px)'; } catch (e) { }
+  var sc = Math.max(800 / bmp.width, 500 / bmp.height) * 1.22;
+  var w = bmp.width * sc, h = bmp.height * sc;
+  c.drawImage(bmp, (800 - w) / 2, (500 - h) / 2, w, h);
+  try { if (bmp.close) bmp.close(); } catch (e) { }
+  c.filter = 'none';
+  var g = c.createLinearGradient(0, 0, 0, 500);
+  g.addColorStop(0, 'rgba(5,9,13,.52)');
+  g.addColorStop(1, 'rgba(3,5,8,.86)');
+  c.fillStyle = g;
+  c.fillRect(0, 0, 800, 500);
+  var tex = new T3.CanvasTexture(cv);
+  if (T3.sRGBEncoding) tex.encoding = T3.sRGBEncoding;
+  immSetBg(tex);
+}
+function immBg() {
+  var I = imm(), T3 = I.T;
+  if (!T3 || !I.scene) return;
+  var t = S.cur;
+  var key = t ? (tid(t) + '|' + (t.cover || '')) : 'none';
+  if (key === I.bgKey) return;
+  I.bgKey = key;
+  var u = t && t.cover ? fixUrl(t.cover) : '';
+  var src = u ? proxy(u.indexOf('?') >= 0 ? u : u + '?param=640y640') : '';
+  if (!src) { immBgGrad(); return; }
+  fetch(src, { mode: 'cors' })
+    .then(function (r) { return r.blob(); })
+    .then(function (b) { return createImageBitmap(b); })
+    .then(function (bmp) { immBgPaint(bmp, key); })
+    .catch(function () { if (I.bgKey === key) immBgGrad(); });
+}
+
+/* ---------- 场景 ---------- */
+function immBuild() {
+  var I = imm(), T3 = I.T;
+  if (!T3) return;
+  immDispose(); // 保险：重复进入时先清干净
+  var host = $('imm');
+  var cv = document.createElement('canvas');
+  host.insertBefore(cv, host.firstChild);
+  I.canvas = cv;
+  var r = new T3.WebGLRenderer({ canvas: cv, antialias: false, alpha: false, powerPreference: 'high-performance' });
+  r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  r.setSize(window.innerWidth, Math.max(1, window.innerHeight), false);
+  if (T3.sRGBEncoding) r.outputEncoding = T3.sRGBEncoding;
+  I.renderer = r;
+
+  I.scene = new T3.Scene();
+  I.scene.background = new T3.Color(0x05080c);
+  I.camera = new T3.PerspectiveCamera(52, Math.max(0.5, window.innerWidth / Math.max(1, window.innerHeight)), 0.1, 60);
+  I.camera.position.set(0, 0.2, 11);
+
+  var wg = new T3.PlaneGeometry(36, 22, 56, 34);
+  var wm = new T3.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uAmp: { value: 0 }, uAmpHi: { value: 0 }, uCol: { value: new T3.Color(0x57c3ae) } },
+    vertexShader: IMM_VS,
+    fragmentShader: IMM_FS,
+    transparent: true, depthWrite: false, blending: T3.AdditiveBlending
+  });
+  I.wave = new T3.Mesh(wg, wm);
+  I.wave.position.set(0, -0.55, -3.6);
+  I.wave.rotation.x = -0.09;
+  I.wave.renderOrder = 1;
+  I.scene.add(I.wave);
+
+  // 粒子：固定 80 个，位置用确定式分布（不用随机数）
+  var N = 80, pg = new T3.BufferGeometry(), pa = new Float32Array(N * 3);
+  for (var i = 0; i < N; i++) {
+    var ang = i * 2.399, rad = 2.4 + ((i * 37) % 83) / 83 * 7.6;
+    pa[i * 3] = Math.cos(ang) * rad;
+    pa[i * 3 + 1] = Math.sin(ang) * rad * 0.6;
+    pa[i * 3 + 2] = -2.2 + ((i * 53) % 97) / 97 * 3.6;
+  }
+  pg.setAttribute('position', new T3.BufferAttribute(pa, 3));
+  var pm = new T3.PointsMaterial({
+    size: 0.06, color: 0xa8ecdf, transparent: true, opacity: 0.5,
+    depthWrite: false, blending: T3.AdditiveBlending, sizeAttenuation: true
+  });
+  I.pts = new T3.Points(pg, pm);
+  I.pts.renderOrder = 0;
+  I.scene.add(I.pts);
+}
+function immResize() {
+  var I = imm();
+  if (!I.renderer || !I.camera) return;
+  var w = window.innerWidth, h = Math.max(1, window.innerHeight);
+  I.renderer.setSize(w, h, false);
+  I.camera.aspect = w / h;
+  I.camera.updateProjectionMatrix();
+}
+
+/* ---------- 逐帧 ---------- */
+function immFrame(now) {
+  var I = imm();
+  if (!I.open || !I.renderer) { I.raf = 0; return; }
+  I.raf = requestAnimationFrame(immFrame);
+  if (!I.last) I.last = now;
+  var dtMs = now - I.last;
+  I.last = now;
+  if (dtMs > 250) dtMs = 16; // 从后台/别的窗口切回来的大跳变不计入最长帧
+  var dt = Math.min(0.05, dtMs / 1000);
+  I.frames++;
+  if (dtMs > I.maxMs) I.maxMs = dtMs;
+  if (dtMs > I.maxMsEver) I.maxMsEver = dtMs;
+  if (!I.statT) I.statT = now;
+  if (now - I.statT >= 1000) {
+    I.fps = Math.round(I.frames * 1000 / (now - I.statT));
+    window.__n26ImmStats = {
+      fps: I.fps,
+      maxFrameMs: Math.round(I.maxMs * 10) / 10,
+      maxFrameMsEver: Math.round(I.maxMsEver * 10) / 10,
+      dpr: Math.min(window.devicePixelRatio || 1, 1.5),
+      canvasCount: 1,
+      spriteCount: (I.cur ? 1 : 0) + (I.next ? 1 : 0) + I.trash.length,
+      lyricIdx: I.idx,
+      noLyric: !!I.noLyric,
+      cam: [Math.round(I.camera.position.x * 100) / 100, Math.round(I.camera.position.y * 100) / 100, Math.round(I.camera.position.z * 100) / 100],
+      amp: Math.round(I.amp * 1000) / 1000
+    };
+    I.frames = 0; I.maxMs = 0; I.statT = now;
+  }
+
+  // 频谱能量（AnalyserNode）
+  if (I.analyser && I.freq) {
+    I.analyser.getByteFrequencyData(I.freq);
+    var lo = 0, hi = 0, n1 = 0, n2 = 0;
+    for (var bi = 1; bi < 16; bi++) { lo += I.freq[bi]; n1++; }
+    for (var bj = 16; bj < 64; bj++) { hi += I.freq[bj]; n2++; }
+    var aLo = lo / n1 / 255, aHi = hi / n2 / 255;
+    I.amp += (aLo - I.amp) * Math.min(1, dt * 8);
+    I.ampHi += (aHi - I.ampHi) * Math.min(1, dt * 10);
+  } else {
+    I.amp *= 0.95;
+    I.ampHi *= 0.95;
+  }
+
+  var tEl = (now - I.t0) / 1000;
+  I.dolly *= Math.exp(-dt * 2.4);
+  var orb = tEl * 0.062;
+  var rad = 10.4 + Math.sin(tEl * 0.21) * 0.8 + I.dolly;
+  I.camera.position.set(Math.sin(orb) * rad * 0.66, 0.3 + Math.sin(tEl * 0.17) * 0.5 + I.amp * 0.05, Math.cos(orb) * rad);
+  I.camera.lookAt(0, -0.1, 0);
+  I.camera.fov = 52 - I.amp * 2.2;
+  I.camera.updateProjectionMatrix();
+
+  if (I.wave && I.wave.material) {
+    I.wave.material.uniforms.uTime.value = tEl;
+    I.wave.material.uniforms.uAmp.value = I.amp;
+    I.wave.material.uniforms.uAmpHi.value = I.ampHi;
+  }
+  if (I.pts) {
+    I.pts.rotation.y = tEl * 0.03;
+    I.pts.scale.setScalar(1 + I.amp * 0.16);
+  }
+
+  // 歌曲 / 歌词变化 → 重建背景与歌词
+  if (!same(S.cur, I.track)) {
+    I.track = S.cur ? plain(S.cur) : null;
+    I.bgKey = '';
+    immBg();
+    immSyncLyrics();
+    $('immTrack').textContent = S.cur ? (S.cur.name + (S.cur.artist ? ' · ' + S.cur.artist : '')) : '';
+  }
+  if (I.lrcRef !== S.lrc || I.lrcState !== S.lrcState) immSyncLyrics();
+  if (S.lrc.length && !I.noLyric) {
+    var tm = A.currentTime || 0, idx = -1;
+    for (var li = 0; li < S.lrc.length; li++) {
+      if (S.lrc[li].t <= tm + 0.15) idx = li; else break;
+    }
+    immSetLine(idx);
+  }
+
+  // 精灵动画：入场（从远处飞入 + 微旋转）/ 呼吸 / 退场（横向滑出 + 抬起 + 拉近）
+  if (I.cur) immAnim(I.cur, now, tEl, I);
+  if (I.next) immAnim(I.next, now, tEl, I);
+  for (var q = I.trash.length - 1; q >= 0; q--) immAnim(I.trash[q], now, tEl, I);
+
+  I.renderer.render(I.scene, I.camera);
+}
+
+function immAnim(sp, now, tEl, I) {
+  var u = sp.userData || {};
+  var age = (now - u.t0) / 1000;
+  var st = u.state;
+  if (st === 'in') {
+    var k = Math.min(1, age / 0.62);
+    var e = 1 - Math.pow(1 - k, 3);
+    sp.material.opacity = e * (0.92 + I.amp * 0.08);
+    sp.position.set(-1.6 * (1 - e), 0.35 + Math.sin(tEl * 1.5) * 0.012, 0.2 - 5.5 * (1 - e));
+    var sc = 0.86 + 0.14 * e + I.amp * 0.02;
+    sp.scale.set(u.baseW * sc, u.baseH * sc, 1);
+    sp.material.rotation = -0.075 * (1 - e);
+    if (k >= 1) u.state = 'on';
+  } else if (st === 'on') {
+    sp.material.opacity = 0.94 + Math.sin(tEl * 1.7) * 0.03;
+    sp.position.y = 0.35 + Math.sin(tEl * 1.35) * 0.022;
+    var sc2 = 1 + I.amp * 0.035;
+    sp.scale.set(u.baseW * sc2, u.baseH * sc2, 1);
+    sp.material.rotation = Math.sin(tEl * 0.6) * 0.004;
+  } else if (st === 'pre') {
+    var k2 = Math.min(1, age / 0.5);
+    sp.material.opacity = k2 * 0.34;
+    sp.position.y = -1.32 - (1 - k2) * 0.22;
+  } else if (st === 'out') {
+    var k3 = Math.min(1, age / 0.55);
+    var e3 = k3 * k3;
+    sp.material.opacity = (1 - e3) * 0.9;
+    sp.position.x = -3.4 * e3;
+    sp.position.y = 0.35 + 1.35 * e3;
+    sp.position.z = 0.2 + 2.6 * e3;
+    sp.material.rotation = 0.06 * e3;
+    sp.scale.set(u.baseW * (1 + 0.22 * e3), u.baseH * (1 + 0.22 * e3), 1);
+    if (k3 >= 1) immDrop(sp);
+  }
+}
+
+function immStart() {
+  var I = imm();
+  if (!I.renderer) return;
+  I.t0 = performance.now();
+  I.last = 0; I.frames = 0; I.maxMs = 0; I.maxMsEver = 0; I.statT = 0; I.fps = 0;
+  I.track = null; I.lrcRef = null; I.lrcState = ''; I.bgKey = ''; I.idx = -2;
+  window.__n26ImmStats = null;
+  immResize();
+  window.addEventListener('resize', immResize);
+  I.raf = requestAnimationFrame(immFrame);
+}
+
+function immDispose() {
+  var I = imm();
+  if (I.raf) { cancelAnimationFrame(I.raf); I.raf = 0; }
+  immClearLyrics();
+  if (I.pts) {
+    try { I.pts.geometry.dispose(); I.pts.material.dispose(); } catch (e) { }
+    try { if (I.scene) I.scene.remove(I.pts); } catch (e) { }
+    I.pts = null;
+  }
+  if (I.wave) {
+    try { I.wave.geometry.dispose(); I.wave.material.dispose(); } catch (e) { }
+    try { if (I.scene) I.scene.remove(I.wave); } catch (e) { }
+    I.wave = null;
+  }
+  if (I.bgTex) { try { I.bgTex.dispose(); } catch (e) { } I.bgTex = null; }
+  if (I.scene) { try { I.scene.background = null; } catch (e) { } }
+  if (I.renderer) {
+    try { I.renderer.forceContextLoss(); } catch (e) { }
+    try { I.renderer.dispose(); } catch (e) { }
+  }
+  if (I.canvas && I.canvas.parentNode) I.canvas.parentNode.removeChild(I.canvas);
+  I.canvas = null; I.renderer = null; I.scene = null; I.camera = null;
+  // 断开分析器（AudioContext 与源节点保留：关闭它会让 <audio> 永久静音）
+  if (I.analyser) { try { I.analyser.disconnect(); } catch (e) { } I.analyser = null; I.freq = null; }
+  I.amp = 0; I.ampHi = 0; I.last = 0; I.idx = -2; I.track = null; I.lrcRef = null; I.bgKey = ''; I.lrcState = '';
+  window.__n26ImmStats = null;
+}
+
+function openImmersive() {
+  var I = imm();
+  if (I.open) return;
+  if (!S.cur) { toast(T('barHint')); return; }
+  if (!S.playerOpen) openPlayer(true);
+  I.open = true;
+  immAudio(); // 必须在用户手势里同步建图，否则 WebAudio 会挂起
+  var host = $('imm');
+  host.classList.add('on');
+  host.setAttribute('aria-hidden', 'false');
+  $('immTrack').textContent = S.cur.name + (S.cur.artist ? ' · ' + S.cur.artist : '');
+  document.addEventListener('keydown', immKey, true);
+  var boot = function () {
+    if (!I.open) return;
+    immBuild();
+    immStart();
+  };
+  if (I.T) { boot(); return; }
+  immThree().then(boot).catch(function () {
+    toast(T('tFail'));
+    closeImmersive();
+  });
+}
+function closeImmersive() {
+  var I = imm();
+  if (!I.open) return;
+  I.open = false;
+  document.removeEventListener('keydown', immKey, true);
+  window.removeEventListener('resize', immResize);
+  var host = $('imm');
+  host.classList.remove('on');
+  host.setAttribute('aria-hidden', 'true');
+  immDispose();
+}
+function immKey(e) {
+  if (!imm().open) return;
+  if (e.key === 'Escape' || e.key === 'Esc') {
+    e.preventDefault();
+    e.stopPropagation();
+    closeImmersive();
+  }
+}
+function immInit() {
+  var b = $('plImmersive');
+  if (b) {
+    b.title = T('ariaImm');
+    b.setAttribute('aria-label', T('ariaImm'));
+    b.addEventListener('click', openImmersive);
+  }
+  var x = $('immExit');
+  if (x) {
+    x.title = T('tImmExit');
+    x.setAttribute('aria-label', T('tImmExit'));
+    x.addEventListener('click', closeImmersive);
+  }
+  var h = $('immHint');
+  if (h) h.textContent = T('tImmHint');
+  /* 离屏（最小化 / 切虚拟桌面 / 别的窗口全屏）→ 停 rAF，回来再续 */
+  document.addEventListener('visibilitychange', function () {
+    var I = imm();
+    if (!I.open) return;
+    if (document.hidden) {
+      if (I.raf) { cancelAnimationFrame(I.raf); I.raf = 0; }
+    } else if (!I.raf && I.renderer) {
+      I.last = 0;
+      I.raf = requestAnimationFrame(immFrame);
+    }
+  });
+}
+
 function init() {
   try { if ((navigator.language || '').toLowerCase().indexOf('zh') !== 0) LANG = 'en'; } catch (e) { }
   applyForcedTheme();
@@ -2739,13 +3364,11 @@ function init() {
   }
   A.volume = S.vol;
 
-  // 关窗/最小化/切后台一律停声并释放音频；宿主 media-pause 即时暂停
+  // 窗口没被真正关闭就一律不停声：宿主直接在 iframe 里 pause() 的情况由 A 的 pause 事件续播兜底，
+  // 本应用不再监听 visibilitychange / blur / media-pause。
   stopHostBackground();
   watchLeave();
-  window.addEventListener('message', function (ev) {
-    var d = ev.data || {};
-    if (d && d.__nexusEvt && d.name === 'media-pause') leaveApp(true);
-  });
+  immInit();
   window.addEventListener('nexus:ready', function (ev) {
     var d = ev.detail || {};
     var lg = (d.user && d.user.lang) || d.lang;
