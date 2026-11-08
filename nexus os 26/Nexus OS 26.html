@@ -20,6 +20,27 @@
             try { var raw = localStorage.getItem(FLAG); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
         }
         function writeFlag(f) { try { localStorage.setItem(FLAG, JSON.stringify(f)); } catch (e) { } }
+        /* 恢复出厂/重装：只清 26 自己的键，绝不触碰 nexus_（必须无条件定义，迁移完成后也要可用） */
+        window.__n26PurgeOwnStorage = function () {
+            try {
+                var keys = [];
+                for (var i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+                keys.forEach(function (k) {
+                    if (!k) return;
+                    if (k === FLAG) return;   /* 迁移完成标记必须保留，否则恢复出厂后会被旧键重新导入 */
+                    if (k.indexOf(NS) === 0 || k.indexOf('n26') === 0 ||
+                        k.indexOf('bili26.') === 0 || k.indexOf('float.') === 0 ||
+                        k.indexOf('necta_') === 0 || k.indexOf('strata.floatdoc.') === 0) {
+                        try { localStorage.removeItem(k); } catch (e) { }
+                    }
+                });
+                try {
+                    var sk = [];
+                    for (var j = 0; j < sessionStorage.length; j++) sk.push(sessionStorage.key(j));
+                    sk.forEach(function (k) { if (k && k.indexOf(NS) === 0) sessionStorage.removeItem(k); });
+                } catch (e2) { }
+            } catch (e3) { }
+        };
         var flag = readFlag();
         if (flag && flag.complete) { window.__n26NsMigrate = Promise.resolve(flag); return; }
         flag = flag || { complete: false, done: [], failed: [], at: 0 };
@@ -58,31 +79,10 @@
             if (flag.done.length % 10 === 0) { flag.at = Date.now(); writeFlag(flag); }
         }
         try {
-            var sv = sessionStorage.getItem('lastAccount');
+            var sv = sessionStorage.getItem(NEXUS_PREFIX + 'lastAccount');
             if (sv && sessionStorage.getItem(NS + 'lastAccount') === null) sessionStorage.setItem(NS + 'lastAccount', sv);
         } catch (e) { }
         flag.at = Date.now(); writeFlag(flag);
-
-        /* 恢复出厂/重装：只清 26 自己的键，绝不触碰 nexus_ */
-        window.__n26PurgeOwnStorage = function () {
-            try {
-                var keys = [];
-                for (var i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
-                keys.forEach(function (k) {
-                    if (!k) return;
-                    if (k.indexOf(NS) === 0 || k.indexOf('n26') === 0 ||
-                        k.indexOf('bili26.') === 0 || k.indexOf('float.') === 0 ||
-                        k.indexOf('necta_') === 0 || k.indexOf('strata.floatdoc.') === 0) {
-                        try { localStorage.removeItem(k); } catch (e) { }
-                    }
-                });
-                try {
-                    var sk = [];
-                    for (var j = 0; j < sessionStorage.length; j++) sk.push(sessionStorage.key(j));
-                    sk.forEach(function (k) { if (k && k.indexOf(NS) === 0) sessionStorage.removeItem(k); });
-                } catch (e2) { }
-            } catch (e3) { }
-        };
 
         /* B. IndexedDB / Cache Storage：异步复制，供 NexusDB.init 等待，不阻塞首屏 */
         function dbExists(name) {
@@ -17935,6 +17935,8 @@
             de.style.setProperty('--n26-glass-hi', (clamp(g.highlight, 0, 100, def.highlight) / 100).toFixed(3));
             de.style.setProperty('--n26-refr', mat === 'liquid' ? String(clamp(g.refraction, 0, 100, def.refraction)) : '0');
             de.style.setProperty('--n26-noise', mat === 'liquid' ? String(clamp(g.noise, 0, 100, def.noise)) : '0');
+            // v3.5：折射面的独立微模糊（参照物 0.25px 量级），不占用全局磨砂滑杆语义
+            de.style.setProperty('--n26-lg-blur', (0.25 + clamp(g.blur, 0, 40, def.blur) / 40 * 2.75).toFixed(2) + 'px');
             de.setAttribute('data-n26-boot-mat', mat);
         } catch (e) {}
     })();
@@ -19870,6 +19872,11 @@
                 <animate attributeName="scale" dur="0.95s" values="13;13;0" keyTimes="0;0.75;1" fill="freeze"/>
             </feDisplacementMap>
         </filter>
+        <!-- v3 水波位移：只做"真扭曲"，由 #covi-wave 的 backdrop-filter 引用 -->
+        <filter id="coviWaveWarp" x="-8%" y="-8%" width="116%" height="116%" color-interpolation-filters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.008 0.026" numOctaves="2" seed="11" result="coviWaveNoise"/>
+            <feDisplacementMap in="SourceGraphic" in2="coviWaveNoise" scale="26" xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
     </svg>
     <div id="covi-stage" aria-hidden="true">
         <canvas id="covi-ripple"></canvas>
@@ -19877,11 +19884,17 @@
         <div id="covi-wash"></div>
         <div id="covi-ambient"></div>
         <div id="covi-voice"></div>
+        <div class="covi-ring-edge covi-ring-top"></div>
+        <div class="covi-ring-edge covi-ring-bottom"></div>
+        <div class="covi-ring-edge covi-ring-left"></div>
+        <div class="covi-ring-edge covi-ring-right"></div>
         <div class="covi-edge covi-edge-wash"></div>
         <div class="covi-edge covi-edge-bloom"></div>
         <div class="covi-edge covi-edge-core"></div>
         <div id="covi-hint">长按 Space 叫我 · 松手直接说话 🎤</div>
     </div>
+    <!-- 屏幕水波：backdrop-filter 真位移，自下而上扫过整屏；不播放时 display:none -->
+    <div id="covi-wave" aria-hidden="true"></div>
 
     <!-- AI 小方 HUD：长按 Space 底部弹出输入条；回复以气泡悬空显示（不打开对话页） -->
     <div id="covi-hud" data-phase="idle">
@@ -21002,6 +21015,8 @@
     // ==================== NexusDB 初始化辅助 ====================
     async function initNexusDB() {
         try {
+            /* 先等命名空间迁移把旧库数据接管到 NexusOS26，再初始化，避免读到初代库 */
+            if (window.__n26NsMigrate) { try { await window.__n26NsMigrate; } catch (e2) { } }
             await NexusDB.init();
             
             // 预热缓存：加载所有账户和系统数据
@@ -23377,8 +23392,8 @@
            60 秒后自动再探一次，后端修好了会自己连回去。 */
         function markDead() { _mode = 'local'; _retryAt = Date.now() + 60000; }
 
-        function ls(k, d) { try { var v = localStorage.getItem('nexus_' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
-        function lsSet(k, v) { try { localStorage.setItem('nexus_' + k, JSON.stringify(v)); } catch (e) { } }
+        function ls(k, d) { try { var v = localStorage.getItem(NEXUS_PREFIX + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
+        function lsSet(k, v) { try { localStorage.setItem(NEXUS_PREFIX + k, JSON.stringify(v)); } catch (e) { } }
 
         async function api(path, opts) {
             opts = opts || {};
@@ -24383,7 +24398,7 @@
             if (spm) spm.classList.remove('show');
             const spw = document.getElementById('startMenuPowerWrap');
             if (spw) spw.classList.remove('show');
-            setTimeout(() => { startMenu.classList.remove('show'); startMenu.classList.remove('closing'); }, 200);
+            setTimeout(() => { startMenu.classList.remove('show'); startMenu.classList.remove('closing'); }, 220);
         }
         updateLockTime();
         renderAccountList();
@@ -25080,7 +25095,7 @@
             try {
                 st = (typeof n26WeatherState === 'function') ? n26WeatherState() : null;
                 if (!st) {
-                    const raw = localStorage.getItem('nexus_n26_weather_state_v1');
+                    const raw = localStorage.getItem(NEXUS_PREFIX + 'n26_weather_state_v1');
                     if (raw) st = JSON.parse(raw);
                 }
             } catch (e) { st = null; }
@@ -25828,6 +25843,8 @@
     var _coviOpen = false;
     var _coviRippleRAF = 0;
     var _coviMeter = null;            // 真实麦克风音量 → 光效（AnalyserNode，非随机/非定时假装）
+    var _coviSummonHudT = 0;          // 波到顶部后才浮现输入条
+    var _coviWaveEndT = 0;            // 波扫完后卸掉 backdrop-filter，空闲零成本
 
     function coviStage() { return document.getElementById('covi-stage'); }
 
@@ -25916,7 +25933,9 @@
             anims.forEach(function (a) {
                 var t = a.effect && a.effect.target;
                 if (!t) return;
-                var on = t.id === 'covi-ambient' || t.id === 'covi-voice' ||
+                var ringFlow = t.classList && t.classList.contains('covi-ring-edge') &&
+                               /coviRingFlow/.test(a.animationName || '');
+                var on = t.id === 'covi-ambient' || ringFlow ||
                          (t.classList && (t.classList.contains('covi-edge-wash') ||
                                           t.classList.contains('covi-edge-bloom') ||
                                           t.classList.contains('covi-edge-core')));
@@ -26069,32 +26088,59 @@
         coviSetState('listening');
     }
 
-    /* 完整唤起：爆闪 + 波纹 + 扭曲 + 光带 + 底部 HUD 输入条 + 自动聆听 */
+    /* 完整唤起：光起（底→侧→顶）→ 底部水波真扭曲 → 波扫到顶 → 输入条浮现 → 自动聆听 */
     function coviSummon() {
         if (!coviStage()) return;
         // ★ v2.9.25：已唤起时再点一次 = 收起。之前这里是 coviHudShow(true) 直接 return，
         // 所以用户点玻璃球/点空白，看到的是「又打开一次」，关不掉。
         if (_coviHudOpen) { if (typeof coviHudClose === 'function') coviHudClose(); return; }
-        coviWhiteBurst();
-        coviWash();
-        coviRipple();
-        coviSquish();
+        var reduced = false;
+        try { reduced = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+        if (document.body.classList.contains('n26-a11y-reduce-motion')) reduced = true;
+
+        // ① 光起：四边流光点亮（CSS 里底边 0ms、两侧 90ms、顶边 170ms 依次亮）
         if (typeof coviGlowOn === 'function') coviGlowOn();
-        coviHudShow(true);
-        coviHint();
-        // 语音自动开启（OOBE / 设置里可关）
-        var cfg = (typeof getAiConfig === 'function') ? getAiConfig() : { voice: true };
-        if (cfg.voice !== false) {
-            setTimeout(function () {
-                if (_coviHudOpen && !_n26Listening && typeof toggleN26AiVoice === 'function') toggleN26AiVoice();
-            }, 420);
+
+        // ② 屏幕下方起波：backdrop-filter 的 feTurbulence+feDisplacementMap 真扭曲，
+        //    由 mask 光带自下而上扫过整屏；减少动效/低性能档时跳过扭曲。
+        var wave = document.getElementById('covi-wave');
+        var canWave = wave && !reduced && !document.body.classList.contains('perf-mode');
+        if (wave) {
+            wave.classList.remove('play');
+            if (canWave) {
+                void wave.offsetWidth;        // 重启动画
+                wave.classList.add('play');
+            }
+            clearTimeout(_coviWaveEndT);
+            _coviWaveEndT = setTimeout(function () {
+                wave.classList.remove('play'); // 结束即 display:none：不跑 rAF、不占合成
+            }, canWave ? 900 : 0);
         }
+
+        // ③ 波到顶部之后，输入条才出现（0.10s 延迟 + 0.66s 行程 ≈ 0.76s）
+        clearTimeout(_coviSummonHudT);
+        _coviSummonHudT = setTimeout(function () {
+            if (!_coviOpen || _coviHudOpen) return;
+            coviHudShow(true);
+            coviHint();
+            // 语音自动开启（OOBE / 设置里可关）
+            var cfg = (typeof getAiConfig === 'function') ? getAiConfig() : { voice: true };
+            if (cfg.voice !== false) {
+                setTimeout(function () {
+                    if (_coviHudOpen && !_n26Listening && typeof toggleN26AiVoice === 'function') toggleN26AiVoice();
+                }, 420);
+            }
+        }, canWave ? 780 : (reduced ? 120 : 520));
     }
 
     /* 收起：光带熄灭 + 停止识别 */
     function coviDismiss() {
         var st = coviStage();
         _coviOpen = false;
+        clearTimeout(_coviSummonHudT); _coviSummonHudT = 0;
+        clearTimeout(_coviWaveEndT); _coviWaveEndT = 0;
+        var wave = document.getElementById('covi-wave');
+        if (wave) wave.classList.remove('play');
         if (typeof stopN26AiVoice === 'function') stopN26AiVoice();
         if (st) {
             st.classList.remove('on');
@@ -27066,18 +27112,65 @@
         document.body.appendChild(svg);
         return svg;
     }
-    function _n26LgApply(el, id, opts) {
+    function _n26LgApply(el, id, opts, size) {
         if (!el || !N26_LG_OK || el._n26Lg || el._n26LgWait) return;
         const rect = el.getBoundingClientRect();
-        const w = Math.max(40, Math.round(rect.width));
-        const h = Math.max(40, Math.round(rect.height));
+        /* size 覆盖：侧栏指示器尺寸随项变化，调用方按 8px/4px 量化后传入，贴图可复用缓存 */
+        const w = Math.max(40, Math.round((size && size.w) || rect.width));
+        const h = Math.max(40, Math.round((size && size.h) || rect.height));
         el._n26LgWait = true;
         makeN26LgMapAsync(w, h, opts, function (map) {
             el._n26LgWait = false;
-            try { _n26LgInject(el, id, w, h, map); } catch (e) {}
+            try { _n26LgInject(el, id, w, h, map, opts); } catch (e) {}
         });
     }
-    function _n26LgInject(el, id, w, h, map) {
+    /* 摘除：尺寸变化 / 材质回退 / 色散开关翻转都走这里，确保不残留折射引用 */
+    function _n26LgClear(el) {
+        if (!el || !el._n26Lg) return;
+        const f = document.getElementById(el._n26Lg.id);
+        if (f) f.remove();
+        el.style.backdropFilter = '';
+        el.style.removeProperty('--n26-lg-filter');
+        el.classList.remove('n26-liquid-on');
+        el._n26Lg = null;
+        el._n26LgWait = false;
+    }
+    /* 折射强度系数：滑杆 55 = 参照物原版 1×，100 ≈ 1.8× */
+    function _n26LgRefrK() {
+        try {
+            const g = (typeof n26GlassPref === 'function') ? n26GlassPref() : null;
+            const pct = g ? g.refraction : 55;
+            return Math.max(0, Math.min(100, pct)) / 55;
+        } catch (e) { return 1; }
+    }
+    /* 色散强度 0–20：0 = 连第二层采样节点都不建（零成本）；20 ≈ 6px 边缘 RGB 错位 */
+    function _n26LgDispAmt() {
+        try {
+            const g = (typeof n26GlassPref === 'function') ? n26GlassPref() : null;
+            return Math.max(0, Math.min(20, (g && g.dispersion) || 0));
+        } catch (e) { return 0; }
+    }
+    function _n26LgCat(inEl, in2, scale, result) {
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const d = document.createElementNS(svgNS, 'feDisplacementMap');
+        d.setAttribute('in', inEl);
+        d.setAttribute('in2', in2);
+        d.setAttribute('scale', String(scale));
+        d.setAttribute('xChannelSelector', 'R');
+        d.setAttribute('yChannelSelector', 'G');
+        if (result) d.setAttribute('result', result);
+        return d;
+    }
+    function _n26LgChan(inRef, values, result) {
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const m = document.createElementNS(svgNS, 'feColorMatrix');
+        m.setAttribute('in', inRef);
+        m.setAttribute('type', 'matrix');
+        m.setAttribute('values', values);
+        m.setAttribute('result', result);
+        return m;
+    }
+    function _n26LgInject(el, id, w, h, map, opts) {
         const svgNS = 'http://www.w3.org/2000/svg';
         if (!el || !el.isConnected || el._n26Lg || !n26LgMaterialAllows()) return;
         const svg = _n26LgEnsureSvg();
@@ -27098,34 +27191,62 @@
         feImage.setAttribute('preserveAspectRatio', 'none');
         feImage.setAttributeNS('http://www.w3.org/1999/xlink', 'href', map.url);
         feImage.setAttribute('href', map.url);
-        const feDisp = document.createElementNS(svgNS, 'feDisplacementMap');
-        feDisp.setAttribute('in', 'SourceGraphic');
-        feDisp.setAttribute('in2', id + '_map');
-        feDisp.setAttribute('scale', String(map.scale));
-        feDisp.setAttribute('xChannelSelector', 'R');
-        feDisp.setAttribute('yChannelSelector', 'G');
+        /* v3.5：强度还原（滑杆 55 = 参照物 1×）+ 可选色散（R/B 通道各用一张不同 scale 的位移场）
+           色散 = 0 时这里只有 1 次采样；> 0 才建 3 次采样 + 通道合并，节点在关闭时根本不存在。 */
+        const s0 = Math.max(0, map.scale * _n26LgRefrK());
+        const dAmt = _n26LgDispAmt();
+        const sD = dAmt > 0 ? (dAmt / 20) * 6 : 0;
+        const useDisp = dAmt > 0 && s0 > 0.5;
+        const feDisp = _n26LgCat('SourceGraphic', id + '_map', s0, useDisp ? 'n26lgBase' : null);
         filter.appendChild(feImage);
         filter.appendChild(feDisp);
+        let feHi = null, feLo = null;
+        if (useDisp) {
+            feHi = _n26LgCat('SourceGraphic', id + '_map', s0 + sD, 'n26lgHi');
+            feLo = _n26LgCat('SourceGraphic', id + '_map', Math.max(0, s0 - sD), 'n26lgLo');
+            /* R 取「更强位移」、B 取「更弱位移」、G 取基准 → 边缘出现 1–6px 的彩色错位 */
+            const cR = _n26LgChan('n26lgHi', '1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0', 'n26lgR');
+            const cG = _n26LgChan('n26lgBase', '0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 0 0', 'n26lgG');
+            const cB = _n26LgChan('n26lgLo', '0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 0 0', 'n26lgB');
+            const mGB = document.createElementNS(svgNS, 'feComposite');
+            mGB.setAttribute('in', 'n26lgG'); mGB.setAttribute('in2', 'n26lgB');
+            mGB.setAttribute('operator', 'arithmetic');
+            mGB.setAttribute('k1', '0'); mGB.setAttribute('k2', '1');
+            mGB.setAttribute('k3', '1'); mGB.setAttribute('k4', '0');
+            mGB.setAttribute('result', 'n26lgGB');
+            const mAll = document.createElementNS(svgNS, 'feComposite');
+            mAll.setAttribute('in', 'n26lgR'); mAll.setAttribute('in2', 'n26lgGB');
+            mAll.setAttribute('operator', 'arithmetic');
+            mAll.setAttribute('k1', '0'); mAll.setAttribute('k2', '1');
+            mAll.setAttribute('k3', '1'); mAll.setAttribute('k4', '0');
+            filter.appendChild(feHi); filter.appendChild(feLo);
+            filter.appendChild(cR); filter.appendChild(cG); filter.appendChild(cB);
+            filter.appendChild(mGB); filter.appendChild(mAll);
+        }
         svg.firstChild.appendChild(filter);
         el.style.backdropFilter = '';
-        /* ★ v3.0：滤镜串落到元素级自定义属性，由 n26-polish.css 以 !important 消费；
-           模糊/饱和/颗粒全部读全局变量，拖动滑块即时生效，不会被覆盖层压死 */
+        /* ★ v3.5：滤镜链照参照物 Liquid Glass Web —— 微模糊 0.25–3px（不是全局 18px 磨砂），
+           再加 contrast/brightness 形成玻璃厚度；位移才不会被大模糊抹平，折射才看得见。 */
         el.style.setProperty('--n26-lg-filter',
-            'url(#' + id + ') blur(var(--n26-blur, 18px)) saturate(var(--n26-glass-sat, 148%)) var(--n26-grain-fn)');
+            'url(#' + id + ') blur(var(--n26-lg-blur, 0.25px)) contrast(1.2) brightness(1.05) saturate(var(--n26-glass-sat, 148%)) var(--n26-grain-fn)');
         el.classList.add('n26-liquid-on');
-        el._n26Lg = { id, w, h, disp: feDisp, baseScale: map.scale };
+        el._n26Lg = {
+            id: id, w: w, h: h, disp: feDisp, baseScale: map.scale,
+            dispHi: feHi, dispLo: feLo, dispOn: useDisp, opts: opts || null
+        };
     }
     // ★ v2.9.23：Dock 是「左胶囊 + 中间 Dock + 右胶囊」三段，
     // 以前只给中间那段注入液态玻璃贴图，两边还是普通磨砂 blur(34px)，
     // 于是同一条 Dock 上出现两种材质（用户截图指认）。现在三段走同一套。
+    /* ★ v3.4 硬边界：折射物理引擎只允许出现在三处——
+       ① Dock 底板 ② Dock 左右胶囊 ③ 应用侧边栏移动指示器（在 n26-docknav.js 里）。
+       启动台 / 聚焦搜索 / 对话框 / 通知栏 / 控制中心 / 开始菜单 / 组件面板 / 顶栏 /
+       设置面板 / 商城卡片 一律退回普通磨砂或实底，不得注入 url(#n26Lg*) 折射贴图。
+       （启动台整块面板上的斜向亮带就是大面积折射造成的，已从这里除名。） */
     const N26_LG_TARGETS = [
         ['#n26LeftDock', 'n26LgLeft'],
         ['#dock', 'n26LgDock'],
-        ['#n26RightDock', 'n26LgRight'],
-        ['#startMenu', 'n26LgStart'],
-        // ★ v2.9.37：长按空格唤出的 AI 小框，之前根本没接液态玻璃（所以「没扭曲、边框没覆盖」）。
-        //   小框比 Dock 扁很多，SDF 内缩要更小、阈值更浅，否则折射会把边框吃掉。
-        ['#covi-hud-bar', 'n26LgHud', { inset: 0.12, thresh: -0.10 }]
+        ['#n26RightDock', 'n26LgRight']
     ];
     function n26LgMaterialAllows() {
         try {
@@ -27142,12 +27263,7 @@
             const el = document.querySelector(sel);
             if (!el) return;
             if (!allow) {
-                if (el._n26Lg) {
-                    el.style.backdropFilter = '';
-                    el.style.removeProperty('--n26-lg-filter');
-                    el.classList.remove('n26-liquid-on');
-                    el._n26Lg = null;
-                }
+                _n26LgClear(el);
                 el._n26LgWait = false;
                 return;
             }
@@ -27169,15 +27285,39 @@
                 return;
             }
             if (Math.abs(r.width - el._n26Lg.w) > 1 || Math.abs(r.height - el._n26Lg.h) > 1) {
-                const oldF = document.getElementById(el._n26Lg.id);
-                if (oldF) oldF.remove();
-                const oldMap = document.getElementById(el._n26Lg.id + '_map');
-                if (oldMap && oldMap.parentNode) oldMap.parentNode.removeChild(oldMap);
-                el.style.backdropFilter = '';
-                el.style.removeProperty('--n26-lg-filter');
-                el.classList.remove('n26-liquid-on');
-                el._n26Lg = null;
-                _n26LgApply(el, id, pair[2]);
+                const opts = el._n26Lg.opts;
+                _n26LgClear(el);
+                _n26LgApply(el, id, opts);
+            }
+        });
+        /* 侧栏指示器（动态元素，不在 N26_LG_TARGETS 里）：材质回退时一并摘掉，
+           保证「关掉液态玻璃 → 全部折射面零残留」 */
+        if (!allow) {
+            document.querySelectorAll('.n26-dng').forEach(function (el) { _n26LgClear(el); });
+        }
+        /* 第 4 类：玻璃按钮 / 开关（材质卡等 .n26-lg-ctrl）：液态档位下常驻折射，
+           尺寸变化时（面板重排）按新尺寸重建；磨砂/实底档整体摘除 */
+        document.querySelectorAll('.n26-lg-ctrl').forEach(function (el, i) {
+            if (!allow) { _n26LgClear(el); return; }
+            if (el.getClientRects().length === 0) return;
+            const r = el.getBoundingClientRect();
+            if (r.width < 24 || r.height < 18) return;
+            if (!el._n26Lg) {
+                if (el._n26LgPending) return;
+                el._n26LgPending = true;
+                const run = function () {
+                    el._n26LgPending = false;
+                    if (el._n26Lg) return;
+                    try { _n26LgApply(el, 'n26LgCtrl' + i, { inset: 0.14, thresh: -0.14 }); } catch (e) {}
+                };
+                if (window.requestIdleCallback) requestIdleCallback(run, { timeout: 900 });
+                else setTimeout(run, 320);
+                return;
+            }
+            if (Math.abs(r.width - el._n26Lg.w) > 2 || Math.abs(r.height - el._n26Lg.h) > 2) {
+                const opts = el._n26Lg.opts;
+                _n26LgClear(el);
+                _n26LgApply(el, 'n26LgCtrl' + i, opts);
             }
         });
     }
@@ -27343,7 +27483,7 @@
             // 与天气应用共用 nexus_n26_geo：直读落盘值，避免 NexusDB 缓存留着旧城市
             var cached = null;
             try {
-                var rawGeo = localStorage.getItem('nexus_n26_geo');
+                var rawGeo = localStorage.getItem(NEXUS_PREFIX + 'n26_geo');
                 if (rawGeo) cached = JSON.parse(rawGeo);
             } catch (e) { cached = null; }
             if (!cached) cached = getLS('n26_geo');
@@ -27392,7 +27532,7 @@
            （例如「北京 2° 降雪」），这就是两处对不上的根因。 */
         let raw = null;
         try {
-            const s = localStorage.getItem('nexus_n26_weather_state_v1');
+            const s = localStorage.getItem(NEXUS_PREFIX + 'n26_weather_state_v1');
             if (s) raw = JSON.parse(s);
         } catch (e) { raw = null; }
         if (raw && (!raw.temp || !isFinite(Number(raw.temp.c)))) raw = null;
@@ -27459,7 +27599,7 @@
             if (d && d.type === 'n26:weather-state' && d.state) n26WeatherApplyState(d.state);
         });
         window.addEventListener('storage', function (ev) {
-            if (!ev || ev.key !== 'nexus_n26_weather_state_v1' || !ev.newValue) return;
+            if (!ev || ev.key !== NEXUS_PREFIX + 'n26_weather_state_v1' || !ev.newValue) return;
             try { n26WeatherApplyState(JSON.parse(ev.newValue)); } catch (e) { }
         });
     } catch (e) { }
@@ -27503,7 +27643,7 @@
             /* 拉取期间天气应用可能已经发布了更新状态；有就绝不能用这次晚到的结果覆盖 */
             let appeared = null;
             try {
-                const s = localStorage.getItem('nexus_n26_weather_state_v1');
+                const s = localStorage.getItem(NEXUS_PREFIX + 'n26_weather_state_v1');
                 if (s) appeared = JSON.parse(s);
             } catch (e) { appeared = null; }
             if (appeared && appeared.temp && isFinite(Number(appeared.temp.c)) && n26WeatherStamp(appeared) > now) {
@@ -27625,7 +27765,7 @@
 
     // 高亮上次注销账户（蓝色光圈）
     function highlightLastAccount() {
-        const last = sessionStorage.getItem('lastAccount');
+        const last = sessionStorage.getItem(NEXUS_PREFIX + 'lastAccount');
         if (!last) return;
         document.querySelectorAll('.account-item').forEach(item => {
             if (item.dataset.accName === last) {
@@ -27744,7 +27884,7 @@
             let lastAccountName = getLS('lastAccount');
             // 如果没有，尝试从 sessionStorage 读取
             if (!lastAccountName) {
-                lastAccountName = sessionStorage.getItem('lastAccount');
+                lastAccountName = sessionStorage.getItem(NEXUS_PREFIX + 'lastAccount');
             }
             // 查找账户，优先上次登录的，其次"管理员"，最后第一个
             let acc = accounts.find(a => a.name === lastAccountName);
@@ -27818,7 +27958,7 @@
                 let lastAccountName = getLS('lastAccount');
                 // 如果没有，尝试从 sessionStorage 读取
                 if (!lastAccountName) {
-                    lastAccountName = sessionStorage.getItem('lastAccount');
+                    lastAccountName = sessionStorage.getItem(NEXUS_PREFIX + 'lastAccount');
                 }
                 // 查找账户，优先上次登录的，其次"管理员"，最后第一个
                 let acc = accounts.find(a => a.name === lastAccountName);
@@ -31156,7 +31296,7 @@
             if (spm) spm.classList.remove('show');
             const spw = document.getElementById('startMenuPowerWrap');
             if (spw) spw.classList.remove('show');
-            setTimeout(() => { startMenu.classList.remove('show'); startMenu.classList.remove('closing'); }, 200);
+            setTimeout(() => { startMenu.classList.remove('show'); startMenu.classList.remove('closing'); }, 220);
         }
         // 实验性功能：操作时强制全屏（若设置开启）—— 开应用即尝试进入全屏，便于逐应用测布局
         maybeForceFullscreen();
@@ -33194,7 +33334,7 @@
             if (spm) spm.classList.remove('show');
             const spw = document.getElementById('startMenuPowerWrap');
             if (spw) spw.classList.remove('show');
-            setTimeout(() => { startMenu.classList.remove('show'); startMenu.classList.remove('closing'); }, 200);
+            setTimeout(() => { startMenu.classList.remove('show'); startMenu.classList.remove('closing'); }, 220);
         }
         const lp = document.getElementById('launchpad');
         lp.classList.add('show');
@@ -34858,22 +34998,23 @@
             // 强制重排，确保 transform 在动画开始前已应用，防止开始菜单水平跳变
             // v2.9.83：上一次关闭的 closing 类若还在（快速开合），它带 forwards 会把透明度钉死在 0，
             // 表现为"再打开时完全没有动画/干脆不出现"。先摘掉；序号自增让晚到的关闭定时器失效。
+            /* v2.9.83：先压住入场动画 → 让 .show 生效并量到最终矩形 → 写起点变量 → 再放行。
+               这样动画的第一帧就是从 Dock（开始按钮）那个点弹出来的。
+               v3：渲染应用网格/搜索清空必须在"放行动画"之前完成，否则 240ms 动画刚起步时
+               主线程正被重建网格占住，首帧要等动画跑完才画出来——用户看到的就是"没有升起"。 */
             ++n26SmSeq;
             menu.classList.remove('closing');
-            void menu.offsetHeight;
-            /* v2.9.83：先压住入场动画 → 让 .show 生效并量到最终矩形 → 写起点变量 → 再放行。
-               这样动画的第一帧就是从 Dock（开始按钮）那个点弹出来的。 */
             menu.style.animation = 'none';
             menu.classList.add('show');
-            try { n26StartMenuAnchor(menu, btn, dockPos); } catch (e) { }
-            void menu.offsetHeight;
-            menu.style.animation = '';
-            // N26：首次展开时换上自研液态玻璃折射（Chromium；展开后尺寸已知再建贴图）
-            try { _n26LgApply(menu, 'n26LgStart'); } catch (e) {}
-            // 每次展开：清空搜索并渲染应用网格
             const _smSearch = document.getElementById('startMenuSearch');
             if (_smSearch) _smSearch.value = '';
-            renderStartMenuApps('');
+            try { renderStartMenuApps(''); } catch (e) {}
+            void menu.offsetHeight;
+            try { n26StartMenuAnchor(menu, btn, dockPos); } catch (e) {}
+            void menu.offsetHeight;
+            menu.style.animation = '';
+            // N26 液态玻璃贴图较贵：挪到升起动画之后（240ms + 60ms 缓冲），避免抢首帧
+            setTimeout(function () { try { _n26LgApply(menu, 'n26LgStart'); } catch (e) {} }, 300);
             if (powerWrap) {
                 // 定位电源按钮：菜单展开动画（scale 0.92→1）进行中实测矩形偏窄，
                 // 会导致 menuRect.right 偏小、按钮压进菜单——所以先立即定位一次，
@@ -41803,10 +41944,10 @@
        模糊值优先沿用 blurStrength，没有就按原档位给 12/26/40。 */
     /* ★ v3.0 单一参数模型：材质 + 7 个数值参数，全部落在 CSS 变量上。
        任何面板都只读写这一份，不允许各自写死 backdrop-filter。 */
-    var N26_GLASS_DEFAULTS = { opacity: 55, blur: 18, saturation: 148, highlight: 35, radius: 14, refraction: 55, noise: 8 };
+    var N26_GLASS_DEFAULTS = { opacity: 55, blur: 18, saturation: 148, highlight: 35, radius: 14, refraction: 55, dispersion: 6, noise: 8 };
     var N26_GLASS_LIMITS = {
         opacity: [20, 90], blur: [0, 40], saturation: [100, 200],
-        highlight: [0, 100], radius: [6, 26], refraction: [0, 100], noise: [0, 100]
+        highlight: [0, 100], radius: [6, 26], refraction: [0, 100], dispersion: [0, 20], noise: [0, 100]
     };
     var N26_GLASS_MATERIALS = { liquid: '液态玻璃', frost: '磨砂玻璃', mica: '云母', solid: '纯色' };
     var _n26GlassLive = null;
@@ -41833,7 +41974,7 @@
             });
             return out;
         } catch (e) {
-            return { material: 'liquid', opacity: 55, blur: 18, saturation: 148, highlight: 35, radius: 14, refraction: 55, noise: 8 };
+            return { material: 'liquid', opacity: 55, blur: 18, saturation: 148, highlight: 35, radius: 14, refraction: 55, dispersion: 6, noise: 8 };
         }
     }
     /* opts.light === true：拖动中的每帧调用，只改数值变量；
@@ -41859,6 +42000,11 @@
             // 液态专属参数：非液态时从生效链路撤掉（用户存值保留，切回再恢复）
             de.style.setProperty('--n26-refr', liquid ? String(g.refraction) : '0');
             de.style.setProperty('--n26-noise', liquid ? String(g.noise) : '0');
+            /* v3.5：3+1 个折射面用独立微模糊映射（0.25–3px），其余玻璃面继续吃 0–32px 的 --n26-blur，
+               两套语义互不影响 */
+            de.style.setProperty('--n26-lg-blur', (0.25 + (g.material === 'solid' ? 0 : g.blur) / 40 * 2.75).toFixed(2) + 'px');
+            /* 色散：0 = 完全不建第二层采样 */
+            de.style.setProperty('--n26-disp', liquid ? String(g.dispersion || 0) : '0');
             b.setAttribute('data-n26-liquid', liquid ? '1' : '0');
             if (typeof n26GrainSync === 'function') { try { n26GrainSync(); } catch (e) {} }
             if (!opts || opts.light !== true) {
@@ -41948,7 +42094,7 @@
         var html = '<h4><i class="fas fa-layer-group" style="margin-right:6px;"></i>材质与质感 <small>越往下越省电</small></h4>'
             + '<div class="mat-row">';
         cards.forEach(function (c) {
-            html += '<div class="mat-card' + (g.material === c.id ? ' active' : '') + '"'
+            html += '<div class="mat-card n26-lg-ctrl' + (g.material === c.id ? ' active' : '') + '"'
                 + ' onclick="n26SetGlassMaterial(\'' + c.id + '\')">'
                 + '<div class="mat-thumb ' + c.cls + '"></div>'
                 + '<div class="mat-name">' + c.name + '</div>'
@@ -41994,6 +42140,7 @@
         highlight:  { name: '高光',     hint: '顶部 1px 内高光的强度，决定边缘的玻璃感' },
         radius:     { name: '圆角',     hint: '窗口、演示区与卡片的外圆角；拖动即时预览' },
         refraction: { name: '折射强度', hint: '液态玻璃专属：位移贴图强度，0 = 完全不折射' },
+        dispersion: { name: '色散',     hint: '液态玻璃专属：边缘 RGB 分离；0 = 完全不做第二次采样（零开销）' },
         noise:      { name: '颗粒',     hint: '液态玻璃专属：表面颗粒，抑制塑料感' }
     };
     function n26PzFmt(key, v) {
@@ -42146,7 +42293,7 @@
             + '<div class="settings-section n26-pz-sec"><h4><i class="fas fa-layer-group" style="margin-right:6px;"></i>材质 <small>四种，点一下全系统切换</small></h4>'
             + '<div class="mat-row">'
             + cards.map(function (c) {
-                return '<div class="mat-card' + (g.material === c.id ? ' active' : '') + '" onclick="n26SetGlassMaterial(\'' + c.id + '\')">'
+                return '<div class="mat-card n26-lg-ctrl' + (g.material === c.id ? ' active' : '') + '" onclick="n26SetGlassMaterial(\'' + c.id + '\')">'
                     + '<div class="mat-thumb ' + c.cls + '"></div>'
                     + '<div class="mat-name">' + c.name + '</div>'
                     + '<div class="mat-desc">' + c.desc + '</div></div>';
@@ -42156,7 +42303,7 @@
             + ['opacity', 'blur', 'radius', 'saturation', 'highlight'].map(n26PzRange).join('')
             + '</div>'
             + '<div class="settings-section n26-pz-sec n26-pz-liquid-sec"><h4><i class="fas fa-droplet" style="margin-right:6px;"></i>液态玻璃专属 <small>切到其它材质会禁用并从生效链路撤下</small></h4>'
-            + ['refraction', 'noise'].map(n26PzRange).join('')
+            + ['refraction', 'dispersion', 'noise'].map(n26PzRange).join('')
             + '</div>'
             + '<div class="n26-pz-actions">'
             + '<button class="glass-btn n26-pz-reset" onclick="n26ResetGlass(\'all\')"><i class="fas fa-rotate-left"></i> 恢复默认（液态 + 7 项参数）</button>'
@@ -42169,7 +42316,7 @@
         var g = n26GlassPref();
         var L = N26_GLASS_LIMITS[key], meta = N26_PZ_LABEL[key], v = g[key];
         var pct = Math.max(0, Math.min(100, (v - L[0]) / (L[1] - L[0]) * 100));
-        var off = (key === 'blur' && g.material === 'solid') || ((key === 'refraction' || key === 'noise') && g.material !== 'liquid');
+        var off = (key === 'blur' && g.material === 'solid') || ((key === 'refraction' || key === 'noise' || key === 'dispersion') && g.material !== 'liquid');
         return '<div class="n26pz-field' + (off ? ' is-off' : '') + '" data-pz-key="' + key + '">'
             + '<div class="n26pz-head"><span class="n26pz-name">' + meta.name + '</span>'
             + '<b class="n26pz-val" id="n26pzVal-' + key + '">' + n26PzFmt(key, v) + '</b></div>'
@@ -42218,10 +42365,10 @@
     }
     function n26PzSyncUI() {
         var g = n26GlassPref();
-        ['opacity', 'blur', 'radius', 'saturation', 'highlight', 'refraction', 'noise'].forEach(function (k) {
+        ['opacity', 'blur', 'radius', 'saturation', 'highlight', 'refraction', 'dispersion', 'noise'].forEach(function (k) {
             var el = document.getElementById('n26pzRange-' + k);
             if (!el) return;
-            var off = (k === 'blur' && g.material === 'solid') || ((k === 'refraction' || k === 'noise') && g.material !== 'liquid');
+            var off = (k === 'blur' && g.material === 'solid') || ((k === 'refraction' || k === 'noise' || k === 'dispersion') && g.material !== 'liquid');
             var field = el.parentNode;
             el.disabled = off;
             if (field) field.classList.toggle('is-off', off);
@@ -42232,7 +42379,7 @@
             var why = field ? field.querySelector('.n26pz-why') : null;
             if (why) {
                 if (k === 'blur' && g.material === 'solid') why.textContent = '纯色材质不做背景模糊，这一项不可调。';
-                else if ((k === 'refraction' || k === 'noise') && g.material !== 'liquid') why.textContent = '仅液态玻璃生效；当前数值已保留，切回液态会自动恢复。';
+                else if ((k === 'refraction' || k === 'noise' || k === 'dispersion') && g.material !== 'liquid') why.textContent = '仅液态玻璃生效；当前数值已保留，切回液态会自动恢复。';
                 else why.textContent = '';
             }
         });
@@ -42627,18 +42774,54 @@
             document.documentElement.style.setProperty('--n26-grain-fn', liquid ? 'url(#n26Grain)' : 'opacity(1)');
         } catch (e) {}
     }
-    /* 折射：只改 feDisplacementMap 的 scale，不重建贴图 */
+    /* 折射 + 色散：只改 feDisplacementMap 的 scale，不重建贴图；
+       色散 0 ↔ >0 需要增删第二层采样节点，此时才重建（单次，非每帧） */
     function n26LgSetRefraction(pct) {
         try {
-            var targets = (typeof N26_LG_TARGETS !== 'undefined') ? N26_LG_TARGETS : [];
-            var k = Math.max(0, Math.min(100, pct || 0)) / 100;
-            targets.forEach(function (pair) {
+            var g = (typeof n26GlassPref === 'function') ? n26GlassPref() : { refraction: 55, dispersion: 0 };
+            var k = Math.max(0, Math.min(100, (pct == null ? g.refraction : pct))) / 55;
+            var dAmt = Math.max(0, Math.min(20, g.dispersion || 0));
+            var apply = function (el) {
+                var lg = el._n26Lg;
+                if (!lg || !lg.disp) return;
+                var s0 = (lg.baseScale || 0) * k;
+                lg.disp.setAttribute('scale', String(Math.round(s0 * 1000) / 1000));
+                var want = dAmt > 0 && s0 > 0.5;
+                if (want !== !!lg.dispOn) {
+                    var opts = lg.opts, size = { w: lg.w, h: lg.h }, id = lg.id;
+                    _n26LgClear(el);
+                    _n26LgApply(el, id, opts, size);
+                    return;
+                }
+                if (want) {
+                    var sD = (dAmt / 20) * 6;
+                    if (lg.dispHi) lg.dispHi.setAttribute('scale', String(Math.round((s0 + sD) * 1000) / 1000));
+                    if (lg.dispLo) lg.dispLo.setAttribute('scale', String(Math.round(Math.max(0, s0 - sD) * 1000) / 1000));
+                }
+            };
+            ((typeof N26_LG_TARGETS !== 'undefined') ? N26_LG_TARGETS : []).forEach(function (pair) {
                 var el = document.querySelector(pair[0]);
-                if (!el || !el._n26Lg || !el._n26Lg.disp) return;
-                el._n26Lg.disp.setAttribute('scale', String(Math.round((el._n26Lg.baseScale || 1) * k)));
+                if (el) apply(el);
             });
+            document.querySelectorAll('.n26-dng').forEach(apply);
         } catch (e) {}
     }
+    /* 供 n26-docknav.js 给动态侧栏指示器挂同一个引擎：
+       id 需唯一，size 由调用方按 8px/4px 量化以复用贴图缓存 */
+    window.n26LgAttach = function (el, id, opts, size) {
+        try { if (el && !el._n26Lg) _n26LgApply(el, id, opts, size); } catch (e) {}
+    };
+    window.n26LgResize = function (el, id, opts, size) {
+        try {
+            if (!el) return;
+            if (!el._n26Lg) { _n26LgApply(el, id, opts, size); return; }
+            if (Math.abs(el._n26Lg.w - (size.w || 0)) > 6 || Math.abs(el._n26Lg.h - (size.h || 0)) > 4) {
+                _n26LgClear(el);
+                _n26LgApply(el, id, opts, size);
+            }
+        } catch (e) {}
+    };
+    window.n26LgClear = function (el) { try { _n26LgClear(el); } catch (e) {} };
 
     window.n26GlassPref = n26GlassPref;
     window.n26ApplyGlass = n26ApplyGlass;
@@ -44380,8 +44563,6 @@
             delete _ps.autoDarkMode;
             setLS('personalizeSettings', _ps);
 
-            const _theme = getLS('theme');
-            if (_theme === 'dark' || _theme === 'light') localStorage.removeItem(NEXUS_PREFIX + 'theme');
             if (getLS('autoDarkActive')) setLS('autoDarkActive', false);
 
             const _accs = getLS('accounts') || [];
@@ -44946,7 +45127,7 @@
 
     async function factoryResetNoConfirm() {
         // 清理 localStorage
-        Object.keys(localStorage).filter(k => k.startsWith(NEXUS_PREFIX)).forEach(k => localStorage.removeItem(k));
+        if (window.__n26PurgeOwnStorage) window.__n26PurgeOwnStorage();   /* 只清 26 自己的 n26: / n26* 键，绝不动初代的 nexus_ */
         // 清理 IndexedDB
         if (NexusDB.initialized) {
             try {
@@ -45069,7 +45250,7 @@
             });
 
             // 清理 localStorage
-            Object.keys(localStorage).filter(k => k.startsWith(NEXUS_PREFIX)).forEach(k => localStorage.removeItem(k));
+            if (window.__n26PurgeOwnStorage) window.__n26PurgeOwnStorage();   /* 只清 26 自己的 n26: / n26* 键，绝不动初代的 nexus_ */
 
             // 清理 IndexedDB
             if (NexusDB.initialized) {
@@ -45168,7 +45349,7 @@
 
         setTimeout(async () => {
             // 清除所有 localStorage 数据
-            Object.keys(localStorage).filter(k => k.startsWith(NEXUS_PREFIX)).forEach(k => localStorage.removeItem(k));
+            if (window.__n26PurgeOwnStorage) window.__n26PurgeOwnStorage();   /* 只清 26 自己的 n26: / n26* 键，绝不动初代的 nexus_ */
             // 确保从头开始（不设置 factoryResetStep）
             localStorage.removeItem(NEXUS_PREFIX + 'factoryResetStep');
 
@@ -49114,7 +49295,7 @@
             st = (typeof n26WeatherState === 'function') ? n26WeatherState() : null;
             if (!st) {
                 // 兜底也直读共享键（绕过 NexusDB 缓存，避免旧城市串台）
-                const raw = localStorage.getItem('nexus_n26_weather_state_v1');
+                const raw = localStorage.getItem(NEXUS_PREFIX + 'n26_weather_state_v1');
                 if (raw) st = JSON.parse(raw);
             }
         } catch (e) { st = null; }
@@ -53280,7 +53461,7 @@
             if (spm) spm.classList.remove('show');
             const spw = document.getElementById('startMenuPowerWrap');
             if (spw) spw.classList.remove('show');
-            setTimeout(() => { startMenu.classList.remove('show'); startMenu.classList.remove('closing'); }, 200);
+            setTimeout(() => { startMenu.classList.remove('show'); startMenu.classList.remove('closing'); }, 220);
         }
         const launchpad = document.getElementById('launchpad');
         if (launchpad && launchpad.classList.contains('show')) {
@@ -53642,14 +53823,14 @@
 
         // 锁屏状态下点击注销：也需要进入切换账户页面
         if (!currentUser) {
-            sessionStorage.removeItem('lastAccount');
+            sessionStorage.removeItem(NEXUS_PREFIX + 'lastAccount');
             document.querySelectorAll('.account-item.last-account').forEach(el => el.classList.remove('last-account'));
             // 直接显示切换账户页面
             showSwitchAccountScreen();
             return;
         }
         // 桌面注销：记录最后注销账户到 sessionStorage
-        sessionStorage.setItem('lastAccount', currentUser.name);
+        sessionStorage.setItem(NEXUS_PREFIX + 'lastAccount', currentUser.name);
         setUserLS('windows', windows.map(w => ({
             id: w.id,
             appId: w.appId,
@@ -54212,8 +54393,9 @@
     // 检测本机是否已有账号（localStorage 里有历史账号列表即视为已有）
     function n26HasLocalAccount() {
         try {
-            const raw = localStorage.getItem('nexusAccounts') || localStorage.getItem('nexus_accounts');
-            if (raw) { const arr = JSON.parse(raw); if (Array.isArray(arr) && arr.length) return true; }
+            /* 只读 26 自己的命名空间，绝不把初代的账号列表当作"本机已有账号" */
+            const arr = getLS('accounts');
+            if (Array.isArray(arr) && arr.length) return true;
         } catch (e) {}
         return false;
     }
@@ -54511,7 +54693,7 @@
             if (!r || !r.found) { say('没找到这个人：请确认账户名 / UID / ID 号是否写对了', false); return; }
             const u = r.user;
             let fr = [];
-            try { fr = JSON.parse(localStorage.getItem('nexusFriends') || '[]'); } catch (e) { fr = []; }
+            try { fr = JSON.parse(localStorage.getItem(NEXUS_PREFIX + 'friends') || '[]'); } catch (e) { fr = []; }
             // 老版本存的是纯字符串，这里统一成对象
             fr = fr.map(function (x) { return typeof x === 'string' ? { accountName: x } : x; });
             const exists = fr.some(function (f) { return f.uid && f.uid === u.uid; });
@@ -54521,7 +54703,7 @@
                     gender: u.gender || 'secret', birthday: u.birthday || '', avatar: u.avatar || '',
                     addedAt: Date.now()
                 });
-                try { localStorage.setItem('nexusFriends', JSON.stringify(fr)); } catch (e) { }
+                try { localStorage.setItem(NEXUS_PREFIX + 'friends', JSON.stringify(fr)); } catch (e) { }
             }
             say(exists ? ('已经是好友了：' + u.userName) : ('已添加：' + u.userName + '（UID ' + u.uid + '）'), true);
             n26AcctLoadFriends();
@@ -54538,7 +54720,7 @@
         /* ★ v2.9.49：好友列表只读本机好友表（加好友时已经通过 n26Acc.lookup 拿到对方基础信息并存下来了）。
            原来还有一条 /api/friend/list 的线上分支，但那个接口在后端不存在，走不通。 */
         let fr = [];
-        try { fr = JSON.parse(localStorage.getItem('nexusFriends') || '[]'); } catch (e) { fr = []; }
+        try { fr = JSON.parse(localStorage.getItem(NEXUS_PREFIX + 'friends') || '[]'); } catch (e) { fr = []; }
         fr = fr.map(function (x) { return typeof x === 'string' ? { accountName: x } : x; });
         if (!fr.length) {
             box.innerHTML = '<div class="form-hint">还没有好友。输入对方的账户名、UID 或 ID 号就能加。</div>';
@@ -61011,7 +61193,7 @@
         try {
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('diskUpdated') === 'true') {
-                const peDisks = localStorage.getItem('nexus_pe_disks');
+                const peDisks = localStorage.getItem(NEXUS_PREFIX + 'pe_disks');
                 if (peDisks) {
                     try {
                         const newDisks = JSON.parse(peDisks);
@@ -61031,7 +61213,7 @@
                             });
                             setLS('user_' + acc.name + '_filesystem', fs);
                         });
-                        localStorage.removeItem('nexus_pe_disks');
+                        localStorage.removeItem(NEXUS_PREFIX + 'pe_disks');
                         setLS('diskUpdatedNotify', true);
                     } catch(e) {}
                 }
