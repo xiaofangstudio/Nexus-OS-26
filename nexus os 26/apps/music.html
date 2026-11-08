@@ -845,7 +845,7 @@ body.mat-solid #bar {
     }).catch(function (err) {
       if (S.cur !== t) return;
       resetPlayBtn();
-      if (err && err.reason === 'vip') {
+      } else if (err && err.reason === 'vip') {
         N.notify(T('nf_vip_title'), T('nf_vip_body', t.name), 'warning');
       } else if (err && err.reason === 'offline') {
         N.notify(T('nf_off_title'), T('nf_off_body'), 'warning');

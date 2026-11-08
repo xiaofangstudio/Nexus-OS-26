@@ -12,11 +12,11 @@
     <link rel="stylesheet" href="fangui/core/neu.css">
     <link rel="stylesheet" href="fangui/core/liquid.css">
     <!-- AI 小方「长按 Space」Siri 风格光效（边缘光带/白爆/波纹/扭曲） -->
-    <link rel="stylesheet" href="ui/covi-glow.css?v=2964">
+    <link rel="stylesheet" href="ui/covi-glow.css">
     <!-- AI 小方 HUD：底部悬浮输入条 + 悬空回复气泡 -->
     <link rel="stylesheet" href="ui/covi-hud.css">
     <!-- OOBE 卡牌式动效（点击切卡 + 3D 牌堆 + 进度条） -->
-    <link rel="stylesheet" href="ui/oobe-cards.css?v=2960">
+    <link rel="stylesheet" href="ui/oobe-cards.css">
     <link rel="stylesheet" href="ui/fui-style.css">
     <script src="vendor/html2canvas.min.js"></script>
     <style>
@@ -50,19 +50,11 @@
         #nexus-bg {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: url('../Wallpaper/抽象风格/n26-aurora-mist.png') center/cover no-repeat;
+            background: url('../Wallpaper/抽象风格/1785840648804_edit_1238598309040738.png') center/cover no-repeat;
             z-index: -1;
             transition: opacity 0.5s var(--ease-out), transform 0.15s var(--ease-out);
             transform: scale(1.08);          /* N26：略微放大，为视差留出位移空间 */
             will-change: transform;
-        }
-        /* v2.9.60：新默认壁纸是浅色弥散渐变，深色模式下桌面栏白字会糊没 → 压一层墨色渐变，
-           深色模式才有「暗色桌面」的实感，且不额外增加模糊采样层 */
-        body.dark-mode #nexus-bg::after {
-            content: '';
-            position: absolute; inset: 0;
-            background: linear-gradient(180deg, rgba(8,14,26,.60) 0%, rgba(8,14,26,.44) 55%, rgba(8,14,26,.54) 100%);
-            pointer-events: none;
         }
 
         .glass {
@@ -169,10 +161,10 @@
         body.dark-mode .settings-panel h3 { color: #f0f0f0; }
         body.dark-mode .settings-section h4 { color: rgba(255,255,255,0.9); }
         body.dark-mode .settings-row { color: rgba(255,255,255,0.75); border-bottom-color: rgba(255,255,255,0.08); }
-        body.dark-mode .settings-sidebar { background: transparent; border-right-color: rgba(255,255,255,0.08); }
+        body.dark-mode .settings-sidebar { background: rgba(0,0,0,0.2); border-right-color: rgba(255,255,255,0.1); }
         body.dark-mode .settings-item { color: rgba(255,255,255,0.7); }
         body.dark-mode .settings-item:hover { background: rgba(255,255,255,0.08); color: white; }
-        body.dark-mode .settings-item.active { background: rgba(74,155,245,0.28); color: white; box-shadow: inset 0 1px 0 rgba(255,255,255,0.14); }
+        body.dark-mode .settings-item.active { background: rgba(74,155,245,0.3); color: white; }
         body.dark-mode .settings-user-avatar { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
         body.dark-mode .settings-user-name { color: white; }
         body.dark-mode .settings-user-role { color: rgba(255,255,255,0.5); }
@@ -329,38 +321,38 @@
             z-index: 1000;
         }
 
-        /* 共享背景：v2.9.60 低饱和弥散柔光（青蓝/暖杏/薄荷/天蓝，禁紫）——替换写实山水照片 */
+        /* 共享背景：纯白 + 左上橘色大圆 + 右下蓝色大圆（重叠区呈绿色混合） */
         .install-bg {
-            background: url('../Wallpaper/抽象风格/n26-aurora-mist.png') center/cover no-repeat, #eef3f8;
+            background: url('../Wallpaper/抽象风格/1785840648804_edit_1238598309040738.png') center/cover no-repeat, #1a2a3a;
             position: relative;
             overflow: hidden;
         }
-        /* N26：极轻柔光，保证玻璃卡片上的文字可读（新壁纸本身已很浅，不再叠厚白） */
+        /* N26：抽象壁纸上的柔光遮罩，保证玻璃卡片上的文字可读 */
         .install-bg::before {
             content: '';
             position: absolute;
             inset: 0;
-            background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.14) 100%);
+            background: linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.34) 100%);
             pointer-events: none;
             z-index: 0;
         }
         .install-bg::after { content: none; }
 
-        /* ========== N26 v2.9.60：OOBE 大卡 FluentOS 语言（整块大长方形 / 左对齐内容 / 水印右下出血） ========== */
+        /* ========== N26：OOBE 卡片翻页布局（左侧动画 + 右侧内容） ========== */
         .oobe-card {
             position: relative;
             z-index: 1;
-            width: min(920px, 92vw);
-            min-height: min(460px, 68vh);
-            max-height: 92vh;
+            width: min(900px, 94vw);
+            min-height: min(500px, 72vh);
+            max-height: 92vh;   /* 原 86vh：AI 接入那一步在 800px 高的屏上装不下，按钮被切 */
             height: auto;
             box-sizing: border-box;
-            background: rgba(255,255,255,0.76);
+            background: rgba(255,255,255,0.62);
             backdrop-filter: blur(30px) saturate(170%);
             -webkit-backdrop-filter: blur(30px) saturate(170%);
-            border: 1px solid rgba(255,255,255,0.85);
-            border-radius: 30px;
-            box-shadow: 0 28px 90px rgba(26,50,80,0.18), inset 0 1px 0 rgba(255,255,255,0.95);
+            border: 1px solid rgba(255,255,255,0.75);
+            border-radius: 28px;
+            box-shadow: 0 24px 80px rgba(10,25,50,0.25), inset 0 1px 0 rgba(255,255,255,0.95);
             display: flex;
             overflow: hidden;
         }
@@ -371,67 +363,45 @@
             0% { opacity: 0; transform: perspective(1400px) rotateY(-10deg) translateX(60px) scale(0.97); }
             100% { opacity: 1; transform: perspective(1400px) rotateY(0deg) translateX(0) scale(1); }
         }
-        /* 动画整体降级为右下角出血水印：灵动保留，永不与内容带重叠（v2.9.59 居中水印穿透文字的教训） */
         .oobe-card-anim {
-            position: absolute;
-            inset: 0;
-            flex: none;
+            flex: 0 0 40%;
+            position: relative;
             display: flex;
-            align-items: flex-end;
-            justify-content: flex-end;
-            background: none;
-            border-right: none;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(160deg, rgba(96,165,250,0.22), rgba(59,130,246,0.06) 60%, rgba(37,99,235,0.14));
+            border-right: 1px solid rgba(255,255,255,0.55);
             overflow: hidden;
-            pointer-events: none;
-            z-index: 0;
-            opacity: .55;
-        }
-        .oobe-card-anim > i {
-            font-size: 230px !important;
-            color: rgba(59,130,246,0.055) !important;
-            filter: none !important;
-            margin: 0 -92px -78px 0;
-            animation: oobeLogoFloat 4s var(--ease-in-out-quart) infinite !important;
         }
         .oobe-card-form {
-            flex: 1 1 0;
-            width: 100%;
+            flex: 1;
             min-width: 0;
-            min-height: 0;                 /* flex 子项经典坑：不写会撑破卡片被 overflow 裁切 */
-            padding: 46px 64px;
+            padding: 36px 42px;
             display: flex;
             flex-direction: column;
-            align-items: flex-start;        /* FluentOS 语言：全部左对齐，不挤成中间窄条 */
+            align-items: center;
             justify-content: center;
-            text-align: left;
             overflow-y: auto;
             position: relative;
             z-index: 1;
         }
-        .oobe-card-form > .step-title,
-        .oobe-card-form > .step-subtitle,
-        .oobe-card .acc-pane > .step-title,
-        .oobe-card .acc-pane > .step-subtitle { text-align: left; }
-        .oobe-card .step-title { font-size: 30px; font-weight: 800; letter-spacing: -.4px; }
-        /* 左侧动画通用元素：漂浮新 LOGO（水印化，右下出血） */
+        /* 左侧动画通用元素：漂浮新 LOGO */
         .oobe-anim-logo {
-            width: 280px;
-            height: 280px;
+            width: 150px;
+            height: 150px;
             object-fit: contain;
-            opacity: 0.08;
-            filter: none;
-            margin: 0 -104px -92px 0;
+            filter: drop-shadow(0 12px 32px rgba(37,99,235,0.35));
             animation: oobeLogoFloat 4s var(--ease-in-out-quart) infinite;
         }
         @keyframes oobeLogoFloat {
             0%, 100% { transform: translateY(-8px); }
             50% { transform: translateY(10px); }
         }
-        /* 左侧动画：波纹圈（背景水印层，淡化不抢内容） */
+        /* 左侧动画：波纹圈 */
         .oobe-anim-ripple {
             position: absolute;
             border-radius: 50%;
-            border: 2px solid rgba(96,165,250,0.16);
+            border: 2px solid rgba(96,165,250,0.35);
             animation: oobeRipple 3s var(--ease-out) infinite;
         }
         .oobe-anim-ripple:nth-child(2) { animation-delay: 1s; }
@@ -440,15 +410,15 @@
             0% { width: 60px; height: 60px; opacity: 1; }
             100% { width: 420px; height: 420px; opacity: 0; }
         }
-        /* 左侧动画：轨道粒子（背景水印层） */
-        .oobe-anim-orbit { position: absolute; inset: 0; opacity: 0.35; }
+        /* 左侧动画：轨道粒子 */
+        .oobe-anim-orbit { position: absolute; inset: 0; }
         .oobe-anim-orbit .orbit-dot {
             position: absolute;
             top: 50%; left: 50%;
-            width: 10px; height: 10px;
+            width: 12px; height: 12px;
             border-radius: 50%;
             background: linear-gradient(135deg, #60a5fa, #2563eb);
-            box-shadow: 0 0 12px rgba(59,130,246,0.5);
+            box-shadow: 0 0 16px rgba(59,130,246,0.8);
         }
         .oobe-anim-orbit .orbit-dot:nth-child(1) { animation: oobeOrbit 6s linear infinite; }
         .oobe-anim-orbit .orbit-dot:nth-child(2) { animation: oobeOrbit 6s linear infinite 2s; width: 8px; height: 8px; background: linear-gradient(135deg, #f59e0b, #f97316); box-shadow: 0 0 12px rgba(245,158,11,0.8); }
@@ -841,144 +811,14 @@
         #step-api .glass-card-clear .form-group { margin-bottom: 8px; }
         #step-api .glass-card-clear .form-group label { margin-bottom: 3px; }
         #step-api .glass-card-clear .form-input { padding-top: 8px; padding-bottom: 8px; }
-        /* v2.9.59：OOBE 卡内不再套第二层玻璃卡（卡中卡=AI 味+多一层采样） */
-        .oobe-card .glass-card-clear {
-            background: transparent;
-            backdrop-filter: none;
-            -webkit-backdrop-filter: none;
-            border: none;
-            box-shadow: none;
-        }
-        .oobe-card .glass-card-clear::before { content: none; }
-        /* ===== v2.9.60 OOBE 统一语言：内容充实、水印不打架、控件精致 ===== */
-        /* 功能介绍的轮播预览移到右下出血，不再斜插在 2×2 功能网格里 */
-        .oobe-card-anim .feature-carousel {
-            position: absolute;
-            right: -20px; bottom: -20px;
-            width: 440px; height: 176px;
-            margin: 0;
-            border-radius: 18px;
-            box-shadow: 0 10px 30px rgba(26,50,80,.16);
-        }
-        /* 固件控制台：一块圆角深色终端，取代灰白卡里挤灰字 */
-        .oobe-card-form .firmware-console {
-            background: #101a26 !important;
-            border: 1px solid rgba(255,255,255,.09) !important;
-            border-radius: 16px !important;
-            color: #a8e8c4 !important;
-            padding: 18px 22px !important;
-            font-size: 12.5px; line-height: 1.7;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 12px 34px rgba(16,26,38,.18);
-        }
-        /* 主按钮：蓝色胶囊，比原来的小灰蓝按钮有分量 */
-        .oobe-card .glass-btn.primary {
-            padding: 11px 26px;
-            border-radius: 999px;
-            font-size: 14px;
-            font-weight: 700;
-            letter-spacing: .2px;
-        }
-        .oobe-card .btn-row { justify-content: flex-start; }
-        /* 内容块统一左对齐流向，但保留足够行宽，不挤成窄条 */
-        .oobe-card .privacy-card,
-        .oobe-card .account-form,
-        .oobe-card .cloud-prompt-card { width: min(640px, 100%); }
-        .oobe-card .cloud-prompt-card { padding: 8px 0; }
-        /* 功能卡文字左对齐（FluentOS 语言），描述行不再孤字换行 */
-        .oobe-card .feature-card { text-align: left; }
-        .oobe-card .feature-icon { margin-left: 0; }
         #step-api .btn-row { margin-top: 12px !important; }
         #step-api .btn-row .glass-btn { padding: 8px 14px; font-size: 12.5px; }
         #step-api .oobe-ai-hint { margin-bottom: 10px; }
 
-        /* ===== v2.9.60 第二轮：14 步逐张截图审查后的定点修复 ===== */
-        /* ① 固件：跑满 100% 的蓝进度条在白卡顶上就是一条莫名其妙的细线，收掉 */
-        #step-firmware .firmware-top-progress { display: none; }
-        /* ② 拖放步骤：深色背景时代遗留的白图标白底 → 看得见的蓝色立体图标 */
-        #step-download-drag .download-drag-container { justify-content: flex-start; gap: 38px; margin: 10px 0 4px; }
-        #step-download-drag .download-icon-box,
-        #step-download-drag .disk-icon-box {
-            width: 100px; height: 100px; border-radius: 26px;
-            background: linear-gradient(150deg, #eef6ff, #cfe4fb);
-            border: 1px solid rgba(59,130,246,.24);
-            box-shadow: 0 14px 30px rgba(37,99,235,.16), inset 0 1px 0 rgba(255,255,255,.95);
-            color: #2b6fd6; font-size: 40px;
-        }
-        #step-download-drag .download-arrow { background: linear-gradient(90deg, rgba(59,130,246,.55), rgba(59,130,246,.16)); }
-        #step-download-drag .download-arrow::after { border-left-color: rgba(59,130,246,.55); }
-        #step-download-drag .download-hint { font-size: 15px; color: rgba(60,60,67,.72) !important; }
-        /* ③ 下载进度：控制台白底压白卡，改成有边界的浅蓝实感面板 */
-        .oobe-card-form .download-console {
-            background: rgba(238,246,255,.82) !important;
-            border: 1px solid rgba(59,130,246,.14) !important;
-            color: #334155 !important;
-        }
-        /* ④ 功能介绍：轮播缩略图在单栏大卡里始终会被 overflow 切成半张（试过降透明度仍像脏块），
-           干脆从这一步撤掉；灵动感由标题逐字弹入 + 波纹水印 + 卡片视差承担，数据层仍照常初始化 */
-        .oobe-card-anim .feature-carousel { display: none; }
-        /* ⑤ 云盘：去掉最后一块「卡中卡」，内容左对齐、信息层级补齐 */
-        .oobe-card .cloud-prompt-card {
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-            text-align: left;
-            padding: 0;
-        }
-        .oobe-card .cloud-prompt-card::before { content: none; }
-        .oobe-card .cloud-icon { text-align: left; font-size: 46px; margin: 0 0 18px; }
-        .oobe-card .cloud-desc { text-align: left; margin-bottom: 16px; }
-        .oobe-card .cloud-btns { justify-content: flex-start; }
-        .cloud-perk-list { display: flex; flex-direction: column; gap: 10px; margin: 20px 0 26px; }
-        .cloud-perk-list > div { display: flex; align-items: center; gap: 12px; font-size: 14px; color: rgba(30,41,59,.78); }
-        .cloud-perk-list i {
-            width: 30px; height: 30px; border-radius: 9px; flex: none;
-            display: grid; place-items: center; font-size: 13px;
-            background: rgba(59,130,246,.10); color: #2b6fd6;
-        }
-        .cloud-perk-list b { color: #16202e; font-weight: 800; }
-        /* ⑥ 主题步骤内容最高：卡片限高 + 内部滚动，Dock 预览不再被切；
-           再往下让一点，顶部进度胶囊不会正好压在卡片圆角上 */
-        #step-personalize-4 .oobe-card { max-height: 86vh; margin-top: 36px; }
-        #step-personalize-4 .oobe-card-form { max-height: 86vh; overflow-y: auto; }
-        /* 壁纸步骤：把浅色渐变当水印图会变成一块发白的方块，直接撤掉 */
-        #step-personalize-5 .oobe-anim-logo { display: none; }
-        /* ⑦ 完成页：旧版是给纯黑背景用的左下角深玻璃小卡，换到浅色弥散渐变后既小又突兀 →
-           改成和其他步骤同一套「大长方卡」语言：居中、浅实卡、深色字、大标题 */
-        #step-showcase .showcase-overlay {
-            inset: 0; display: flex; align-items: center; justify-content: center;
-            padding: 24px; text-align: center;
-        }
-        #step-showcase .showcase-prep-card {
-            position: relative; left: auto; bottom: auto;
-            width: min(560px, 92vw);
-            padding: 40px 44px 36px;
-            border-radius: 30px;
-            background: rgba(255,255,255,.86);
-            -webkit-backdrop-filter: blur(20px) saturate(140%);
-            backdrop-filter: blur(20px) saturate(140%);
-            border: 1px solid rgba(255,255,255,.95);
-            box-shadow: 0 28px 90px rgba(26,50,80,.18), inset 0 1px 0 rgba(255,255,255,.95);
-            text-align: left;
-        }
-        #step-showcase .showcase-brand-name { color: #16202e; }
-        #step-showcase .showcase-brand-sub { color: rgba(60,60,67,.55); }
-        #step-showcase .showcase-prep-card .showcase-text {
-            font-size: 26px; font-weight: 800; letter-spacing: -.4px;
-            color: #16202e; margin-bottom: 22px;
-        }
-        #step-showcase .showcase-checklist li { color: rgba(30,41,59,.5); font-size: 13.5px; }
-        #step-showcase .showcase-checklist li.done { color: #16202e; }
-        #step-showcase .showcase-checklist li.active { color: #2b6fd6; }
-        #step-showcase .showcase-prep-card .showcase-bar { background: rgba(30,41,59,.10); }
-        #step-showcase .showcase-pct { color: rgba(30,41,59,.7); }
-
         /* ===== N26 OOBE 呼吸感升级：间距拉开、卡片不再拥挤 ===== */
-        .features-grid { gap: 20px; max-width: 720px; margin: 28px 0 30px; }
-        .feature-card { padding: 20px 22px; border-radius: 18px; }
-        .feature-icon { width: 50px; height: 50px; margin-bottom: 12px; border-radius: 14px; font-size: 22px; }
-        .oobe-card .feature-desc { font-size: 12.5px; line-height: 1.5; }
+        .features-grid { gap: 26px; max-width: 660px; margin: 34px 0 38px; }
+        .feature-card { padding: 30px 26px; border-radius: 20px; }
+        .feature-icon { width: 54px; height: 54px; margin-bottom: 16px; border-radius: 15px; font-size: 24px; }
         /* AI 小方：用我们自己的玻璃球形象（静态图），不再用机器人图标 */
         .feature-icon.feature-icon-img { background: none; box-shadow: none; overflow: visible; }
         .feature-icon.feature-icon-img img {
@@ -1044,358 +884,6 @@
         #step-personalize-4 .step-title { margin-bottom: 4px; }
         #step-personalize-4 .step-subtitle { margin-bottom: 12px; }
         #step-personalize-4 .theme-grid { margin: 8px 0 6px; }
-
-        /* ==================================================================
-           v2.9.61 · OOBE 呼吸感重构
-           只参考「留白节奏 / 单一视觉主体 / 缓出曲线 / 中性灰阶」这些设计原则，
-           实现全部自研：N26 斜向受光、逐字标题、3D 视差、细轨进度、covi 全屏。
-           对症 v2.9.60 四个问题：太拥挤 / 太乱 / 没有边界 / 配色难受。
-           ================================================================== */
-        :root {
-            --n26-oobe-ink: #182130;
-            --n26-oobe-ink-2: #5c6879;
-            --n26-oobe-ink-3: #8b95a4;
-            --n26-oobe-line: rgba(28, 42, 64, .10);
-            --n26-oobe-blue: #2f7cf6;
-            --n26-oobe-ease: cubic-bezier(.16, 1, .3, 1);
-        }
-        /* ① 背景中性化：四角明确彩色块是「配色难受」的根因，撤掉，只留单一冷调柔光 */
-        #install-screen.install-bg {
-            background:
-                radial-gradient(120% 92% at 8% 4%, rgba(210, 226, 242, .42), transparent 56%),
-                radial-gradient(110% 96% at 96% 98%, rgba(224, 233, 241, .48), transparent 58%),
-                #f5f7fa !important;
-        }
-        #install-screen.install-bg::before { background: none !important; }
-        /* ② 一张固定的纯白实卡：放大 40%、边界明确、步骤之间卡片本身不动 */
-        .oobe-card {
-            width: min(1280px, 92vw) !important;
-            height: min(700px, 84vh) !important;
-            min-height: 0 !important;
-            max-height: none !important;
-            background: #fff !important;
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-            border: 1px solid var(--n26-oobe-line) !important;
-            border-radius: 26px !important;
-            box-shadow: 0 32px 84px rgba(28, 42, 64, .13), 0 2px 10px rgba(28, 42, 64, .05) !important;
-        }
-        /* N26 保留：一道极淡斜向受光，不是彩色渐变 */
-        .oobe-card::after {
-            content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
-            background: linear-gradient(158deg, rgba(255, 255, 255, .92) 0%, rgba(240, 246, 252, .14) 30%, transparent 62%);
-        }
-        .install-step.active .oobe-card { animation: none !important; }
-        /* 装饰水印彻底退出：呼吸感来自留白，不来自背景图案 */
-        .oobe-card-anim { display: none !important; }
-        /* ③ 单一左对齐轴、大标题、三级灰阶、充足行距 */
-        .oobe-card-form { padding: 58px 78px !important; justify-content: center !important; }
-        .oobe-card .step-title {
-            font-size: 38px !important; font-weight: 760 !important; letter-spacing: -.7px !important;
-            line-height: 1.18 !important; color: var(--n26-oobe-ink) !important; margin-bottom: 14px !important;
-        }
-        .oobe-card .step-subtitle {
-            font-size: 15px !important; line-height: 1.72 !important;
-            color: var(--n26-oobe-ink-2) !important; margin-bottom: 30px !important;
-        }
-        .oobe-card .glass-btn.primary {
-            background: var(--n26-oobe-blue) !important; border: 1px solid var(--n26-oobe-blue) !important;
-            color: #fff !important; padding: 12px 28px !important; border-radius: 999px !important;
-            box-shadow: 0 10px 24px rgba(47, 124, 246, .22) !important;
-            transition: transform .4s var(--n26-oobe-ease), box-shadow .4s var(--n26-oobe-ease) !important;
-        }
-        .oobe-card .glass-btn.primary:hover { transform: translateY(-2px); box-shadow: 0 16px 32px rgba(47, 124, 246, .28) !important; }
-        /* ④ 顶部孤立胶囊 → 底部细轨，与卡片同宽同呼吸 */
-        #installStepsDots { display: none !important; }
-        #n26OobeChrome { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; pointer-events: none; }
-        .n26-oobe-frame { position: relative; width: min(1280px, 92vw); height: min(700px, 84vh); pointer-events: none; }
-        .n26-oobe-brand {
-            position: absolute; left: 38px; top: 28px; display: flex; align-items: center; gap: 10px;
-            opacity: 0; transform: translateY(-8px);
-            transition: opacity .8s var(--n26-oobe-ease), transform .8s var(--n26-oobe-ease);
-        }
-        #install-screen.n26-branded .n26-oobe-brand { opacity: 1; transform: none; }
-        .n26-oobe-brand img { width: 28px; height: 28px; border-radius: 8px; object-fit: contain; }
-        .n26-oobe-brand b { font-size: 13px; font-weight: 780; color: var(--n26-oobe-ink); letter-spacing: .2px; }
-        .n26-oobe-brand span { font-size: 11px; color: var(--n26-oobe-ink-3); margin-left: 2px; }
-        .n26-oobe-foot { position: absolute; left: 38px; right: 38px; bottom: 24px; display: flex; align-items: center; gap: 14px; }
-        .n26-oobe-track { flex: 1; height: 2px; background: rgba(28, 42, 64, .08); border-radius: 2px; overflow: hidden; }
-        .n26-oobe-track i { display: block; height: 100%; width: 0; background: var(--n26-oobe-blue); border-radius: 2px; transition: width .9s var(--n26-oobe-ease); }
-        .n26-oobe-count { font-size: 11px; color: var(--n26-oobe-ink-3); font-variant-numeric: tabular-nums; letter-spacing: .5px; }
-        /* 顶部自然过渡到背景：一道柔和顶渐变，去掉硬边导航感（欢迎/收尾页不需要） */
-        #n26OobeChrome::before {
-            content: ''; position: absolute; left: 0; right: 0; top: 0; height: 92px; z-index: 0; pointer-events: none;
-            background: linear-gradient(to bottom, rgba(245,247,250,.5), rgba(245,247,250,0));
-        }
-        /* ⑤ 左右软分区：实时预览常驻右侧、选项在左侧；所有非欢迎/收尾步骤都显示预览 */
-        #install-screen:not(.n26-welcome):not(.n26-covi) .oobe-card-form { padding-left: 56px !important; padding-right: calc(40% + 30px) !important; }
-        .n26-oobe-preview { position: absolute; right: 5%; left: auto; top: 50%; width: 34%; opacity: 0; transform: translateY(-50%); transition: opacity .8s var(--n26-oobe-ease); will-change: transform; }
-        #install-screen:not(.n26-welcome):not(.n26-covi) .n26-oobe-preview { opacity: 1; }
-        /* 预览内 Dock 位置联动（bottom/top/left/right/hidden） */
-        .n26-prev-dock.pos-bottom { left:50%; right:auto; bottom:6%; top:auto; transform:translateX(-50%); flex-direction:row; }
-        .n26-prev-dock.pos-top    { left:50%; right:auto; top:6%;    bottom:auto; transform:translateX(-50%); flex-direction:row; }
-        .n26-prev-dock.pos-left   { left:6%;  right:auto; top:50%;  bottom:auto; transform:translateY(-50%); flex-direction:column; }
-        .n26-prev-dock.pos-right  { right:6%; left:auto;  top:50%;  bottom:auto; transform:translateY(-50%); flex-direction:column; }
-        .n26-prev-dock.pos-hidden { display:none; }
-        /* 界面风格联动：flat 收掉卡片阴影，liquid 保留光泽 */
-        .n26-oobe-preview[data-fui="flat"] .n26-prev-tiles { box-shadow: 0 2px 8px rgba(28,42,64,.12); }
-        .n26-oobe-preview[data-fui="flat"] .n26-prev-dock { box-shadow: 0 2px 8px rgba(28,42,64,.10); }
-        .n26-prev-win {
-            position: relative; aspect-ratio: 16 / 10; border-radius: 16px; overflow: hidden; background: #e8eef6;
-            box-shadow: 0 24px 54px rgba(28, 42, 64, .18), 0 0 0 1px rgba(28, 42, 64, .07);
-        }
-        .n26-prev-wall { position: absolute; inset: 0; background: url('../Wallpaper/抽象风格/n26-aurora-mist.png') center/cover no-repeat; transition: filter .7s var(--n26-oobe-ease); }
-        .n26-prev-tiles { position: absolute; left: 7%; top: 15%; width: 58%; height: 68%; border-radius: 10px; background: rgba(255,255,255,.9); box-shadow: 0 10px 24px rgba(28,42,64,.16); display: flex; overflow: hidden; }
-        .n26-prev-side { width: 27%; background: rgba(235,241,248,.96); padding: 12px 8px; display: flex; flex-direction: column; gap: 9px; }
-        .n26-prev-side i { height: 5px; border-radius: 3px; background: rgba(28,42,64,.13); }
-        .n26-prev-side i:first-child { background: var(--n26-oobe-blue); width: 70%; }
-        .n26-prev-main { flex: 1; padding: 14px; display: flex; flex-direction: column; gap: 9px; }
-        .n26-prev-main b { height: 9px; width: 46%; border-radius: 4px; background: rgba(28,42,64,.20); }
-        .n26-prev-main i { height: 5px; border-radius: 3px; background: rgba(28,42,64,.10); }
-        .n26-prev-dock { position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%); display: flex; gap: 7px; padding: 7px 10px; border-radius: 12px; background: rgba(255,255,255,.74); box-shadow: 0 6px 18px rgba(28,42,64,.12); }
-        .n26-prev-dock i { width: 17px; height: 17px; border-radius: 5px; background: linear-gradient(160deg,#8fc0f5,#4a92ea); }
-        .n26-prev-dock i:nth-child(2) { background: linear-gradient(160deg,#9fdcc8,#48b39a); }
-        .n26-prev-dock i:nth-child(3) { background: linear-gradient(160deg,#f6cf9b,#eaa95c); }
-        .n26-prev-dock i:nth-child(4) { background: linear-gradient(160deg,#a9c8ef,#6f9ed6); }
-        .n26-oobe-preview[data-tone="dark"] .n26-prev-wall { filter: brightness(.32) saturate(.7); }
-        .n26-oobe-preview[data-tone="dark"] .n26-prev-tiles { background: rgba(30,36,48,.94); }
-        .n26-oobe-preview[data-tone="dark"] .n26-prev-side { background: rgba(38,45,58,.96); }
-        .n26-oobe-preview[data-tone="dark"] .n26-prev-main b { background: rgba(255,255,255,.28); }
-        .n26-oobe-preview[data-tone="dark"] .n26-prev-main i { background: rgba(255,255,255,.11); }
-        .n26-oobe-preview[data-tone="dark"] .n26-prev-dock { background: rgba(30,36,48,.86); }
-        .n26-prev-tone { display: flex; gap: 8px; margin-top: 18px; justify-content: center; pointer-events: auto; }
-        .n26-prev-tone button {
-            border: 1px solid var(--n26-oobe-line); background: #fff; color: var(--n26-oobe-ink-2);
-            border-radius: 999px; padding: 7px 18px; font-size: 12px; font-weight: 700; cursor: pointer;
-            transition: background .35s var(--n26-oobe-ease), color .35s var(--n26-oobe-ease), border-color .35s var(--n26-oobe-ease);
-        }
-        .n26-prev-tone button.on { background: var(--n26-oobe-blue); border-color: var(--n26-oobe-blue); color: #fff; }
-        /* ⑥ 欢迎页：整屏只放三个元素，超大留白 */
-        #step-welcome .oobe-card-form { align-items: center !important; justify-content: center !important; text-align: center !important; padding: 0 !important; }
-        .n26-hello { font-size: clamp(58px, 8vw, 104px); font-weight: 760; letter-spacing: -3px; line-height: 1; color: var(--n26-oobe-ink); transition: opacity .45s var(--n26-oobe-ease), transform .45s var(--n26-oobe-ease); }
-        .n26-hello.swap { opacity: 0; transform: translateY(12px); }
-        .n26-hello-sub { margin-top: 20px; font-size: 14px; color: var(--n26-oobe-ink-3); letter-spacing: .6px; }
-        .n26-hello-next {
-            margin-top: 54px; width: 64px; height: 64px; border-radius: 50%; border: 1px solid var(--n26-oobe-line);
-            background: #fff; color: var(--n26-oobe-blue); font-size: 20px; cursor: pointer; display: grid; place-items: center;
-            box-shadow: 0 10px 26px rgba(28,42,64,.10);
-            transition: transform .5s var(--n26-oobe-ease), box-shadow .5s var(--n26-oobe-ease), background .3s;
-        }
-        .n26-hello-next:hover { transform: translateY(-4px) scale(1.05); box-shadow: 0 16px 34px rgba(47,124,246,.22); background: #f7fbff; }
-        .n26-hello-next.go { animation: n26ArrowGo .72s var(--n26-oobe-ease) both; }
-        @keyframes n26ArrowGo {
-            0% { transform: scale(1); } 34% { transform: scale(.86) rotate(-12deg); }
-            68% { transform: scale(1.12) rotate(6deg); } 100% { transform: scale(1); }
-        }
-        .n26-hello.fly { position: fixed; z-index: 2100; transform-origin: top left; pointer-events: none; transition: transform .95s var(--n26-oobe-ease), opacity .95s var(--n26-oobe-ease); }
-        .n26-hello-tip { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--n26-oobe-ink-3); letter-spacing: .6px; }
-        /* ⑦ 收尾：光效过场 + 磨砂玻璃对话框（v2.9.64，复用长按空格同款光效） */
-        #n26CoviRise { position: fixed; inset: 0; z-index: 1400; background: rgba(10,16,28,0.22); opacity: 0; pointer-events: none; }
-        #n26CoviRise.on { animation: n26CoviRise 1.1s var(--n26-oobe-ease) both; }
-        @keyframes n26CoviRise { 0% { opacity: 0; } 100% { opacity: 1; } }
-        #step-covi { z-index: 9550; }   /* 高于 #covi-stage(9400)：光效打在背景上，对话框浮在其上 */
-        .n26-covi-dialog {
-            width: min(560px, 90vw); background: rgba(255,255,255,0.60);
-            -webkit-backdrop-filter: blur(30px) saturate(180%);
-            backdrop-filter: blur(30px) saturate(180%);
-            border: 1px solid rgba(255,255,255,0.72);
-            border-radius: 26px; box-shadow: 0 30px 90px rgba(12,24,48,.28), inset 0 1px 0 rgba(255,255,255,0.65); padding: 42px 46px;
-            animation: n26CoviPop .9s var(--n26-oobe-ease) .55s both;
-        }
-        body.dark-mode .n26-covi-dialog { background: rgba(24,30,44,0.58); border-color: rgba(255,255,255,0.16); }
-        @keyframes n26CoviPop { 0% { opacity: 0; transform: translateY(26px) scale(.97); } 100% { opacity: 1; transform: none; } }
-        .n26-covi-ava { width: 56px; height: 56px; border-radius: 17px; object-fit: cover; box-shadow: 0 8px 20px rgba(28,42,64,.22); }
-        .n26-covi-hi { margin: 20px 0 8px; font-size: 28px; font-weight: 780; color: var(--n26-oobe-ink); letter-spacing: -.5px; }
-        .n26-covi-sub { font-size: 14px; line-height: 1.65; color: var(--n26-oobe-ink-3); margin-bottom: 26px; }
-        .n26-covi-input { width: 100%; box-sizing: border-box; padding: 18px 22px; border: 1px solid var(--n26-oobe-line); border-radius: 16px; font-size: 15.5px; color: var(--n26-oobe-ink); background: rgba(255,255,255,0.55); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); outline: none; transition: border-color .3s, box-shadow .3s; }
-        body.dark-mode .n26-covi-input { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.14); }
-        .n26-covi-input:focus { border-color: var(--n26-oobe-blue); box-shadow: 0 0 0 3px rgba(47,124,246,.14); }
-        .n26-covi-opts { display: flex; gap: 10px; margin-top: 22px; }
-        .n26-covi-opts button { flex: 1; padding: 13px 10px; border-radius: 13px; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: transform .35s var(--n26-oobe-ease), box-shadow .35s var(--n26-oobe-ease); }
-        .n26-covi-opts button:hover { transform: translateY(-2px); }
-        .n26-covi-go { border: none; background: var(--n26-oobe-blue); color: #fff; box-shadow: 0 10px 24px rgba(47,124,246,.22); }
-        .n26-covi-api { border: 1px solid var(--n26-oobe-line); background: rgba(255,255,255,0.55); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: var(--n26-oobe-ink-2); }
-        /* ⑧ 拖放步骤退场，只留一个「开始下载」 */
-        #step-download-drag .download-drag-container,
-        #step-download-drag .download-hint { display: none !important; }
-        #step-download-drag .glass-btn.primary { margin-top: 8px !important; }
-        /* ⑨ 隐私条款：一屏一条要点，不再挤成一小块灰字 */
-        .oobe-card .privacy-card { width: min(600px, 100%) !important; max-width: none !important; }
-        .oobe-card .privacy-scroll { font-size: 15px !important; line-height: 1.85 !important; color: var(--n26-oobe-ink-2) !important; min-height: 132px !important; }
-        .oobe-card .privacy-agree-btn { background: var(--n26-oobe-blue) !important; border-radius: 999px !important; }
-        /* v2.9.64：权限说明步（OOBE 内一次性申请所有权限） */
-        .permission-card { display: flex; flex-direction: column; gap: 16px; }
-        .permission-head { text-align: left; }
-        .permission-title { font-size: 22px; font-weight: 760; color: var(--n26-oobe-ink); letter-spacing: -.4px; }
-        .permission-sub { margin-top: 8px; font-size: 13px; line-height: 1.6; color: var(--n26-oobe-ink-3); }
-        .permission-list { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; padding-right: 4px; }
-        .permission-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,0.55); border: 1px solid rgba(20,40,70,0.07); }
-        body.dark-mode .permission-row { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.10); }
-        .permission-ico { flex: none; width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #fff; background: linear-gradient(158deg, #60a5fa, #3b82f6); }
-        .permission-name { font-size: 14px; font-weight: 680; color: var(--n26-oobe-ink); }
-        .permission-desc { font-size: 11.5px; color: var(--n26-oobe-ink-3); margin-top: 2px; line-height: 1.45; }
-        .permission-go { align-self: flex-end; margin-top: 2px; padding: 11px 26px; border: none; border-radius: 999px; font-size: 14px; font-weight: 700; cursor: pointer; color: #fff; background: var(--n26-oobe-blue); box-shadow: 0 10px 24px rgba(47,124,246,.22); transition: transform .35s var(--n26-oobe-ease), box-shadow .35s var(--n26-oobe-ease); }
-        .permission-go:hover { transform: translateY(-2px); }
-        /* ⑩ 个性化内容在右侧窄栏里改用两列，避免挤爆 */
-        #install-screen.n26-personalize .theme-grid,
-        #install-screen.n26-personalize .wallpaper-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-        #step-personalize-4 .oobe-card { margin-top: 0 !important; }
-        #step-personalize-4 .oobe-card-form { max-height: none !important; }
-        /* 旧版整卡翻牌动画彻底退役：卡片保持不动，只有内容换 */
-        #install-screen .install-step.active .oobe-card.covi-card-out-next,
-        #install-screen .install-step.active .oobe-card.covi-card-in-next,
-        #install-screen .install-step.active .oobe-card.covi-card-out-prev,
-        #install-screen .install-step.active .oobe-card.covi-card-in-prev {
-            animation: none !important; transform: none !important; opacity: 1 !important;
-        }
-        /* 重启过渡页也纳入同一张纯白大卡，避免白底下突然一块裸文字 */
-        #step-reboot::before {
-            content: ''; position: absolute; width: min(1280px, 92vw); height: min(700px, 84vh);
-            background: #fff; border: 1px solid var(--n26-oobe-line); border-radius: 26px;
-            box-shadow: 0 32px 84px rgba(28, 42, 64, .13);
-        }
-        #step-reboot::after {
-            content: '系统已经完备'; position: relative; z-index: 1; order: -1;
-            font-size: 38px; font-weight: 760; letter-spacing: -.7px;
-            color: var(--n26-oobe-ink); margin-bottom: 16px;
-        }
-        #step-reboot > * { position: relative; z-index: 1; }
-        #step-reboot .reboot-text { color: var(--n26-oobe-ink-2) !important; font-size: 15px !important; }
-        #step-reboot .reboot-logo { display: none !important; }
-        /* ---- 逐张截图复核后的定点修正 ---- */
-        /* ① 收尾对话框被白屏盖住：#install-screen.install-bg .install-step.active 的 z-index:1
-           特异性更高，必须用 !important 把对话框层抬到白屏之上 */
-        #step-covi { z-index: 1500 !important; }
-        /* ② 旧「点击继续」提示与底部细轨打架，收掉（现在步骤都自动/按钮推进） */
-        #install-screen .covi-tap-hint { display: none !important; }
-        /* ③ 隐私条款一页一条，标题要有信息主体的分量 */
-        .oobe-card .privacy-scroll h3 {
-            font-size: 27px !important; font-weight: 760 !important; letter-spacing: -.4px !important;
-            color: var(--n26-oobe-ink) !important; margin: 0 0 18px !important;
-        }
-        /* ④ 个性化：内容从顶部起排、给底部细轨留空间；左侧预览上移与标题同水平线 */
-        #install-screen.n26-personalize .oobe-card-form {
-            justify-content: flex-start !important;
-            padding-top: 62px !important;
-            padding-bottom: 80px !important;
-            overflow-y: auto !important;
-        }
-        /* 预览垂直居中已由 .n26-oobe-preview 基础规则（top:50%; translateY(-50%)）统一控制，旧的 top:20% 覆盖已移除 */
-        /* ⑤ 固件页补一个信息主体，避免上半屏纯空 */
-        #step-firmware .oobe-card-form::before {
-            content: '正在启动'; flex: none; align-self: flex-start;
-            font-size: 34px; font-weight: 760; letter-spacing: -.6px;
-            color: var(--n26-oobe-ink); margin-bottom: 22px;
-        }
-        #step-firmware .oobe-card-form .firmware-console { flex: none; }
-        /* ⑥ 必应每日壁纸卡（OOBE 与设置共用同一套视觉） */
-        .n26-bing-card {
-            display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
-            background: linear-gradient(160deg, #e8f2fd, #cfe4f8) center/cover no-repeat !important;
-            color: var(--n26-oobe-ink) !important; text-align: center; cursor: pointer;
-            border: 2px solid transparent !important; position: relative;
-        }
-        .n26-bing-card::before { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,.72); }
-        .n26-bing-card > * { position: relative; z-index: 1; }
-        .n26-bing-card.selected { border-color: var(--n26-oobe-blue) !important; }
-        .n26-bing-card i { font-size: 23px; color: var(--n26-oobe-blue); }
-        .n26-bing-card b { font-size: 12.5px; font-weight: 760; }
-        .n26-bing-card small { font-size: 10.5px; opacity: .72; }
-        .n26-bing-card.n26-bing-loading { opacity: .6; }
-        .n26-bing-row {
-            display: flex; align-items: center; justify-content: space-between; gap: 12px;
-            padding: 12px 14px; margin-top: 12px; border-radius: 12px;
-            background: rgba(255,255,255,.5); border: 1px solid var(--n26-oobe-line);
-        }
-        .n26-bing-row b { font-size: 13px; color: var(--n26-oobe-ink); }
-        .n26-bing-row small { display: block; font-size: 11px; color: var(--n26-oobe-ink-3); margin-top: 2px; }
-        /* ⑦ 个性化拆步后：组标题回到左对齐轴，小组件选择用可勾选卡片 */
-        #n26P7Groups > div { margin-top: 16px !important; }
-        #n26P7Groups > div > div:first-child { text-align: left !important; }
-        .n26-oobe-wgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; }
-        .n26-oobe-wchip {
-            display: flex; align-items: center; gap: 11px; padding: 13px 14px; width: 100%;
-            border-radius: 13px; border: 1px solid var(--n26-oobe-line); background: #fff;
-            color: var(--n26-oobe-ink-2); cursor: pointer; text-align: left;
-            transition: border-color .35s var(--n26-oobe-ease), background .35s var(--n26-oobe-ease), transform .35s var(--n26-oobe-ease);
-        }
-        .n26-oobe-wchip:hover { transform: translateY(-2px); }
-        .n26-oobe-wchip.on { border-color: var(--n26-oobe-blue); background: rgba(47,124,246,.06); color: var(--n26-oobe-ink); }
-        .n26-oobe-wchip > i { width: 26px; text-align: center; font-size: 17px; color: var(--n26-oobe-blue); }
-        .n26-oobe-wchip b { font-size: 13px; font-weight: 700; flex: 1; }
-        .n26-oobe-wcheck { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--n26-oobe-line); display: grid; place-items: center; font-size: 9px; color: transparent; }
-        .n26-oobe-wchip.on .n26-oobe-wcheck { background: var(--n26-oobe-blue); border-color: var(--n26-oobe-blue); color: #fff; }
-        /* ⑨ 细轨移到卡片外：内容再多也不会被进度条横穿，裁切变成明确的可滚动区域 */
-        .n26-oobe-foot { bottom: -34px !important; left: 0 !important; right: 0 !important; }
-        .n26-oobe-count { color: #7c8797 !important; }
-        /* ⑩ 内容多的步骤：网格/选项组自己内滚，导航按钮吸底，绝不再把半张卡切在卡片边上 */
-        #install-screen.n26-personalize .oobe-card-form { padding-bottom: 20px !important; }
-        #install-screen.n26-personalize #personalizeWallpaperGrid {
-            max-height: 288px !important; overflow-y: auto !important; overflow-x: hidden !important;
-            padding-right: 4px; scrollbar-width: thin;
-        }
-        /* 拆成两步后，每步只剩一组选项，一屏放得下 */
-        #install-screen.n26-personalize #n26P7Groups,
-        #install-screen.n26-personalize #n26P9Groups {
-            max-height: 320px !important; overflow-y: auto !important; overflow-x: hidden !important;
-            padding-right: 4px; padding-bottom: 8px; scrollbar-width: thin;
-        }
-        #install-screen.n26-personalize .oobe-card-form > .btn-row {
-            position: sticky; bottom: 0; z-index: 3; background: #fff;
-            padding: 14px 0 6px; margin-top: 8px !important;
-        }
-        #install-screen.n26-personalize .fui-style-row,
-        #install-screen.n26-personalize .dock-pos-row {
-            display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px !important;
-        }
-        #install-screen.n26-personalize .fui-style-row > *,
-        #install-screen.n26-personalize .dock-pos-row > * { min-height: 0 !important; }
-        /* ⑧ 小组件：不再「一个骨架换色相」批量生产，按内容给每张卡独立的信息结构 */
-        .desktop-widget-card[data-wtype="weather"] .widget-weather-icon { font-size: 54px !important; }
-        .desktop-widget-card[data-wtype="weather"] .widget-weather-temp { font-size: 52px !important; letter-spacing: -2.5px !important; }
-        .desktop-widget-card[data-wtype="clock"] .widget-clock-time { font-size: 42px !important; font-weight: 300 !important; letter-spacing: -1.5px !important; }
-        .desktop-widget-card[data-wtype="date"] .widget-date-md { font-size: 56px !important; line-height: 1 !important; }
-        .desktop-widget-card[data-wtype="note"] textarea { font-size: 14px !important; line-height: 28px !important; }
-        .desktop-widget-card[data-wtype="calendar"] .widget-cal-day.today { width: 32px; height: 32px; border-radius: 50%; }
-        .desktop-widget-card[data-wtype="todo"] .widget-todo-text { font-size: 13.5px !important; }
-        .desktop-widget-card[data-wtype="system"] .widget-system-row-val { font-size: 16px !important; font-weight: 800 !important; }
-        /* 专属结构线：只有这几类有，形成「一眼认得出」的身份，而不是统一描边 */
-        .desktop-widget-card[data-wtype="clock"]::before {
-            content: ''; position: absolute; left: 20px; right: 20px; bottom: 22px; height: 1px;
-            background: rgba(255,255,255,.34); border-radius: 1px; pointer-events: none;
-        }
-        .desktop-widget-card[data-wtype="date"]::before {
-            content: ''; position: absolute; left: 20px; top: 20px; width: 28px; height: 3px;
-            border-radius: 2px; background: rgba(255,255,255,.88); pointer-events: none;
-        }
-        .desktop-widget-card[data-wtype="todo"]::before,
-        .desktop-widget-card[data-wtype="system"]::before {
-            content: ''; position: absolute; left: 18px; top: 16px; bottom: 16px; width: 2px;
-            border-radius: 2px; background: rgba(255,255,255,.26); pointer-events: none;
-        }
-        /* 真正的材质差异：不是 8 张同一块实色渐变换色相 */
-        .desktop-widget-card[data-wtype="date"],
-        .desktop-widget-card[data-wtype="calendar"] {
-            background: rgba(255,255,255,.95) !important;
-            box-shadow: 0 12px 30px rgba(28,42,64,.17), inset 0 1px 0 #fff !important;
-        }
-        .desktop-widget-card[data-wtype="date"] .widget-date-md,
-        .desktop-widget-card[data-wtype="calendar"] .widget-cal-day,
-        .desktop-widget-card[data-wtype="calendar"] .widget-cal-title {
-            color: #1b2432 !important; text-shadow: none !important;
-        }
-        .desktop-widget-card[data-wtype="calendar"] .widget-cal-day.today {
-            background: var(--n26-oobe-blue) !important; color: #fff !important;
-        }
-        .desktop-widget-card[data-wtype="clock"] {
-            background: linear-gradient(160deg, #2b3c52 0%, #17222f 100%) !important;
-            box-shadow: 0 12px 30px rgba(16,26,38,.32), inset 0 1px 0 rgba(255,255,255,.16) !important;
-        }
-        .desktop-widget-card[data-wtype="note"]::before {
-            content: ''; position: absolute; right: 0; bottom: 0; width: 22px; height: 22px;
-            background: linear-gradient(135deg, rgba(255,255,255,.55) 0 50%, rgba(120,96,32,.18) 50%);
-            border-top-left-radius: 3px; pointer-events: none;
-        }
 
         .step-title { color: white; font-size: 28px; font-weight: 700; margin-bottom: 10px; }
         .step-subtitle { color: rgba(255,255,255,0.7); font-size: 14px; margin-bottom: 20px; }
@@ -1807,13 +1295,13 @@
         .wifi-status.connecting { color: #F59E0B; }
         .wifi-status.connected { color: #10B981; }
 
-        /* ========== Step 0: 固件启动（v2.9.60：去黑底 BIOS 屏，统一弥散背景 + 居中大卡，深色终端保留固件感） ========== */
+        /* ========== Step 0: 固件启动 ========== */
         #step-firmware {
-            background: transparent;
+            background: #000;
             flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 0;
+            justify-content: flex-end;
+            align-items: flex-start;
+            padding: 40px;
         }
         #step-firmware.active { display: flex; }
         .firmware-top-progress {
@@ -1849,17 +1337,15 @@
 
         /* ========== Step 1: 隐私条款 ========== */
         #step-privacy {
-            /* v2.9.60：原来铺一层 #f5f5f7 实底，把整屏新弥散渐变背景盖没了 */
-            background: transparent;
+            background: #f5f5f7;
         }
         .privacy-card {
             width: 620px;
-            max-width: 100%;
             max-height: 560px;
-            background: transparent;
+            background: #fff;
             border-radius: 16px;
-            box-shadow: none;
-            padding: 0;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+            padding: 32px;
             display: flex;
             flex-direction: column;
             position: relative;
@@ -2444,8 +1930,6 @@
             display: none;
             z-index: 500;
             overflow: hidden;
-            /* v2.9.61：与 #nexus-bg 同源的默认壁纸，JS 尚未接管时也不会露出纯黑 */
-            background: url('../Wallpaper/抽象风格/n26-aurora-mist.png') center/cover no-repeat, #eef3f8;
         }
         /* 双层结构：上层时间+账户，下层密码面板，通过 translateY 切换 */
         .lock-layer {
@@ -3587,10 +3071,10 @@
             from { opacity: 0; transform: translateY(22px) scale(0.94); }
             to   { opacity: 1; transform: none; }
         }
-        /* v2.9.60：卡片背景跟随系统新默认壁纸（弥散渐变）+ 柔光遮罩 */
+        /* 卡片背景：海岛壁纸 + 柔光遮罩（保证文字可读，同时保留"透壁纸"的质感） */
         #n26AboutCard .n26-about-bg {
             position: absolute; inset: 0; z-index: 0;
-            background: url('../Wallpaper/抽象风格/n26-aurora-mist.png') center/cover no-repeat;
+            background: url('../Wallpaper/海岛/b4894ab54d56d2895e07c5e50a8b5a31.jpg') center/cover no-repeat;
             transform: scale(1.12);
             /* 微糊一点：壁纸是用来垫氛围的，不是用来跟文字抢注意力的 */
             filter: saturate(112%) blur(2px);
@@ -3776,7 +3260,7 @@
             margin: 0 0 14px;
             padding: 16px 18px 14px;
             border-radius: 20px;
-            background: rgba(255,255,255,0.74);
+            background: rgba(255,255,255,0.52);
             border: 1px solid rgba(255,255,255,0.6);
             box-shadow: 0 4px 18px rgba(15,23,42,0.06), inset 0 1px 0 rgba(255,255,255,0.75);
             animation: n26SecIn 0.44s var(--ease-out) both;
@@ -3790,7 +3274,7 @@
         .settings-panel .settings-section:nth-child(n+6) { animation-delay: .27s; }
         .settings-panel .settings-section:hover {
             transform: translateY(-1.5px);
-            background: rgba(255,255,255,0.82);
+            background: rgba(255,255,255,0.66);
             box-shadow: 0 10px 30px rgba(15,23,42,0.11), inset 0 1px 0 rgba(255,255,255,0.85);
         }
         @keyframes n26SecIn {
@@ -3849,7 +3333,7 @@
         }
         body.dark-mode .n26-iconpack-note b { color: rgba(255,255,255,0.88); }
         body.dark-mode .settings-panel .settings-section {
-            background: rgba(28,32,46,0.68);
+            background: rgba(28,32,46,0.55);
             border-color: rgba(255,255,255,0.1);
             box-shadow: 0 4px 18px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
         }
@@ -4034,7 +3518,7 @@
             width: 100%; aspect-ratio: 16 / 10;
             border-radius: 8px;
             overflow: hidden;
-            background: linear-gradient(135deg, #c7d7ee 0%, #aebfd8 55%, #c3ded9 100%);
+            background: linear-gradient(135deg, #c7d7ee 0%, #aebfd8 55%, #d9c3e8 100%);
             border: 1px solid rgba(0,0,0,0.08);
             margin-bottom: 8px;
         }
@@ -5348,7 +4832,7 @@
         body.style-skeuomorphic .app-icon-focus {
             background:
                 linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 45%),
-                linear-gradient(135deg, #93c5fd 0%, #0ea5e9 55%, #075985 100%);
+                linear-gradient(135deg, #c4b5fd 0%, #0ea5e9 55%, #075985 100%);
         }
         body.style-skeuomorphic .app-icon-zen::before,
         body.style-skeuomorphic .app-icon-ambient::before,
@@ -5568,7 +5052,7 @@
         body.style-skeuomorphic .app-icon-nexusExtra {
             background:
                 linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 45%),
-                linear-gradient(135deg, #93c5fd 0%, #0ea5e9 55%, #075985 100%);
+                linear-gradient(135deg, #c4b5fd 0%, #0ea5e9 55%, #075985 100%);
         }
         body.style-skeuomorphic .app-icon-nexusExtra::before {
             content: '';
@@ -5622,7 +5106,7 @@
         body.style-skeuomorphic .app-icon-image {
             background:
                 linear-gradient(180deg, rgba(255,255,255,0.28) 0%, transparent 45%),
-                linear-gradient(135deg, #93c5fd 0%, #38bdf8 55%, #0369a1 100%);
+                linear-gradient(135deg, #c4b5fd 0%, #38bdf8 55%, #0369a1 100%);
         }
         body.style-skeuomorphic .app-icon-image::before {
             content: '';
@@ -5631,7 +5115,7 @@
             border-radius: 4px;
             background:
                 linear-gradient(135deg, rgba(255,255,255,0.25), transparent 50%),
-                linear-gradient(180deg, #bae6fd, #7dd3fc 60%, #38bdf8);
+                linear-gradient(180deg, #f0abfc, #e879f9 60%, #c026d3);
             box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 0 0 2px rgba(255,255,255,0.35);
             z-index: 2;
         }
@@ -5710,7 +5194,7 @@
         body.style-skeuomorphic .app-icon-novel {
             background:
                 linear-gradient(180deg, rgba(255,255,255,0.28) 0%, transparent 45%),
-                linear-gradient(135deg, #93c5fd 0%, #38bdf8 55%, #0369a1 100%);
+                linear-gradient(135deg, #c4b5fd 0%, #38bdf8 55%, #0369a1 100%);
         }
         body.style-skeuomorphic .app-icon-novel::before {
             content: '';
@@ -5736,7 +5220,7 @@
         body.style-skeuomorphic .app-icon-zen {
             background:
                 linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 45%),
-                radial-gradient(circle at 50% 60%, #38bdf8 0%, #0284c7 55%, #0c4a6e 100%);
+                radial-gradient(circle at 50% 60%, #38bdf8 0%, #0284c7 55%, #4c1d95 100%);
         }
         body.style-skeuomorphic .app-icon-zen::before {
             content: '';
@@ -5744,7 +5228,7 @@
             top: 30%; left: 50%;
             transform: translateX(-50%);
             width: 44%; height: 44%;
-            background: radial-gradient(circle at 50% 60%, #e6f5fc, #93c5fd 60%, #0ea5e9);
+            background: radial-gradient(circle at 50% 60%, #f3e8ff, #c4b5fd 60%, #0ea5e9);
             border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
             box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 2px rgba(255,255,255,0.5);
             z-index: 2;
@@ -5830,7 +5314,7 @@
         body.style-skeuomorphic .app-icon-ambient {
             background:
                 linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 45%),
-                linear-gradient(135deg, #93c5fd 0%, #38bdf8 55%, #0369a1 100%);
+                linear-gradient(135deg, #c4b5fd 0%, #38bdf8 55%, #0369a1 100%);
         }
         body.style-skeuomorphic .app-icon-ambient::before {
             content: '';
@@ -5850,7 +5334,7 @@
             position: absolute;
             top: 30%; right: 24%;
             width: 36%; height: 46%;
-            background: linear-gradient(135deg, #93c5fd, #0ea5e9 60%, #0369a1);
+            background: linear-gradient(135deg, #c4b5fd, #0ea5e9 60%, #0369a1);
             border-radius: 0 50% 50% 0 / 0 60% 60% 40%;
             transform: rotate(15deg);
             box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.4);
@@ -6571,14 +6055,13 @@
                 0 0 24px rgba(96,165,250,0.22);
         }
 
-        /* 窗口标题栏液态玻璃 —— v2.9.58 玻璃分层（参考 FluentOS）：
-           标题栏并入宿主玻璃，不再自带第二层 backdrop-filter（每窗口少一个实时采样层） */
+        /* 窗口标题栏液态玻璃 */
         body.style-glass .window-titlebar {
-            background: transparent;
-            backdrop-filter: none;
-            -webkit-backdrop-filter: none;
-            border-bottom: 1px solid rgba(255,255,255,0.28);
-            box-shadow: none;
+            background: linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.2) 100%);
+            backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
+            -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
+            border-bottom: 1px solid rgba(255,255,255,0.4);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 2px 12px rgba(125,170,255,0.1);
         }
 
         /* .glass 通用容器液态玻璃增强 */
@@ -7327,7 +6810,7 @@
         body.dark-mode .sm-user:hover { background: rgba(255,255,255,0.09); }
         .sm-user .start-menu-avatar {
             width: 32px; height: 32px; border-radius: 50%;
-            background: linear-gradient(135deg, #60a5fa, #0ea5e9);
+            background: linear-gradient(135deg, #667eea, #764ba2);
             color: #fff; font-weight: 700; font-size: 14px;
             display: flex; align-items: center; justify-content: center;
             overflow: hidden; flex-shrink: 0;
@@ -7653,14 +7136,11 @@
             align-items: center;
             padding: 0 12px;
             position: relative;
-            /* v2.9.58 玻璃分层（参考 FluentOS）：标题栏全透明并入宿主玻璃，
-               删掉这里自带的第二层 backdrop-filter —— 每窗口少一个实时采样层（性能铁律），
-               且整窗读作「一块玻璃」，不再被切成两截 */
-            background: transparent;
-            backdrop-filter: none;
-            -webkit-backdrop-filter: none;
-            border-bottom: 1px solid rgba(255,255,255,0.22);
-            box-shadow: none;
+            background: rgba(255,255,255,0.35);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-bottom: 1px solid rgba(255,255,255,0.35);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.5);
             cursor: move;
             flex-shrink: 0;
             user-select: none;
@@ -8517,11 +7997,8 @@
         }
         .settings-sidebar {
             width: 200px;
-            /* v2.9.58 玻璃分层（参考 FluentOS）：侧栏不再自涂灰色，
-               直接透明共享宿主磨砂 ——「只有侧边栏是半透明玻璃」的观感来源；
-               层级对比交给右侧更实的白卡（0.52→0.6） */
-            background: transparent;
-            border-right: 1px solid rgba(0,0,0,0.06);
+            background: rgba(0,0,0,0.06);
+            border-right: 1px solid rgba(0,0,0,0.08);
             padding: 15px 10px;
             flex-shrink: 0;
             overflow-y: auto;       /* 左栏独立滚动 */
@@ -8534,7 +8011,7 @@
         }
         .settings-item {
             padding: 10px 14px;
-            border-radius: 10px;
+            border-radius: 8px;
             color: rgba(0,0,0,0.7);
             font-size: 13px;
             cursor: pointer;
@@ -8542,14 +8019,8 @@
             margin-bottom: 4px;
             transition: all 0.2s var(--ease-out);
         }
-        .settings-item:hover { background: rgba(0,0,0,0.05); color: #1a1a1a; }
-        /* v2.9.58：FluentOS 式选中态 —— 柔和胶囊 + 内高光，不再是一块死色 */
-        .settings-item.active {
-            background: rgba(74,155,245,0.16);
-            color: #0f172a;
-            font-weight: 600;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 1px 5px rgba(15,23,42,0.06);
-        }
+        .settings-item:hover { background: rgba(0,0,0,0.06); color: #1a1a1a; }
+        .settings-item.active { background: rgba(74,155,245,0.2); color: #1a1a1a; }
         .settings-user-avatar {
             display: flex; align-items: center; gap: 10px;
             padding: 10px 12px; margin-bottom: 12px;
@@ -10542,7 +10013,7 @@
             border-color: rgba(14,165,233,0.42);
             color: #0284c7;
         }
-        body.dark-mode .n26ai-mode.deep { color: #93c5fd; }
+        body.dark-mode .n26ai-mode.deep { color: #c4b5fd; }
         /* 欢迎态：没有消息时的引导卡片 */
         #n26AiWelcome {
             display: flex; flex-direction: column; align-items: center;
@@ -10556,7 +10027,7 @@
             -webkit-text-fill-color: transparent;
         }
         body.dark-mode #n26AiWelcome .w-title {
-            background: linear-gradient(135deg, #93c5fd, #93c5fd 70%);
+            background: linear-gradient(135deg, #93c5fd, #c4b5fd 70%);
             -webkit-background-clip: text; background-clip: text;
         }
         #n26AiWelcome .w-sub { font-size: 12px; opacity: .6; margin-top: -8px; }
@@ -10848,14 +10319,14 @@
             content: '';
             position: absolute;
             inset: -50%;
-            background: conic-gradient(from var(--n26angle), #ff6b6b, #feca57, #48dbfb, #22d3ee, #ff9ff3, #ff6b6b);
+            background: conic-gradient(from var(--n26angle), #ff6b6b, #feca57, #48dbfb, #5f27cd, #ff9ff3, #ff6b6b);
             animation: n26OrbSpin 4s linear infinite;
         }
         .n26-orb::after {
             content: '';
             position: absolute;
             inset: -50%;
-            background: conic-gradient(from var(--n26angle2), #00d2ff, #3a7bd5, #7dd3fc, #fbc2eb, #ff6a88, #00d2ff);
+            background: conic-gradient(from var(--n26angle2), #00d2ff, #3a7bd5, #a18cd1, #fbc2eb, #ff6a88, #00d2ff);
             mix-blend-mode: screen;
             animation: n26OrbSpinRev 6s linear infinite;
         }
@@ -11643,12 +11114,10 @@
             pointer-events: none;
             z-index: 5;
         }
-        /* ===== 桌面小组件 · v2.9.59 身份实色卡（参考 FluentOS 青山湖小组件） =====
-           FluentOS 的部件不是磨砂玻璃，而是「每卡一个身份实色」：
-           时钟深灰蓝 / 日历纯白 / 天气天蓝 / 便签纸黄——大数字、大图标、无描边。
-           v2.9.58 的统一深磨砂被用户点名「千篇一律 AI 味」，本版改为：
-           身份实色对角渐变（hsl(--w-h)）+ 白字两档收口 + ::after 斜向柔光（我们的玻璃受光特色）。
-           零 backdrop-filter：比磨砂还少一层采样，perf 天然达标。 */
+        /* ===== 桌面小组件 · 大面积彩色卡片（同色系渐变 + 高光） =====
+           每个组件自带 --w-h 色相，靠 hsl 同色系推三阶：亮部→主色→暗部，
+           顶部一块受光高光 + 内阴影造出玻璃厚度；
+           --w-l 控制明暗，深色模式只要压低 --w-l 就能整片变暗，白字始终可读。 */
         .desktop-widget-card {
             position: absolute;
             --widget-cols: 2;
@@ -11667,14 +11136,16 @@
             /* 把 ::after 高光限制在卡片内部，不会掉到卡片背景后面 */
             isolation: isolate;
             color: #fff;
-            border: none;
-            background: linear-gradient(160deg,
-                hsl(var(--w-h) 62% 56%) 0%,
-                hsl(var(--w-h) 54% 42%) 100%);
+            border: 1px solid hsl(var(--w-h) 90% 82% / .55);
+            background:
+                linear-gradient(180deg,
+                    hsl(var(--w-h) var(--w-s) calc(var(--w-l) + 15%)) 0%,
+                    hsl(var(--w-h) var(--w-s) var(--w-l)) 44%,
+                    hsl(var(--w-h) calc(var(--w-s) - 10%) calc(var(--w-l) - 11%)) 100%);
             box-shadow:
-                0 10px 28px hsl(var(--w-h) 45% 22% / .34),
-                inset 0 1px 0 rgba(255,255,255,0.28),
-                inset 0 -1px 0 rgba(0,0,0,0.12);
+                0 10px 28px hsl(var(--w-h) 65% 28% / .22),
+                inset 0 1px 0 hsl(var(--w-h) 100% 94% / .72),
+                inset 0 -1px 0 hsl(var(--w-h) 60% 26% / .12);
             padding: 12px 14px;
             display: flex;
             flex-direction: column;
@@ -11682,16 +11153,7 @@
             pointer-events: auto;
             cursor: grab;
             user-select: none;
-            transition: transform .26s var(--ease-spring), box-shadow .26s var(--ease-out), background .32s ease;
-        }
-        body.dark-mode .desktop-widget-card {
-            background: linear-gradient(160deg,
-                hsl(var(--w-h) 48% 46%) 0%,
-                hsl(var(--w-h) 44% 33%) 100%);
-            box-shadow:
-                0 10px 28px rgba(0,0,0,0.40),
-                inset 0 1px 0 rgba(255,255,255,0.16),
-                inset 0 -1px 0 rgba(0,0,0,0.18);
+            transition: transform .26s var(--ease-spring), box-shadow .26s var(--ease-out);
         }
         /* 玻璃受光：一块斜向柔光，不是两色渐变。
            用 z-index:-1 + 卡片 isolation:isolate 把它压在内容下面，
@@ -11704,21 +11166,21 @@
             border-radius: inherit;
             z-index: -1;
             background: linear-gradient(158deg,
-                rgba(255,255,255,.30) 0%,
-                rgba(255,255,255,.07) 24%,
+                rgba(255,255,255,.34) 0%,
+                rgba(255,255,255,.08) 24%,
                 transparent 52%);
         }
         .desktop-widget-card:hover {
             transform: translateY(-2px);
             box-shadow:
-                0 16px 40px hsl(var(--w-h) 45% 20% / .42),
-                inset 0 1px 0 rgba(255,255,255,0.34),
-                inset 0 -1px 0 rgba(0,0,0,0.12);
+                0 16px 40px hsl(var(--w-h) 65% 26% / .30),
+                inset 0 1px 0 hsl(var(--w-h) 100% 96% / .85),
+                inset 0 -1px 0 hsl(var(--w-h) 60% 26% / .14);
         }
         .desktop-widget-card.dragging {
             cursor: grabbing;
             transform: scale(1.05);
-            box-shadow: 0 18px 52px rgba(4,8,16,0.44);
+            box-shadow: 0 18px 52px hsl(var(--w-h) 60% 22% / .38);
             z-index: 9999;
         }
         /* ===== 拉伸手柄：右下角，默认透明，hover/选中/拉伸中出现 ===== */
@@ -11794,7 +11256,7 @@
             margin-bottom: 4px;
         }
         .desktop-widget-value {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 600;
             color: #1A2A3A;
         }
@@ -11815,19 +11277,19 @@
             outline: none;
             resize: none;
         }
-        /* ===== 组件配色：一个组件一个色相（v2.9.59 身份实色；紫色系已按禁紫令全部替换） ===== */
+        /* ===== 组件配色：一个组件一个色相，五颜六色但每块都是同色系渐变 ===== */
         .desktop-widget-card[data-wtype="weather"]       { --w-h: 205; }
         .desktop-widget-card[data-wtype="clock"]         { --w-h: 38;  }
         .desktop-widget-card[data-wtype="time"]          { --w-h: 32;  }
-        .desktop-widget-card[data-wtype="date"]          { --w-h: 215; }
+        .desktop-widget-card[data-wtype="date"]          { --w-h: 265; }
         .desktop-widget-card[data-wtype="calendar"]      { --w-h: 22;  }
         .desktop-widget-card[data-wtype="alarm"]         { --w-h: 350; }
-        .desktop-widget-card[data-wtype="note"]          { --w-h: 50;  }
+        .desktop-widget-card[data-wtype="note"]          { --w-h: 275; }
         .desktop-widget-card[data-wtype="pomodoro"]      { --w-h: 2;   }
         .desktop-widget-card[data-wtype="system"]        { --w-h: 160; }
-        .desktop-widget-card[data-wtype="minigame"]      { --w-h: 199; }
-        .desktop-widget-card[data-wtype="sleep"]         { --w-h: 220; }
-        .desktop-widget-card[data-wtype="focus"]         { --w-h: 172; }
+        .desktop-widget-card[data-wtype="minigame"]      { --w-h: 258; }
+        .desktop-widget-card[data-wtype="sleep"]         { --w-h: 248; }
+        .desktop-widget-card[data-wtype="focus"]         { --w-h: 285; }
         .desktop-widget-card[data-wtype="todo"]          { --w-h: 45;  }
         /* 本轮新增 */
         .desktop-widget-card[data-wtype="dualtime"]       { --w-h: 190; }
@@ -11835,8 +11297,8 @@
         .desktop-widget-card[data-wtype="quicklaunch"]   { --w-h: 218; }
         .desktop-widget-card[data-wtype="schedule"]      { --w-h: 12;  }
         .desktop-widget-card[data-wtype="stopwatch"]     { --w-h: 150; }
-        .desktop-widget-card[data-wtype="wallpaperpick"] { --w-h: 105; }
-        .desktop-widget-card[data-wtype="smartdevice"]   { --w-h: 187; }
+        .desktop-widget-card[data-wtype="wallpaperpick"] { --w-h: 292; }
+        .desktop-widget-card[data-wtype="smartdevice"]   { --w-h: 238; }
         .desktop-widget-card[data-wtype="browser"]       { --w-h: 200; }
         .desktop-widget-card[data-wtype="calculator"]    { --w-h: 42;  }
         /* 卡片内部元素统一白字（彩色底上黑字会糊） */
@@ -11854,106 +11316,6 @@
         }
         .desktop-widget-card textarea::placeholder,
         .desktop-widget-card input::placeholder { color: rgba(255,255,255,.65) !important; }
-        /* v2.9.58 深玻璃卡片内专有类白字收口：旧浅卡配色的时钟/日期/闹钟/系统监控/
-           小游戏/睡眠/专注/待办/音乐/书签等，凡不在上面通用白字名单里的一律补齐 */
-        .desktop-widget-card .widget-clock-time,
-        .desktop-widget-card .widget-date-md,
-        .desktop-widget-card .widget-alarm-next,
-        .desktop-widget-card .widget-system-row-val,
-        .desktop-widget-card .widget-minigame-title,
-        .desktop-widget-card .widget-minigame-name,
-        .desktop-widget-card .widget-sleep-time,
-        .desktop-widget-card .widget-focus-time,
-        .desktop-widget-card .widget-todo-title,
-        .desktop-widget-card .widget-todo-text,
-        .desktop-widget-card .widget-music-title,
-        .desktop-widget-card .widget-music-song,
-        .desktop-widget-card .widget-browser-title,
-        .desktop-widget-card .widget-browser-bookmark-name { color: rgba(255,255,255,.97) !important; text-shadow: 0 1px 3px hsl(var(--w-h) 45% 22% / .35); }
-        .desktop-widget-card .widget-clock-week,
-        .desktop-widget-card .widget-date-lunar,
-        .desktop-widget-card .widget-alarm-label,
-        .desktop-widget-card .widget-system-row-head,
-        .desktop-widget-card .widget-sleep-label,
-        .desktop-widget-card .widget-focus-label,
-        .desktop-widget-card .widget-todo-count,
-        .desktop-widget-card .widget-music-artist,
-        .desktop-widget-card .widget-browser-bookmark-url,
-        .desktop-widget-card .widget-cal-weekdays { color: rgba(255,255,255,.78) !important; }
-        .desktop-widget-card .widget-todo-item.done .widget-todo-text { color: rgba(255,255,255,.38) !important; }
-        .desktop-widget-card .widget-cal-day.other { color: rgba(255,255,255,.30) !important; }
-        .desktop-widget-card .widget-system-bar { background: rgba(255,255,255,.12) !important; }
-        .desktop-widget-card .widget-todo-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.22) !important; }
-        .desktop-widget-card .widget-todo-check { border-color: rgba(255,255,255,.4) !important; }
-        .desktop-widget-card .widget-todo-text::before {
-            background: linear-gradient(90deg, rgba(34,197,94,.75), rgba(255,255,255,.18)) !important;
-        }
-        /* 拟物化时钟保留琥珀字特色（更高特异性压回） */
-        body.style-skeuomorphic .desktop-widget-card .widget-clock-time { color: #fbbf24 !important; text-shadow: 0 0 12px rgba(251,191,36,.45); }
-        body.style-skeuomorphic .desktop-widget-card .widget-clock-date,
-        body.style-skeuomorphic .desktop-widget-card .widget-clock-week { color: rgba(251,191,36,.75) !important; }
-        /* ===== v2.9.60 使劲做：FluentOS 式大数字 / 大图标 / 材质身份 ===== */
-        .desktop-widget-card .widget-date-md { font-size: 46px !important; font-weight: 800; letter-spacing: -2px; line-height: 1; }
-        .desktop-widget-card .widget-clock-time { font-size: 38px !important; font-weight: 400; }
-        .desktop-widget-card .widget-clock-date { font-size: 13px !important; font-weight: 700; }
-        .desktop-widget-card .widget-clock-week { font-size: 11px !important; }
-        .desktop-widget-card .widget-alarm-next { font-size: 34px !important; letter-spacing: -1px; }
-        /* 便签：纸黄身份 + 细横线纸纹，textarea 透明化让纸纹露出来 */
-        .desktop-widget-card[data-wtype="note"] {
-            background:
-                repeating-linear-gradient(0deg, transparent 0 26px, rgba(255,255,255,.14) 26px 27px),
-                linear-gradient(160deg, hsl(50 60% 58%), hsl(50 50% 45%)) !important;
-        }
-        .desktop-widget-card[data-wtype="note"] textarea {
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-            font-size: 13px !important;
-            line-height: 27px !important;
-        }
-        /* 快捷启动：大图标，名称不再 9px 蚂蚁字 */
-        .desktop-widget-card .w-ql-ic { width: 30px; height: 30px; font-size: 21px; }
-        .desktop-widget-card .w-ql-btn { padding: 8px 3px; }
-        .desktop-widget-card .w-ql-nm { font-size: 10px; font-weight: 500; }
-        /* 日历：网格数字更清晰，今天反白圆 + 身份色字（FluentOS 日历今天高亮） */
-        .desktop-widget-card .widget-cal-day { font-size: 11px; font-weight: 500; color: rgba(255,255,255,.94) !important; }
-        .desktop-widget-card .widget-cal-day.today {
-            background: rgba(255,255,255,.94) !important;
-            color: hsl(var(--w-h) 55% 36%) !important;
-            font-weight: 800;
-        }
-
-        /* ===== v2.9.60 第二轮：放大截图后发现「字看不见」的定点修复 ===== */
-        .desktop-widget-card[data-wtype="note"] textarea {
-            color: #fff !important;
-            text-shadow: 0 1px 3px rgba(120,80,0,.32);
-        }
-        .desktop-widget-card[data-wtype="note"] textarea::placeholder {
-            color: rgba(255,255,255,.92) !important;
-            text-shadow: 0 1px 3px rgba(120,80,0,.35);
-        }
-        /* 待办：旧浅卡时代的深色空状态 + 标题被挤成两行 */
-        .desktop-widget-card .widget-todo-title { white-space: nowrap; font-size: 12px !important; font-weight: 800; }
-        .desktop-widget-card .widget-todo-count { margin-left: 4px; font-size: 10px; }
-        .desktop-widget-card .widget-todo-empty {
-            color: rgba(255,255,255,.86) !important;
-            font-size: 11px;
-            text-shadow: 0 1px 3px rgba(0,0,0,.18);
-        }
-        .desktop-widget-card .widget-todo-empty i { font-size: 22px; opacity: .92; }
-        /* 系统监控：9px 蚂蚁字 → 11px 标签 + 14px 粗数值 */
-        .desktop-widget-card .widget-system-row-head { font-size: 11px !important; font-weight: 600; }
-        .desktop-widget-card .widget-system-row-val { font-size: 14px !important; font-weight: 800; }
-        .desktop-widget-card .widget-system-bar { height: 6px !important; border-radius: 999px; }
-        /* 快捷启动：白字压浅白 pill 看不清 → 实心白 + 阴影，4 列排布不挤成条 */
-        .desktop-widget-card .w-ql { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
-        .desktop-widget-card .w-ql-btn { border-radius: 12px; background: rgba(255,255,255,.18); }
-        .desktop-widget-card .w-ql-nm {
-            color: rgba(255,255,255,.96) !important;
-            font-size: 10px; font-weight: 700;
-            text-shadow: 0 1px 3px rgba(12,40,80,.45);
-        }
-        .desktop-widget-card .w-ql-ic { color: #fff !important; filter: drop-shadow(0 1px 2px rgba(12,40,80,.45)); }
 
         /* ===== 本轮新增组件的通用骨架 ===== */
         .desktop-widget-card [class^="w-"],
@@ -12363,7 +11725,6 @@
 
         /* ========== 小组件卡片内容样式 ========== */
         /* 天气小组件：根据天气状态显示不同渐变背景，所有状态下都美观 */
-        /* v2.9.60 使劲做：天气改 FluentOS 大数字大图标，去掉自带暗图/渐变（让身份实色透出来） */
         .widget-weather {
             position: absolute; inset: 0;
             border-radius: 18px;
@@ -12372,49 +11733,41 @@
             display: flex; flex-direction: column;
             justify-content: space-between;
             color: #ffffff;
-            text-shadow: 0 1px 3px rgba(20,40,70,0.22);
-            background: transparent !important;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.25);
             overflow: hidden;
             cursor: grab;
         }
         .widget-weather::before {
             content: '';
-            position: absolute; top: -32%; right: -18%;
-            width: 150px; height: 150px;
-            background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 70%);
+            position: absolute; top: -20%; right: -20%;
+            width: 80px; height: 80px;
+            background: radial-gradient(circle, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0) 70%);
             border-radius: 50%;
             pointer-events: none;
         }
         .widget-weather-header {
-            display: flex; justify-content: space-between; align-items: flex-start;
+            display: flex; justify-content: space-between; align-items: center;
             position: relative; z-index: 1;
         }
-        .widget-weather-city { font-size: 12px; font-weight: 600; opacity: 0.9; letter-spacing: .3px; }
-        .widget-weather-icon { font-size: 42px; opacity: 0.92; line-height: 1; filter: drop-shadow(0 2px 6px rgba(255,255,255,.25)); }
+        .widget-weather-city { font-size: 11px; font-weight: 500; opacity: 0.95; }
+        .widget-weather-icon { font-size: 22px; opacity: 0.95; }
         .widget-weather-temp {
-            font-size: 42px; font-weight: 500; line-height: 1;
-            letter-spacing: -1.5px;
+            font-size: 30px; font-weight: 300; line-height: 1;
             margin-top: 2px; position: relative; z-index: 1;
-            font-variant-numeric: tabular-nums;
         }
-        .widget-weather-status { font-size: 11px; opacity: 0.86; margin-top: 2px; position: relative; z-index: 1; }
+        .widget-weather-status { font-size: 10px; opacity: 0.9; margin-top: 1px; position: relative; z-index: 1; }
         .widget-weather-meta {
             display: flex; justify-content: space-between;
-            font-size: 10px; opacity: 0.82;
+            font-size: 9px; opacity: 0.9;
             margin-top: 4px; position: relative; z-index: 1;
         }
         .widget-weather-meta i { margin-right: 3px; opacity: 0.85; }
-        /* 天气状态渐变旧规则全部作废：身份色由卡片 --w-h 统一给 */
-        .widget-weather-sunny, .widget-weather-partly, .widget-weather-cloudy,
-        .widget-weather-rainy, .widget-weather-snowy, .widget-weather-stormy { background: transparent !important; }
-        body:not(.style-flat):not(.style-skeuomorphic) .widget-weather,
-        body.style-skeuomorphic .widget-weather { background: transparent !important; }
         /* 各天气状态渐变 */
         .widget-weather-sunny  { background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); }
         .widget-weather-partly { background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%); }
         .widget-weather-cloudy { background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%); }
         .widget-weather-rainy  { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
-        .widget-weather-snowy  { background: linear-gradient(135deg, #dbeafe 0%, #8ec5fc 100%); }
+        .widget-weather-snowy  { background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%); }
         .widget-weather-stormy { background: linear-gradient(135deg, #485461 0%, #28313b 100%); }
         /* 深色模式下保留天气小组件渐变背景和白色文字 */
         body.dark-mode .widget-weather,
@@ -12607,13 +11960,6 @@
             z-index: 2;
         }
         .widget-panel-card-badge.app { background: rgba(14,165,233, 0.18); color: #0ea5e9; }
-        /* v2.9.64：S/M/L 尺寸档位（Apple 小组件选择式） */
-        .widget-panel-card { position: relative; }
-        .widget-panel-card-sizes { position: absolute; bottom: 7px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; z-index: 2; }
-        .wp-size-chip { padding: 2px 11px; border-radius: 999px; font-size: 10.5px; font-weight: 700; letter-spacing: .4px; background: rgba(255,255,255,0.8); border: 1px solid rgba(20,40,70,0.16); color: #25344c; cursor: pointer; transition: background .18s, color .18s, transform .18s; }
-        .wp-size-chip:hover { background: var(--primary, #4A9BF5); color: #fff; border-color: transparent; transform: scale(1.08); }
-        body.dark-mode .wp-size-chip { background: rgba(30,36,50,0.85); color: #dfe7f3; border-color: rgba(255,255,255,0.16); }
-        body.dark-mode .wp-size-chip:hover { background: var(--primary, #4A9BF5); color: #fff; }
         .widget-panel-card.installed::after {
             content: '\f00c';
             font-family: 'Font Awesome 5 Free'; font-weight: 900;
@@ -12648,7 +11994,7 @@
         /* ========== 时钟小组件（clock） ========== */
         .widget-clock { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 2px; position: relative; }
         .widget-clock-time {
-            font-size: 34px; font-weight: 300; color: #1A2A3A;
+            font-size: 30px; font-weight: 200; color: #1A2A3A;
             letter-spacing: 1px; line-height: 1;
             font-variant-numeric: tabular-nums;
         }
@@ -12773,7 +12119,7 @@
             border-color: rgba(14,165,233,0.2) !important;
             box-shadow: 0 6px 22px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05) !important;
         }
-        body.style-skeuomorphic .widget-sleep-time { color: #93c5fd; }
+        body.style-skeuomorphic .widget-sleep-time { color: #c4b5fd; }
         body.style-skeuomorphic .widget-sleep-label { color: rgba(196,181,253,0.6); }
         body.style-flat .widget-sleep-moon { animation: none; }
 
@@ -13098,12 +12444,12 @@
         body.style-flat .widget-minigame-item:hover { background: rgba(255,255,255,0.24); border-color: transparent; transform: none; }
         body.style-flat .widget-minigame-play { color: rgba(255,255,255,0.85); }
         /* 扁平化：睡眠模式 —— 深紫纯色 */
-        body.style-flat .desktop-widget-card[data-type="sleep"] { background: #0c4a6e !important; }
-        body.style-flat .widget-sleep-moon { color: #93c5fd; filter: none; animation: none; }
+        body.style-flat .desktop-widget-card[data-type="sleep"] { background: #4c1d95 !important; }
+        body.style-flat .widget-sleep-moon { color: #c4b5fd; filter: none; animation: none; }
         body.style-flat .widget-sleep-time { color: #ffffff; font-weight: 600; }
         body.style-flat .widget-sleep-label { color: rgba(255,255,255,0.6); }
         body.style-flat .widget-sleep-btn { background: rgba(255,255,255,0.18); border: none; color: #ffffff; }
-        body.style-flat .widget-sleep-btn:hover { background: #ffffff; color: #0c4a6e; transform: none; }
+        body.style-flat .widget-sleep-btn:hover { background: #ffffff; color: #4c1d95; transform: none; }
         /* 扁平化：专注时刻 —— 紫色纯色 */
         body.style-flat .desktop-widget-card[data-type="focus"] { background: #0284c7 !important; }
         body.style-flat .widget-focus-time { color: #ffffff; }
@@ -14239,10 +13585,11 @@
 
         /* ========== 应用商城（苹果风格重设计） ========== */
         /* ★ 重构：整页单一滚动容器（顶部推荐随页面一起滚），分类栏 sticky 吸顶 */
-        /* v2.9.64：滚动已下放到 .as-rail / .as-main 各自独立（见 ui/n26-shell.css），此处不再整体滚动 */
         .appstore-container {
-            display: flex; flex-direction: column; height: 100%; box-sizing: border-box;
-            overflow: hidden; overscroll-behavior: contain; padding: 0;
+            display: block; height: 100%; box-sizing: border-box;
+            overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
+            padding: 18px 20px 24px;
+            scrollbar-width: thin;
         }
         .appstore-container > * { padding-left: 0; padding-right: 0; }
         .appstore-container::-webkit-scrollbar { width: 8px; }
@@ -17030,7 +16377,7 @@
     <link rel="stylesheet" href="ui/n26-perf.css?v=221">
     <link rel="stylesheet" href="ui/n26-material.css?v=225">
     <link rel="stylesheet" href="ui/n26-startmenu.css?v=232">
-    <link rel="stylesheet" href="ui/n26-shell.css?v=249">
+    <link rel="stylesheet" href="ui/n26-shell.css?v=247">
 </head>
 <script>
 /* ==================================================================
@@ -17532,46 +16879,7 @@
         <!-- 顶部下载进度条（跟随下载进度） -->
         <div class="install-top-progress" id="installTopProgress" style="position:fixed;top:0;left:0;width:0;height:3px;background:linear-gradient(90deg,#60a5fa,#3b82f6);z-index:1000;transition:width 0.3s var(--ease-out);display:none;box-shadow:0 0 8px rgba(59,130,246,0.6);"></div>
         <div class="install-steps-indicator" id="installStepsDots"></div>
-        <!-- v2.9.61 常驻层：DOM 跨步骤不卸载，承载品牌角标 / 左侧预览 / 底部细轨，
-             这是「连贯动画」的载体——步骤切换时卡片与常驻层都不重建 -->
-        <div id="n26OobeChrome" aria-hidden="true">
-            <div class="n26-oobe-frame">
-                <div class="n26-oobe-brand">
-                    <img src="../Desktop icon/Nexus OS 26.png" alt="">
-                    <b>Nexus OS 26</b><span>首次设置</span>
-                </div>
-                <div class="n26-oobe-preview" id="n26OobePreview" data-tone="light">
-                    <div class="n26-prev-win" id="n26PrevWin">
-                        <div class="n26-prev-wall"></div>
-                        <div class="n26-prev-tiles">
-                            <div class="n26-prev-side"><i></i><i></i><i></i><i></i></div>
-                            <div class="n26-prev-main"><b></b><i></i><i></i><i></i></div>
-                        </div>
-                        <div class="n26-prev-dock"><i></i><i></i><i></i><i></i></div>
-                    </div>
-                    <div class="n26-prev-tone">
-                        <button type="button" class="on" onclick="n26OobeTone('light')">浅色</button>
-                        <button type="button" onclick="n26OobeTone('dark')">深色</button>
-                    </div>
-                </div>
-                <div class="n26-oobe-foot">
-                    <div class="n26-oobe-track"><i id="n26OobeTrackFill"></i></div>
-                    <div class="n26-oobe-count" id="n26OobeCount">01 / 15</div>
-                </div>
-            </div>
-        </div>
-        <!-- v2.9.61 第 0 步：欢迎页（整屏只有 hello / 副标 / 箭头三个元素） -->
-        <div class="install-step" id="step-welcome">
-            <div class="oobe-card">
-                <div class="oobe-card-form">
-                    <div class="n26-hello" id="n26Hello">Hello</div>
-                    <div class="n26-hello-sub">Nexus OS 26 · 让每一处想象都照亮未知的远方</div>
-                    <button class="n26-hello-next" id="n26HelloNext" onclick="n26WelcomeGo()" aria-label="下一步"><i class="fas fa-arrow-right"></i></button>
-                </div>
-            </div>
-        </div>
-        <div class="n26-hello-tip" id="n26HelloTip">点击箭头开始 · 或单击任意位置</div>
-        <!-- 固件启动（N26 卡片化：左动画右控制台）—— v2.9.64 调整为 OOBE 首步，先于 hello -->
+        <!-- Step 0: 固件启动（N26 卡片化：左动画右控制台） -->
         <div class="install-step active" id="step-firmware">
             <div class="oobe-card">
                 <div class="oobe-card-anim">
@@ -17613,27 +16921,6 @@
             </div>
         </div>
 
-        <!-- v2.9.64：权限说明（OOBE 内一次性搞定所有权限申请） -->
-        <div class="install-step" id="step-permissions">
-            <div class="oobe-card">
-                <div class="oobe-card-anim">
-                    <i class="fas fa-key" style="font-size:88px;color:#3b82f6;filter:drop-shadow(0 12px 28px rgba(59,130,246,0.45));animation:oobeLogoFloat 4s var(--ease-in-out-quart) infinite;"></i>
-                    <div class="oobe-anim-ripple"></div>
-                    <div class="oobe-anim-ripple"></div>
-                </div>
-                <div class="oobe-card-form">
-                    <div class="permission-card" style="width:100%;max-width:540px;">
-                        <div class="permission-head">
-                            <div class="permission-title">我们会申请一些权限</div>
-                            <div class="permission-sub">为了给你完整体验，Nexus OS 26 会在需要时申请以下权限。你可以随时在「设置 → 隐私与安全」中管理或撤回，未经同意绝不会使用。</div>
-                        </div>
-                        <div class="permission-list" id="permissionList"></div>
-                        <button class="permission-go" onclick="nextInstallStep()">我知道了，继续</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Step 2: 下载拖放动画（N26 卡片化，分盘步骤已移除——文件系统直接读取本地目录） -->
         <div class="install-step" id="step-download-drag">
             <div class="oobe-card">
@@ -17646,8 +16933,6 @@
                     <i class="fas fa-cloud-download-alt" style="font-size:88px;color:#3b82f6;filter:drop-shadow(0 12px 28px rgba(59,130,246,0.45));animation:oobeLogoFloat 3.2s var(--ease-in-out-quart) infinite;"></i>
                 </div>
                 <div class="oobe-card-form">
-                    <div class="step-title" style="color:#1a1a1a;">准备安装</div>
-                    <div class="step-subtitle" style="color:rgba(60,60,67,0.7);margin-bottom:4px;">系统镜像已就绪，点一下就开始下载，无需拖放</div>
                     <div class="download-drag-container">
                         <div class="download-icon-box" id="downloadIcon" onclick="triggerDownloadDrag()">
                             <i class="fas fa-cloud-download-alt"></i>
@@ -17688,7 +16973,7 @@
             <div class="reboot-logo" id="rebootLogo"></div>
             <div class="reboot-text">
                 <div class="spinner"></div>
-                系统已经完备 · 正在准备最后设置…
+                正在重启...
             </div>
         </div>
 
@@ -17860,12 +17145,12 @@
                 <div class="oobe-card-form">
                     <div class="glass-card-clear cloud-prompt-card" style="background:rgba(255,255,255,0.5);">
                         <div class="cloud-icon"><i class="fas fa-cloud"></i></div>
-                        <div class="step-title" style="color:#1a1a1a;">让文件跟着你走</div>
-                        <div class="step-subtitle" style="color:rgba(60,60,67,0.7);">启用 Nexus 云盘，随时访问你的文件</div>
-                        <div class="cloud-perk-list">
-                            <div><i class="fas fa-hdd"></i><span>立得 <b>50 MB</b> 免费空间，开箱即用</span></div>
-                            <div><i class="fas fa-images"></i><span>截屏、NEX 文件、导入视频都能存</span></div>
-                            <div><i class="fas fa-shield-alt"></i><span>只保存在本机浏览器，不上传任何服务器</span></div>
+                        <div class="step-title" style="color:#1a1a1a;">启用 Nexus 云盘</div>
+                        <div class="step-subtitle" style="color:rgba(60,60,67,0.7);">随时随地访问您的文件</div>
+                        <div class="cloud-desc" style="color:rgba(60,60,67,0.75);">
+                            获得 5MB（实际 50MB）免费云存储空间<br>
+                            可存储截屏、NEX文件、导入视频等<br>
+                            数据仅保存在本地浏览器存储中
                         </div>
                         <div class="cloud-btns">
                             <button class="glass-btn primary" onclick="enableCloud()">启用云盘</button>
@@ -17886,7 +17171,7 @@
                 </div>
                 <div class="oobe-card-form">
                     <div class="step-title install-step-element" style="color:#1a1a1a;">选择你的语言</div>
-                    <div class="step-subtitle install-step-element" style="color:rgba(60,60,67,0.7);">选择你习惯使用的语言，更改下次进入系统时生效</div>
+                    <div class="step-subtitle install-step-element" style="color:rgba(60,60,67,0.7);">选择你习惯使用的语言，更改将在重启后生效</div>
                     <div class="language-grid" id="personalizeLanguageGrid"></div>
                     <div class="btn-row install-step-element" style="margin-top: 20px; display: flex; gap: 10px;">
                         <button class="glass-btn" onclick="prevInstallStep()">上一步</button>
@@ -17936,7 +17221,7 @@
         <div class="install-step" id="step-personalize-5">
             <div class="oobe-card">
                 <div class="oobe-card-anim">
-                    <img loading="lazy" decoding="async" class="oobe-anim-logo" src="../Wallpaper/抽象风格/n26-aurora-mist.png" alt="壁纸预览" style="border-radius:18px;">
+                    <img loading="lazy" decoding="async" class="oobe-anim-logo" src="../Wallpaper/海岛/b4894ab54d56d2895e07c5e50a8b5a31.jpg" alt="壁纸预览" style="border-radius:18px;">
                     <div class="oobe-anim-ripple"></div>
                     <div class="oobe-anim-ripple"></div>
                 </div>
@@ -18062,48 +17347,6 @@
         </div>
 
         <!-- Step 10: 轮播展示 -->
-        <!-- v2.9.61：主题个性化拆开——界面细节单独一步，不再和壁纸挤在一屏 -->
-        <div class="install-step" id="step-personalize-7">
-            <div class="oobe-card">
-                <div class="oobe-card-form">
-                    <div class="step-title install-step-element" style="color:#1a1a1a;">界面风格</div>
-                    <div class="step-subtitle install-step-element" style="color:rgba(60,60,67,0.7);">按钮、开关和卡片的质感，交给你定</div>
-                    <div id="n26P7Groups" style="width:100%;"></div>
-                    <div class="btn-row install-step-element" style="margin-top:20px;display:flex;gap:10px;">
-                        <button class="glass-btn" onclick="prevInstallStep()">上一步</button>
-                        <button class="glass-btn primary" onclick="nextInstallStep()">下一步</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- v2.9.61：Dock 位置再单独一步（一屏只做一件事，呼吸感才留得住） -->
-        <div class="install-step" id="step-personalize-9">
-            <div class="oobe-card">
-                <div class="oobe-card-form">
-                    <div class="step-title install-step-element" style="color:#1a1a1a;">Dock 放在哪儿</div>
-                    <div class="step-subtitle install-step-element" style="color:rgba(60,60,67,0.7);">选个顺手的位置，桌面布局跟着变</div>
-                    <div id="n26P9Groups" style="width:100%;"></div>
-                    <div class="btn-row install-step-element" style="margin-top:20px;display:flex;gap:10px;">
-                        <button class="glass-btn" onclick="prevInstallStep()">上一步</button>
-                        <button class="glass-btn primary" onclick="nextInstallStep()">下一步</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- v2.9.61：小组件选择——进桌面之前就挑好，不再全靠默认八张 -->
-        <div class="install-step" id="step-personalize-8">
-            <div class="oobe-card">
-                <div class="oobe-card-form">
-                    <div class="step-title install-step-element" style="color:#1a1a1a;">挑几张桌面小组件</div>
-                    <div class="step-subtitle install-step-element" style="color:rgba(60,60,67,0.7);">进系统就能看到，之后随时能在桌面改</div>
-                    <div id="n26OobeWidgetGrid" class="n26-oobe-wgrid"></div>
-                    <div class="btn-row install-step-element" style="margin-top:22px;display:flex;gap:10px;">
-                        <button class="glass-btn" onclick="prevInstallStep()">上一步</button>
-                        <button class="glass-btn primary" onclick="nextInstallStep()">下一步</button>
-                    </div>
-                </div>
-            </div>
-        </div>
         <div class="install-step" id="step-showcase">
             <div class="showcase-slides" id="showcaseSlides"></div>
             <div class="showcase-overlay">
@@ -18131,24 +17374,6 @@
                 </div>
             </div>
         </div>
-        <!-- v2.9.61 全部设置完毕之后：白屏自动升起 + 小方对话框（不需要长按空格） -->
-        <div class="install-step" id="step-covi">
-            <div class="oobe-card" style="background:transparent!important;border:none!important;box-shadow:none!important;">
-                <div class="oobe-card-form" style="align-items:center!important;justify-content:center!important;padding:0!important;">
-                    <div class="n26-covi-dialog">
-                        <img class="n26-covi-ava" src="图片/小方.jpg" alt="AI 小方" onerror="this.style.display='none'">
-                        <div class="n26-covi-hi">你好，我是 AI 小方</div>
-                        <div class="n26-covi-sub">我是你的智能助手，能帮你打开应用、查资料、写文案、控制设备……随时叫我都行。</div>
-                        <input class="n26-covi-input" id="n26CoviInput" placeholder="想让我帮你做点什么？（直接说，或回车开始）" onkeydown="if(event.key==='Enter'){n26CoviStart();}">
-                        <div class="n26-covi-opts">
-                            <button class="n26-covi-go" onclick="n26CoviStart()">开始使用</button>
-                            <button class="n26-covi-api" onclick="n26CoviApi()">使用 API 配置</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div id="n26CoviRise"></div>
     </div>
 
     <!-- 重启动画 -->
@@ -18480,7 +17705,6 @@
     <div id="covi-stage" aria-hidden="true">
         <canvas id="covi-ripple"></canvas>
         <div id="covi-white"></div>
-        <div id="covi-wash"></div>
         <div id="covi-ambient"></div>
         <div class="covi-edge covi-edge-wash"></div>
         <div class="covi-edge covi-edge-bloom"></div>
@@ -18810,7 +18034,7 @@
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid rgba(0,0,0,0.1);">
             <div style="display:flex;align-items:center;gap:8px;cursor:pointer;" onclick="openAccountModal();document.getElementById('win-start-menu').style.display='none';">
-                <div id="winStartAvatar" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#60a5fa,#0ea5e9);"></div>
+                <div id="winStartAvatar" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);"></div>
                 <span style="font-size:13px;" id="winStartUsername">用户</span>
             </div>
             <button onclick="togglePowerMenu('start', event)" style="padding:6px 12px;border:none;background:transparent;cursor:pointer;border-radius:4px;">
@@ -19763,7 +18987,7 @@
     function normalizeSettings(s) {
         if (!s || typeof s !== 'object' || Array.isArray(s)) s = {};
         const defaults = {
-            theme: 'abstract',
+            theme: 'beach',
             wallpaper: 0,
             accentColor: 'blue',
             style: 'glass',
@@ -19796,15 +19020,6 @@
         };
         for (const k in defaults) {
             if (s[k] === undefined) s[k] = defaults[k];
-        }
-        /* v2.9.60：默认壁纸换成弥散渐变 n26-aurora-mist。
-           'beach' 是 v2.9.48 之前的旧默认值，在 n26CurrentThemeStaticUrl() 里映射到海岛写实照片；
-           设置页的主题 id 早已统一为 abstract/island/minecraft/cleanlight，没有任何入口会再写入
-           'beach'，所以存档里出现它 = 老账户从没主动改过主题 → 一次性迁移到新默认。
-           用户自己设的自定义静态图 / 动态视频壁纸一律不动。 */
-        if (s.theme === 'beach' && !s.useCustomWallpaper && !s.useDynamicWallpaper) {
-            s.theme = 'abstract';
-            s.wallpaper = 0;
         }
         // sounds 子对象补全
         if (!s.sounds || typeof s.sounds !== 'object' || Array.isArray(s.sounds)) {
@@ -20223,74 +19438,36 @@
 
     let _installStepTransitioning = false;
     // N26：安装步骤序列（分盘/OS模式/视觉风格步骤已移除，新增 AI API 接入）
-    // v2.9.61：欢迎页成为第 0 步；AI 小方移到全部设置之后（step-api 为可选分支，默认跳过）
-    // v2.9.64：固件加载（开机）先于 hello 欢迎页 —— hello 在固件加载完成后才出现
-    const OOBE_STEPS = ['step-firmware','step-welcome','step-privacy','step-permissions','step-download-drag','step-download-progress','step-reboot','step-features','step-account','step-cloud','step-personalize-1','step-personalize-4','step-personalize-5','step-personalize-6','step-personalize-7','step-personalize-9','step-personalize-8','step-showcase','step-api','step-covi'];
+    const OOBE_STEPS = ['step-firmware','step-privacy','step-download-drag','step-download-progress','step-reboot','step-features','step-account','step-cloud','step-personalize-1','step-personalize-4','step-personalize-5','step-personalize-6','step-api','step-showcase'];
     // 卡牌式 OOBE：允许「点一下 / 回车」直接翻牌的步骤。
     // 隐私条款、拖放下载、建账户、API 配置等必须交互步骤不开放点击翻页，只能用各自的按钮，防止误跳过。
     const OOBE_TAP_ADVANCE = {
-        'step-firmware': 1, 'step-features': 1, 'step-cloud': 1, 'step-permissions': 1,
+        'step-firmware': 1, 'step-features': 1, 'step-cloud': 1,
         'step-personalize-1': 1, 'step-personalize-4': 1, 'step-personalize-5': 1, 'step-personalize-6': 1
     };
-    const OOBE_CARD_OUT_MS = 260;   // v2.9.61：卡片不再翻牌，退场只是短淡出，衔接更连贯
-    const OOBE_CARD_IN_MS = 620;    // 内容 stagger 淡入时长
+    const OOBE_CARD_OUT_MS = 400;   // 与 oobe-cards.css 中 coviCardOutNext/Prev 时长一致
+    const OOBE_CARD_IN_MS = 620;    // 与 coviCardInNext/Prev 时长一致（留清理余量）
 
     function oobeCardOf(stepEl) { return stepEl ? stepEl.querySelector('.oobe-card') : null; }
 
     // 各步骤进入时的初始化钩子（索引对应 OOBE_STEPS）
-    // v2.9.61：钩子改为按 step id 匹配，插入/调整步骤不再让索引整体错位
     function oobeInitStepHook(idx) {
-        const id = OOBE_STEPS[idx];
-        if (id === 'step-welcome') { n26WelcomeEnter(); return; }
-        if (id === 'step-firmware') {
-            // 开机日志在页面加载时就已经跑完；进入固件页后给一个从容的停留再自动前进
-            setTimeout(() => { if (OOBE_STEPS[installStep] === 'step-firmware') nextInstallStep(); }, 2400);
-            return;
-        }
-        if (id === 'step-privacy') { initPrivacyPages(); return; }
-        if (id === 'step-permissions') { renderOobePermissions(); return; }
-        if (id === 'step-download-drag') { initDownloadDragAnim(); return; }
-        if (id === 'step-download-progress') { startDownloadProgress(); return; }
-        if (id === 'step-reboot') { triggerReboot(); return; }
-        if (id === 'step-features') { initFeatureCarousel(); return; }
-        if (id === 'step-account') {
+        if (idx === 1) initPrivacyPages();
+        else if (idx === 2) initDownloadDragAnim();
+        else if (idx === 3) startDownloadProgress();
+        else if (idx === 4) triggerReboot();
+        else if (idx === 5) initFeatureCarousel();
+        else if (idx === 6) {
             // v2.9.47：默认落在「登录」面板（下面有注册入口），本机头像等设置放到第三步
             try { n26AccPane('login'); } catch (e) { }
             try { checkReinstallAccount(); } catch (e) { }
-            return;
         }
-        if (id === 'step-personalize-1') { renderPersonalizeLanguage(); return; }
-        if (id === 'step-personalize-4') { renderPersonalizeTheme(); renderOobeFuiStyles(); renderOobeDockPos(); return; }
-        if (id === 'step-personalize-5') { renderPersonalizeWallpaper(); try { n26RenderBingDailyCard(); } catch (e) { } return; }
-        if (id === 'step-personalize-6') { initPersonalizeSettings(); return; }
-        if (id === 'step-personalize-7') { try { renderOobeFuiStyles(); } catch (e) { } return; }
-        if (id === 'step-personalize-9') { try { renderOobeDockPos(); } catch (e) { } return; }
-        if (id === 'step-personalize-8') { try { n26RenderOobeWidgets(); } catch (e) { } return; }
-        if (id === 'step-api') { initOobeAiStep(); return; }
-        if (id === 'step-showcase') { startShowcase(); return; }
-        if (id === 'step-covi') { n26CoviEnter(); return; }
-    }
-
-    // v2.9.64：权限说明步 —— OOBE 内一次性列出系统将申请的权限
-    const N26_PERMISSIONS = [
-        { icon: 'fa-microphone', name: '麦克风', desc: '语音唤醒 AI 小方、语音输入与听写' },
-        { icon: 'fa-camera', name: '摄像头', desc: '锁屏相机、扫码、视频通话' },
-        { icon: 'fa-location-dot', name: '位置信息', desc: '天气、附近服务与本地化推荐' },
-        { icon: 'fa-folder-open', name: '文件与存储', desc: '文件管理、相册、下载与缓存' },
-        { icon: 'fa-bell', name: '通知', desc: '系统通知、消息与日程提醒' },
-        { icon: 'fa-user-shield', name: '账户与同步', desc: '登录账号、跨设备云同步' }
-    ];
-    function renderOobePermissions() {
-        const list = document.getElementById('permissionList');
-        if (!list) return;
-        if (list.dataset.filled) return;
-        list.dataset.filled = '1';
-        list.innerHTML = N26_PERMISSIONS.map(function (p) {
-            return '<div class="permission-row">' +
-                '<div class="permission-ico"><i class="fas ' + p.icon + '"></i></div>' +
-                '<div><div class="permission-name">' + p.name + '</div>' +
-                '<div class="permission-desc">' + p.desc + '</div></div></div>';
-        }).join('');
+        else if (idx === 8) renderPersonalizeLanguage();
+        else if (idx === 9) { renderPersonalizeTheme(); renderOobeFuiStyles(); renderOobeDockPos(); }
+        else if (idx === 10) renderPersonalizeWallpaper();
+        else if (idx === 11) initPersonalizeSettings();
+        else if (idx === 12) initOobeAiStep();
+        else if (idx === 13) startShowcase();
     }
 
     // 卡片右下角「点击继续」暗示（仅可点击翻牌的步骤显示）
@@ -20301,8 +19478,6 @@
         if (!OOBE_TAP_ADVANCE[stepEl.id]) return;
         const card = oobeCardOf(stepEl);
         if (!card) return;
-        // v2.9.60：卡片里已经有「下一步」按钮就不再挂「点击继续」提示，避免两套导航并存
-        if (card.querySelector('.glass-btn.primary, .btn-row button')) return;
         const hint = document.createElement('div');
         hint.className = 'covi-tap-hint';
         hint.innerHTML = '点击继续 <i class="fas fa-arrow-right" style="font-size:10px;"></i>';
@@ -20312,13 +19487,6 @@
     // 统一切换到某一步（dir: 'next' | 'prev' | 'jump'——jump 为程序化直跳，不带方向感）
     function oobeShowStep(idx, dir) {
         installStep = idx;
-        // v2.9.60：全屏顶部细进度条只属于「下载进度」那一步，离开立刻收掉
-        // （旧逻辑只在 startDownloadProgress 里 display:block 却从不隐藏，后面每步都挂蓝色残条）
-        try {
-            const topBar = document.getElementById('installTopProgress');
-            const isDownload = OOBE_STEPS[idx] === 'step-download-progress';
-            if (topBar) topBar.style.display = (isDownload && dir !== 'jump') ? 'block' : 'none';
-        } catch (e) { }
         const steps = OOBE_STEPS;
         steps.forEach(s => { const el = document.getElementById(s); if (el) el.classList.remove('active'); });
         const el = document.getElementById(steps[idx]);
@@ -20331,23 +19499,10 @@
             card.classList.add(dir === 'prev' ? 'covi-card-in-prev' : 'covi-card-in-next');
             setTimeout(() => card.classList.remove('covi-card-in-next', 'covi-card-in-prev'), OOBE_CARD_IN_MS);
         }
-        try { n26OobeChromeSync(steps[idx], dir); } catch (e) { }
         oobeInitStepHook(idx);
         revealStepElements(el);
-        oobeAnimateTitle(el);   // v2.9.58：标题逐字弹跳（N26 自己的语言，保留）
         coviEnsureTapHint(el);
         updateStepDots();
-        // v2.9.61：'jump' 是程序化直跳（含 addNewAccount 跳转），revealStepElements()
-        // 会把 .install-step-element 置成 opacity:0 却不播放入场动画，按钮会永久透明 → 兜底复原
-        if (dir === 'jump') {
-            try {
-                el.querySelectorAll('.install-step-element').forEach(k => {
-                    k.style.opacity = '1';
-                    k.style.transform = 'none';
-                    k.style.animation = 'none';
-                });
-            } catch (e) { }
-        }
     }
 
 
@@ -20366,8 +19521,6 @@
             if (oldEl) oldEl.classList.remove('active');
             if (oldCard) oldCard.classList.remove('covi-card-out-next');
             installStep++;
-            // v2.9.61：API 配置是收尾对话框里的可选分支，主流程不经过，AI 小方只在最后出现
-            if (steps[installStep] === 'step-api') installStep++;
             oobeShowStep(installStep, 'next');
             _installStepTransitioning = false;
         }, OOBE_CARD_OUT_MS);
@@ -20402,278 +19555,6 @@
         });
     }
 
-    // v2.9.58：步骤标题逐字弹跳（参考 FluentOS；中文按字符拆，纯文本才拆）
-    function oobeAnimateTitle(stepEl) {
-        if (!stepEl) return;
-        stepEl.querySelectorAll('.step-title').forEach(t => {
-            if (t.dataset.oobeSplit === '1') {   // 已拆过：只重播动画
-                t.querySelectorAll('.oobe-letter').forEach((sp, i) => {
-                    sp.style.animation = 'none'; void sp.offsetWidth;
-                    sp.style.animation = ''; sp.style.animationDelay = (i * 26) + 'ms';
-                });
-                return;
-            }
-            if (t.children.length) return;       // 含子元素（图标等）不拆，防破坏结构
-            const text = t.textContent || '';
-            if (!text.trim() || text.length > 24) return;
-            t.dataset.oobeSplit = '1';
-            t.textContent = '';
-            Array.from(text).forEach((ch, i) => {
-                const sp = document.createElement('span');
-                sp.className = 'oobe-letter';
-                sp.textContent = ch;
-                sp.style.animationDelay = (i * 26) + 'ms';
-                if (ch === ' ') sp.style.width = '0.32em';
-                t.appendChild(sp);
-            });
-        });
-    }
-
-    // v2.9.58：3D 鼠标视差（克制版 ±2.6°，lerp 平滑；perf-mode 自动关闭）
-    (function initOobeTilt() {
-        const screen = document.getElementById('install-screen');
-        if (!screen) return;
-        let tx = 0, ty = 0, cx = 0, cy = 0, raf = 0, live = false;
-        function loop() {
-            cx += (tx - cx) * 0.12;
-            cy += (ty - cy) * 0.12;
-            screen.style.setProperty('--oobe-tilt-x', cy.toFixed(3) + 'deg');
-            screen.style.setProperty('--oobe-tilt-y', cx.toFixed(3) + 'deg');
-            if (Math.abs(tx - cx) > 0.005 || Math.abs(ty - cy) > 0.005) raf = requestAnimationFrame(loop);
-            else raf = 0;
-        }
-        screen.addEventListener('mousemove', function (e) {
-            try { if (document.body.classList.contains('perf-mode')) return; } catch (err) { return; }
-            const r = screen.getBoundingClientRect();
-            if (!r.width || !r.height) return;
-            const nx = (e.clientX - r.left) / r.width - 0.5;   // -0.5 ~ 0.5
-            const ny = (e.clientY - r.top) / r.height - 0.5;
-            tx = nx * 5.2;    // rotateY ±2.6°
-            ty = -ny * 4.4;   // rotateX ±2.2°
-            if (!live) { live = true; screen.classList.add('oobe-tilt-live'); }
-            if (!raf) raf = requestAnimationFrame(loop);
-        });
-        screen.addEventListener('mouseleave', function () {
-            tx = 0; ty = 0;
-            if (!raf) raf = requestAnimationFrame(loop);
-            setTimeout(() => { if (!raf) { live = false; screen.classList.remove('oobe-tilt-live'); } }, 600);
-        });
-    })();
-
-    /* ==================== v2.9.61 · 连贯动画 / 常驻层 / 收尾对话框 ====================
-       连贯的关键：卡片与常驻层在步骤之间都不重建，只有内容换；欢迎页的 hello 真的
-       飞到左上角变成常驻角标。以下全部为 N26 自研实现，未复用对方任何代码或时序。 */
-    const N26_HELLOS = ['Hello', '你好', 'Bonjour', 'こんにちは', 'Hola', '안녕하세요', 'Ciao', 'Olá'];
-    let n26HelloTimer = null, n26HelloIdx = 0, n26WelcomeBusy = false;
-
-    function n26WelcomeEnter() {
-        const h = document.getElementById('n26Hello');
-        if (!h) return;
-        h.textContent = N26_HELLOS[0];
-        h.classList.remove('fly', 'swap');
-        h.style.cssText = '';
-        const sub = document.querySelector('.n26-hello-sub');
-        const btn = document.getElementById('n26HelloNext');
-        if (sub) sub.style.cssText = '';
-        if (btn) { btn.style.cssText = ''; btn.classList.remove('go'); }
-        n26HelloIdx = 0;
-        n26WelcomeBusy = false;
-        clearInterval(n26HelloTimer);
-        n26HelloTimer = setInterval(() => {
-            if (n26WelcomeBusy) return;
-            n26HelloIdx = (n26HelloIdx + 1) % N26_HELLOS.length;
-            h.classList.add('swap');
-            setTimeout(() => {
-                if (n26WelcomeBusy) return;
-                h.textContent = N26_HELLOS[n26HelloIdx];
-                h.classList.remove('swap');
-            }, 430);
-        }, 1900);
-        const card = document.querySelector('#step-welcome .oobe-card');
-        if (card && !card.dataset.n26WelcomeBound) {
-            card.dataset.n26WelcomeBound = '1';
-            card.style.cursor = 'pointer';
-            card.addEventListener('click', () => n26WelcomeGo());
-        }
-    }
-
-    function n26WelcomeGo() {
-        if (n26WelcomeBusy) return;
-        n26WelcomeBusy = true;
-        clearInterval(n26HelloTimer);
-        const btn = document.getElementById('n26HelloNext');
-        const h = document.getElementById('n26Hello');
-        const tip = document.getElementById('n26HelloTip');
-        if (btn) btn.classList.add('go');
-        if (tip) tip.style.display = 'none';
-        // 副标题与箭头同步退场，避免 hello 飞走后中间留两个孤零零的元素
-        const sub = document.querySelector('.n26-hello-sub');
-        if (sub) {
-            sub.style.transition = 'opacity .5s var(--n26-oobe-ease), transform .5s var(--n26-oobe-ease)';
-            sub.style.opacity = '0';
-            sub.style.transform = 'translateY(10px)';
-        }
-        setTimeout(() => {
-            if (btn) { btn.style.transition = 'opacity .4s var(--n26-oobe-ease)'; btn.style.opacity = '0'; }
-        }, 420);
-        // FLIP：先量起点与角标终点，再把「同一个 DOM 元素」平移过去，不是另画一个角标
-        setTimeout(() => {
-            const brand = document.querySelector('.n26-oobe-brand');
-            if (h && brand) {
-                const from = h.getBoundingClientRect();
-                const to = brand.getBoundingClientRect();
-                h.style.left = from.left + 'px';
-                h.style.top = from.top + 'px';
-                h.style.width = from.width + 'px';
-                h.style.margin = '0';
-                h.style.textAlign = 'left';
-                h.style.transform = 'none';
-                h.classList.add('fly');
-                void h.offsetWidth;
-                h.style.transform = 'translate(' + (to.left - from.left) + 'px,' + (to.top - from.top) + 'px) scale(.14)';
-                h.style.opacity = '0';
-            }
-            const screen = document.getElementById('install-screen');
-            if (screen) screen.classList.add('n26-branded');
-        }, 250);
-        setTimeout(() => {
-            const hh = document.getElementById('n26Hello');
-            if (hh) { hh.classList.remove('fly'); hh.style.cssText = ''; hh.textContent = N26_HELLOS[0]; }
-            try { nextInstallStep(); } catch (e) { }
-        }, 1060);
-    }
-
-    // 常驻层同步：切换的是状态类，不是 DOM；内容用 stagger 轻淡入，卡片本身不动
-    function n26OobeChromeSync(id, dir) {
-        const screen = document.getElementById('install-screen');
-        if (!screen) return;
-        const isWelcome = id === 'step-welcome';
-        const isCovi = id === 'step-covi';
-        const personalize = /^step-personalize-/.test(id);
-        screen.classList.toggle('n26-personalize', personalize);
-        screen.classList.toggle('n26-welcome', isWelcome);
-        screen.classList.toggle('n26-covi', isCovi);
-        screen.classList.toggle('n26-branded', !isWelcome && !isCovi);
-        const chrome = document.getElementById('n26OobeChrome');
-        if (chrome) chrome.style.opacity = (isWelcome || isCovi) ? '0' : '1';
-        const tip = document.getElementById('n26HelloTip');
-        if (tip) tip.style.display = isWelcome ? '' : 'none';
-        // 壁纸步骤：把当前桌面壁纸读到左侧预览，让前面几轮的选择「累积」可见
-        if (id === 'step-personalize-5') {
-            setTimeout(() => {
-                try {
-                    const bg = document.getElementById('nexus-bg');
-                    const wall = document.querySelector('#n26OobePreview .n26-prev-wall');
-                    if (bg && wall && bg.style.backgroundImage) wall.style.backgroundImage = bg.style.backgroundImage;
-                } catch (e) { }
-            }, 240);
-        }
-        try { n26PreviewApply(); } catch (e) { }
-        const el = document.getElementById(id);
-        const form = el && el.querySelector('.oobe-card-form');
-        if (form && dir !== 'jump') {
-            const kids = Array.prototype.slice.call(form.children);
-            kids.forEach((k, i) => {
-                k.style.transition = 'none';
-                k.style.opacity = '0';
-                k.style.transform = 'translateY(12px)';
-                k.style.transitionDelay = (i * 55) + 'ms';
-            });
-            void form.offsetWidth;
-            requestAnimationFrame(() => kids.forEach((k, i) => {
-                k.style.transition = 'opacity .62s var(--n26-oobe-ease), transform .62s var(--n26-oobe-ease)';
-                k.style.transitionDelay = (i * 55) + 'ms';
-                k.style.opacity = '1';
-                k.style.transform = 'none';
-            }));
-        }
-    }
-
-    // 预览色调：状态留在常驻 DOM 的 dataset 上，翻到下一步不会被重置
-    function n26OobeTone(tone) {
-        const prev = document.getElementById('n26OobePreview');
-        if (!prev) return;
-        prev.dataset.tone = tone;
-        try { n26PreviewApply(); } catch (e) { }
-        prev.querySelectorAll('.n26-prev-tone button').forEach(b => {
-            b.classList.toggle('on', b.textContent.trim() === (tone === 'dark' ? '深色' : '浅色'));
-        });
-        try { document.body.classList.toggle('dark-mode', tone === 'dark'); } catch (e) { }
-    }
-
-    // 实时预览：把当前所选（主题/壁纸/Dock 位置/色调/界面风格）反映到右侧预览卡
-    function n26PreviewApply() {
-        const prev = document.getElementById('n26OobePreview');
-        if (!prev) return;
-        try {
-            const theme = (typeof installTheme !== 'undefined' && installTheme) ? installTheme : 'abstract';
-            const dock = (typeof installDockPos !== 'undefined' && installDockPos) ? installDockPos : 'bottom';
-            const fui = (typeof installFuiStyle !== 'undefined' && installFuiStyle) ? installFuiStyle : 'liquid';
-            prev.dataset.fui = fui;
-            const wall = prev.querySelector('.n26-prev-wall');
-            if (wall) {
-                let url = '';
-                try { url = n26CurrentThemeStaticUrl({ theme: theme, wallpaper: (typeof personalizeWallpaper !== 'undefined' ? personalizeWallpaper : 0) }); } catch (e) { }
-                if (!url && typeof N26_WALLPAPERS !== 'undefined') {
-                    const arr = N26_WALLPAPERS[theme] || [];
-                    if (arr[0]) url = (arr[0].url || arr[0]);
-                }
-                if (url) wall.style.backgroundImage = "url('" + url + "')";
-            }
-            const dk = prev.querySelector('.n26-prev-dock');
-            if (dk) dk.className = 'n26-prev-dock pos-' + dock;
-        } catch (e) { }
-    }
-    // 鼠标视差带延迟惯性：lerp 0.075，不是 1:1 跟手（时差感来源）
-    (function n26OobeParallax() {
-        let tx = 0, ty = 0, cx = 0, cy = 0, raf = 0;
-        function tick() {
-            cx += (tx - cx) * 0.075;
-            cy += (ty - cy) * 0.075;
-            const screen = document.getElementById('install-screen');
-            const live = screen && screen.classList.contains('n26-personalize');
-            const win = document.getElementById('n26PrevWin');
-            if (win && live) {
-                win.style.transform = 'perspective(900px) rotateY(' + (cx * 5).toFixed(2) + 'deg) rotateX(' + (-cy * 4).toFixed(2) + 'deg) translate3d(' + (cx * 7).toFixed(1) + 'px,' + (cy * 6).toFixed(1) + 'px,0)';
-            }
-            if (Math.abs(tx - cx) > 0.002 || Math.abs(ty - cy) > 0.002) raf = requestAnimationFrame(tick);
-            else raf = 0;
-        }
-        document.addEventListener('pointermove', e => {
-            const screen = document.getElementById('install-screen');
-            if (!screen || !screen.classList.contains('n26-personalize')) return;
-            tx = (e.clientX / Math.max(1, window.innerWidth) - 0.5) * 2;
-            ty = (e.clientY / Math.max(1, window.innerHeight) - 0.5) * 2;
-            if (!raf) raf = requestAnimationFrame(tick);
-        }, { passive: true });
-    })();
-
-    function n26CoviEnter() {
-        // v2.9.64：复用「长按空格」同款光效作为出场动画（白爆 + 全局光晕 + 波纹 + 桌面挤压 + 边光），
-        // 让「光打到背景上」的感觉先到位，再弹出磨砂玻璃对话框
-        try { coviWhiteBurst(); } catch (e) {}
-        try { coviWash(); } catch (e) {}
-        try { coviRipple(); } catch (e) {}
-        try { coviSquish(); } catch (e) {}
-        try { if (typeof coviGlowOn === 'function') coviGlowOn(); } catch (e) {}
-        const rise = document.getElementById('n26CoviRise');
-        if (rise) { rise.classList.remove('on'); void rise.offsetWidth; rise.classList.add('on'); }
-        setTimeout(() => { const i = document.getElementById('n26CoviInput'); if (i) { try { i.focus(); } catch (e) { } } }, 1450);
-    }
-    function n26CoviStart() {
-        try { if (typeof coviDismiss === 'function') coviDismiss(); } catch (e) {}
-        try { finishInstallation(); } catch (e) { try { enterDesktop(); } catch (e2) { } }
-    }
-    function n26CoviApi() {
-        try { if (typeof coviDismiss === 'function') coviDismiss(); } catch (e) {}
-        const i = OOBE_STEPS.indexOf('step-api');
-        if (i >= 0) oobeShowStep(i, 'jump');
-    }
-    function n26CoviBack() {
-        const i = OOBE_STEPS.indexOf('step-covi');
-        if (i >= 0) oobeShowStep(i, 'jump');
-    }
-
     // 步骤进度指示（N26 卡牌化：细进度条 + 「03 / 14」计数，取代旧圆点）
     function initStepDots() {
         const container = document.getElementById('installStepsDots');
@@ -20683,11 +19564,6 @@
             '<div class="covi-p-track"><div class="covi-p-fill" id="coviPFill"></div></div>' +
             '<div class="covi-p-count" id="coviPCount"><b>01</b> / ' + total + '</div>';
         updateStepDots();
-        try { n26SplitPersonalizeSteps(); } catch (e) { }
-        // v2.9.61：HTML 默认 active 的欢迎页不会走 oobeShowStep，这里补跑一次钩子
-        if (OOBE_STEPS[installStep] === 'step-welcome') {
-            try { n26WelcomeEnter(); n26OobeChromeSync('step-welcome', 'jump'); } catch (e) { }
-        }
     }
     function updateStepDots() {
         const fill = document.getElementById('coviPFill');
@@ -20698,11 +19574,6 @@
             const b = count.querySelector('b');
             if (b) b.textContent = String(installStep + 1).padStart(2, '0');
         }
-        // v2.9.61：底部细轨与计数（顶部胶囊已退役）
-        const track = document.getElementById('n26OobeTrackFill');
-        const num = document.getElementById('n26OobeCount');
-        if (track) track.style.width = pct + '%';
-        if (num) num.textContent = String(installStep + 1).padStart(2, '0') + ' / ' + String(OOBE_STEPS.length).padStart(2, '0');
     }
 
     // ==================== 卡牌式翻页交互：点一下 / 回车即切换 ====================
@@ -20737,7 +19608,6 @@
     // N26 本地壁纸库（全部使用 Wallpaper 文件夹内置素材，不再依赖网络图片）
     const N26_WALLPAPERS = {
         abstract: [
-            '../Wallpaper/抽象风格/n26-aurora-mist.png',
             '../Wallpaper/抽象风格/1785840648804_edit_1238598309040738.png',
             '../Wallpaper/抽象风格/1785840651909_edit_1238586750768555.png',
             '../Wallpaper/抽象风格/1785840659245_edit_1238568766197103.png',
@@ -20890,7 +19760,6 @@
                 : `<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.55);padding:5px 10px;border-radius:6px;color:#3a465a;font-size:12.5px;font-weight:600;"><i class="fas fa-images" style="opacity:.6;"></i>${t.name} · 待加入</div>`;
             card.onclick = () => {
                 installTheme = key;
-                try { n26PreviewApply(); } catch (e) { }
                 personalizeWallpaper = 0; // 切换主题时重置壁纸索引
                 document.querySelectorAll('#personalizeThemeGrid .theme-card').forEach(c => {
                     c.classList.remove('selected');
@@ -20930,137 +19799,11 @@
             div.style.cssText = `background-image: url('${url}'); background-size: cover; background-position: center;`;
             div.onclick = () => {
                 personalizeWallpaper = i;
-                try { n26PreviewApply(); } catch (e) { }
                 document.querySelectorAll('#personalizeWallpaperGrid .wallpaper-option').forEach(c => c.classList.remove('selected'));
                 div.classList.add('selected');
             };
             grid.appendChild(div);
         });
-    }
-
-    /* ==================== v2.9.61 · 个性化拆步 + 小组件选择 ==================== */
-    // 把「界面风格 / Dock 位置」两组从主题页搬到独立步骤：同一份 DOM，不重复渲染、不丢状态
-    function n26SplitPersonalizeSteps() {
-        const dst7 = document.getElementById('n26P7Groups');
-        const dst9 = document.getElementById('n26P9Groups');
-        if (!dst7 || !dst9 || dst7.dataset.n26Filled) return;
-        // 界面风格 → 第 7 步，Dock 位置 → 第 9 步：一屏只做一件事
-        const fui = document.getElementById('oobeFuiStyleRow');
-        const dock = document.getElementById('oobeDockPosRow');
-        if (fui && fui.parentElement) dst7.appendChild(fui.parentElement);
-        if (dock && dock.parentElement) dst9.appendChild(dock.parentElement);
-        dst7.dataset.n26Filled = '1';
-    }
-    const N26_OOBE_WIDGETS = [
-        { type: 'weather',     name: '天气',     icon: 'fa-sun',          cols: 2, rows: 2 },
-        { type: 'clock',       name: '时钟',     icon: 'fa-clock',        cols: 2, rows: 2 },
-        { type: 'date',        name: '日期',     icon: 'fa-calendar-day', cols: 2, rows: 2 },
-        { type: 'note',        name: '便签',     icon: 'fa-sticky-note',  cols: 2, rows: 3 },
-        { type: 'calendar',    name: '日历',     icon: 'fa-calendar',     cols: 3, rows: 3 },
-        { type: 'quicklaunch', name: '快捷启动', icon: 'fa-bolt',         cols: 3, rows: 2 },
-        { type: 'system',      name: '系统监控', icon: 'fa-gauge-high',   cols: 2, rows: 2 },
-        { type: 'todo',        name: '待办',     icon: 'fa-list-check',   cols: 2, rows: 3 }
-    ];
-    let n26OobeWidgetSel = N26_OOBE_WIDGETS.map(w => w.type);
-    function n26RenderOobeWidgets() {
-        const g = document.getElementById('n26OobeWidgetGrid');
-        if (!g) return;
-        g.innerHTML = N26_OOBE_WIDGETS.map(w =>
-            '<button type="button" class="n26-oobe-wchip' + (n26OobeWidgetSel.indexOf(w.type) >= 0 ? ' on' : '') +
-            '" onclick="n26OobeWidgetToggle(\'' + w.type + '\')"><i class="fas ' + w.icon + '"></i><b>' + w.name +
-            '</b><span class="n26-oobe-wcheck"><i class="fas fa-check"></i></span></button>').join('');
-    }
-    function n26OobeWidgetToggle(t) {
-        const i = n26OobeWidgetSel.indexOf(t);
-        if (i >= 0) n26OobeWidgetSel.splice(i, 1); else n26OobeWidgetSel.push(t);
-        n26RenderOobeWidgets();
-        // 真落地：直接写桌面小组件列表，进系统就是用户挑的那几张
-        const arr = n26OobeWidgetSel.map((type, k) => {
-            const w = N26_OOBE_WIDGETS.find(d => d.type === type) || { cols: 2, rows: 2 };
-            return { id: k + 1, type: type, cols: w.cols, rows: w.rows,
-                x: 30 + (k % 4) * 170, y: 60 + Math.floor(k / 4) * 230, settings: {} };
-        });
-        try { setUserLS('desktopWidgets', arr); } catch (e) { }
-    }
-
-    /* ==================== v2.9.61 · 必应每日壁纸 ====================
-       零外部 CDN 铁律：只经自有 Worker 反代；服务未部署/断网时一律静默降级到内置壁纸，
-       不阻塞启动、不弹错误、不覆盖用户自己选的图。 */
-    const N26_BING_ENDPOINT = 'https://ai.fanggame.company/api/bing/daily';
-    async function n26FetchBingDaily(force) {
-        const day = new Date().toISOString().slice(0, 10);
-        let cache = {};
-        try { cache = getUserLS('bingDailyCache') || {}; } catch (e) { }
-        if (!force && cache.date === day && cache.url) return Object.assign({ ok: true }, cache);
-        try {
-            const ctrl = new AbortController();
-            const timer = setTimeout(() => { try { ctrl.abort(); } catch (e) { } }, 8000);
-            const res = await fetch(N26_BING_ENDPOINT, { signal: ctrl.signal });
-            clearTimeout(timer);
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            const j = await res.json();
-            if (!j.ok || !j.url) throw new Error(j.reason || 'no url');
-            const out = { date: day, url: j.url, title: j.title || '', copyright: j.copyright || '' };
-            try { setUserLS('bingDailyCache', out); } catch (e) { }
-            return Object.assign({ ok: true }, out);
-        } catch (e) {
-            if (cache.url) return Object.assign({ ok: true }, cache);   // 断网时用上次那张
-            return { ok: false, reason: String(e && e.message || e) };
-        }
-    }
-    function n26ApplyBingDailyIfOn(s) {
-        if (!s || !s.bingDailyWallpaper) return;
-        n26FetchBingDaily(false).then(d => {
-            if (!d.ok || !d.url) return;
-            const cur = getUserLS('settings') || {};
-            if (!cur.bingDailyWallpaper || cur.bingDailyUrl === d.url) return;
-            cur.bingDailyUrl = d.url;
-            try { setUserLS('settings', cur); } catch (e) { }
-            applyUserSettings();
-        }).catch(() => { });
-    }
-    async function n26ToggleBingDaily(card) {
-        const s = getUserLS('settings') || {};
-        if (s.bingDailyWallpaper) {
-            s.bingDailyWallpaper = false;
-            setUserLS('settings', s);
-            if (card) card.classList.remove('selected');
-            document.querySelectorAll('.n26-bing-row .toggle-switch').forEach(el => el.classList.remove('active'));
-            applyUserSettings();
-            showNotification('已关闭必应每日壁纸', '已恢复你选择的壁纸', 'info');
-            return;
-        }
-        if (card) card.classList.add('n26-bing-loading');
-        const d = await n26FetchBingDaily(false);
-        if (card) card.classList.remove('n26-bing-loading');
-        if (!d.ok) {
-            showNotification('必应每日壁纸暂时不可用', '云端壁纸服务还没就绪，已保留当前壁纸', 'warning');
-            return;
-        }
-        s.bingDailyWallpaper = true;
-        s.bingDailyUrl = d.url;
-        s.bingDailyTitle = d.title || '';
-        setUserLS('settings', s);
-        if (card) card.classList.add('selected');
-        document.querySelectorAll('.n26-bing-row .toggle-switch').forEach(el => el.classList.add('active'));
-        applyUserSettings();
-        showNotification('必应每日壁纸已开启', d.title || '每天自动换一张', 'success');
-    }
-    function n26RenderBingDailyCard() {
-        const grid = document.getElementById('personalizeWallpaperGrid');
-        if (!grid || grid.querySelector('.n26-bing-card')) return;
-        const d = document.createElement('div');
-        d.className = 'wallpaper-option install-step-element n26-bing-card';
-        d.title = '必应每日壁纸 · 每天自动更新';
-        d.innerHTML = '<i class="fas fa-globe-asia"></i><b>必应每日壁纸</b><small>每天自动换一张</small>';
-        d.onclick = () => n26ToggleBingDaily(d);
-        grid.insertBefore(d, grid.firstChild);   // 置顶：壁纸多时也不会被挤到滚动区下面
-        const s = getUserLS('settings') || {};
-        d.classList.toggle('selected', !!s.bingDailyWallpaper);
-        try {
-            const c = getUserLS('bingDailyCache') || {};
-            if (c.url) d.style.backgroundImage = "url('" + c.url + "')";
-        } catch (e) { }
     }
 
     // ==================== N26：AI 接入步骤（OpenAI 格式 API） ====================
@@ -22254,7 +20997,7 @@
             disks.forEach(d => { fs[d.letter] = { type: 'drive', children: {} }; });
             setLS('user_' + name + '_filesystem', fs);
             setLS('user_' + name + '_settings', {
-                theme: 'abstract',
+                theme: 'beach',
                 wallpaper: 0,
                 accentColor: 'blue',
                 style: 'glass',
@@ -22283,7 +21026,7 @@
             pendingNewAccount = newAcc;
 
             // 隐藏当前 step-account，显示 step-personalize-1（跳过 cloud，直接进入个性化）
-            installStep = OOBE_STEPS.indexOf('step-personalize-1');
+            installStep = 8;   // step-personalize-1 在 OOBE_STEPS 中的索引
             oobeShowStep(installStep, 'jump');
             return;
         }
@@ -22318,7 +21061,7 @@
                 });
                 setLS('user_' + acc.name + '_filesystem', fs);
                 setLS('user_' + acc.name + '_settings', {
-                    theme: 'abstract',
+                    theme: 'beach',
                     wallpaper: 0,
                     accentColor: 'blue',
                     style: 'glass',
@@ -22351,7 +21094,7 @@
                         role: acc.role,
                         createdAt: acc.createdAt,
                         settings: {
-                            theme: 'abstract',
+                            theme: 'beach',
                             wallpaper: 0,
                             accentColor: 'blue',
                             style: 'glass',
@@ -22404,8 +21147,6 @@
             lastLockedUserName = currentUser.name;
         }
         const lock = document.getElementById('lock-screen');
-        // v2.9.61：每次锁屏都重新对齐一次当前桌面壁纸，避免设置变更后两边脱节
-        try { applyN26LockWallpaper(getUserLS('settings') || {}); } catch (e) { }
         lock.style.display = 'flex';
         document.getElementById('desktop').style.display = 'none';
         document.getElementById('dock').style.display = 'none';
@@ -23725,15 +22466,6 @@
         w.classList.add('play');
     }
 
-    /* ①-b 全局光晕：让光真正「打到背景上」，有体积感（长按空格与 OOBE 出场共用） */
-    function coviWash() {
-        var w = document.getElementById('covi-wash');
-        if (!w) return;
-        w.classList.remove('play');
-        void w.offsetWidth;
-        w.classList.add('play');
-    }
-
     /* ② 水波纹：黄/蓝/绿三圈同心彩环从底部荡开（加法混合，先快后慢） */
     function coviRipple() {
         var cv = document.getElementById('covi-ripple');
@@ -23839,7 +22571,6 @@
         // 所以用户点玻璃球/点空白，看到的是「又打开一次」，关不掉。
         if (_coviHudOpen) { if (typeof coviHudClose === 'function') coviHudClose(); return; }
         coviWhiteBurst();
-        coviWash();
         coviRipple();
         coviSquish();
         if (typeof coviGlowOn === 'function') coviGlowOn();
@@ -25549,9 +24280,6 @@
 
     // ==================== 桌面 ====================
     function enterDesktop() {
-        // v2.9.61：入场 600ms 内摘掉全系统背景模糊（模糊层数是性能唯一真杠杆），
-        // 让入场动画那一帧不用同时合成几十层 backdrop-filter
-        document.body.classList.add('n26-busy');
         document.getElementById('lock-screen').style.display = 'none';
         const desktop = document.getElementById('desktop');
         const dock = document.getElementById('dock');
@@ -25577,7 +24305,6 @@
             desktop.classList.remove('entering');
             dock.classList.remove('dock-enter');
             if (finder) finder.classList.remove('finder-enter');
-            document.body.classList.remove('n26-busy');   // v2.9.61：入场结束恢复玻璃
         }, 600);
         
         // 每个步骤都加 try-catch，确保任何一个出错都不会阻止进入桌面
@@ -25592,16 +24319,11 @@
         try { ensureDesktopIcons(); } catch(e) { console.error('ensureDesktopIcons 出错:', e); }
         try { renderDesktopIcons(); } catch(e) { console.error('renderDesktopIcons 出错:', e); }
         try { renderDesktopWidgets(); } catch(e) { console.error('renderDesktopWidgets 出错:', e); }
-        // v2.9.61：启动台 / 窗口恢复 / 头像刷新都不是首帧内容，挪到空闲时段，
-        // 不再和桌面图标、小组件、入场动画抢同一帧（timeout 保证一定会执行）
-        const n26DeferredBoot = () => {
-            try { renderLaunchpad(); } catch(e) { console.error('renderLaunchpad 出错:', e); }
-            try { updateWindowDockIndicators(); } catch(e) { console.error('updateWindowDockIndicators 出错:', e); }
-            try { restoreWindows(); } catch(e) { console.error('restoreWindows 出错:', e); }
-            try { updateAllAvatarDisplays(); } catch(e) { console.error('updateAllAvatarDisplays 出错:', e); }
-        };
-        if (typeof requestIdleCallback === 'function') requestIdleCallback(n26DeferredBoot, { timeout: 800 });
-        else setTimeout(n26DeferredBoot, 80);
+        try { renderLaunchpad(); } catch(e) { console.error('renderLaunchpad 出错:', e); }
+        try { updateWindowDockIndicators(); } catch(e) { console.error('updateWindowDockIndicators 出错:', e); }
+        try { restoreWindows(); } catch(e) { console.error('restoreWindows 出错:', e); }
+        // 刷新所有头像显示位置（确保登录后头像正确显示）
+        try { updateAllAvatarDisplays(); } catch(e) { console.error('updateAllAvatarDisplays 出错:', e); }
         // N26：顶栏天气 + 后台进程计数 + Dock 液态玻璃 + 左右胶囊
         try { updateN26TopbarWeather(); } catch(e) { console.error('updateN26TopbarWeather 出错:', e); }
         try { updateN26ProcessCount(); } catch(e) {}
@@ -26228,11 +24950,6 @@
         }
         vid.style.display = 'none';
         try { vid.removeAttribute('src'); } catch (e) {}
-        // v2.9.61：必应每日壁纸优先于自定义静态图（关掉后自动回到原来的选择）
-        if (s.bingDailyWallpaper && s.bingDailyUrl) {
-            setWallpaperBackground(s.bingDailyUrl);
-            return;
-        }
         if (s.useCustomWallpaper && s.customWallpaper) {
             bg.style.backgroundImage = `url('${s.customWallpaper}')`;
             return;
@@ -26251,15 +24968,13 @@
         }
         const vid = document.getElementById('nexus-bg-video');
         const bg = document.getElementById('nexus-bg');
-        // v2.9.61：桌面壁纸可能来自 CSS（inline 为空），只读 inline 会让锁屏拿到 none，
-        // 这就是「锁屏和桌面壁纸完全不一致」的根因。统一回落到 computed → 主题静态图。
-        let img = (bg && bg.style.backgroundImage) || '';
-        if (!img || img === 'none') {
-            try { img = bg ? getComputedStyle(bg).backgroundImage : ''; } catch (e) { img = ''; }
+        if (vid && vid.style.display !== 'none' && vid.style.display !== '') {
+            lock.style.backgroundImage = `url('${n26CurrentThemeStaticUrl(s)}')`;
+        } else if (bg && bg.style.backgroundImage) {
+            lock.style.backgroundImage = bg.style.backgroundImage;
+        } else {
+            lock.style.backgroundImage = `url('${n26CurrentThemeStaticUrl(s)}')`;
         }
-        const dynamicOn = !!(vid && vid.style.display && vid.style.display !== 'none');
-        if (!img || img === 'none' || dynamicOn) img = `url('${n26CurrentThemeStaticUrl(s)}')`;
-        lock.style.backgroundImage = img;
         lock.style.backgroundSize = 'cover';
         lock.style.backgroundPosition = 'center';
     }
@@ -26396,8 +25111,6 @@
         applyN26DesktopWallpaper(s);
         // 锁屏壁纸：可独立设置（默认与桌面一致）
         applyN26LockWallpaper(s);
-        // v2.9.61：开启必应每日壁纸时后台刷新（失败静默，不阻塞启动）
-        try { n26ApplyBingDailyIfOn(s); } catch (e) { }
 
         // 主题色
         const colors = {
@@ -26521,7 +25234,6 @@
     function renderOobeFuiStyles() {
         renderFuiStyleRow('oobeFuiStyleRow', installFuiStyle, function (id) {
             installFuiStyle = id;
-            try { n26PreviewApply(); } catch (e) { }
         });
     }
     function selectOobeFuiStyle(id) {
@@ -26532,7 +25244,6 @@
     function renderOobeDockPos() {
         renderDockPositionRow('oobeDockPosRow', installDockPos, function (id) {
             installDockPos = id;
-            try { n26PreviewApply(); } catch (e) { }
         });
     }
     function selectOobeDockPos(id) {
@@ -32429,7 +31140,7 @@
                 avatar.innerHTML = `<img loading="lazy" decoding="async" src="${currentUser.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="avatarOnError(this)">`;
                 avatar.style.background = 'transparent';
             } else if (typeof currentUser !== 'undefined' && currentUser) {
-                avatar.style.background = 'linear-gradient(135deg,#60a5fa,#0ea5e9)';
+                avatar.style.background = 'linear-gradient(135deg,#667eea,#764ba2)';
                 avatar.innerHTML = `<span style="color:white;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;width:100%;height:100%;">${(currentUser.name || 'U').charAt(0).toUpperCase()}</span>`;
             }
         }
@@ -35560,78 +34271,6 @@
                         <h4>更新日志</h4>
                         <div class="changelog">
                             <div class="changelog-item">
-                                <div class="changelog-version">v2.9.64</div>
-                                <div class="changelog-date">2026-11-06</div>
-                                <ul class="changelog-list">
-                                    <li><span class="tag-sm new">OOBE</span><b>权限一步到位</b>：新增「我们会申请一些权限」说明步——麦克风、摄像头、位置、文件存储、通知、账户同步全部在装机时讲清楚，可随时在设置里管理或撤回</li>
-                                    <li><span class="tag-sm new">OOBE</span><b>hello 移到固件加载之后</b>：固件启动（开机控制台）成为装机第一步，加载完成后才出现八语 hello 欢迎页，符合真系统「先开机、后打招呼」的时序</li>
-                                    <li><span class="tag-sm new">AI 小方</span><b>出场动画复用长按空格光效</b>：装机收尾不再白屏升起，而是白爆 + 全局光晕 + 波纹 + 桌面挤压整套点亮；长按空格同款新增「光打到背景上」的全局光晕层，光照更有体积感</li>
-                                    <li><span class="tag-sm new">AI 小方</span><b>收尾对话框改磨砂玻璃</b>：真实毛玻璃（blur 30px + 饱和度提升），浮在光效之上；问候改为「你好，我是 AI 小方」+ 自我介绍，输入框放大，回车即可开始</li>
-                                    <li><span class="tag-sm fix">应用商城</span><b>左右滚动分区</b>：左侧分类 Dock 与右侧内容各自独立滚动，互不带动（原先整窗一起滚，Dock 只能 sticky 不能自滚）</li>
-                                    <li><span class="tag-sm new">小组件</span><b>S / M / L 尺寸档位</b>：选择面板每张卡新增尺寸胶囊（参考 Apple 小组件选择），拖入时可选小/中/大，后期仍可拖角自由拉伸</li>
-                                </ul>
-                            </div>
-                            <div class="changelog-item">
-                                <div class="changelog-version">v2.9.63</div>
-                                <div class="changelog-date">2026-11-06</div>
-                                <ul class="changelog-list">
-                                    <li><span class="tag-sm new">OOBE</span><b>个性化实时预览联动</b>：右侧插图不再只是摆设——主题（浅/深）、壁纸、Dock 位置（下/上/左/右/隐藏）、界面风格（液态/扁平）全部在左侧一调整、右侧预览卡实时跟随变化；预览从只出现在个性化步扩展到所有非欢迎/收尾步骤常驻右侧，表单区自动让位不压字</li>
-                                    <li><span class="tag-sm fix">OOBE</span><b>顶栏自然过渡到背景</b>：装机页顶部加一道 92px 柔和渐变（从半透明白到全透明），导航区不再有硬边，看起来像自然融入背景而非被截断</li>
-                                    <li><span class="tag-sm fix">文案</span><b>软化「重启」措辞</b>：语言步从「更改将在重启后生效」改为「更改下次进入系统时生效」，减少装机流程里「一大堆重启」的观感</li>
-                                </ul>
-                            </div>
-                            <div class="changelog-item">
-                                <div class="changelog-version">v2.9.62</div>
-                                <div class="changelog-date">2026-11-06</div>
-                                <ul class="changelog-list">
-                                    <li><span class="tag-sm new">精准触控板</span><b>首次进入桌面的小方引导</b>：全部设置完成后弹出一张纯文字卡片，由小方带过一遍 Web 端「精准触控板」手势。① 中央拟物圆钮：把光标滑过去（不用摁住拖动），<b>轻轻点一下、不用按到底</b>，圆钮变色，小方会鼓励你；② 双指滚轮：左边随机滚到一个图标后锁定不能再滚，右边由用户用两指滑动找到同一个，再轻点确认；③ 双指张开捏合放大到虚线框；④ 横向多指轻扫把圆点推到轨道尽头。手势走 <code>pointer 轻点(短按且无位移)</code> / <code>wheel</code> / <code>ctrl+wheel + gesturechange</code> / <code>deltaX</code>，按住拖动与长按不计入，鼠标滚轮也能完成，任何一步都能跳过，绝不卡住用户</li>
-                                    <li><span class="tag-sm new">多语言</span><b>引导文案跟着系统语言走</b>：中 / 英 / 日 / 韩 / 俄五套完整文案，<code>setLanguage()</code> 切换时正在显示的引导即时重绘，不用重进系统；完成标记写 <code>setUserLS</code>，只弹一次，可随时重播。这轮新代码全部放进独立模块 <code>ui/n26-tour.css</code> / <code>ui/n26-tour.js</code> / <code>ui/n26-store.js</code>，不再往主文件里堆</li>
-                                    <li><span class="tag-sm fix">小组件</span><b>把「八种荧光色 + 130px 塞满碎字」收掉</b>：实测病根是 <code>--w-s:84%</code> 的高饱和实色和每卡都塞湿度/风速/进度条那排蚂蚁字。现在统一到冷蓝 / 纸白 / 暖米三组低饱和色（饱和度降到 32%）、统一 22px 圆角与两档阴影；逐卡重排：天气只留城市 / 图标 / 46px 大温度、时钟深墨表盘 36px、日期反白纸卡 38px 细体、便签真纸纹横线、日历今天反蓝圆、快捷启动只留 2×2 四个大图标、系统监控改「小标签 + 16px 大数字 + 细轨」、待办空状态提亮放大</li>
-                                    <li><span class="tag-sm fix">应用商城</span><b>不再是「一堆模板卡片」</b>：左侧 Dock 换成语义分类（发现 / 分类 / 更多）——为你推荐、娱乐、生产力、AI 工具、游戏、创作、学习、资讯、社交等，分组标题 + 横向排列 + 单个强调蓝；右侧改成 Apple App Store 的 Today 大卡（编辑精选眉题 + 大标题 + 描述 + 按钮 + 大图标）、三张不同标签的编辑精选、带序号的热门榜单，再接「全部应用」。语义分类映射到原有 category 数据，<code>#appStoreGrid</code> / <code>.appstore-card</code> / 审核台 / 插件市场 / 详情页 / 下载全部保留可用</li>
-                                    <li><span class="tag-sm fix">系统</span><b>圆角与阴影质感收敛 + 顺手修两个存量坑</b>：窗口外壳统一 18px 圆角与两档阴影（不碰超椭圆图标、不碰 os-win 皮肤、不碰 OOBE 大卡）；修掉商城从审核台返回时临时面板被 <code>appStoreBackToGrid()</code> 重新显示出来的老问题；深色模式与窄窗口都有对应适配</li>
-                                </ul>
-                            </div>
-                            <div class="changelog-item">
-                                <div class="changelog-version">v2.9.61</div>
-                                <div class="changelog-date">2026-11-06</div>
-                                <ul class="changelog-list">
-                                    <li><span class="tag-sm new">OOBE</span><b>连贯动画与呼吸感重构</b>：新增欢迎页（八种语言 hello 轮换 + 单个圆形箭头），点箭头后同一个 hello 元素以 FLIP 飞到左上角变成跨步骤常驻角标；卡片与常驻层在步骤之间不再重建，只有内容错峰淡入，彻底告别「14 张独立卡片硬翻牌」。步骤钩子改按 id 匹配，插入/调整步骤不再让索引整体错位</li>
-                                    <li><span class="tag-sm new">设计语言</span><b>对症四个老问题</b>：太拥挤 → 卡片放大到 1280×700、只留单一视觉主体与单一信息轴；太乱 → 顶部孤立进度胶囊改为底部细轨、装饰水印全部撤掉；没有边界 → 卡片改纯白实卡 + 细边 + 柔和长阴影，去掉半透明模糊；配色难受 → 装机背景收成中性灰白 + 单一冷调柔光，全页只用三级灰阶和一个强调蓝。N26 自己的斜向受光、逐字标题、3D 视差、covi 全屏体系全部保留，<b>只参考设计原则，未复用任何外部代码、布局数值或动画时序</b></li>
-                                    <li><span class="tag-sm new">个性化</span><b>左右软分区，无分割线</b>：新增跨步骤常驻的系统预览（真实窗口 / 壁纸 / Dock 骨架），跟随鼠标做带延迟惯性的 lerp 视差；换步骤时左侧不重建、只换右侧选项，浅色 / 深色与壁纸的选择会累积留在预览上。拖云朵到硬盘的交互撤掉，改为一键「开始下载」；重启过渡页改写成「系统已经完备 · 进行最后设置」</li>
-                                    <li><span class="tag-sm new">收尾</span><b>AI 小方不再中途突兀出现</b>：全部设置完成后白屏自动升起一个对话框（复用 N26 长按空格的 covi 语言，无需用户长按），输入框 + 「你好，我是小方」+「开始使用 / 使用 API 配置」；API 配置降为收尾对话框里的可选分支，主流程默认跳过</li>
-                                    <li><span class="tag-sm new">个性化</span><b>真的拆开更多步</b>：主题页只留壁纸，界面风格与 Dock 位置各自拆成独立一步（一屏只做一件事）；新增「挑几张桌面小组件」步骤，八类可勾选并直接写入 <code>desktopWidgets</code>，进桌面就是自己挑的那几张。新增<b>必应每日壁纸</b>：走自有 Worker <code>/api/bing/daily</code> 反代（零外部 CDN 铁律），OOBE 壁纸页与设置页都能开关，服务未部署或断网时静默降级到内置壁纸，绝不阻塞启动</li>
-                                    <li><span class="tag-sm fix">系统</span><b>锁屏与桌面壁纸统一 + 进桌面提速</b>：实测锁屏 <code>backgroundImage: none</code> 的根因是 <code>applyN26LockWallpaper()</code> 只看 inline 样式、拿不到 CSS 真值；改成 computed → 主题静态图的单一真值链，每次锁屏重新对齐，CSS 也补同源兜底。进桌面入场 600ms 内摘掉全系统背景模糊层（模糊层数是性能唯一真杠杆），启动台 / 窗口恢复 / 头像刷新挪到空闲时段，不再和入场动画抢同一帧</li>
-                                    <li><span class="tag-sm fix">小组件</span><b>停止「一个骨架换色相」批量生产</b>：天气 / 时钟 / 日期 / 便签 / 日历 / 待办 / 系统监控按各自内容重排字号与结构线，并做出真正的材质差异（日期与日历反白纸卡、时钟深墨表盘、便签折角、列表卡专属结构线），不再千篇一律</li>
-                                </ul>
-                            </div>
-                            <div class="changelog-item">
-                                <div class="changelog-version">v2.9.60</div>
-                                <div class="changelog-date">2026-11-06</div>
-                                <ul class="changelog-list">
-                                    <li><span class="tag-sm new">背景</span><b>整机壁纸换代</b>：新增自绘低饱和弥散渐变壁纸 <code>n26-aurora-mist.png</code>（青蓝 / 暖杏 / 薄荷 / 天蓝四角，无紫色），桌面、装机背景、关于本机卡片统一换上；顺手修掉「CSS 换了但启动后又被 JS 覆盖回海岛写实照」的老坑——默认主题由遗留的 <code>beach</code> 改为 <code>abstract</code>，老账户在 <code>normalizeSettings()</code> 里一次性平滑迁移，用户自己上传的自定义 / 动态壁纸不受影响</li>
-                                    <li><span class="tag-sm new">OOBE</span><b>14 个步骤逐张截图审查后的定点重做</b>：卡片加宽加白、内容左对齐、标题放大；拖放步骤补大标题并把深色时代遗留的「白图标白底」改成看得见的蓝色立体图标；云盘步骤拍平最后一块卡中卡、补三条信息层级；下载进度控制台改浅蓝实感面板；功能轮播缩略图不再被卡片切成半张，降为右下角纹理水印（动画保留）；隐私步骤去掉盖住整屏渐变的白底、固件收掉跑满 100% 的蓝残条、主题步骤限高内滚不再切掉 Dock 预览、重启黑屏的进度胶囊转深色</li>
-                                    <li><span class="tag-sm new">小组件</span><b>内容层级第二轮</b>：天气大温度 + 大太阳、日期 46px 超大数字、便签纸黄横线纸纹、日历今天反白圆、时钟 38px；放大截图后继续修真实可读性问题——便签占位符 / 待办空状态 / 系统监控 9px 蚂蚁字全部提亮放大，快捷启动六格从「白色线稿图压浅白 pill 等于看不见」改成统一 FA 字形 + 四列排布 + 实心白名称</li>
-                                    <li><span class="tag-sm fix">禁紫</span><b>残留紫色清扫</b>：全文件扫描后把 11 处紫罗兰色值（禅模式莲花、开始菜单头像渐变、拟物图标、AI 光球、雪天天气卡、扁平睡眠卡等）连同 Dock 预览渐变、品红图标渐变全部换成天蓝 / 青色；主文件按「蓝 > 红 > 绿」口径复扫，紫罗兰色值归零（B 站品牌粉、主题色 pink 预设不属于紫色，保留）</li>
-                                </ul>
-                            </div>
-                            <div class="changelog-item">
-                                <div class="changelog-version">v2.9.59</div>
-                                <div class="changelog-date">2026-11-06</div>
-                                <ul class="changelog-list">
-                                    <li><span class="tag-sm new">OOBE</span><b>装机卡片去分栏</b>：原来每一步都是「左 40% 动画栏 + 右 60% 内容栏」的生硬两栏（还被吐槽 AI 味），现在动画整体降级为卡片背景水印（大图标淡化漂浮、波纹圈淡出、轨道粒子调暗），内容铺满整块大长方形卡片单栏流式；卡中卡（隐私条款白卡、账号表单玻璃子卡）全部拍平，少一层采样、少一层嵌套</li>
-                                    <li><span class="tag-sm new">小组件</span><b>桌面小组件身份实色化</b>：统一的深磨砂玻璃被换成 FluentOS 式「每卡一个身份色」——天气蓝 / 时钟橙 / 便签纸黄 / 日历橙红 / 快捷启动蓝，对角渐变实色底 + 大号白字（时钟 30→34px），描边去掉、阴影按卡染色；时钟/日期/待办等专有类白字提到 0.97/0.78 两档。顺带把色相表里 7 个紫色系全部替换（禁紫令）</li>
-                                </ul>
-                            </div>
-                            <div class="changelog-item">
-                                <div class="changelog-version">v2.9.58</div>
-                                <div class="changelog-date">2026-11-06</div>
-                                <ul class="changelog-list">
-                                    <li><span class="tag-sm new">玻璃</span><b>设置 / 窗口玻璃分层</b>：窗口标题栏去掉自带第二层模糊（每个窗口少一个实时采样层，直接共享窗口玻璃），设置侧栏改为全透明共享宿主玻璃、内容区卡片更实（透明度 0.52→0.74），「透明栏 + 实卡」层级立刻拉开；选中项改 FluentOS 式柔和胶囊。全程未新增模糊层数</li>
-                                    <li><span class="tag-sm new">OOBE</span><b>装机流程灵动化</b>：步骤标题逐字弹入（26ms/字 + 回弹曲线），卡片跟随鼠标做 3D 视差（±2.6° 缓动跟随，性能模式自动停用），完成页改「放大 + 景深模糊」渐隐交棒进桌面</li>
-                                    <li><span class="tag-sm new">小组件</span><b>桌面小组件玻璃化</b>：整片高饱和彩色渐变改为中性深磨砂玻璃底 + 低饱和主题染色，跟随玻璃总线（<code>--glass-blur</code> / 固态 / 性能模式降级齐备），去 AI 味；顺手收口旧浅卡时代遗留的深色文字——时钟/日期/闹钟/待办/音乐等专有类统一白字，深玻璃上不再看不清，拟物化时钟保留琥珀字特色</li>
-                                </ul>
-                            </div>
-                            <div class="changelog-item">
                                 <div class="changelog-version">v2.9.57</div>
                                 <div class="changelog-date">2026-11-05</div>
                                 <ul class="changelog-list">
@@ -37376,13 +36015,6 @@
                                     <small>暂无壁纸</small>
                                 </div>
                             `}
-                        </div>
-                        <div class="n26-bing-row">
-                            <div>
-                                <b><i class="fas fa-globe-asia" style="color:var(--primary);margin-right:6px;"></i>必应每日壁纸</b>
-                                <small>每天自动换一张 · 走自有云端反代，离线自动降级</small>
-                            </div>
-                            <div class="toggle-switch ${s.bingDailyWallpaper ? 'active' : ''}" onclick="n26ToggleBingDaily()"></div>
                         </div>
                     </div>
                     <div class="settings-section">
@@ -40148,7 +38780,7 @@
         });
         setLS('user_' + name + '_filesystem', fs);
         setLS('user_' + name + '_settings', {
-            theme: 'abstract',
+            theme: 'beach',
             wallpaper: 0,
             accentColor: 'blue',
             style: 'glass',
@@ -40288,7 +38920,7 @@
     function triggerDeveloperEasterEgg() {
         playSound('notify');
         showNotification('🎉 开发者彩蛋', '你发现了开发者彩蛋！\nNexus OS 26 - 由小方规划打造', 'success');
-        const colors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff', '#22d3ee', '#00d2d3', '#1dd1a1'];
+        const colors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff', '#5f27cd', '#00d2d3', '#1dd1a1'];
         for (let i = 0; i < 30; i++) {
             setTimeout(() => {
                 const particle = document.createElement('div');
@@ -40398,7 +39030,7 @@
                     createdAt: acc.createdAt,
                     filesystem: fs,
                     settings: {
-                        theme: 'abstract', wallpaper: 0, accentColor: 'blue', style: 'glass',
+                        theme: 'beach', wallpaper: 0, accentColor: 'blue', style: 'glass',
                         dockStyle: 'dock', finderBar: true, showDesktopIcons: true,
                         volume: 70, sounds: { boot: true, notify: true, error: true, shutdown: true },
                         soundVolume: 50,
@@ -41423,20 +40055,6 @@
         const panel = document.getElementById('widgetPanel');
         if (panel) panel.classList.remove('show');
     }
-    // v2.9.64：S/M/L 尺寸阶梯（参考 Apple 小组件选择：默认档各不相同，可选更大档）
-    function n26WidgetSizes(type) {
-        const info = WIDGET_TYPES[type] || {};
-        const baseC = info.cols || 2, baseR = info.rows || 2;
-        const cap = v => Math.min(9, Math.max(1, v));
-        const list = [
-            { label: 'S', cols: baseC, rows: baseR },
-            { label: 'M', cols: cap(baseC + 1), rows: cap(baseR + 1) },
-            { label: 'L', cols: cap(baseC + 3), rows: cap(baseR + 2) }
-        ];
-        const seen = new Set();
-        return list.filter(s => { const k = s.cols + 'x' + s.rows; if (seen.has(k)) return false; seen.add(k); return true; });
-    }
-
     function renderWidgetPanelGrid() {
         const grid = document.getElementById('widgetPanelGrid');
         if (!grid) return;
@@ -41461,26 +40079,14 @@
             card.innerHTML =
                 (w.builtin ? '<span class="widget-panel-card-badge">基础</span>' : '<span class="widget-panel-card-badge app">应用</span>') +
                 '<div class="widget-panel-card-preview"><div class="widget-panel-card-preview-inner lazy-render-slot"></div></div>' +
-                '<div class="widget-panel-card-name">' + w.name + '</div>' +
-                '<div class="widget-panel-card-sizes">' + n26WidgetSizes(id).map(function (s) {
-                    return '<span class="wp-size-chip" data-c="' + s.cols + '" data-r="' + s.rows + '" title="' + s.cols + ' × ' + s.rows + '">' + s.label + '</span>';
-                }).join('') + '</div>';
+                '<div class="widget-panel-card-name">' + w.name + '</div>';
             frag.appendChild(card);
         });
         grid.innerHTML = '';
         grid.appendChild(frag);
 
         // 性能优化：事件委托（取代每张卡片的 onclick 绑定）
-        // v2.9.64：点 S/M/L 芯片 = 按该尺寸添加；点卡片本体 = 默认尺寸添加
         grid.onclick = function (e) {
-            const chip = e.target.closest('.wp-size-chip');
-            if (chip && grid.contains(chip)) {
-                const card = chip.closest('.widget-panel-card');
-                const id = card ? card.dataset.widgetId : null;
-                if (!id || card.dataset.available !== '1') return;
-                addWidgetFromPanel(id, { cols: parseInt(chip.dataset.c, 10), rows: parseInt(chip.dataset.r, 10) });
-                return;
-            }
             const card = e.target.closest('.widget-panel-card');
             if (!card || !grid.contains(card)) return;
             const id = card.dataset.widgetId;
@@ -41538,7 +40144,7 @@
         inner.style.transform = 'scale(' + scale + ')';
         inner.innerHTML = content;
     }
-    function addWidgetFromPanel(type, size) {
+    function addWidgetFromPanel(type) {
         const info = WIDGET_TYPES[type];
         if (!info) return;
         // 默认放置在桌面左上角偏移（避免堆叠）
@@ -41546,7 +40152,7 @@
         const offset = widgets.length * 20;
         const x = Math.max(20, 40 + offset);
         const y = Math.max(20, 50 + offset);
-        addDesktopWidget(type, x, y, size);
+        addDesktopWidget(type, x, y);
         // 更新面板的"已安装"标记
         renderWidgetPanelGrid();
     }
@@ -41649,11 +40255,11 @@
     }
 
     // 添加桌面小组件并持久化
-    function addDesktopWidget(type, x, y, size) {
+    function addDesktopWidget(type, x, y) {
         const widgets = getUserLS('desktopWidgets') || [];
         const info = WIDGET_TYPES[type];
-        const cols = (size && size.cols) || (info ? info.cols : 2);
-        const rows = (size && size.rows) || (info ? info.rows : 2);
+        const cols = info ? info.cols : 2;
+        const rows = info ? info.rows : 2;
         // 同类型组件避免重复（最多 1 个），重复则覆盖位置
         const existing = widgets.findIndex(w => w.type === type);
         if (existing >= 0) {
@@ -41947,10 +40553,9 @@
         if (!Array.isArray(ids) || !ids.length) ids = ['browser','music','terminal','settings'];
         const items = ids.map(id => {
             const reg = (typeof appRegistry !== 'undefined' && appRegistry[id]) ? appRegistry[id] : null;
-            /* v2.9.60：实色身份卡里图标一律用 FA 字形。
-               之前混用 <img>：有些源图本身是白色线稿，贴在浅白 pill 上等于消失，
-               六格里只有两格看得见；统一字形后每格都有清晰大图标，还省一次图片解码。 */
-            const icon = '<i class="fas ' + (reg && reg.icon ? reg.icon : 'fa-cube') + '"></i>';
+            const icon = (typeof N26_APP_ICONS !== 'undefined' && N26_APP_ICONS[id])
+                ? '<img src="' + N26_APP_ICONS[id] + '" alt="">'
+                : '<i class="fas ' + (reg ? reg.icon : 'fa-cube') + '"></i>';
             const name = reg ? reg.name : id;
             return '<button class="w-ql-btn" onclick="n26QuickLaunch(event,\'' + id + '\')" title="' + name + '">'
                 + '<span class="w-ql-ic">' + icon + '</span>'
@@ -43663,7 +42268,7 @@
         const windSpeed = windMatch ? windMatch[0] : '—';
 
         return `
-            <div class="widget-weather widget-weather-${weatherType}">
+            <div class="widget-weather widget-weather-${weatherType}" style="background:linear-gradient(rgba(10,20,40,0.35), rgba(10,20,40,0.35)), url('${n26WeatherBg(city.status, city.sunrise ? n26IsNight(city.sunrise, city.sunset) : false)}') center/cover no-repeat;">
                 <div class="widget-weather-header">
                     <div class="widget-weather-city">${city.name}</div>
                     <i class="fas ${typeIcons[weatherType]} widget-weather-icon"></i>
@@ -47714,7 +46319,7 @@
         const lockScreen = document.getElementById('lock-screen');
         if (lockScreen) lockScreen.style.display = 'none';
         initStepDots();
-        installStep = OOBE_STEPS.indexOf('step-account');
+        installStep = 6;   // step-account 在 OOBE_STEPS 中的索引
         oobeShowStep(installStep, 'jump');
         // 清空输入与选择状态
         document.getElementById('accountName').value = '';
@@ -48782,7 +47387,7 @@
 
     // ==================== 账户管理弹窗 ====================
     /* 版本号唯一来源：更新日志里最新那条必须和这里一致，关于本机 / 控制中心 / 本机账户设置都读它 */
-    const NEXUS_OS_VERSION = 'v2.9.64';
+    const NEXUS_OS_VERSION = 'v2.9.57';
     const NEXUS_OS_BUILD_DATE = '2026-11-05';
 
     function openAccountModal() {
@@ -49137,7 +47742,7 @@
         disks.forEach(d => { fs[d.letter] = { type: 'drive', children: {} }; });
         setLS('user_' + name + '_filesystem', fs);
         setLS('user_' + name + '_settings', {
-            theme: 'abstract', wallpaper: 0, accentColor: 'blue', style: 'glass',
+            theme: 'beach', wallpaper: 0, accentColor: 'blue', style: 'glass',
             dockStyle: 'dock', finderBar: true, showDesktopIcons: true,
             volume: 70, sounds: { boot: true, notify: true, error: true, shutdown: true },
             soundVolume: 50,
@@ -52148,7 +50753,7 @@
                 setTimeout(() => {
                     // 用户已点击/回车手动翻牌时不重复推进，防止跳过隐私条款
                     // （隐私条款初始化已改由 oobeInitStepHook 第 1 步负责，两条路径都会执行）
-                    if (OOBE_STEPS[installStep] === 'step-firmware') nextInstallStep();
+                    if (installStep === 0) nextInstallStep();
                 }, 800);
             }
         }, 280);
@@ -52794,32 +51399,22 @@
                         textEl.classList.add('fade-in');
                     }, 100);
                 }
-                // v2.9.61：准备环境结束后不直接进桌面，先升起小方对话框（全部完成之后）
-                setTimeout(() => nextInstallStep(), 1000);
+                setTimeout(() => finishInstallation(), 1000);
             }
         }, 50);
     }
 
     function finishInstallation() {
         // 1. 渐隐整个安装界面到黑（CSS transition opacity 0→1，约500ms）
-        //    v2.9.58 交棒增强（参考 FluentOS）：渐隐同时放大 + 景深模糊，桌面从糊中浮现
         const installScreen = document.getElementById('install-screen');
         if (installScreen) {
-            try { installScreen.classList.add('oobe-leaving'); } catch (e) {}
-            installScreen.style.transition = 'opacity 0.6s var(--ease-out), transform 0.9s var(--ease-out), filter 0.9s var(--ease-out)';
+            installScreen.style.transition = 'opacity 0.5s var(--ease-out)';
             installScreen.style.opacity = '0';
-            installScreen.style.transform = 'scale(1.03)';
-            installScreen.style.filter = 'blur(12px)';
         }
 
         // 2. 0.5秒后隐藏安装界面，播放水面反光开机动画
         setTimeout(() => {
-            if (installScreen) {
-                installScreen.style.display = 'none';
-                installScreen.style.transform = '';
-                installScreen.style.filter = '';
-                try { installScreen.classList.remove('oobe-leaving'); } catch (e) {}
-            }
+            if (installScreen) installScreen.style.display = 'none';
 
             // 应用所有安装选择
             applyInstallChoices();
@@ -56112,9 +54707,5 @@
     scan(document.body);
 })();
 </script>
-<!-- v2.9.64：OOBE 权限步骤 + hello 移到固件后 + Covi 出场复用长按空格光效（磨砂玻璃对话框）/ 商城左右独立滚动 / 小组件 S·M·L 尺寸档位（covi-glow.css 与 n26-shell.css 已同步改动） -->
-<link rel="stylesheet" href="ui/n26-tour.css?v=2962">
-<script src="ui/n26-tour.js?v=2962"></script>
-<script src="ui/n26-store.js?v=2962"></script>
 </body>
 </html>

@@ -42,40 +42,18 @@
     --covi-oy: 97%;
     transform-origin: var(--covi-ox) var(--covi-oy);
     background: radial-gradient(circle at var(--covi-ox) var(--covi-oy),
-        rgba(255, 255, 255, 0.98) 0%,
-        rgba(255, 255, 255, 0.9) 8%,
-        rgba(255, 246, 222, 0.62) 18%,
-        rgba(255, 255, 255, 0.32) 36%,
-        rgba(255, 255, 255, 0) 62%);
+        rgba(255, 255, 255, 0.96) 0%,
+        rgba(255, 255, 255, 0.82) 6%,
+        rgba(255, 244, 214, 0.52) 14%,
+        rgba(255, 255, 255, 0.20) 27%,
+        rgba(255, 255, 255, 0) 45%);
     mix-blend-mode: screen;      /* 提亮下方内容，像真实的光 */
 }
-#covi-white.play { animation: coviBurst 0.85s cubic-bezier(0.11, 0.78, 0.32, 1) forwards; }
+#covi-white.play { animation: coviBurst 0.8s cubic-bezier(0.11, 0.78, 0.32, 1) forwards; }
 @keyframes coviBurst {
     0%   { opacity: 0;    transform: scale(0.35); }
     10%  { opacity: 1;    transform: scale(0.72); }
-    100% { opacity: 0;    transform: scale(1.7); }
-}
-
-/* ---------- ①-b 全局光晕：让「光打到背景上」有真实体积感 ---------- */
-#covi-wash {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0;
-    --covi-ox: 50%;
-    --covi-oy: 97%;
-    background: radial-gradient(circle at var(--covi-ox) var(--covi-oy),
-        rgba(255, 255, 255, 0.55) 0%,
-        rgba(210, 232, 255, 0.30) 22%,
-        rgba(180, 214, 255, 0.14) 46%,
-        rgba(255, 255, 255, 0) 72%);
-    mix-blend-mode: screen;
-}
-#covi-wash.play { animation: coviWash 1.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-@keyframes coviWash {
-    0%   { opacity: 0; }
-    16%  { opacity: 1; }
-    100% { opacity: 0; }
+    100% { opacity: 0;    transform: scale(1.5); }
 }
 
 /* ---------- ② 水波纹画布（JS 画同心彩环，加法混合） ---------- */
@@ -95,10 +73,10 @@
     inset: 0;
     pointer-events: none;
     box-shadow:
-        inset 0  40px 120px -30px rgba(255, 214, 10, 0.42),   /* 上：黄 */
-        inset 40px 0 120px -30px rgba(10, 132, 255, 0.42),    /* 左：蓝 */
-        inset -40px 0 120px -30px rgba(48, 209, 88, 0.42),    /* 右：绿 */
-        inset 0 -40px 120px -30px rgba(255, 179, 0, 0.36);    /* 下：暖黄 */
+        inset 0  30px 84px -34px rgba(255, 214, 10, 0.32),   /* 上：黄 */
+        inset 30px 0 84px -34px rgba(10, 132, 255, 0.32),    /* 左：蓝 */
+        inset -30px 0 84px -34px rgba(48, 209, 88, 0.32),    /* 右：绿 */
+        inset 0 -30px 84px -34px rgba(255, 179, 0, 0.26);    /* 下：暖黄 */
     opacity: var(--covi-gain, 1);
     transition: opacity 0.5s ease;
 }

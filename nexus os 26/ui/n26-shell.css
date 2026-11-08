@@ -5,32 +5,19 @@
 /* ══════════════════════════════════════════════════════════════════
    1. 应用商店：左边一列图标，点一下就切分类
    ══════════════════════════════════════════════════════════════════ */
-/* v2.9.64：滚动下放到两栏各自独立，左分类 dock 与右内容不再互相带动 */
-.appstore-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    box-sizing: border-box;
-    overflow: hidden;
-    overscroll-behavior: contain;
-}
+.appstore-container { display: block; }
 
 .as-shell {
     display: flex;
-    align-items: stretch;
+    align-items: flex-start;
     gap: 14px;
-    flex: 1 1 auto;
-    min-height: 0;
-    padding: 18px 20px 24px;
-    box-sizing: border-box;
 }
 
 .as-rail {
-    position: relative;
+    position: sticky;
+    top: 0;
     flex: 0 0 66px;
     width: 66px;
-    overflow-y: auto;
-    overflow-x: hidden;
     display: flex;
     flex-direction: column;
     gap: 3px;
@@ -40,12 +27,7 @@
     border: 1px solid rgba(255, 255, 255, 0.62);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 6px 18px rgba(20, 40, 70, 0.10);
     box-sizing: border-box;
-    scrollbar-width: thin;
 }
-.as-rail::-webkit-scrollbar { width: 0; }
-.as-main::-webkit-scrollbar { width: 8px; }
-.as-main::-webkit-scrollbar-thumb { background: rgba(120,120,140,0.28); border-radius: 8px; }
-.as-main::-webkit-scrollbar-track { background: transparent; }
 body.dark-mode .as-rail {
     background: rgba(255, 255, 255, 0.07);
     border-color: rgba(255, 255, 255, 0.12);
@@ -77,7 +59,7 @@ body.dark-mode .as-rail {
 body.dark-mode .as-rail-item { color: rgba(255, 255, 255, 0.68); }
 body.dark-mode .as-rail-item:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
 
-.as-main { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding-right: 4px; }
+.as-main { flex: 1 1 auto; min-width: 0; }
 
 .as-crumb {
     font-size: 15px;
@@ -99,20 +81,17 @@ body.dark-mode .as-crumb { color: rgba(255, 255, 255, 0.9); }
       · 左栏窄一点、条目更矮更圆，图标变成彩色小方块
       · 右侧内容改成一张张白色圆角卡片（分组感）
    ══════════════════════════════════════════════════════════════════ */
-/* v2.9.58 玻璃分层（参考 FluentOS 青山湖）：
-   侧栏不再自涂一层灰白，直接透明共享窗口宿主磨砂 ——「只有侧边栏那部分是半透明玻璃」的观感；
-   层级对比交给右侧更实的白色卡片（.settings-section 0.6），不再多开 backdrop-filter 采样层 */
 .settings-sidebar {
     width: 214px;
     padding: 12px 8px;
-    background: transparent;
-    border-right: 1px solid rgba(0, 0, 0, 0.06);
+    background: rgba(246, 247, 250, 0.72);
+    border-right: 1px solid rgba(0, 0, 0, 0.07);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
 }
 body.dark-mode .settings-sidebar {
-    background: transparent;
-    border-right-color: rgba(255, 255, 255, 0.07);
+    background: rgba(26, 28, 34, 0.72);
+    border-right-color: rgba(255, 255, 255, 0.08);
 }
 
 .settings-item {
@@ -125,19 +104,11 @@ body.dark-mode .settings-sidebar {
     transition: background 0.14s ease, color 0.14s ease;
 }
 .settings-item:hover { background: rgba(0, 0, 0, 0.05); color: #0f2233; }
-/* FluentOS 式选中态：柔和胶囊 + 内高光，替代整块实色填充 */
 .settings-item.active {
-    background: rgba(74, 155, 245, 0.16);
-    color: #0f2233;
-    font-weight: 600;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 1px 5px rgba(15, 23, 42, 0.06);
-}
-body.dark-mode .settings-item.active {
-    background: rgba(74, 155, 245, 0.26);
+    background: var(--primary, #4A9BF5);
     color: #fff;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
-.settings-item.active i { color: inherit !important; filter: saturate(1.4); }
+.settings-item.active i { color: #fff !important; }
 
 /* 左栏图标 → 彩色小方块（苹果那种每个设置一个色的图标） */
 .settings-item > i {
