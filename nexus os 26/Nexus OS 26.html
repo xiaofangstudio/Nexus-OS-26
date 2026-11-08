@@ -17946,7 +17946,7 @@
     <link rel="stylesheet" href="ui/n26-startmenu.css?v=232">
     <link rel="stylesheet" href="ui/n26-shell.css?v=254">
     <link rel="stylesheet" href="ui/n26-docknav.css?v=2973">
-    <link rel="stylesheet" href="ui/n26-widgets.css?v=20261107">
+    <link rel="stylesheet" href="ui/n26-widgets.css?v=20261108mat">
     <link rel="stylesheet" href="ui/n26-widgets-v2.css?v=w2m">
     <script src="ui/n26-widgets-v2.js?v=w2m"></script>
     <link rel="stylesheet" href="ui/n26-a11y.css?v=20261107">
@@ -19893,8 +19893,9 @@
         <div class="covi-edge covi-edge-core"></div>
         <div id="covi-hint">长按 Space 叫我 · 松手直接说话 🎤</div>
     </div>
-    <!-- 屏幕水波：backdrop-filter 真位移，自下而上扫过整屏；不播放时 display:none -->
-    <div id="covi-wave" aria-hidden="true"></div>
+    <!-- 屏幕水波：外层做软边遮罩 + 自下而上扫过（mask 必须挂在父层，Chromium 不会用 mask 裁 backdrop-filter 输出）；
+         内层 #covi-wave-fx 做 backdrop-filter 真位移。不播放时 display:none，零成本。 -->
+    <div id="covi-wave" aria-hidden="true"><div id="covi-wave-fx"></div></div>
 
     <!-- AI 小方 HUD：长按 Space 底部弹出输入条；回复以气泡悬空显示（不打开对话页） -->
     <div id="covi-hud" data-phase="idle">

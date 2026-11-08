@@ -85,7 +85,8 @@ body .desktop-widget-card .widget-weather::before {
 /* 全类型统一中性玻璃：压掉旧的「一个组件一个色相」身份实色（含 !important） */
 body .desktop-widget-card,
 body .desktop-widget-card[data-wtype] {
-    background: var(--w-mat-bg) !important;
+    background-color: var(--w-mat-bg) !important;
+    background-image: var(--w-mat-bg-img) !important;
     border: 1px solid var(--w-mat-border) !important;
     box-shadow: var(--w-mat-shadow) !important;
     color: var(--w-text) !important;
@@ -93,7 +94,8 @@ body .desktop-widget-card[data-wtype] {
 }
 body.dark-mode .desktop-widget-card,
 body.dark-mode .desktop-widget-card[data-wtype] {
-    background: var(--w-mat-bg) !important;
+    background-color: var(--w-mat-bg) !important;
+    background-image: var(--w-mat-bg-img) !important;
     border-color: var(--w-mat-border) !important;
     box-shadow: var(--w-mat-shadow) !important;
     color: var(--w-text) !important;
@@ -102,7 +104,8 @@ body.dark-mode .desktop-widget-card[data-wtype] {
 /* ui/n26-tour.css 在文件末尾才加载，且给 clock/date/calendar 写了 body.dark-mode + 类型选择器
    （特异度 0,3,1）。这里用双属性选择器（0,3,2）确保深色模式下所有类型都回到中性玻璃 */
 body.dark-mode .desktop-widget-card[data-wtype][data-type] {
-    background: var(--w-mat-bg) !important;
+    background-color: var(--w-mat-bg) !important;
+    background-image: var(--w-mat-bg-img) !important;
     border-color: var(--w-mat-border) !important;
     box-shadow: var(--w-mat-shadow) !important;
     color: var(--w-text) !important;
@@ -111,7 +114,8 @@ body.dark-mode .desktop-widget-card[data-wtype][data-type]::after {
     background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, 0) 46%) !important;
 }
 body .desktop-widget-card[data-wtype]:hover {
-    background: var(--w-mat-bg) !important;
+    background-color: var(--w-mat-bg) !important;
+    background-image: var(--w-mat-bg-img) !important;
     box-shadow: 0 18px 42px rgba(15, 23, 42, .17), 0 3px 8px rgba(15, 23, 42, .08), inset 0 1px 0 rgba(255, 255, 255, .74) !important;
 }
 body.dark-mode .desktop-widget-card[data-wtype]:hover {
@@ -202,7 +206,11 @@ body .desktop-widget-card[data-wtype] .widget-weather-status {
     --w-well: rgba(15, 23, 42, .055);
     --w-accent: #3b82f6;
 
-    --w-mat-bg: linear-gradient(158deg, rgba(255, 255, 255, .86) 0%, rgba(247, 248, 250, .74) 100%);
+    --w-mat-bg: rgba(251, 252, 254, .76);
+    /* 保留一层极淡的纵向层次，叠在 76% 底色上仍是同色系；不引入通透感 */
+    --w-mat-bg-img: linear-gradient(158deg, rgba(255, 255, 255, .055) 0%, rgba(255, 255, 255, 0) 58%);
+    /* 磨砂只取几 px：既有一点质感，又不会把壁纸糊进卡片主色 */
+    --w-mat-blur: blur(4px) saturate(1.03);
     --w-mat-border: rgba(255, 255, 255, .78);
     --w-mat-shadow:
         0 12px 30px rgba(15, 23, 42, .13),
@@ -216,9 +224,10 @@ body .desktop-widget-card[data-wtype] .widget-weather-status {
     corner-shape: round;
     padding: 0;
     border: 1px solid var(--w-mat-border);
-    background: var(--w-mat-bg);
-    -webkit-backdrop-filter: blur(22px) saturate(165%);
-    backdrop-filter: blur(22px) saturate(165%);
+    background-color: var(--w-mat-bg);
+    background-image: var(--w-mat-bg-img);
+    -webkit-backdrop-filter: var(--w-mat-blur);
+    backdrop-filter: var(--w-mat-blur);
     box-shadow: var(--w-mat-shadow);
     color: var(--w-text);
     isolation: isolate;
@@ -241,13 +250,16 @@ body.dark-mode .desktop-widget-card {
     --w-well: rgba(255, 255, 255, .07);
     --w-accent: #7cb2ff;
 
-    --w-mat-bg: linear-gradient(158deg, rgba(40, 42, 48, .68) 0%, rgba(22, 24, 28, .60) 100%);
+    --w-mat-bg: rgba(34, 36, 42, .76);
+    --w-mat-bg-img: linear-gradient(158deg, rgba(255, 255, 255, .05) 0%, rgba(255, 255, 255, 0) 56%);
+    --w-mat-blur: blur(4px) saturate(1.02);
     --w-mat-border: rgba(255, 255, 255, .16);
     --w-mat-shadow:
         0 16px 38px rgba(0, 0, 0, .52),
         0 2px 8px rgba(0, 0, 0, .34),
         inset 0 1px 0 rgba(255, 255, 255, .13);
-    background: var(--w-mat-bg);
+    background-color: var(--w-mat-bg);
+    background-image: var(--w-mat-bg-img);
     border-color: var(--w-mat-border);
     box-shadow: var(--w-mat-shadow);
 }
