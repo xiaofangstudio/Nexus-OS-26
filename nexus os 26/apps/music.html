@@ -946,14 +946,35 @@ window.addEventListener('storage', function (e) {
   if (o && o.id && o.id !== MEDIA_ID) externalStop();
 });
 
-/* 离开应用：暂停 + 释放音频 + 记录进度 */
+/* 暂停意图记账：只有我们自己主动 pause 时才允许真的停下来。
+   主壳在“开新窗口 / 最小化 / 切后台”时会直接 pause iframe 里的 audio，
+   那不是用户意图，必须在 pause 事件里立刻续播。 */
+var PAUSE_INTENT = 0;
+function sysPause(el) {
+  PAUSE_INTENT++;
+  try { (el || A).pause(); } catch (e) { }
+}
+/* 判断宿主窗口是否还活着：关窗时主壳会同步把 windows 条目 splice 掉，
+   最小化 / 开别的应用 / 切后台时条目仍在。 */
+function hostWindowAlive() {
+  try {
+    if (!window.frameElement) return false;
+    var P = window.parent;
+    if (!P || !Array.isArray(P.windows)) return true;
+    var host = window.frameElement.closest('.window');
+    if (!host) return true;
+    return P.windows.some(function (w) { return 'window-' + w.id === host.id; });
+  } catch (e) { return true; }
+}
+
+/* 离开应用（仅真正的关闭 / 页面卸载时调用）：暂停并释放音频 */
 function leaveApp(full) {
   if (S.cur) {
     var pos = (A.src && isFinite(A.duration) && A.duration > 0) ? (A.currentTime || 0)
       : ((S.last && same(S.last.track, S.cur)) ? S.last.pos : 0);
     S.last = { track: plain(S.cur), pos: pos, at: Date.now() };
   }
-  try { A.pause(); } catch (e) { }
+  sysPause(A);
   S.playing = false; S.loading = false;
   flush();
   if (full) {
@@ -961,22 +982,11 @@ function leaveApp(full) {
   }
   paintAll(); renderPage();
   releaseMedia();
-  stopHostBackground();
 }
 
-var _frameVisible = true;
+/* 只有 iframe 真正卸载（= 窗口被关闭）才停声；失焦 / 最小化 / 切后台一律不停 */
 function watchLeave() {
   window.addEventListener('pagehide', function () { leaveApp(true); });
-  document.addEventListener('visibilitychange', function () { if (document.hidden) leaveApp(true); });
-  window.addEventListener('blur', function () { leaveApp(true); });
-  setInterval(function () {
-    var vis = true;
-    try {
-      if (window.frameElement && window.frameElement.checkVisibility) vis = window.frameElement.checkVisibility();
-    } catch (e) { vis = true; }
-    if (!vis && _frameVisible) { _frameVisible = false; leaveApp(true); }
-    else if (vis) _frameVisible = true;
-  }, 900);
 }
 
 /* ============================================================
