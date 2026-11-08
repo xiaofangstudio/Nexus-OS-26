@@ -41,25 +41,41 @@
         var rail = document.getElementById('widgetPanelSizeRail');
         if (rail) rail.style.display = 'none';
         g.style.display = '';
+        /* ★ v2.9.95 丝滑 P0：这里原本同步遍历全部卡片、逐张渲染完整小组件预览，
+           19 张卡同帧生成 DOM + 栅格化玻璃 = 用户说的「小组件选择极其卡顿」。
+           而且主壳的懒加载器还会再渲染一遍。现在只收集任务，交给统一分片队列，
+           每帧最多 2 张 / 6ms 预算，并用 'wp:<id>' 与懒加载器去重。 */
+        var jobs = [];
         [].forEach.call(g.querySelectorAll('.widget-panel-card'), function (card) {
             var id = card.dataset.widgetId;
             if (!id) return;
             card.style.display = '';
             var list = sizesOf(id);
-            var sp = specOf(id);
-            var d = (sp && sp.fixed) ? list[0] : list[0];
+            var d = list[0];
             if (!d) return;
             card._size = { cols: d.cols, rows: d.rows };
             var sizesRow = card.querySelector('.widget-panel-card-sizes');
             if (sizesRow) sizesRow.style.setProperty('display', 'none', 'important');
             var inner = card.querySelector('.widget-panel-card-preview-inner');
             if (inner) {
-                inner.dataset.rendered = '';
-                try { renderWidgetPreviewInto(inner, id, card._size); } catch (e) { }
+                inner.dataset.rendered = '';   // 尺寸回到默认档，需要重渲染
+                jobs.push({ card: card, id: id, inner: inner });
             }
             var nm = card.querySelector('.widget-panel-card-name');
             if (nm) nm.textContent = nm.dataset.name || nm.textContent;
         });
+        function paintPreview(j) {
+            if (!j.inner.isConnected || j.inner.dataset.rendered === '1') return;
+            j.inner.dataset.rendered = '1';
+            try { renderWidgetPreviewInto(j.inner, j.id, j.card._size); }
+            catch (e) { j.inner.dataset.rendered = ''; }
+        }
+        if (window.N26Smooth) {
+            try { window.N26Smooth.drop('wp:'); } catch (e) { }
+            jobs.forEach(function (j) { window.N26Smooth.enqueue('wp:' + j.id, function () { paintPreview(j); }); });
+        } else {
+            jobs.forEach(paintPreview);   // 引擎没加载时的降级，行为与旧版一致
+        }
     }
 
     /* ---------- Level 2：尺寸滚轮 ---------- */
@@ -91,7 +107,11 @@
             '<div class="n26-wheel-track" tabindex="0" role="listbox" aria-label="尺寸滚轮"></div>' +
             '<div class="n26-wheel-foot">' +
                 '<div class="n26-wheel-meta"><b class="n26-wheel-dim"></b><span class="n26-wheel-dens"></span></div>' +
-                '<span class="n26-wheel-hint">滚轮 / 拖动浏览 · 点中间尺寸即放到桌面</span>' +
+                '<div class="n26-wheel-navs">' +
+                    '<button type="button" class="n26-wheel-nav n26-wheel-prev" aria-label="上一个尺寸">&lsaquo;</button>' +
+                    '<span class="n26-wheel-hint">点箭头 / 滚轮 / 拖动浏览</span>' +
+                    '<button type="button" class="n26-wheel-nav n26-wheel-next" aria-label="下一个尺寸">&rsaquo;</button>' +
+                '</div>' +
                 '<button type="button" class="n26-wheel-place">放到桌面</button>' +
             '</div>';
         host.appendChild(wrap);
@@ -173,10 +193,10 @@
         [].forEach.call(items, function (it, i) {
             var on = i === activeIdx;
             it.classList.toggle('on', on);
-            // 只留中间 + 相邻两档；更远的整卡淡出，避免在容器边缘露出被切一角的卡片
-            var d = Math.abs(i - activeIdx);
-            it.style.opacity = d > 1 ? '0' : '1';
-            it.style.pointerEvents = d > 1 ? 'none' : '';
+            /* v2.9.97：所有尺寸常驻可见。旧版 d>1 直接 opacity:0，
+               滚动时卡片「突然不见、再滚又冒出来」，用户明确不接受。 */
+            it.style.opacity = '';
+            it.style.pointerEvents = '';
             if (on) {
                 renderStage(it, W.id, W.list[i]);
                 it.style.zIndex = '3';
@@ -197,6 +217,11 @@
         if (dimEl) dimEl.textContent = dims(s);
         if (denEl) denEl.textContent = density(s);
         layoutTrack(track, activeIdx, false);
+        /* v2.9.97 左右圆形箭头：到头自动置灰，不用再靠滚轮猜尺寸 */
+        var pv = document.querySelector('#n26SizeWheel .n26-wheel-prev');
+        var nx = document.querySelector('#n26SizeWheel .n26-wheel-next');
+        if (pv) pv.disabled = activeIdx <= 0;
+        if (nx) nx.disabled = activeIdx >= W.list.length - 1;
         // 宽度/框体动画落定后重新居中，否则相邻缩略会被滚轮视口切掉一角
         clearTimeout(updateActive._t);
         updateActive._t = setTimeout(function () {
@@ -267,6 +292,15 @@
     }
 
     function bindDetailButtons(wrap, track) {
+        /* v2.9.97 左右圆形箭头：显式点一下换一档，不再只能靠滚轮猜 */
+        var prev = wrap.querySelector('.n26-wheel-prev');
+        var next = wrap.querySelector('.n26-wheel-next');
+        if (prev) prev.addEventListener('click', function (e) {
+            e.preventDefault(); e.stopPropagation(); step(-1);
+        });
+        if (next) next.addEventListener('click', function (e) {
+            e.preventDefault(); e.stopPropagation(); step(1);
+        });
         wrap.querySelector('.n26-wheel-back').addEventListener('click', function (e) {
             e.preventDefault(); e.stopPropagation();
             level1();

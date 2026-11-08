@@ -58,7 +58,7 @@
     function wState() {
         try {
             if (typeof n26WeatherState === 'function') { var st = n26WeatherState(); if (st) return st; }
-            var raw = localStorage.getItem('nexus_n26_weather_state_v1');
+            var raw = localStorage.getItem('n26:n26_weather_state_v1');
             if (raw) return JSON.parse(raw);
         } catch (e) { }
         return null;

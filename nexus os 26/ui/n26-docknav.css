@@ -15,7 +15,7 @@
 /* ---------- 宿主与层叠（指示器垫底，内容保持清晰） ---------- */
 .n26-docknav-host { position: relative; }
 .n26-docknav-host > * { position: relative; z-index: 1; }
-/* v2.9.82：玻璃已是 body 下的独立浮层，不再受宿主 z-index 约束（见下方 .n26-dng） */
+/* v2.9.92：玻璃回到容器内部、用容器局部坐标定位（详见下方 .n26-dng） */
 .n26-docknav-host.n26-docknav-drag { user-select: none; -webkit-user-select: none; cursor: grabbing; }
 
 /* ---------- 液态玻璃指示器 ---------- */
@@ -48,72 +48,122 @@
     background: transparent !important;
     box-shadow: none !important;
 }
-/* 拖动期间彻底禁用玻璃自身的过渡，保证中心严丝合缝贴住指针 */
-.n26-dng.travel,
-.n26-dng.glow {
+/* ── v2.9.94：侧边玻璃按 liquid-glass-web 参照物重做 ──────────────
+   用户三条指认：① 气泡突然出现又突然消失 ② 大塑料块子 ③ 没有折射。
+   ① 玻璃改为「常驻选中指示器」：静止时也停在选中项，只在切换/拖动时移动，
+      不再 opacity 0↔1 闪现（JS 同步改）。
+   ② 底色参照 rgba(255,255,255,0.08) + 底部内阴影提供厚度；
+      删掉白色斜向渐变、灰底、0.55 厚白描边 —— 那正是「塑料块」的来源。
+   ③ 折射 fallback 不能再是 blur(14px)：大模糊会把 SDF 位移完全抹平，
+      看起来就是没有折射。降级链也照参照物用 0.25px 微模糊 + 对比/亮度。
+   transform 绝不参与过渡（由 rAF 单帧直写），否则玻璃会绕大弯。 */
+/* ★ 玻璃本体一律不要 transition（v3.0）：位置/形状由 JS 逐帧写 transform，
+   opacity 也不再做闪现，所以这里没有任何需要过渡的属性。 */
+.n26-docknav-host > .n26-dng {
+    position: absolute;
+    left: 0; top: 0;
+    z-index: 0;
+    margin: 0;
+    /* 「侧边选中时这里应该有圆角」：圆角跟随个性化 radius 参数，
+       但保持胶囊感（下限 10px、上限 22px，不会退化成方块） */
+    border-radius: clamp(10px, var(--n26-ui-radius, 14px), 22px);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.20);
+    box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.32),
+        inset 0 -10px 25px rgba(0, 0, 0, 0.15);
+    -webkit-backdrop-filter: var(--n26-lg-filter, blur(0.25px) contrast(1.2) brightness(1.05) saturate(1.1));
+    backdrop-filter: var(--n26-lg-filter, blur(0.25px) contrast(1.2) brightness(1.05) saturate(1.1));
+    pointer-events: none;
+    opacity: 1;
+    /* ★ transform 绝不能带过渡：位置由 JS 逐帧写；一旦 CSS 再加 0.15s 过渡，
+       每写一帧就被再插值一次，肉眼就是「玻璃慢半拍 / 拖影」。
+       （[data-n26dock="h"] > * 的通用过渡会命中这里，所以必须 !important 掐死） */
     transition: none !important;
 }
-/* v2.9.82 浮层：玻璃挂在 body 上、用视口坐标定位。
-   这样侧栏的 overflow:hidden / 轨道内边距都裁不到它，四周外扩（OUT=5px）
-   才能真正越出整条侧栏的外轮廓。 */
-.n26-dng {
-    position: fixed; left: 0; top: 0; z-index: 2147483000;
-    margin: 0;
-    border-radius: 999px;
-    background: rgba(125, 135, 155, 0.10);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -10px 20px rgba(0, 0, 0, 0.10);
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.25s linear;
-    transition-timing-function: linear;
-    will-change: transform, width, height;
+/* v3.0：will-change 只在真的在动的时候挂（travel / glow / JS 的 n26-dng-live），
+   静止 200ms 后由 JS 摘掉 —— 常驻会让每个侧栏都多一个合成层。 */
+.n26-dng.travel,
+.n26-dng.glow,
+.n26-dng.n26-dng-live,
+.n26-docknav-host:hover > .n26-dng {
+    will-change: transform;
 }
-/* 滑动中：真液态玻璃——折射串来自元素级 --n26-lg-filter（与 Dock 三处同源同参数）；
-   底色降到参照物量级（0.20→0.06），否则白色蒙层会把背景弯折盖住 */
+/* 滑动中：只加一层极淡体积光，绝不叠白色渐变把折射盖住 */
 .n26-dng.travel {
-    background: linear-gradient(160deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.06));
-    backdrop-filter: var(--n26-lg-filter, blur(14px) saturate(1.5));
-    -webkit-backdrop-filter: var(--n26-lg-filter, blur(14px) saturate(1.5));
-    border: 1px solid rgba(255, 255, 255, 0.55);
-    box-shadow: 0 10px 26px rgba(20, 40, 70, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -10px 20px rgba(0, 0, 0, 0.12);
-}
-/* v2.9.79：按住跟手时的发光态（深浅色各一套，不糊成一团） */
-.n26-dng.glow {
-    background: linear-gradient(160deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.08));
-    border-color: rgba(255, 255, 255, 0.78);
-    /* v3.5：按下时同样走折射串，不再退回纯磨砂 */
-    backdrop-filter: var(--n26-lg-filter, blur(16px) saturate(1.6) brightness(1.06));
-    -webkit-backdrop-filter: var(--n26-lg-filter, blur(16px) saturate(1.6) brightness(1.06));
+    background: rgba(255, 255, 255, 0.10);
+    border-color: rgba(255, 255, 255, 0.30);
     box-shadow:
-        0 0 0 1px rgba(255, 255, 255, 0.55),
-        0 0 16px rgba(120, 190, 255, 0.38),
-        0 10px 26px rgba(20, 40, 70, 0.18),
-        inset 0 1px 0 rgba(255, 255, 255, 0.72),
-        inset 0 -10px 20px rgba(0, 0, 0, 0.12);
+        0 4px 8px rgba(0, 0, 0, 0.25),
+        0 0 12px rgba(120, 190, 255, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.48),
+        inset 0 -10px 25px rgba(0, 0, 0, 0.15);
+}
+/* 按住跟手：发光互通，仍不铺白底 */
+.n26-dng.glow {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.42);
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.34),
+        0 0 18px rgba(120, 190, 255, 0.42),
+        0 4px 8px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.60),
+        inset 0 -10px 25px rgba(0, 0, 0, 0.15);
 }
 body.dark-mode .n26-dng.glow {
-    background: linear-gradient(160deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
-    border-color: rgba(190, 220, 255, 0.42);
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(190, 220, 255, 0.34);
     box-shadow:
-        0 0 0 1px rgba(190, 220, 255, 0.28),
-        0 0 18px rgba(110, 180, 255, 0.34),
-        0 10px 26px rgba(0, 0, 0, 0.32),
-        inset 0 1px 0 rgba(255, 255, 255, 0.28);
+        0 0 0 1px rgba(190, 220, 255, 0.22),
+        0 0 18px rgba(110, 180, 255, 0.38),
+        0 4px 8px rgba(0, 0, 0, 0.34),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        inset 0 -10px 25px rgba(0, 0, 0, 0.20);
 }
-/* 经过时产生光泽感 */
+/* 引擎挂上后消费同一条折射串；iframe 内没有 glass-system.css 全关规则，本条照样生效 */
+.n26-docknav-host > .n26-dng.n26-liquid-on {
+    -webkit-backdrop-filter: var(--n26-lg-filter, blur(0.25px) contrast(1.2) brightness(1.05) saturate(1.1));
+    backdrop-filter: var(--n26-lg-filter, blur(0.25px) contrast(1.2) brightness(1.05) saturate(1.1));
+}
+.n26-docknav-host:hover > .n26-dng.n26-liquid-on {
+    box-shadow:
+        0 0 14px rgba(120, 190, 255, 0.34),
+        0 4px 8px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.50),
+        inset 0 -10px 25px rgba(0, 0, 0, 0.15);
+}
+.n26-docknav-host:active > .n26-dng.n26-liquid-on,
+.n26-docknav-host.n26-docknav-hold > .n26-dng.n26-liquid-on {
+    border-color: rgba(255, 255, 255, 0.52);
+    box-shadow:
+        0 0 22px rgba(150, 210, 255, 0.62),
+        0 0 0 1px rgba(255, 255, 255, 0.34),
+        0 4px 8px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.66),
+        inset 0 -10px 25px rgba(0, 0, 0, 0.15);
+}
+/* 经过时产生光泽感：只扫一道细光，不铺满整块 */
 .n26-dng.travel::after {
     content: ''; position: absolute; inset: 0; border-radius: inherit;
-    background: linear-gradient(115deg, transparent 32%, rgba(255, 255, 255, 0.55) 47%, transparent 60%);
+    background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.32) 50%, transparent 62%);
     background-size: 240% 100%;
-    animation: n26DngGloss 0.42s ease both;
+    animation: n26DngGloss 0.26s ease both;
     pointer-events: none;
 }
 @keyframes n26DngGloss { from { background-position: 130% 0; } to { background-position: -70% 0; } }
 
-body.dark-mode .n26-dng { background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -10px 20px rgba(0, 0, 0, 0.16); }
+body.dark-mode .n26-docknav-host > .n26-dng {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.32),
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        inset 0 -10px 25px rgba(0, 0, 0, 0.20);
+}
 body.dark-mode .n26-dng.travel {
-    background: linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
-    border-color: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.20);
 }
 
 /* ---------- 新图标：先缩小再弹回 ---------- */
@@ -144,8 +194,8 @@ body.dark-mode .n26-dng.travel {
 .n26-docknav-host .fm-sidebar-item,
 .n26-docknav-host .settings-item,
 .n26-docknav-host .ag-side-item,
-.n26-docknav-host [data-n26dock="h"] > * {
-    transition: background 0.3s ease, color 0.35s ease, opacity 0.3s ease, transform 0.15s ease;
+.n26-docknav-host [data-n26dock="h"] > *:not(.n26-dng) {
+    transition: background 0.3s cubic-bezier(.2, .7, .2, 1), color 0.35s cubic-bezier(.2, .7, .2, 1), opacity 0.3s cubic-bezier(.2, .7, .2, 1), transform 260ms cubic-bezier(.2, .7, .2, 1);
 }
 
 /* ---------- 选中态统一：偏灰胶囊 + 蓝色图标 ---------- */
@@ -301,7 +351,7 @@ body.dark-mode [data-n26dock="h"] {
     border-color: rgba(255, 255, 255, 0.12) !important;
     box-shadow: none;
 }
-[data-n26dock="h"] > * {
+[data-n26dock="h"] > *:not(.n26-dng) {
     background: transparent !important;
     border-color: transparent !important;
     box-shadow: none !important;
@@ -309,8 +359,12 @@ body.dark-mode [data-n26dock="h"] {
     color: inherit;
     opacity: 0.78;
 }
-[data-n26dock="h"] > *:hover { background: rgba(255, 255, 255, 0.6) !important; opacity: 1; }
-body.dark-mode [data-n26dock="h"] > *:hover { background: rgba(255, 255, 255, 0.10) !important; }
+[data-n26dock="h"] > *:not(.n26-dng):hover { background: rgba(255, 255, 255, 0.6) !important; opacity: 1; }
+body.dark-mode [data-n26dock="h"] > *:not(.n26-dng):hover { background: rgba(255, 255, 255, 0.10) !important; }
+/* v2.9.91 竖排 Dock 同款悬停高亮（用户钦定「鼠标放上去 Icon 有高亮提示」）；
+   专属选择器（.fm-sidebar-item:hover 等）特异性更高，优先级不受影响 */
+[data-n26dock="v"] > *:not(.n26-dng):hover { background: rgba(255, 255, 255, 0.6) !important; opacity: 1; }
+body.dark-mode [data-n26dock="v"] > *:not(.n26-dng):hover { background: rgba(255, 255, 255, 0.10) !important; }
 [data-n26dock="h"] > .on,
 [data-n26dock="h"] > .active {
     background: rgba(125, 135, 155, 0.16) !important;
@@ -348,6 +402,24 @@ body.dark-mode [data-n26dock="h"] > .active {
     }
     /* 减少动效：降级为纯位移，不做任何形变 */
     .n26-def-on, .n26-def-on > * { scale: none !important; }
+}
+
+/* ── v2.9.94 玻璃常驻：选中项底色彻底让位给液态玻璃 ───────────────
+   图标与文字的选中色（蓝色 accent / 深色模式亮字）全部保留，
+   只把 background / box-shadow 撤掉，避免「玻璃 + 灰胶囊」叠成塑料双层。 */
+html body .n26-docknav-host.n26-dng-persistent .as-rail-item.active,
+html body .n26-docknav-host.n26-dng-persistent .nav-item.on,
+html body .n26-docknav-host.n26-dng-persistent .fm-sidebar-item.active,
+html body .n26-docknav-host.n26-dng-persistent .settings-item.active,
+html body .n26-docknav-host.n26-dng-persistent .ag-side-item.active,
+html body .n26-docknav-host.n26-dng-persistent[data-n26dock="h"] > .on,
+html body .n26-docknav-host.n26-dng-persistent[data-n26dock="h"] > .active,
+/* v2.10.3：通用让位 —— 模块会给「它认出的选中项」打 data-n26dng-on，
+   不再依赖上面的类名白名单。任何应用、任何 tab 类名都自动生效。 */
+html body .n26-docknav-host.n26-dng-persistent [data-n26dng-on="1"],
+html body .n26-docknav-host.n26-dng-persistent [data-n26dng-on="1"]:hover {
+    background: transparent !important;
+    box-shadow: none !important;
 }
 
  /* ★ v2.9.68 文件管理侧栏：选中项只保留内层蓝色图标，去掉外层灰胶囊。

@@ -274,8 +274,8 @@ html body .window,
 html body.style-glass .window,
 html body:not(.os-win) .window:not(.maximized),
 html body .password-panel {
-    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) var(--n26-grain-fn) !important;
-    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) var(--n26-grain-fn) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) !important;
     background-color: rgba(255, 255, 255, calc(var(--n26-glass-alpha, 0.55) * var(--n26-alpha-k))) !important;
     border-color: var(--n26aes-border) !important;
     box-shadow: var(--n26aes-sh-win), var(--n26aes-inner) !important;
@@ -325,8 +325,8 @@ html body #appleMenu,
 html body #startPowerMenu,
 html body #startMenuPowerBtn {
     --frost-blur: var(--n26aes-blur-panel) !important;
-    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k) * 0.9)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) var(--n26-grain-fn) !important;
-    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k) * 0.9)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) var(--n26-grain-fn) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k) * 0.9)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k) * 0.9)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) !important;
     border-color: var(--n26aes-border) !important;
     box-shadow: var(--n26aes-sh-pop), var(--n26aes-inner) !important;
 }
@@ -355,12 +355,12 @@ html body #n26RightDock.n26-liquid-on {
 
 /* ── AI 小方的迷你条：同样是液体目标，读同一组参数 ── */
 html body #covi-hud-bar {
-    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) var(--n26-grain-fn) !important;
-    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) var(--n26-grain-fn) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) !important;
 }
 html body #covi-hud-bar.n26-liquid-on {
-    -webkit-backdrop-filter: var(--n26-lg-filter) !important;
-    backdrop-filter: var(--n26-lg-filter) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) !important;
 }
 
 /* ── 卡片（设置面板内的分区卡）：最低一档阴影，冷蓝换成中性黑 ── */
@@ -440,7 +440,7 @@ html body #fmBridgeList a { font-size: var(--n26aes-fs-caption) !important; }
     width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--n26aes-border-soft);
     background: rgba(255,255,255,.45); color: rgba(15,23,42,.72);
     display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
-    transition: background .16s ease, transform .16s ease;
+    transition: background 260ms cubic-bezier(.2, .7, .2, 1), transform 260ms cubic-bezier(.2, .7, .2, 1);
 }
 .n26-pz-back:hover { background: rgba(255,255,255,.72); transform: translateX(-2px); }
 .n26-pz-back:focus-visible { outline: 2px solid var(--n26-accent, #3b82f6); outline-offset: 2px; }
@@ -458,7 +458,7 @@ body.dark-mode .n26-pz-crumb b { color: rgba(255,255,255,.92); }
     display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
     padding: 12px 14px; border-radius: 12px; cursor: pointer;
     border: 1px solid rgba(0,0,0,.06); background: rgba(255,255,255,.55);
-    transition: background .16s ease, border-color .16s ease, transform .16s ease;
+    transition: background 260ms cubic-bezier(.2, .7, .2, 1), border-color 260ms cubic-bezier(.2, .7, .2, 1), transform 260ms cubic-bezier(.2, .7, .2, 1);
 }
 .n26-pz-cat:hover { background: rgba(255,255,255,.78); border-color: rgba(0,0,0,.10); transform: translateY(-1px); }
 .n26-pz-cat:focus-visible { outline: 2px solid var(--n26-accent, #3b82f6); outline-offset: 2px; }
@@ -652,7 +652,7 @@ body.dark-mode .n26-pz-actions-tip { color: rgba(255,255,255,.4); }
     aspect-ratio: 16 / 9; overflow: hidden; cursor: pointer;
     border: 2px solid transparent; border-radius: 10px;
     background: #e9edf3;
-    transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+    transition: border-color 260ms cubic-bezier(.2, .7, .2, 1), transform 260ms cubic-bezier(.2, .7, .2, 1), box-shadow 260ms cubic-bezier(.2, .7, .2, 1);
 }
 .n26-wg-thumb::before {   /* 加载骨架微光（灰底，不用白底盖图） */
     content: ''; position: absolute; inset: 0; z-index: 1;
@@ -756,7 +756,7 @@ body.dark-mode .n26-wg-slide-int select option { background: #1a2130; color: #ee
     padding: 14px 15px; text-align: left; cursor: pointer;
     border: 1px solid rgba(15, 23, 42, .09); border-radius: 14px;
     background: rgba(255, 255, 255, .62);
-    transition: background .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+    transition: background 260ms cubic-bezier(.2, .7, .2, 1), border-color 260ms cubic-bezier(.2, .7, .2, 1), transform 260ms cubic-bezier(.2, .7, .2, 1), box-shadow 260ms cubic-bezier(.2, .7, .2, 1);
     font-family: inherit; color: inherit;
 }
 .n26-set-deep-card:hover {
@@ -788,7 +788,7 @@ body.dark-mode .n26-wg-slide-int select option { background: #1a2130; color: #ee
     padding: 5px 11px; border-radius: 9px; cursor: pointer;
     border: 1px solid rgba(15, 23, 42, .12); background: rgba(255, 255, 255, .7);
     font-family: inherit; font-size: 12.5px; color: inherit;
-    transition: background .15s ease, transform .15s ease;
+    transition: background 260ms cubic-bezier(.2, .7, .2, 1), transform 260ms cubic-bezier(.2, .7, .2, 1);
 }
 .n26-set-back:hover { background: rgba(255, 255, 255, .95); transform: translateX(-1px); }
 .n26-set-back:focus-visible { outline: 2px solid var(--n26-accent, #3b82f6); outline-offset: 2px; }

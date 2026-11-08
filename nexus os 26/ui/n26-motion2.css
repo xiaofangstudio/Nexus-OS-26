@@ -1,0 +1,156 @@
+/* ==========================================================================
+   Nexus OS 26 · 系统动效批次 2（ui/n26-motion2.css）v2.10.12
+   ① 吸附幽灵 ② Cmd+Tab 切换器 ④ 启动台分层 ⑥ 控制中心弹簧 ⑦ 锁屏呼吸
+   纪律：只写 transform / opacity / box-shadow；禁 transition:all；祖先不加 filter。
+   ========================================================================== */
+
+/* ---------- ① 贴边吸附的幽灵预览 ---------- */
+#n26SnapGhost {
+  position: fixed;
+  z-index: 99999;                /* 窗口之上（窗口基数 1000 且只增），模态之下 */
+  left: 0; top: 0; width: 0; height: 0;
+  border-radius: 14px;
+  pointer-events: none;
+  background: rgba(255, 255, 255, .10);
+  border: 1.5px solid rgba(255, 255, 255, .52);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 10px 34px rgba(0, 0, 0, .22);
+  opacity: 0;
+  transform: scale(.985);
+  transition: opacity .14s ease, transform .18s cubic-bezier(.2, .7, .2, 1);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+#n26SnapGhost.on { opacity: 1; transform: none; }
+body.dark-mode #n26SnapGhost {
+  background: rgba(255, 255, 255, .08);
+  border-color: rgba(255, 255, 255, .44);
+}
+
+/* ---------- ② 应用切换器 ---------- */
+.n26-sw {
+  position: fixed;
+  inset: 0;
+  z-index: 100002;
+  display: grid;
+  place-items: center;
+  background: rgba(8, 10, 14, .28);
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .16s ease;
+}
+.n26-sw.on { opacity: 1; pointer-events: auto; }
+.n26-sw-strip {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  max-width: min(1100px, 86vw);
+  padding: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: 20px;
+  background: rgba(20, 22, 28, .62);
+  border: 1px solid rgba(255, 255, 255, .14);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, .45);
+}
+.n26-sw-item {
+  flex: 0 0 auto;
+  width: 96px;
+  padding: 12px 8px 10px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  color: #fff;
+  text-align: center;
+  cursor: pointer;
+  transform: scale(.9);
+  opacity: .72;
+  transition: transform .18s cubic-bezier(.2, .7, .2, 1), opacity .18s ease,
+              background-color .18s ease, border-color .18s ease;
+}
+.n26-sw-item.on {
+  transform: scale(1.04);
+  opacity: 1;
+  background: rgba(255, 255, 255, .12);
+  border-color: rgba(255, 255, 255, .30);
+}
+.n26-sw-ic {
+  width: 56px; height: 56px;
+  margin: 0 auto 8px;
+  display: grid; place-items: center;
+}
+.n26-sw-ic img { width: 52px; height: 52px; object-fit: contain; border-radius: 14px; }
+.n26-sw-nm {
+  font-size: 11.5px;
+  line-height: 1.35;
+  max-height: 2.7em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.n26-sw-badge {
+  margin-top: 4px;
+  font-size: 9.5px;
+  letter-spacing: .04em;
+  opacity: .55;
+}
+
+/* ---------- ④ 启动台分层错落 ---------- */
+#launchpad.n26-lp-in .launchpad-brand-slot {
+  animation: n26LpBrand .34s cubic-bezier(.16, 1, .3, 1) both;
+}
+#launchpad.n26-lp-in #launchpadGrid {
+  /* 只动 opacity：这个容器里还有分页用的 transform，动它会把翻页位置带歪 */
+  animation: n26LpGrid .40s cubic-bezier(.2, .7, .2, 1) both;
+}
+@keyframes n26LpBrand {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes n26LpGrid {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ---------- ⑥ 控制中心弹簧 ----------
+   它本身是「右侧抽屉」（transform: translateX(100%) → .show 里 translateX(0)），
+   所以弹簧必须是**横向回弹**：冲过一点点再收回来，不能换成 Y 轴pop，否则观感变了。 */
+#control-center.show {
+  animation: n26CCIn .38s cubic-bezier(.16, 1, .3, 1) both;
+}
+#control-center.show.closing { animation: none; }
+@keyframes n26CCIn {
+  0%   { transform: translateX(100%); }
+  56%  { transform: translateX(-9px); }
+  78%  { transform: translateX(3px); }
+  100% { transform: translateX(0); }
+}
+
+/* ---------- ⑦ 锁屏时钟呼吸 ---------- */
+.lock-time {
+  animation: lockTimeFadeIn .8s var(--ease-out) .2s forwards,
+             n26LockBreath 7s ease-in-out 1.4s infinite;
+}
+@keyframes n26LockBreath {
+  0%, 100% { transform: scale(1); opacity: .96; }
+  50%      { transform: scale(1.012); opacity: 1; }
+}
+
+/* ---------- 统一关闸 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  #n26SnapGhost { transition: none; }
+  .n26-sw { transition: none; }
+  .n26-sw-item { transition: none; }
+  #launchpad.n26-lp-in .launchpad-brand-slot,
+  #launchpad.n26-lp-in #launchpadGrid,
+  #control-center.show { animation: none; }
+  .lock-time { animation: lockTimeFadeIn .8s var(--ease-out) .2s forwards; }
+}
+body.reduce-motion .n26-sw-item,
+body.n26-lite .n26-sw-item { transition: none; }
+body.reduce-motion #control-center.show,
+body.n26-lite #control-center.show { animation: none; }
+body.reduce-motion .lock-time,
+body.n26-lite .lock-time { animation: lockTimeFadeIn .8s var(--ease-out) .2s forwards; }

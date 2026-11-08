@@ -1,0 +1,815 @@
+/* ============================================================================
+ * Nexus OS 26 · 小组件身份色调色板（最后加载层）
+ * ----------------------------------------------------------------------------
+ * v3 · 全面降饱和 + 时段 9 档 + 天气 8 类 + 节气底纹 + 双区渐变
+ *
+ * 设计口径（对标 macOS Sonoma / Fluent OS 的「莫兰迪色块」）：
+ *   · 彩色卡 --w-tint-a/b：HSL 饱和度 30%–48%、亮度 42%–62%
+ *   · 深色 --w-tint-da/db：同色相，饱和再降 4–6 点，亮度压到 22%–34%
+ *   · 相邻类型色相拉开 ~6–14°，明度几乎持平 → 一屏摆开不跳
+ *   · 白卡（calendar / date / todo / schedule / calendar-events）保持白/近白
+ *   · 中性深卡（system / searchbar / wallpaperpick）为刻意例外：S 14–16%，只作墨底
+ *
+ * ── 一、彩色类型对照表（类型 · 色相 · 饱和 · 明度a→b）──────────────────────
+ *   类型                  色相H   S%     L%a→b   说明
+ *   music                 218    40     48→60   群青蓝
+ *   countdown             234    36     47→59   靛蓝
+ *   quicklaunch/browser   206    38     46→58   钢青
+ *   volume                212    34     44→56   蓝灰
+ *   sleep                 226    34     42→52   夜蓝
+ *   photos                196    38     47→58   湖蓝
+ *   friends               200    36     45→56   天青
+ *   network               184    34     44→55   青
+ *   smartdevice           178    33     45→56   蓝绿
+ *   toggles               172    32     42→53   薄荷青
+ *   clipboard             166    30     43→54   青绿
+ *   cleaner               158    30     43→54   苔绿
+ *   stopwatch             148    32     42→54   草绿
+ *   battery               136    30     42→52   绿
+ *   calculator            40     46     53→61   琥珀金
+ *   recentfiles           30     42     48→58   蜂蜜
+ *   minigame              18     46     50→58   陶橙
+ *   lunar                 6      34     44→55   砖红
+ *   alarm                 352    44     49→58   朱红
+ *   pomodoro/focus        346    42     46→56   珊瑚红
+ *   stocks                340    40     45→55   莓红
+ *   health                338    40     47→57   玫红
+ *   favorites             326    40     46→56   玫瑰
+ *   news                  314    36     47→57   品红
+ *   bili*                 312    40     52→61   品牌粉（降饱和后）
+ *   system                220    16     27→21   中性深墨（例外）
+ *   searchbar             218    16     30→24   中性深墨（例外）
+ *   wallpaperpick         220    16     32→26   中性深墨（例外）
+ *
+ * ── 二、时段 9 档（data-wday，由 JS 按小时写入）─────────────────────────
+ *   档   时间      色相H  S%   L%a→b   意象
+ *   h0   00–02     228    34   42→52   深夜（群青）
+ *   h1   03–05     214    32   42→54   黎明前（靛青）
+ *   h2   06–08     22     40   50→60   日出（暖橙）
+ *   h3   09–11     202    42   48→60   上午（亮蓝）
+ *   h4   12–14     44     44   54→62   正午（金）
+ *   h5   15–17     208    38   46→58   下午（蓝）
+ *   h6   18–20     14     42   47→57   黄昏（橙红）
+ *   h7   21–23     232    34   42→50   夜晚（深蓝）
+ *   h8   雨雪叠加  206    18   44→54   中性灰蓝（优先于 h0–h7）
+ *
+ * ── 三、天气 8 类（data-wsky，由 JS 归一化写入）──────────────────────────
+ *   值         色相H  S%   L%a→b   对应原文本
+ *   clear      202    44   50→62   晴 / sunny
+ *   partly     205    30   52→62   多云 / 少云 / 晴间多云
+ *   cloudy     210    22   48→58   阴 / overcast
+ *   rain       222    36   44→55   小雨 / 中雨 / 阵雨
+ *   heavyrain  228    32   42→48   大雨 / 暴雨
+ *   snow       192    22   54→62   小雪 / 大雪 / 雨夹雪
+ *   fog        36     12   52→62   雾 / 霾 / 沙尘（暖灰）
+ *   storm      220    20   34→44   雷阵雨 / 大风（深蓝灰）
+ *
+ *   注：cloudy / snow / fog / storm 与 h8 属「灰调卡」，饱和度刻意低于 30%
+ *       （灰蓝 22 / 青灰 22 / 暖灰 12 / 深蓝灰 20 / 中性 16–18）；
+ *       storm 的 a 端亮度压到 34% 表达「压顶」的雨天，是全表唯一低于 42% 的彩色端，
+ *       属刻意例外，勿「修正」。
+ *
+ * ── 四、节气（data-njq / data-njq-season，JS 写入 calendar / date）────────
+ *   春 #a8c8a0 / 夏 #a9c6d8 / 秋 #d8b98c / 冬 #b9c4d2
+ *   底纹 = 2 个径向色斑（α ≤ 8%）+ 1 层 1px 斜纹（α 1.4%）+ 原底色渐变
+ *
+ * 压制方式（特异性）：
+ *   html body .desktop-widget-card[data-wtype="X"]                 → (0,2,2)
+ *   html body .desktop-widget-card[data-wtype][data-wday="hN"]     → (0,3,2)
+ *   html body.dark-mode .desktop-widget-card[data-wtype][data-wtype]→ (0,3,2)
+ *   本文件最后加载，同特异性一律由本层胜出。
+ *
+ * 全面禁紫：本文件不含 #8b5cf6 #a855f7 #7c3aed #6d28d9 #9333ea #c084fc
+ * #a78bfa #7e22ce #6f6cf0 #5b3ec9 #5856d6 #b06ee8 #6d6cf5 #4338ca 及任何
+ * 250°–300° 色相。
+ * ==========================================================================*/
+
+/* ---------- 0 · 基础：先把每张卡压成「一整块主色」 ---------- */
+html body .desktop-widget-card[data-wtype] {
+    background-color: var(--w-tint-a, #4a6e96) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a, #4a6e96) 0%, var(--w-tint-b, #668cb7) 100%) !important;
+    border: 0 !important;
+}
+
+/* 原文件的 hover / dragging 会把底色退回 color-mix(78%)，这里原样保持主色 */
+html body .desktop-widget-card[data-wtype]:hover,
+html body .desktop-widget-card[data-wtype].dragging {
+    background-color: var(--w-tint-a, #4a6e96) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a, #4a6e96) 0%, var(--w-tint-b, #668cb7) 100%) !important;
+}
+
+/* 深色：n26-widgets.css 里还有一条 (0,4,2) 的
+   html body.dark-mode .desktop-widget-card[data-wtype][data-type]，
+   会把底色退回 color-mix(…, 78%, transparent)；这里把属性选择器写两遍抬到同一级，
+   本文件在后，压住它。 */
+html body.dark-mode .desktop-widget-card[data-wtype][data-wtype] {
+    background-color: var(--w-tint-da, #33465c) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-da, #33465c) 0%, var(--w-tint-db, #3d536c) 100%) !important;
+}
+html body.dark-mode .desktop-widget-card[data-wtype][data-wtype]:hover,
+html body.dark-mode .desktop-widget-card[data-wtype][data-wtype].dragging {
+    background-color: var(--w-tint-da, #33465c) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-da, #33465c) 0%, var(--w-tint-db, #3d536c) 100%) !important;
+}
+
+/* ============================================================================
+ * 1 · 白卡（用户指定「最主要的那些是白色的」）
+ *     calendar / date / todo / schedule / calendar-events → 白 → 近白，墨字
+ *     note → 米黄便签，同样墨字
+ * ==========================================================================*/
+html body .desktop-widget-card[data-wtype="calendar"],
+html body .desktop-widget-card[data-wtype="date"] {
+    --w-tint-a: #ffffff; --w-tint-b: #f1f5f9;
+    --w-tint-da: #1a1b1f; --w-tint-db: #111114;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="todo"],
+html body .desktop-widget-card[data-wtype="schedule"],
+html body .desktop-widget-card[data-wtype="calendar-events"] {
+    --w-tint-a: #ffffff; --w-tint-b: #f1f5f9;
+    --w-tint-da: #1a1b1f; --w-tint-db: #111114;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="note"] {
+    --w-tint-a: #fff8bf; --w-tint-b: #fde9a8;
+    --w-tint-da: #3b3210; --w-tint-db: #241d07;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+
+/* 白卡文字：墨色（与白底对得上，不再继承彩色卡的 --w-text:#fff） */
+html body .desktop-widget-card[data-wtype="calendar"],
+html body .desktop-widget-card[data-wtype="date"],
+html body .desktop-widget-card[data-wtype="todo"],
+html body .desktop-widget-card[data-wtype="schedule"],
+html body .desktop-widget-card[data-wtype="calendar-events"],
+html body .desktop-widget-card[data-wtype="note"] {
+    --w-text: #0f172a;
+    --w-text-strong: #0b1220;
+    --w-text-soft: rgba(15, 23, 42, .62);
+    --w-text-faint: rgba(15, 23, 42, .42);
+    --w-hair: rgba(15, 23, 42, .10);
+    --w-well: rgba(15, 23, 42, .05);
+    --w-accent: #2563eb;
+    --w-fg: #0f172a;
+    --w-fg-soft: rgba(15, 23, 42, .62);
+    --w-fg-faint: rgba(15, 23, 42, .42);
+    color: #0f172a !important;
+}
+
+/* 深色模式：白卡转 #1a1b1f → #111114（便签转深棕），文字翻浅 */
+html body.dark-mode .desktop-widget-card[data-wtype="calendar"],
+html body.dark-mode .desktop-widget-card[data-wtype="date"],
+html body.dark-mode .desktop-widget-card[data-wtype="todo"],
+html body.dark-mode .desktop-widget-card[data-wtype="schedule"],
+html body.dark-mode .desktop-widget-card[data-wtype="calendar-events"],
+html body.dark-mode .desktop-widget-card[data-wtype="note"] {
+    --w-text: #f5f7fb;
+    --w-text-strong: #ffffff;
+    --w-text-soft: rgba(245, 247, 251, .66);
+    --w-text-faint: rgba(245, 247, 251, .42);
+    --w-hair: rgba(255, 255, 255, .14);
+    --w-well: rgba(255, 255, 255, .08);
+    --w-accent: #7cb2ff;
+    --w-fg: #f5f7fb;
+    --w-fg-soft: rgba(245, 247, 251, .66);
+    --w-fg-faint: rgba(245, 247, 251, .42);
+    color: #f5f7fb !important;
+}
+
+/* ============================================================================
+ * 2 · 二十四节气底纹（data-njq-season 由 JS 写在 calendar / date 上）
+ *     白卡上「能看见但很轻」：径向色斑 α 7.5% / 5.5%，斜纹 α 1.4%
+ *     底纹不换底色，只在原白色渐变下面垫两层色斑 + 一层纸纹
+ * ==========================================================================*/
+html body .desktop-widget-card[data-wtype="calendar"][data-njq-season="spring"],
+html body .desktop-widget-card[data-wtype="date"][data-njq-season="spring"] {
+    background-image:
+        radial-gradient(118% 82% at 6% -8%, rgba(168, 200, 160, .075), rgba(168, 200, 160, 0) 62%),
+        radial-gradient(86% 70% at 98% 106%, rgba(168, 200, 160, .055), rgba(168, 200, 160, 0) 58%),
+        repeating-linear-gradient(133deg, rgba(15, 23, 42, .014) 0 1px, rgba(15, 23, 42, 0) 1px 7px),
+        linear-gradient(158deg, #ffffff 0%, #f1f5f9 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="calendar"][data-njq-season="summer"],
+html body .desktop-widget-card[data-wtype="date"][data-njq-season="summer"] {
+    background-image:
+        radial-gradient(118% 82% at 6% -8%, rgba(169, 198, 216, .075), rgba(169, 198, 216, 0) 62%),
+        radial-gradient(86% 70% at 98% 106%, rgba(169, 198, 216, .055), rgba(169, 198, 216, 0) 58%),
+        repeating-linear-gradient(133deg, rgba(15, 23, 42, .014) 0 1px, rgba(15, 23, 42, 0) 1px 7px),
+        linear-gradient(158deg, #ffffff 0%, #f1f5f9 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="calendar"][data-njq-season="autumn"],
+html body .desktop-widget-card[data-wtype="date"][data-njq-season="autumn"] {
+    background-image:
+        radial-gradient(118% 82% at 6% -8%, rgba(216, 185, 140, .075), rgba(216, 185, 140, 0) 62%),
+        radial-gradient(86% 70% at 98% 106%, rgba(216, 185, 140, .055), rgba(216, 185, 140, 0) 58%),
+        repeating-linear-gradient(133deg, rgba(15, 23, 42, .014) 0 1px, rgba(15, 23, 42, 0) 1px 7px),
+        linear-gradient(158deg, #ffffff 0%, #f1f5f9 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="calendar"][data-njq-season="winter"],
+html body .desktop-widget-card[data-wtype="date"][data-njq-season="winter"] {
+    background-image:
+        radial-gradient(118% 82% at 6% -8%, rgba(185, 196, 210, .075), rgba(185, 196, 210, 0) 62%),
+        radial-gradient(86% 70% at 98% 106%, rgba(185, 196, 210, .055), rgba(185, 196, 210, 0) 58%),
+        repeating-linear-gradient(133deg, rgba(15, 23, 42, .014) 0 1px, rgba(15, 23, 42, 0) 1px 7px),
+        linear-gradient(158deg, #ffffff 0%, #f1f5f9 100%) !important;
+}
+
+/* 深色模式的节气底纹：底色不变，色斑换浅色、α 压到 9% / 7% */
+html body.dark-mode .desktop-widget-card[data-wtype="calendar"][data-njq-season="spring"],
+html body.dark-mode .desktop-widget-card[data-wtype="date"][data-njq-season="spring"] {
+    background-image:
+        radial-gradient(118% 82% at 6% -8%, rgba(168, 200, 160, .09), rgba(168, 200, 160, 0) 62%),
+        radial-gradient(86% 70% at 98% 106%, rgba(168, 200, 160, .07), rgba(168, 200, 160, 0) 58%),
+        repeating-linear-gradient(133deg, rgba(255, 255, 255, .018) 0 1px, rgba(255, 255, 255, 0) 1px 7px),
+        linear-gradient(158deg, #1a1b1f 0%, #111114 100%) !important;
+}
+html body.dark-mode .desktop-widget-card[data-wtype="calendar"][data-njq-season="summer"],
+html body.dark-mode .desktop-widget-card[data-wtype="date"][data-njq-season="summer"] {
+    background-image:
+        radial-gradient(118% 82% at 6% -8%, rgba(169, 198, 216, .09), rgba(169, 198, 216, 0) 62%),
+        radial-gradient(86% 70% at 98% 106%, rgba(169, 198, 216, .07), rgba(169, 198, 216, 0) 58%),
+        repeating-linear-gradient(133deg, rgba(255, 255, 255, .018) 0 1px, rgba(255, 255, 255, 0) 1px 7px),
+        linear-gradient(158deg, #1a1b1f 0%, #111114 100%) !important;
+}
+html body.dark-mode .desktop-widget-card[data-wtype="calendar"][data-njq-season="autumn"],
+html body.dark-mode .desktop-widget-card[data-wtype="date"][data-njq-season="autumn"] {
+    background-image:
+        radial-gradient(118% 82% at 6% -8%, rgba(216, 185, 140, .09), rgba(216, 185, 140, 0) 62%),
+        radial-gradient(86% 70% at 98% 106%, rgba(216, 185, 140, .07), rgba(216, 185, 140, 0) 58%),
+        repeating-linear-gradient(133deg, rgba(255, 255, 255, .018) 0 1px, rgba(255, 255, 255, 0) 1px 7px),
+        linear-gradient(158deg, #1a1b1f 0%, #111114 100%) !important;
+}
+html body.dark-mode .desktop-widget-card[data-wtype="calendar"][data-njq-season="winter"],
+html body.dark-mode .desktop-widget-card[data-wtype="date"][data-njq-season="winter"] {
+    background-image:
+        radial-gradient(118% 82% at 6% -8%, rgba(185, 196, 210, .09), rgba(185, 196, 210, 0) 62%),
+        radial-gradient(86% 70% at 98% 106%, rgba(185, 196, 210, .07), rgba(185, 196, 210, 0) 58%),
+        repeating-linear-gradient(133deg, rgba(255, 255, 255, .018) 0 1px, rgba(255, 255, 255, 0) 1px 7px),
+        linear-gradient(158deg, #1a1b1f 0%, #111114 100%) !important;
+}
+
+/* ============================================================================
+ * 3 · 时钟 9 档（data-wday 由 JS 写入：h0–h7，雨雪叠加 h8）
+ *     JS 只给 clock / time / dualtime 写 data-wday，所以这里不必再列类型
+ *     默认（JS 未跑或首帧）按 h3「上午」走，避免闪一下旧墨色
+ * ==========================================================================*/
+html body .desktop-widget-card[data-wtype="clock"],
+html body .desktop-widget-card[data-wtype="time"],
+html body .desktop-widget-card[data-wtype="dualtime"] {
+    --w-tint-a: #4788ae; --w-tint-b: #6ca5c6;
+    --w-tint-da: #2d4e62; --w-tint-db: #365c72;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+/* h0 深夜 00–02：群青 */
+html body .desktop-widget-card[data-wtype][data-wday="h0"] {
+    --w-tint-a: #475590; --w-tint-b: #606fa9;
+    --w-tint-da: #333b5c; --w-tint-db: #3d466c;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+/* h1 黎明前 03–05：靛青 */
+html body .desktop-widget-card[data-wtype][data-wday="h1"] {
+    --w-tint-a: #49678d; --w-tint-b: #6785ad;
+    --w-tint-da: #34455b; --w-tint-db: #3e516a;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+/* h2 日出 06–08：暖橙 */
+html body .desktop-widget-card[data-wtype][data-wday="h2"] {
+    --w-tint-a: #b3724d; --w-tint-b: #c68d6c;
+    --w-tint-da: #60412e; --w-tint-db: #714d38;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+/* h3 上午 09–11：亮蓝 */
+html body .desktop-widget-card[data-wtype][data-wday="h3"] {
+    --w-tint-a: #4788ae; --w-tint-b: #6ca5c6;
+    --w-tint-da: #2d4e62; --w-tint-db: #365c72;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+/* h4 正午 12–14：金 */
+html body .desktop-widget-card[data-wtype][data-wday="h4"] {
+    --w-tint-a: #bda256; --w-tint-b: #cbb372;
+    --w-tint-da: #63542c; --w-tint-db: #746334;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+/* h5 下午 15–17：蓝 */
+html body .desktop-widget-card[data-wtype][data-wday="h5"] {
+    --w-tint-a: #4978a2; --w-tint-b: #6997bf;
+    --w-tint-da: #30495f; --w-tint-db: #39566f;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+/* h6 黄昏 18–20：橙红 */
+html body .desktop-widget-card[data-wtype][data-wday="h6"] {
+    --w-tint-a: #aa5d46; --w-tint-b: #c27861;
+    --w-tint-da: #62392d; --w-tint-db: #724436;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+/* h7 夜晚 21–23：深蓝 */
+html body .desktop-widget-card[data-wtype][data-wday="h7"] {
+    --w-tint-a: #475090; --w-tint-b: #5963a6;
+    --w-tint-da: #33385c; --w-tint-db: #3d436c;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+/* h8 雨 / 雪叠加：中性灰蓝（优先于 h0–h7，JS 直接写 h8 覆盖） */
+html body .desktop-widget-card[data-wtype][data-wday="h8"] {
+    --w-tint-a: #5c7384; --w-tint-b: #778c9c;
+    --w-tint-da: #3e4951; --w-tint-db: #4a555e;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+
+/* ============================================================================
+ * 4 · 天气 8 类（data-wsky 由 JS 归一化写入）
+ *     clear / partly / cloudy / rain / heavyrain / snow / fog / storm
+ * ==========================================================================*/
+html body .desktop-widget-card[data-wtype="weather"] {
+    --w-tint-a: #478eb8; --w-tint-b: #75a9c7;
+    --w-tint-da: #28495c; --w-tint-db: #335a71;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="weather"][data-wsky="clear"] {
+    --w-tint-a: #478eb8; --w-tint-b: #75a9c7;
+    --w-tint-da: #28495c; --w-tint-db: #335a71;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="weather"][data-wsky="partly"] {
+    --w-tint-a: #608ba9; --w-tint-b: #81a3bb;
+    --w-tint-da: #324553; --w-tint-db: #3e5565;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="weather"][data-wsky="cloudy"] {
+    --w-tint-a: #5f7a95; --w-tint-b: #7e94a9;
+    --w-tint-da: #37424e; --w-tint-db: #45525f;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="weather"][data-wsky="rain"] {
+    --w-tint-a: #486099; --w-tint-b: #657db3;
+    --w-tint-da: #2e3a57; --w-tint-db: #39486a;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="weather"][data-wsky="heavyrain"] {
+    --w-tint-a: #49578d; --w-tint-b: #56649f;
+    --w-tint-da: #303854; --w-tint-db: #3c4567;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="weather"][data-wsky="snow"] {
+    --w-tint-a: #7099a4; --w-tint-b: #8baab1;
+    --w-tint-da: #37494e; --w-tint-db: #45595f;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="weather"][data-wsky="fog"] {
+    --w-tint-a: #938876; --w-tint-b: #a8a094;
+    --w-tint-da: #47433e; --w-tint-db: #56534d;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="weather"][data-wsky="storm"] {
+    --w-tint-a: #455168; --w-tint-b: #5c6984;
+    --w-tint-da: #383f4c; --w-tint-db: #464e5d;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+
+/* ============================================================================
+ * 5 · 彩色身份色（全部非白、非紫；饱和度统一压在 30%–48%）
+ * ==========================================================================*/
+html body .desktop-widget-card[data-wtype="music"] {
+    --w-tint-a: #496dab; --w-tint-b: #6e8ec4;
+    --w-tint-da: #2e4160; --w-tint-db: #384d71;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="countdown"] {
+    --w-tint-a: #4d55a3; --w-tint-b: #6f77be;
+    --w-tint-da: #31365e; --w-tint-db: #3b406d;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="quicklaunch"],
+html body .desktop-widget-card[data-wtype="browser"] {
+    --w-tint-a: #497ba2; --w-tint-b: #699abf;
+    --w-tint-da: #304b5f; --w-tint-db: #39586f;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="volume"] {
+    --w-tint-a: #4a6e96; --w-tint-b: #668cb7;
+    --w-tint-da: #33465c; --w-tint-db: #3d536c;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="sleep"] {
+    --w-tint-a: #475890; --w-tint-b: #596db1;
+    --w-tint-da: #333c5c; --w-tint-db: #3d486c;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="photos"] {
+    --w-tint-a: #4a8da5; --w-tint-b: #69a8bf;
+    --w-tint-da: #30525f; --w-tint-db: #39616f;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="friends"] {
+    --w-tint-a: #49819c; --w-tint-b: #649db9;
+    --w-tint-da: #314f5e; --w-tint-db: #3b5d6d;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="network"] {
+    --w-tint-a: #4a9196; --w-tint-b: #63b0b6;
+    --w-tint-da: #33595c; --w-tint-db: #3d696c;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="smartdevice"] {
+    --w-tint-a: #4d9996; --w-tint-b: #68b6b3;
+    --w-tint-da: #335b5a; --w-tint-db: #3d6b69;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="toggles"] {
+    --w-tint-a: #498d84; --w-tint-b: #5eb0a5;
+    --w-tint-da: #345b56; --w-tint-db: #3e6a64;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="clipboard"] {
+    --w-tint-a: #4d8f7f; --w-tint-b: #64af9e;
+    --w-tint-da: #365951; --w-tint-db: #40685f;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="cleaner"] {
+    --w-tint-a: #4d8f76; --w-tint-b: #64af94;
+    --w-tint-da: #36594c; --w-tint-db: #40685a;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="stopwatch"] {
+    --w-tint-a: #498d69; --w-tint-b: #62b287;
+    --w-tint-da: #345b46; --w-tint-db: #3e6a53;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="battery"] {
+    --w-tint-a: #4b8b5c; --w-tint-b: #5dac72;
+    --w-tint-da: #36593f; --w-tint-db: #40684b;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="calculator"] {
+    --w-tint-a: #be9a50; --w-tint-b: #cbab6c;
+    --w-tint-da: #65512a; --w-tint-db: #765f32;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="recentfiles"] {
+    --w-tint-a: #ae7a47; --w-tint-b: #c39465;
+    --w-tint-da: #62472d; --w-tint-db: #725436;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="minigame"] {
+    --w-tint-a: #ba6845; --w-tint-b: #c77f60;
+    --w-tint-da: #653c2a; --w-tint-db: #764732;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="lunar"] {
+    --w-tint-a: #96524a; --w-tint-b: #b66b63;
+    --w-tint-da: #5c3733; --w-tint-db: #6c413d;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="alarm"] {
+    --w-tint-a: #b44655; --w-tint-b: #c56370;
+    --w-tint-da: #632c33; --w-tint-db: #74343d;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="pomodoro"],
+html body .desktop-widget-card[data-wtype="focus"] {
+    --w-tint-a: #a7445b; --w-tint-b: #c05d74;
+    --w-tint-da: #622d39; --w-tint-db: #723644;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="stocks"] {
+    --w-tint-a: #a14563; --w-tint-b: #bc5c7c;
+    --w-tint-da: #602e3f; --w-tint-db: #71384b;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="health"] {
+    --w-tint-a: #a8486b; --w-tint-b: #bf6385;
+    --w-tint-da: #602e41; --w-tint-db: #71384d;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="favorites"] {
+    --w-tint-a: #a4467c; --w-tint-b: #be6095;
+    --w-tint-da: #602e4b; --w-tint-db: #713858;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="news"] {
+    --w-tint-a: #a34d8f; --w-tint-b: #bb68a8;
+    --w-tint-da: #5e3153; --w-tint-db: #6d3b62;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+/* 中性深墨三张（刻意低饱和，作视觉锚点，不参与彩色轮换） */
+html body .desktop-widget-card[data-wtype="system"] {
+    --w-tint-a: #3b424f; --w-tint-b: #2a303b;
+    --w-tint-da: #262a33; --w-tint-db: #30353f;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="searchbar"] {
+    --w-tint-a: #424a58; --w-tint-b: #313846;
+    --w-tint-da: #272c35; --w-tint-db: #313741;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="wallpaperpick"] {
+    --w-tint-a: #495162; --w-tint-b: #373e4c;
+    --w-tint-da: #282d37; --w-tint-db: #323843;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+}
+
+/* ============================================================================
+ * 6 · 彩色卡文字复位为白
+ *     n26-widgets.css 把 toggles / favorites / volume / searchbar 列进了「浅色卡」
+ *     并给了墨色字；本层把这四张改成色块后必须把字翻回白，否则墨字压深底。
+ * ==========================================================================*/
+html body .desktop-widget-card[data-wtype="clock"],
+html body .desktop-widget-card[data-wtype="time"],
+html body .desktop-widget-card[data-wtype="dualtime"],
+html body .desktop-widget-card[data-wtype="weather"],
+html body .desktop-widget-card[data-wtype="music"],
+html body .desktop-widget-card[data-wtype="photos"],
+html body .desktop-widget-card[data-wtype="system"],
+html body .desktop-widget-card[data-wtype="alarm"],
+html body .desktop-widget-card[data-wtype="pomodoro"],
+html body .desktop-widget-card[data-wtype="focus"],
+html body .desktop-widget-card[data-wtype="countdown"],
+html body .desktop-widget-card[data-wtype="battery"],
+html body .desktop-widget-card[data-wtype="network"],
+html body .desktop-widget-card[data-wtype="calculator"],
+html body .desktop-widget-card[data-wtype="quicklaunch"],
+html body .desktop-widget-card[data-wtype="browser"],
+html body .desktop-widget-card[data-wtype="sleep"],
+html body .desktop-widget-card[data-wtype="minigame"],
+html body .desktop-widget-card[data-wtype="stopwatch"],
+html body .desktop-widget-card[data-wtype="toggles"],
+html body .desktop-widget-card[data-wtype="smartdevice"],
+html body .desktop-widget-card[data-wtype="friends"],
+html body .desktop-widget-card[data-wtype="clipboard"],
+html body .desktop-widget-card[data-wtype="recentfiles"],
+html body .desktop-widget-card[data-wtype="stocks"],
+html body .desktop-widget-card[data-wtype="health"],
+html body .desktop-widget-card[data-wtype="lunar"],
+html body .desktop-widget-card[data-wtype="news"],
+html body .desktop-widget-card[data-wtype="cleaner"],
+html body .desktop-widget-card[data-wtype="wallpaperpick"],
+html body .desktop-widget-card[data-wtype="searchbar"],
+html body .desktop-widget-card[data-wtype="volume"],
+html body .desktop-widget-card[data-wtype="favorites"] {
+    --w-text: #ffffff;
+    --w-text-strong: #ffffff;
+    --w-text-soft: rgba(255, 255, 255, .76);
+    --w-text-faint: rgba(255, 255, 255, .54);
+    --w-hair: rgba(255, 255, 255, .22);
+    --w-well: rgba(255, 255, 255, .16);
+    --w-accent: rgba(255, 255, 255, .92);
+    --w-fg: #ffffff;
+    --w-fg-soft: rgba(255, 255, 255, .76);
+    --w-fg-faint: rgba(255, 255, 255, .54);
+    color: #ffffff !important;
+}
+
+/* ============================================================================
+ * 7 · 双区时间：两边时间各自渐变（左冷 / 右暖）
+ *     真实 DOM（已 grep 确认，见 n26-widgets-v2.js:594/605/612/620）：
+ *       时钟文本统一是 <b data-dual="bj"> / <b data-dual="other">
+ *       外层容器 .nx-dual-2 / .nx-dual-2 > .nx-dual-col / .nx-dual-s-row / .nx-dual-r
+ *     做法：分别给左右两个 b 加 background-clip:text，
+ *     中间竖线用 .nx-dual-2 首列 ::after 的 1px 渐变（不做容器整体裁切）。
+ *     变量 --dt-l1/l2（左）、--dt-r1/r2（右）由 JS 按各自时区小时数取档写入；
+ *     无 JS 时走下面的默认值（左冷蓝 / 右暖橙）。
+ * ==========================================================================*/
+html body .desktop-widget-card[data-wtype="dualtime"] [data-dual="bj"] {
+    background-image: linear-gradient(180deg, var(--dt-l1, #f2f8ff) 0%, var(--dt-l2, #9fc2de) 100%);
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent !important;
+}
+html body .desktop-widget-card[data-wtype="dualtime"] [data-dual="other"] {
+    background-image: linear-gradient(180deg, var(--dt-r1, #fff6ec) 0%, var(--dt-r2, #e6c09a) 100%);
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent !important;
+}
+
+/* 9 档 → 左侧（冷）渐变末端明度：夜档更亮，正午略沉 */
+html body .desktop-widget-card[data-wtype][data-wdt="h0"] { --dt-l2: #b9c8ea; }
+html body .desktop-widget-card[data-wtype][data-wdt="h1"] { --dt-l2: #aec3e0; }
+html body .desktop-widget-card[data-wtype][data-wdt="h2"] { --dt-l2: #b6cfe4; }
+html body .desktop-widget-card[data-wtype][data-wdt="h3"] { --dt-l2: #9fc2de; }
+html body .desktop-widget-card[data-wtype][data-wdt="h4"] { --dt-l2: #c3d3e2; }
+html body .desktop-widget-card[data-wtype][data-wdt="h5"] { --dt-l2: #a3c4e0; }
+html body .desktop-widget-card[data-wtype][data-wdt="h6"] { --dt-l2: #b7c9e2; }
+html body .desktop-widget-card[data-wtype][data-wdt="h7"] { --dt-l2: #b9c8ea; }
+/* 9 档 → 右侧（暖）渐变末端明度 */
+html body .desktop-widget-card[data-wtype][data-wdt2="h0"] { --dt-r2: #d8c3b5; }
+html body .desktop-widget-card[data-wtype][data-wdt2="h1"] { --dt-r2: #ddc7b2; }
+html body .desktop-widget-card[data-wtype][data-wdt2="h2"] { --dt-r2: #e8c39b; }
+html body .desktop-widget-card[data-wtype][data-wdt2="h3"] { --dt-r2: #e3c7a8; }
+html body .desktop-widget-card[data-wtype][data-wdt2="h4"] { --dt-r2: #edd6a8; }
+html body .desktop-widget-card[data-wtype][data-wdt2="h5"] { --dt-r2: #e6c9a4; }
+html body .desktop-widget-card[data-wtype][data-wdt2="h6"] { --dt-r2: #e6c09a; }
+html body .desktop-widget-card[data-wtype][data-wdt2="h7"] { --dt-r2: #dbc6b8; }
+
+/* 中间分隔线：只在「左右两列」的 .nx-dual-2 上画，1px 竖向渐变，两端透明 */
+html body .desktop-widget-card[data-wtype="dualtime"] .nx-dual-2 { position: relative; }
+html body .desktop-widget-card[data-wtype="dualtime"] .nx-dual-2 > .nx-dual-col { position: relative; }
+html body .desktop-widget-card[data-wtype="dualtime"] .nx-dual-2 > .nx-dual-col:first-child::after {
+    content: '';
+    position: absolute;
+    top: 8%;
+    bottom: 8%;
+    right: -6px;
+    width: 1px;
+    pointer-events: none;
+    background: linear-gradient(180deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, .35) 50%,
+        rgba(255, 255, 255, 0) 100%);
+}
+
+/* ============================================================================
+ * 8 · 组件面板预览卡：与桌面同一个节点，但面板里可能带额外层，显式再压一次
+ * ==========================================================================*/
+html body .desktop-widget-card.widget-preview-card[data-wtype] {
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+    border: 0 !important;
+}
+html body.dark-mode .desktop-widget-card.widget-preview-card[data-wtype] {
+    background-color: var(--w-tint-da) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-da) 0%, var(--w-tint-db) 100%) !important;
+}
+/* 预览卡也要有节气底纹 */
+html body .desktop-widget-card.widget-preview-card[data-wtype="calendar"][data-njq-season="spring"],
+html body .desktop-widget-card.widget-preview-card[data-wtype="date"][data-njq-season="spring"] {
+    background-image:
+        radial-gradient(118% 82% at 6% -8%, rgba(168, 200, 160, .075), rgba(168, 200, 160, 0) 62%),
+        radial-gradient(86% 70% at 98% 106%, rgba(168, 200, 160, .055), rgba(168, 200, 160, 0) 58%),
+        repeating-linear-gradient(133deg, rgba(15, 23, 42, .014) 0 1px, rgba(15, 23, 42, 0) 1px 7px),
+        linear-gradient(158deg, #ffffff 0%, #f1f5f9 100%) !important;
+}
+html body .desktop-widget-card.widget-preview-card[data-wtype="calendar"][data-njq-season="summer"],
+html body .desktop-widget-card.widget-preview-card[data-wtype="date"][data-njq-season="summer"] {
+    background-image:
+        radial-gradient(118% 82% at 6% -8%, rgba(169, 198, 216, .075), rgba(169, 198, 216, 0) 62%),
+        radial-gradient(86% 70% at 98% 106%, rgba(169, 198, 216, .055), rgba(169, 198, 216, 0) 58%),
+        repeating-linear-gradient(133deg, rgba(15, 23, 42, .014) 0 1px, rgba(15, 23, 42, 0) 1px 7px),
+        linear-gradient(158deg, #ffffff 0%, #f1f5f9 100%) !important;
+}
+html body .desktop-widget-card.widget-preview-card[data-wtype="calendar"][data-njq-season="autumn"],
+html body .desktop-widget-card.widget-preview-card[data-wtype="date"][data-njq-season="autumn"] {
+    background-image:
+        radial-gradient(118% 82% at 6% -8%, rgba(216, 185, 140, .075), rgba(216, 185, 140, 0) 62%),
+        radial-gradient(86% 70% at 98% 106%, rgba(216, 185, 140, .055), rgba(216, 185, 140, 0) 58%),
+        repeating-linear-gradient(133deg, rgba(15, 23, 42, .014) 0 1px, rgba(15, 23, 42, 0) 1px 7px),
+        linear-gradient(158deg, #ffffff 0%, #f1f5f9 100%) !important;
+}
+html body .desktop-widget-card.widget-preview-card[data-wtype="calendar"][data-njq-season="winter"],
+html body .desktop-widget-card.widget-preview-card[data-wtype="date"][data-njq-season="winter"] {
+    background-image:
+        radial-gradient(118% 82% at 6% -8%, rgba(185, 196, 210, .075), rgba(185, 196, 210, 0) 62%),
+        radial-gradient(86% 70% at 98% 106%, rgba(185, 196, 210, .055), rgba(185, 196, 210, 0) 58%),
+        repeating-linear-gradient(133deg, rgba(15, 23, 42, .014) 0 1px, rgba(15, 23, 42, 0) 1px 7px),
+        linear-gradient(158deg, #ffffff 0%, #f1f5f9 100%) !important;
+}
+
+/* ============================================================================
+ * 9 · 方哩方哩三件套（正在播放 / 为你推荐 / B站搜索）
+ *    #fb7299 降到 S40/L52→61（H312），保留品牌识别但不再刺眼
+ * ==========================================================================*/
+html body .desktop-widget-card[data-wtype="biliNow"],
+html body .desktop-widget-card[data-wtype="biliReco"],
+html body .desktop-widget-card[data-wtype="biliSearch"] {
+    --w-tint-a: #b654a2; --w-tint-b: #c572b5;
+    --w-tint-da: #602e56; --w-tint-db: #713865;
+    background-color: var(--w-tint-a) !important;
+    background-image: linear-gradient(158deg, var(--w-tint-a) 0%, var(--w-tint-b) 100%) !important;
+    color: #fff !important;
+    --w-text: #fff; --w-text-strong: #fff;
+    --w-text-soft: rgba(255,255,255,.78); --w-text-faint: rgba(255,255,255,.55);
+    --w-accent: #fff; --nx-acc-text: #fff;
+}
+
+.nx-bili { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.nx-bili .nx-hd { color: rgba(255,255,255,.82); }
+.nx-bili .nx-hd > span { color: #fff; }
+
+.nx-bili-empty {
+    flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 2px; text-align: center;
+    color: rgba(255,255,255,.72);
+}
+.nx-bili-empty > i { font-size: 18px; opacity: .8; margin-bottom: 2px; }
+.nx-bili-empty > b { font-size: 11.5px; font-weight: 650; color: #fff; }
+.nx-bili-empty > span { font-size: 10px; opacity: .72; }
+
+.nx-bili-go {
+    align-self: flex-start; flex: none;
+    height: 22px; padding: 0 10px; border-radius: 999px; cursor: pointer;
+    font-size: 10.5px; font-weight: 650; font-family: inherit;
+    color: #fff; background: rgba(255,255,255,.20);
+    border: 1px solid rgba(255,255,255,.34);
+    transition: background 260ms cubic-bezier(.2, .7, .2, 1), transform 260ms cubic-bezier(.2, .7, .2, 1);
+}
+.nx-bili-go:hover { background: rgba(255,255,255,.30); }
+.nx-bili-go:active { transform: scale(.96); }
+
+.nx-bili-row { display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1 1 auto; }
+.nx-bili-cover {
+    width: 38px; height: 38px; flex: none; border-radius: 9px; object-fit: cover;
+    box-shadow: 0 3px 10px rgba(60,10,30,.28);
+}
+.nx-bili-cover.ph {
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,.20); color: #fff; font-size: 15px;
+}
+.nx-bili.is-wide .nx-bili-cover { width: 46px; height: 46px; border-radius: 11px; }
+.nx-bili-meta { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.nx-bili-meta > b {
+    font-size: 11.5px; font-weight: 650; line-height: 1.3; color: #fff;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.nx-bili-meta > span { font-size: 10px; color: rgba(255,255,255,.66); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.nx-bili-bar {
+    height: 2.5px; border-radius: 2px; background: rgba(255,255,255,.24);
+    overflow: hidden; flex: none;
+}
+.nx-bili-bar > i {
+    display: block; height: 100%; border-radius: 2px; background: #fff;
+    transition: width .3s linear;
+}
+.nx-bili-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex: none; }
+.nx-bili-foot > span { font-size: 9.5px; color: rgba(255,255,255,.66); font-variant-numeric: tabular-nums; }
+
+.nx-bili-li {
+    display: flex; align-items: center; gap: 6px; min-width: 0;
+    font-size: 11px; line-height: 1.35; color: rgba(255,255,255,.92);
+    padding: 2px 0; cursor: pointer;
+}
+.nx-bili-li > i { font-size: 8px; opacity: .72; flex: none; }
+.nx-bili-li > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nx-bili-li:hover > span { color: #fff; text-decoration: underline; text-underline-offset: 2px; }
+
+.nx-bili-sbox { display: flex; align-items: center; gap: 5px; flex: none; }
+.nx-bili-input {
+    flex: 1 1 auto; min-width: 0; height: 24px; padding: 0 9px; box-sizing: border-box;
+    border-radius: 999px; border: 1px solid rgba(255,255,255,.34);
+    background: rgba(255,255,255,.16); color: #fff;
+    font: inherit; font-size: 11px; outline: none;
+}
+.nx-bili-input::placeholder { color: rgba(255,255,255,.58); }
+.nx-bili-input:focus { background: rgba(255,255,255,.24); border-color: rgba(255,255,255,.6); }
+.nx-bili-sbtn { height: 24px; padding: 0 9px; flex: none; }
+.nx-bili-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: auto; }
+.nx-bili-tag {
+    height: 19px; padding: 0 8px; border-radius: 999px; cursor: pointer;
+    font: inherit; font-size: 9.5px; color: rgba(255,255,255,.9);
+    background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.22);
+}
+.nx-bili-tag:hover { background: rgba(255,255,255,.26); }

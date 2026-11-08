@@ -30,24 +30,15 @@
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    /* v2.9.31：之前只有淡入，铺满整屏时看着像"啪"一下出现。
-       加一点缩放，做出"从屏幕里推近"的感觉。
-       性能：原来这里还带 `filter: blur(6px)` 过渡，等于 260ms 内每帧
-       对整屏 backdrop-filter 再叠一层全屏模糊重算；去掉后只做
-       opacity + transform 合成，开合两端画面一致。 */
+    /* 入场/退场的过渡不在这里写 —— 见文件下方「整体入场」一节：
+       4 条不同步过渡已合并成 1 条 300ms 关键帧。这里只留初始几何。 */
     transform: scale(1.015);
-    transition: opacity var(--dur-t2, 220ms) var(--ease-out, ease),
-                transform var(--dur-t3, 400ms) cubic-bezier(0.2, 0.9, 0.3, 1),
-                visibility 0s linear var(--dur-t2, 220ms);
 }
 #smTileMenu.show {
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
     transform: none;
-    transition: opacity var(--dur-t2, 220ms) var(--ease-out, ease),
-                transform var(--dur-t3, 400ms) cubic-bezier(0.2, 0.9, 0.3, 1),
-                visibility 0s linear 0s;
 }
 
 /* 深色主题：深底浅字——用一层深色玻璃，而不是对整屏加 brightness 压暗
@@ -65,7 +56,8 @@ body.dark-mode #smTileMenu {
     align-items: center;
     gap: 16px;
     flex-shrink: 0;
-    padding-bottom: 20px;
+    /* v2.9.99：头部与内容之间留一道「松」，和组间 32px 同属一个台阶 */
+    padding-bottom: 26px;
 }
 .smt-user {
     display: flex;
@@ -85,7 +77,7 @@ body.dark-mode .smt-user { background: rgba(255, 255, 255, 0.10); border-color: 
 body.dark-mode .smt-user:hover { background: rgba(255, 255, 255, 0.18); }
 .smt-avatar {
     width: 30px; height: 30px; border-radius: 50%;
-    background: linear-gradient(135deg, #60a5fa, #a78bfa);
+    background: linear-gradient(135deg, #60a5fa, #38bdf8);
     display: flex; align-items: center; justify-content: center;
     font-size: 13px; font-weight: 700; color: #fff; overflow: hidden;
 }
@@ -133,10 +125,22 @@ body.dark-mode .smt-tb.on { background: rgba(74, 155, 245, 0.28); border-color: 
 
 /* ── 磁贴区 ─────────────────────────────────────────── */
 .smt-body { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; padding-right: 8px; }
+/* ── 紧—松：分组内紧（10/12），分组间松（32） ────────────────────
+   v2.9.99：原来标题 margin 4/2/10、网格 gap 10，全屏上所有间距都落在 6–25，
+   动态范围只有 4.2×，读起来是一张「平铺」的格子，没有分组感。
+   现在把「组间」抬到 32px，组内保持 10–12px —— 对比度 3× 以上，
+   眼睛能一眼看出「这是一组」。 */
 .smt-group-title {
     font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
-    text-transform: uppercase; opacity: 0.62; margin: 4px 2px 10px;
+    text-transform: uppercase; opacity: 0.62; margin: 0 2px 11px;
 }
+.smt-group-title + .smt-grid { margin-top: 0; }
+.smt-grid + .smt-group-title,
+.smt-grid + .smt-grid,
+.smt-group + .smt-group-title {
+    margin-top: 32px;
+}
+.smt-body > .smt-group-title:first-child { margin-top: 2px; }
 .smt-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
@@ -172,7 +176,7 @@ body.dark-mode .smt-tb.on { background: rgba(74, 155, 245, 0.28); border-color: 
         inset 0 1px 0 rgba(255, 255, 255, 0.28),
         inset 0 0 0 1px rgba(255, 255, 255, 0.10),
         0 2px 8px rgba(0, 0, 0, 0.18);
-    transition: transform 0.15s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.15s ease, filter 0.15s ease;
+    transition: transform 260ms cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 260ms cubic-bezier(.2, .7, .2, 1), filter 260ms cubic-bezier(.2, .7, .2, 1);
     user-select: none;
     -webkit-user-select: none;
     touch-action: none;
@@ -355,10 +359,17 @@ body.dock-hidden #n26DockHotZone { display: block; }
    ══════════════════════════════════════════════════════════════════ */
 
 /* 磁贴错落入场：从左下方轻微平移到位，一块比一块晚一点（--smt-i 由渲染时写入） */
+/* v2.9.99 按实测报告重调三个数：
+   ① 位移 -14px 18px 配 0.52s expo-out（cubic-bezier(0.16,1,0.3,1)）——
+      expo-out 在 25% 处已经走完 90%，剩下 390ms 只爬不到 2px，
+      观感就是「首帧啪一下、后面像死了」。现在位移 10px、时长 300ms、
+      曲线换成 cubic-bezier(.22,.61,.36,1)（前 40% 走完 75%，尾巴短）。
+   ② 26ms 一级错落低于感知阈值，25 块几乎同时起跑。现在 55ms 一级，
+      并把序号封顶在 8 级（末块 440ms 起跑，总时长仍压在 800ms 内）。 */
 @keyframes smtTileIn {
     from {
         opacity: 0;
-        translate: -14px 18px;
+        translate: -10px 10px;
     }
     to {
         opacity: 1;
@@ -369,9 +380,10 @@ body.dock-hidden #n26DockHotZone { display: block; }
     opacity: 0;
 }
 #smTileMenu.show .smt-tile {
-    /* 0.52s + 每块 26ms 递延：一屏十几块，收尾约 0.9s，能看清"一块接一块推过来" */
-    animation: smtTileIn 0.52s cubic-bezier(0.16, 1, 0.3, 1) both;
-    animation-delay: calc(var(--smt-i, 0) * 26ms + 70ms);
+    animation: smtTileIn 300ms cubic-bezier(.22, .61, .36, 1) both;
+    /* 封顶 10 级：1440 宽一屏约 11 列，正好让**首屏可见那一行**逐块起跑
+       （0 → 550ms），屏幕以下的一批统一在 550ms 起，看不到「同时弹」也不拖时长。 */
+    animation-delay: calc(min(var(--smt-i, 0), 10) * 55ms + 30ms);
 }
 /* 菜单关掉时把动画清掉，下次打开重新播（否则动画只跑一次） */
 #smTileMenu:not(.show) .smt-tile {
@@ -379,18 +391,28 @@ body.dock-hidden #n26DockHotZone { display: block; }
     opacity: 0;
 }
 
-/* 整体入场也再慢一点、柔一点（原来 0.26s 太"啪"） */
+/* ── 整体入场 ───────────────────────────────────────────────────────
+   v2.9.99：原来这里同时跑 4 条互不同步的过渡
+     opacity 340ms ease-out / transform 460ms cb(.2,.9,.3,1) / filter 340ms / visibility 延迟
+   —— 曲线不同、时长不同，读起来就是「三段动作叠加」。
+   现在合成 1 条 300ms 关键帧，opacity 与 scale 同曲线同时演完；
+   visibility 只留一条 0s 延迟切换（它不参与视觉，只是让隐藏态不参与绘制）。
+   关闭时用 smtMenuOut 180ms 收一下，再靠 visibility 的 300ms 延迟真正隐藏。 */
 #smTileMenu {
-    transition: opacity 0.34s var(--ease-out, ease),
-                transform 0.46s cubic-bezier(0.2, 0.9, 0.3, 1),
-                filter 0.34s ease,
-                visibility 0s linear 0.34s;
+    animation: smtMenuOut 180ms cubic-bezier(.4, 0, .6, 1) both;
+    transition: visibility 0s linear 300ms;
 }
 #smTileMenu.show {
-    transition: opacity 0.34s var(--ease-out, ease),
-                transform 0.46s cubic-bezier(0.2, 0.9, 0.3, 1),
-                filter 0.34s ease,
-                visibility 0s linear 0s;
+    animation: smtMenuIn 300ms cubic-bezier(.2, .7, .2, 1) both;
+    transition: visibility 0s linear 0s;
+}
+@keyframes smtMenuIn {
+    from { opacity: 0; transform: scale(1.012); }
+    to   { opacity: 1; transform: scale(1); }
+}
+@keyframes smtMenuOut {
+    from { opacity: 1; transform: scale(1); }
+    to   { opacity: 0; transform: scale(1.008); }
 }
 
 /* ── Win10 边缘光 ──

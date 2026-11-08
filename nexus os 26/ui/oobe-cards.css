@@ -172,7 +172,7 @@ body.perf-mode #install-screen .install-step.active .oobe-card[class*="covi-card
     transform: perspective(900px)
                rotateX(var(--oobe-tilt-x, 0deg))
                rotateY(var(--oobe-tilt-y, 0deg));
-    transition: transform 0.16s var(--ease-out);
+    transition: transform 260ms cubic-bezier(.2, .7, .2, 1);
 }
 body.perf-mode #install-screen.oobe-tilt-live .oobe-card-anim { transform: none; transition: none; }
 

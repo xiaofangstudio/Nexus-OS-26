@@ -12692,7 +12692,7 @@
 
     <script>
     // ==================== 核心数据系统 ====================
-    const NEXUS_PREFIX = 'nexus_';
+    const NEXUS_PREFIX = 'n26vm:';   /* VM 快照独立命名空间，与初代/26 都隔离 */
     let currentUser = null;
     let safeMode = false;
 
@@ -12773,7 +12773,7 @@
 
     // ==================== NexusDB - IndexedDB 存储系统 ====================
     const NexusDB = {
-        dbName: 'NexusOS',
+        dbName: 'NexusOS26VM',
         db: null,
         version: 1,
         cache: {
@@ -14668,7 +14668,7 @@
 
     // 高亮上次注销账户（蓝色光圈）
     function highlightLastAccount() {
-        const last = sessionStorage.getItem('lastAccount');
+        const last = sessionStorage.getItem(NEXUS_PREFIX + 'lastAccount');
         if (!last) return;
         document.querySelectorAll('.account-item').forEach(item => {
             if (item.dataset.accName === last) {
@@ -14787,7 +14787,7 @@
             let lastAccountName = getLS('lastAccount');
             // 如果没有，尝试从 sessionStorage 读取
             if (!lastAccountName) {
-                lastAccountName = sessionStorage.getItem('lastAccount');
+                lastAccountName = sessionStorage.getItem(NEXUS_PREFIX + 'lastAccount');
             }
             // 查找账户，优先上次登录的，其次"管理员"，最后第一个
             let acc = accounts.find(a => a.name === lastAccountName);
@@ -14853,7 +14853,7 @@
                 let lastAccountName = getLS('lastAccount');
                 // 如果没有，尝试从 sessionStorage 读取
                 if (!lastAccountName) {
-                    lastAccountName = sessionStorage.getItem('lastAccount');
+                    lastAccountName = sessionStorage.getItem(NEXUS_PREFIX + 'lastAccount');
                 }
                 // 查找账户，优先上次登录的，其次"管理员"，最后第一个
                 let acc = accounts.find(a => a.name === lastAccountName);
@@ -15608,7 +15608,7 @@
     // 目的：第二次打开时壁纸秒加载，避免每次重新下载 5-6 分钟
     // 策略：① 启动时后台预缓存所有壁纸到 Cache API
     //       ② 应用壁纸时优先用缓存的 blob URL（秒加载），未命中则回退原 URL 并后台缓存
-    const NEXUS_IMAGE_CACHE = 'nexus-os-images-v1';
+    const NEXUS_IMAGE_CACHE = 'n26vm-os-images-v1';
     const NEXUS_WALLPAPER_URLS = [
         // beach 夏日海滩
         'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&h=1080&fit=crop&q=80',
@@ -29271,14 +29271,14 @@
 
         // 锁屏状态下点击注销：也需要进入切换账户页面
         if (!currentUser) {
-            sessionStorage.removeItem('lastAccount');
+            sessionStorage.removeItem(NEXUS_PREFIX + 'lastAccount');
             document.querySelectorAll('.account-item.last-account').forEach(el => el.classList.remove('last-account'));
             // 直接显示切换账户页面
             showSwitchAccountScreen();
             return;
         }
         // 桌面注销：记录最后注销账户到 sessionStorage
-        sessionStorage.setItem('lastAccount', currentUser.name);
+        sessionStorage.setItem(NEXUS_PREFIX + 'lastAccount', currentUser.name);
         setUserLS('windows', windows.map(w => ({
             id: w.id,
             appId: w.appId,
@@ -32719,7 +32719,7 @@
 
     function initCloudStorage() {
         try {
-            const request = indexedDB.open('NexusCloud', 1);
+            const request = indexedDB.open('NexusCloud26VM', 1);
             request.onupgradeneeded = function(e) {
                 const db = e.target.result;
                 if (!db.objectStoreNames.contains('files')) {
@@ -32741,7 +32741,7 @@
     // ==================== IndexedDB云盘 ====================
     const cloudDrive = {
         maxSize: 50 * 1024 * 1024, // 50MB
-        dbName: 'NexusCloudDrive',
+        dbName: 'NexusCloudDrive26VM',
         db: null,
 
         async init() {
@@ -35875,7 +35875,7 @@
         try {
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('diskUpdated') === 'true') {
-                const peDisks = localStorage.getItem('nexus_pe_disks');
+                const peDisks = localStorage.getItem(NEXUS_PREFIX + 'pe_disks');
                 if (peDisks) {
                     try {
                         const newDisks = JSON.parse(peDisks);
@@ -35895,7 +35895,7 @@
                             });
                             setLS('user_' + acc.name + '_filesystem', fs);
                         });
-                        localStorage.removeItem('nexus_pe_disks');
+                        localStorage.removeItem(NEXUS_PREFIX + 'pe_disks');
                         setLS('diskUpdatedNotify', true);
                     } catch(e) {}
                 }

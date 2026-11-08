@@ -1,0 +1,117 @@
+/* ============================================================
+   N26 Weather Polish · 天气应用视觉打磨（v2.9.95）
+   ------------------------------------------------------------
+   独立模块，weather.html 在 </head> 前最后引入，压过内联样式。
+   原则：不加任何 backdrop-filter（应用内天空层已是真背景，二次
+   模糊既糊又掉帧）；所有动效只碰 transform / opacity / box-shadow，
+   静止零合成层。数字统一等宽，刷新温度时不会左右抖。
+   ============================================================ */
+
+/* ---------- 卡片：双层描边 + 顶部一道细高光 ---------- */
+.wx-card {
+  border-radius: calc(var(--r-md, 14px) + 4px) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.045),
+    0 10px 30px rgba(0, 0, 0, 0.13) !important;
+  transition:
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 220ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+  /* 卡片内部重绘不外溢到整页，滚动更稳 */
+  contain: layout style;
+}
+.wx-card::after {
+  content: "";
+  position: absolute;
+  left: 14px; right: 14px; top: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.46), transparent);
+  opacity: 0.72;
+  pointer-events: none;
+}
+.wx-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 14px 36px rgba(0, 0, 0, 0.18) !important;
+}
+.card-head h2 { font-weight: 650 !important; letter-spacing: 0.035em !important; }
+.card-note { font-weight: 500 !important; }
+
+/* ---------- 温度主视觉：更轻的字重 + 更明确的度符号 ---------- */
+.hero-temp {
+  font-weight: 250 !important;
+  letter-spacing: -0.055em !important;
+  font-variant-numeric: tabular-nums lining-nums !important;
+}
+.hero-temp #tempNum {
+  display: inline-block;
+  min-width: 2ch;              /* 9° → 10° 不推挤度符号 */
+  text-align: right;
+  font-variant-numeric: tabular-nums lining-nums !important;
+}
+.hero-temp .deg {
+  font-size: 24px !important;
+  font-weight: 200 !important;
+  opacity: 0.72 !important;
+  transform: translateY(-0.03em);
+}
+.hero-cond { font-weight: 550 !important; letter-spacing: 0.04em !important; }
+.hero-range { letter-spacing: 0.02em !important; font-variant-numeric: tabular-nums !important; }
+.hero-range b { font-weight: 650 !important; }
+
+/* 图标体积光更柔、更大一点。★ 只动 inset / opacity，绝不覆盖 filter：
+   hero-icon::before 原本就是 blur(3px) 的径向光晕，祖先上再加 filter 会
+   新建 backdrop root，把应用内玻璃采样废掉（系统铁律：发光一律 box-shadow）。 */
+.hero-icon::before { inset: -4% !important; opacity: 0.92; }
+
+/* ---------- 数据胶囊：通透的圆胶囊 + 跟手的微抬 ---------- */
+.chip {
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.085) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition:
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    background 260ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.chip:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.145) !important;
+}
+.chip b { font-weight: 650 !important; font-variant-numeric: tabular-nums lining-nums !important; }
+
+/* ---------- 当前时段：青蓝细边 + 一圈柔光，选中更明确 ---------- */
+.hour.is-now .hour-bg {
+  box-shadow: inset 0 0 0 1px var(--wx-accent-line), 0 0 18px var(--wx-accent-soft) !important;
+  border-radius: calc(var(--r-sm, 10px) + 2px) !important;
+}
+.hour.is-now .h-time { letter-spacing: 0.02em !important; }
+/* ★ 真值链：逐时是 .hour 内的 h-*；逐日是 .day-row 内的
+   day-name / day-lo / day-hi / day-extra。原稿按旧模板猜的两个
+   d-* 类名在 weather.html 里根本不存在，属于死选择器，已按真实 DOM 修正。 */
+.h-temp, .h-time, .h-pop,
+.day-name, .day-lo, .day-hi, .day-extra {
+  font-variant-numeric: tabular-nums lining-nums !important;
+}
+.day-hi { font-weight: 650 !important; }
+.day-lo { opacity: 0.86; }
+
+/* ---------- 顶栏按钮：hover 只走 transform / background ---------- */
+.tb-btn, .city-btn {
+  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
+              background 260ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.tb-btn:active { transform: scale(0.94); }
+
+/* ---------- 减少动效：一帧到位 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .wx-card, .wx-card:hover, .chip, .chip:hover, .tb-btn, .city-btn, .tb-btn:active {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+  .hero-icon i { animation: none !important; }
+}

@@ -94,9 +94,10 @@
     --fu-sw-pad: 2px;
     --fu-sw-travel: 14px;
     --fu-sw-off: #d7d9de;
-    /* v2.9.71 系统统一：开态用强调色（--accent 由 --fu-h/s/l 推导），不再用 iOS 绿 */
-    --fu-sw-on: var(--accent);
-    --fu-sw-on-dark: var(--accent);
+    /* v2.9.83 回归用户钦定：开态轨道一律绿色（沿用 --ok token），强调色蓝被点名否决。
+       用户多次强调「背景是绿的」，v2.9.71 改 accent 属违规改动，勿再改回。 */
+    --fu-sw-on: var(--ok, #34c759);
+    --fu-sw-on-dark: var(--ok, #30d158);
     position: relative;
     display: inline-block;
     flex: 0 0 auto;

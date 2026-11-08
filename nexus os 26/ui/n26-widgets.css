@@ -484,7 +484,7 @@ body .desktop-widget-card[data-wtype="clock"]::before { display: none !important
     z-index: 8;
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
-    transition: background .18s ease, transform .18s ease;
+    transition: background 260ms cubic-bezier(.2, .7, .2, 1), transform 260ms cubic-bezier(.2, .7, .2, 1);
 }
 body.dark-mode .widget-remove-btn { background: rgba(255, 255, 255, .18); }
 .widget-edit-mode .desktop-widget-card .widget-remove-btn { display: flex; }
@@ -679,8 +679,8 @@ body.dark-mode .wp-cat-btn.active { background: rgba(255, 255, 255, .12); }
 }
 .widget-panel {
     transform: scale(.985) translateY(8px);
-    transition: transform 160ms var(--ease-out-expo, cubic-bezier(.16, 1, .3, 1)),
-                opacity 160ms var(--ease-out-expo, cubic-bezier(.16, 1, .3, 1)) !important;
+    transition: transform 260ms cubic-bezier(.2, .7, .2, 1)),
+                opacity 260ms cubic-bezier(.2, .7, .2, 1)) !important;
 }
 html body .widget-panel-overlay.show .widget-panel {
     transform: none !important;
@@ -1093,10 +1093,14 @@ html body .desktop-widget-card[data-wtype="system"] {
     --w-tint-a: #1b2431; --w-tint-b: #0d131d;
     --w-tint-da: #161d28; --w-tint-db: #0a0e15;
 }
-html body .desktop-widget-card[data-wtype="music"],
+/* v2.9.97 全面禁紫：音乐 / 相册两卡改用不同蓝系身份色，仍保留区分度 */
+html body .desktop-widget-card[data-wtype="music"] {
+    --w-tint-a: #2563eb; --w-tint-b: #60a5fa;
+    --w-tint-da: #1e3a8a; --w-tint-db: #1d4ed8;
+}
 html body .desktop-widget-card[data-wtype="photos"] {
-    --w-tint-a: #5856d6; --w-tint-b: #b06ee8;
-    --w-tint-da: #3a3690; --w-tint-db: #6d3f96;
+    --w-tint-a: #0ea5e9; --w-tint-b: #38bdf8;
+    --w-tint-da: #0284c7; --w-tint-db: #075985;
 }
 html body .desktop-widget-card[data-wtype="news"] {
     --w-tint-a: #a83656; --w-tint-b: #ef7056;
@@ -1115,9 +1119,10 @@ html body .desktop-widget-card[data-wtype="focus"] {
     --w-tint-a: #ef4444; --w-tint-b: #b91c1c;
     --w-tint-da: #6b1a1a; --w-tint-db: #3f0f0f;
 }
+/* v2.9.97 全面禁紫：倒计时卡改深蓝身份色 */
 html body .desktop-widget-card[data-wtype="countdown"] {
-    --w-tint-a: #6d6cf5; --w-tint-b: #4338ca;
-    --w-tint-da: #2e2f63; --w-tint-db: #17173a;
+    --w-tint-a: #1d4ed8; --w-tint-b: #3b82f6;
+    --w-tint-da: #172554; --w-tint-db: #1e3a8a;
 }
 html body .desktop-widget-card[data-wtype="health"] {
     --w-tint-a: #f43f5e; --w-tint-b: #b31e3c;
@@ -1397,7 +1402,7 @@ body.dark-mode .desktop-widget-card[data-wtype="photos"] .w-ph-mask {
 html body .desktop-widget-card[data-wtype="wallpaperpick"] .w-wp-item {
     border: 1px solid rgba(255, 255, 255, .10) !important;
 }
-/* 相册空态：不是灰砖，而是一块有照片感的紫块 + 说明 */
+/* 相册空态：不是灰砖，而是一块有照片感的蓝色玻璃块 + 说明 */
 html body .desktop-widget-card[data-wtype="photos"] .w-ph-empty {
     display: flex !important;
     flex-direction: column !important;
@@ -1408,7 +1413,7 @@ html body .desktop-widget-card[data-wtype="photos"] .w-ph-empty {
     color: #fff !important;
     background:
         radial-gradient(circle at 28% 16%, rgba(255, 255, 255, .26), transparent 62%),
-        linear-gradient(160deg, #6f6cf0 0%, #8b5cf6 62%, #5b3ec9 100%) !important;
+        linear-gradient(160deg, #0ea5e9 0%, #38bdf8 62%, #0284c7 100%) !important;
 }
 html body .desktop-widget-card[data-wtype="photos"] .w-ph-empty i { font-size: 30px; opacity: .92; }
 html body .desktop-widget-card[data-wtype="photos"] .w-ph-empty span { font-size: 13px; font-weight: 700; }
@@ -1531,7 +1536,7 @@ html body #widgetPanel .wp-size-slider.dragging::before { transition: none; }
 html body #widgetPanel .wp-size-tick {
     position: absolute; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px;
     border-radius: 50%; background: rgba(24, 40, 66, 0.30);
-    transition: background 140ms ease, transform 140ms cubic-bezier(.16, 1, .3, 1);
+    transition: background 260ms cubic-bezier(.2, .7, .2, 1), transform 260ms cubic-bezier(.16, 1, .3, 1);
 }
 html body #widgetPanel .wp-size-tick.on { background: var(--primary, #4A9BF5); transform: scale(1.5); }
 html body #widgetPanel .wp-size-thumb {
@@ -1580,7 +1585,7 @@ html body .widget-panel-overlay.show { opacity: 1; pointer-events: auto; }
 html body .widget-panel-overlay .widget-panel {
     opacity: 0;
     transform: translateY(10px) scale(.985) !important;
-    transition: transform 180ms cubic-bezier(.16, 1, .3, 1), opacity 160ms cubic-bezier(.16, 1, .3, 1) !important;
+    transition: transform 260ms cubic-bezier(.16, 1, .3, 1), opacity 260ms cubic-bezier(.16, 1, .3, 1) !important;
 }
 html body .widget-panel-overlay.show .widget-panel { opacity: 1; transform: none !important; }
 
@@ -1643,7 +1648,7 @@ html body #widgetPanel .widget-panel-card-preview {
     height: 138px !important; border-radius: 13px !important;
     transform-style: preserve-3d;
     transform: perspective(760px) rotateX(var(--gx, 0deg)) rotateY(var(--gy, 0deg)) translateY(var(--gt, 0px));
-    transition: transform 180ms cubic-bezier(.16, 1, .3, 1);
+    transition: transform 260ms cubic-bezier(.16, 1, .3, 1);
     will-change: transform;
 }
 html body #widgetPanel .widget-panel-grid[data-group="bar"] .widget-panel-card { grid-column: span 2; }
@@ -2024,7 +2029,7 @@ html body .n26-wheel-place {
     color: #fff;
     background: linear-gradient(180deg, #5aa9ff, #3b82f6);
     box-shadow: 0 8px 20px rgba(59, 130, 246, .28), inset 0 1px 0 rgba(255, 255, 255, .30);
-    transition: transform 160ms cubic-bezier(.16, 1, .3, 1), filter 160ms ease, box-shadow 160ms ease;
+    transition: transform 260ms cubic-bezier(.16, 1, .3, 1), filter 260ms cubic-bezier(.2, .7, .2, 1), box-shadow 260ms cubic-bezier(.2, .7, .2, 1);
 }
 html body .n26-wheel-place:hover { filter: brightness(1.04); transform: translateY(-1px); }
 html body .n26-wheel-place:active { transform: translateY(0) scale(.985); }

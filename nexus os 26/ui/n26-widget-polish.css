@@ -1,0 +1,136 @@
+/* ============================================================
+   N26 Widget Polish · 时间 / 天气等小组件排版美化（v2.9.95）
+   ------------------------------------------------------------
+   ★ 选择器真值链（写死代码比不写更糟，这条是本文件的验收依据）：
+     主壳 renderWidgetContent() 优先走 window.N26W2[type]（ui/n26-widgets-v2.js），
+     桌面卡与预览卡的真实 DOM 是 .nx / .nx-* 系列：
+       时钟  .widget-clock-time.nx-hero > .hh / .nx-colon / .mm
+             .nx-sub.nx-clk-date / .nx-clk-sec b / .nx-clk-kv b
+       天气  .nx-wx-temp / .nx-wx-temp-sm / .nx-wx-city / .nx-wx-chip
+             .nx-wx-kv b / .nx-wx-cell b / .nx-wx-hour b / .nx-wx-day b
+     旧 DOM（.widget-clock-date / .widget-weather-* 等）只在 N26W2 抛错时
+     作为 fallback 出现，故两套都保留，但主视觉按 .nx-* 写。
+
+   ★ 绝不改 color：卡片是深玻璃，--w-text / --w-text-strong /
+     --w-text-soft 已由 widgets-v2.css 跟随深浅色统一为白字体系。
+     强行写深色墨字会在玻璃上糊成一团（v2.9.95 第一版的教训）。
+     本文件只做字重 / 字距 / 等宽数字 / 固定槽位 / 可读性柔光。
+
+   只做 CSS，不动 DOM、不加模糊层、不抢 ::before/::after（天空层已占用）。
+   最后加载，用高特异性 + !important 压过 widgets.css 的历史分档规则。
+   ============================================================ */
+
+/* ---------- ① 数字等宽：消除秒级宽度抖动 ----------
+   比例字体下每秒 1→8 的宽度变化会让整块时间左右轻抖，
+   视觉上就是「不够丝滑」。tabular-nums + 固定 2ch 槽位后，
+   秒级刷新只换字形、不换宽度、不推挤冒号。 */
+html body .desktop-widget-card .nx,
+html body .desktop-widget-card .widget-clock-time,
+html body .desktop-widget-card .widget-clock-date,
+html body .desktop-widget-card .widget-clock-week,
+html body .desktop-widget-card .widget-weather-temp,
+html body .desktop-widget-card .widget-weather-meta,
+html body .desktop-widget-card .widget-weather-extra,
+html body .desktop-widget-card .widget-cal-header,
+html body .desktop-widget-card .widget-date-md,
+html body .desktop-widget-card .widget-alarm-next {
+    font-variant-numeric: tabular-nums lining-nums !important;
+    font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+}
+
+/* ---------- ② 时钟：hh / mm / 冒号固定槽位 ---------- */
+html body .desktop-widget-card .widget-clock-time .hh,
+html body .desktop-widget-card .widget-clock-time .mm {
+    display: inline-block;
+    min-width: 2ch;
+    text-align: center;
+    vertical-align: baseline;
+}
+/* v2 渲染器用 .nx-colon，fallback 旧 DOM 用 .colon，两套都锁住 */
+html body .desktop-widget-card .widget-clock-time .nx-colon,
+html body .desktop-widget-card .widget-clock-time .colon {
+    display: inline-block;
+    min-width: 0.6ch;
+    text-align: center;
+    opacity: 0.68;
+    transform: translateY(-0.03em);
+}
+
+/* ---------- ③ 时钟主视觉：更轻的字重 + 玻璃上的可读性 ---------- */
+html body:not(.style-skeuomorphic) .desktop-widget-card[data-wtype="clock"] .widget-clock-time {
+    font-weight: 300 !important;
+    letter-spacing: -0.03em !important;
+    line-height: 1.04 !important;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.14), 0 3px 16px rgba(0, 0, 0, 0.22) !important;
+}
+html body:not(.style-skeuomorphic) .desktop-widget-card[data-wtype="weather"] .nx-wx-temp,
+html body:not(.style-skeuomorphic) .desktop-widget-card[data-wtype="weather"] .widget-weather-temp {
+    font-weight: 280 !important;
+    letter-spacing: -0.042em !important;
+    line-height: 1.02 !important;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.14), 0 3px 16px rgba(0, 0, 0, 0.24) !important;
+}
+
+/* ---------- ④ 信息层次：标题 / 副文 / 数值 ---------- */
+html body:not(.style-skeuomorphic) .desktop-widget-card .nx-hd > span,
+html body:not(.style-skeuomorphic) .desktop-widget-card .nx-wx-city,
+html body:not(.style-skeuomorphic) .desktop-widget-card .widget-clock-date,
+html body:not(.style-skeuomorphic) .desktop-widget-card .widget-weather-city {
+    font-weight: 650 !important;
+    letter-spacing: 0.02em !important;
+}
+html body:not(.style-skeuomorphic) .desktop-widget-card .nx-sub,
+html body:not(.style-skeuomorphic) .desktop-widget-card .widget-clock-week,
+html body:not(.style-skeuomorphic) .desktop-widget-card .widget-weather-status {
+    font-weight: 500 !important;
+    letter-spacing: 0.025em !important;
+}
+html body:not(.style-skeuomorphic) .desktop-widget-card .nx-hd-sub {
+    font-weight: 500 !important;
+}
+/* v2 里所有数值型 b / small：等宽 + 不抢主视觉 */
+html body .desktop-widget-card .nx-clk-sec b,
+html body .desktop-widget-card .nx-clk-kv b,
+html body .desktop-widget-card .nx-clk-day b,
+html body .desktop-widget-card .nx-wx-kv b,
+html body .desktop-widget-card .nx-wx-cell b,
+html body .desktop-widget-card .nx-wx-hour b,
+html body .desktop-widget-card .nx-wx-day b,
+html body .desktop-widget-card .nx-wx-day small,
+html body .desktop-widget-card .nx-wx-temp-sm,
+html body .desktop-widget-card .nx-wx-chip,
+html body .desktop-widget-card .nx-wx-chips > span {
+    font-variant-numeric: tabular-nums lining-nums !important;
+    font-weight: 620 !important;
+    letter-spacing: 0.01em !important;
+}
+/* 星期 / 日期之间留一点呼吸，不再挤成一坨 */
+html body .desktop-widget-card[data-wtype="clock"] .nx-clk-date,
+html body .desktop-widget-card[data-wtype="clock"] .widget-clock-week {
+    margin-top: 2px;
+}
+/* 大档位高低温行：细分隔 + 等宽数字 */
+html body .desktop-widget-card .widget-weather-extra {
+    border-top: 1px solid rgba(255, 255, 255, 0.20);
+    padding-top: 6px;
+    font-weight: 500;
+}
+
+/* ---------- ⑤ 深色模式：只加强柔光，颜色仍交给 --w-text-* ---------- */
+html body.dark-mode:not(.style-skeuomorphic) .desktop-widget-card[data-wtype="clock"] .widget-clock-time,
+html body.dark-mode:not(.style-skeuomorphic) .desktop-widget-card[data-wtype="weather"] .nx-wx-temp {
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.24), 0 4px 20px rgba(0, 0, 0, 0.36) !important;
+}
+html body.dark-mode .desktop-widget-card .widget-weather-extra {
+    border-top-color: rgba(255, 255, 255, 0.14);
+}
+
+/* ---------- ⑥ 预览卡继承同一套排版 ----------
+   .widget-preview-card 与 .desktop-widget-card 是同一个节点
+   （renderWidgetPreviewInto 写 className = 'desktop-widget-card widget-preview-card'），
+   上面的规则已覆盖；这里额外保证缩略图在小尺寸下也不挤。 */
+html body .widget-preview-card .widget-clock-time,
+html body .widget-preview-card .nx-wx-temp,
+html body .widget-preview-card .widget-weather-temp {
+    font-variant-numeric: tabular-nums lining-nums !important;
+}

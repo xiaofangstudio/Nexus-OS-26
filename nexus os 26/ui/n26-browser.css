@@ -383,7 +383,7 @@ body.dark-mode .bm-news { background: rgba(255, 255, 255, .04); border-color: rg
 }
 .bm-news-head > i:first-child { color: var(--bm-accent, #6366f1); font-size: 12px; }
 .bm-news-head small { font-size: 10.5px; font-weight: 400; opacity: .45; }
-.bm-news-chevron { margin-left: auto; opacity: .5; transition: transform .18s var(--ease-out, ease); }
+.bm-news-chevron { margin-left: auto; opacity: .5; transition: transform 260ms cubic-bezier(.2, .7, .2, 1); }
 .bm-news.open .bm-news-chevron { transform: rotate(180deg); }
 .bm-news-body { display: none; padding: 0 6px 8px; }
 .bm-news.open .bm-news-body { display: block; }

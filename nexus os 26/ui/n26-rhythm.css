@@ -1,0 +1,78 @@
+/* ==========================================================================
+   Nexus OS 26 · 排版呼吸层（v2.9.98）
+   --------------------------------------------------------------------------
+   和 FluentOS 对照后最明显的三处差距，都不是「不好看」，而是「节奏不匀」：
+     ① 标题与内容之间没有固定间距，靠每个页面各写 margin，于是有的地方挤、
+        有的地方散；
+     ② 设置行的行高只有 13px 字号配默认 1.2，两行文字会挤成一块；
+     ③ 分组之间没有「一块一块」的分界，长页面读起来是一条不断线的流水。
+   这里只加节奏，不改任何配色 / 不改控件形态 / 不动 JS。
+   ========================================================================== */
+
+/* ---------- ① 标题层级：字号收敛到三档，间距固定 ---------- */
+#settingsPanel > h3,
+.settings-content > h3 {
+    font-size: 21px;
+    line-height: 1.26;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    margin: 0 0 16px;
+}
+#settingsPanel .settings-section > h4 {
+    font-size: 13.5px;
+    line-height: 1.4;
+    font-weight: 650;
+    letter-spacing: -.005em;
+    margin: 0 0 8px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+/* h4 里的小字说明（<small>）统一成一行浅色，不跟着标题抢视线 */
+#settingsPanel .settings-section > h4 > small {
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.5;
+    opacity: .62;
+    letter-spacing: 0;
+}
+
+/* ---------- ② 分组节奏：一块一块，块内紧、块间松 ---------- */
+#settingsPanel .settings-section {
+    margin-bottom: 22px;
+}
+#settingsPanel .settings-section:last-child {
+    margin-bottom: 8px;
+}
+
+/* ---------- ③ 设置行：行高给足，最后一行不留多余的线 ---------- */
+#settingsPanel .settings-row {
+    min-height: 42px;
+    padding: 11px 0;
+    line-height: 1.45;
+    align-items: center;
+    gap: 14px;
+}
+#settingsPanel .settings-row:last-child {
+    border-bottom: 0;
+    padding-bottom: 2px;
+}
+#settingsPanel .settings-row > span:first-child {
+    min-width: 0;
+    line-height: 1.45;
+}
+
+/* ---------- ④ 长页面底部留白：滚到底不会「撞墙」 ---------- */
+#settingsPanel {
+    scroll-padding-bottom: 28px;
+}
+#settingsPanel::after {
+    content: '';
+    display: block;
+    height: 18px;
+}
+
+/* ---------- ⑤ 减少动效时不做任何位移 ---------- */
+@media (prefers-reduced-motion: reduce) {
+    #settingsPanel * { transition-duration: .01ms !important; }
+}

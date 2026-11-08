@@ -1,0 +1,185 @@
+/* ============================================================
+   N26 Smooth · 全局丝滑层（v2.9.95）
+   ------------------------------------------------------------
+   三条原则：
+     ① 同一套缓动令牌，全系统动效不再各写各的 cubic-bezier；
+     ② 缩略预览绝不背真玻璃 —— 19 张卡同帧栅格化 backdrop-filter
+        是小组件选择器卡顿的另一半根因（另一半在 JS 分片）；
+     ③ 每张卡 contain 隔离重绘范围，滚动时只栅格化视口内变化。
+   必须与 n26-widgets*.css 之后加载，才能压掉预览卡的磨砂/阴影/动画。
+
+   ★ 面板卡只用 contain: layout style，不加 paint —— 卡片内有尺寸选择
+     与 hover 浮层，contain:paint 会把溢出部分直接裁掉。预览卡才是缩略
+     死图，可以安全上 paint。
+   ============================================================ */
+
+:root {
+    /* JS n26-smooth.js 会写同一组值，保证 WAAPI 与 CSS 同源 */
+    --n26-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --n26-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --n26-ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+    --n26-tap: 140ms;
+    --n26-move: 260ms;
+}
+
+/* ---------- 选择面板：隔离栅格化 + 精确过渡 ---------- */
+html body .widget-panel-card {
+    contain: layout style;
+    /* 不用 transition: transform —— 那会让背景色/文字色变化也触发重绘 */
+    transition:
+        transform var(--n26-tap) var(--n26-ease-out),
+        box-shadow var(--n26-tap) var(--n26-ease-out),
+        border-color var(--n26-tap) var(--n26-ease-out) !important, opacity —— 那会让背景色/文字色变化也触发重绘 */
+    transition:
+        transform var(--n26-tap) var(--n26-ease-out),
+        box-shadow var(--n26-tap) var(--n26-ease-out),
+        border-color var(--n26-tap) var(--n26-ease-out) !important, background-color —— 那会让背景色/文字色变化也触发重绘 */
+    transition:
+        transform var(--n26-tap) var(--n26-ease-out),
+        box-shadow var(--n26-tap) var(--n26-ease-out),
+        border-color var(--n26-tap) var(--n26-ease-out) !important, border-color —— 那会让背景色/文字色变化也触发重绘 */
+    transition:
+        transform var(--n26-tap) var(--n26-ease-out),
+        box-shadow var(--n26-tap) var(--n26-ease-out),
+        border-color var(--n26-tap) var(--n26-ease-out) !important, box-shadow —— 那会让背景色/文字色变化也触发重绘 */
+    transition:
+        transform var(--n26-tap) var(--n26-ease-out),
+        box-shadow var(--n26-tap) var(--n26-ease-out),
+        border-color var(--n26-tap) var(--n26-ease-out) !important, color —— 那会让背景色/文字色变化也触发重绘 */
+    transition:
+        transform var(--n26-tap) var(--n26-ease-out),
+        box-shadow var(--n26-tap) var(--n26-ease-out),
+        border-color var(--n26-tap) var(--n26-ease-out) !important;
+}
+html body .widget-panel-card-icon {
+    transition: transform var(--n26-move) var(--n26-ease-spring) !important;
+}
+html body .widget-panel-grid,
+html body .widget-panel-sidebar {
+    /* v2.9.96：改用 auto —— contain 会掐断滚动链，滚到列表末端后
+       滚轮「卡住不动」，正是用户说的「其他地方滚轮极其困难」。 */
+    overscroll-behavior: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ---------- ★ 预览卡降级（丝滑核心） ----------
+   缩略图只是给用户看版式，不需要真折射 / 磨砂 / 天空层粒子 / 秒针动画。
+   旧版 19 张预览卡各自带 backdrop-filter + 多重阴影 + ::before 渐变，
+   打开面板时同一帧全部栅格化 → 肉眼可见的一次长卡顿。 */
+html body .widget-preview-card {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    animation: none !important;
+    transition: none !important;
+    box-shadow: 0 2px 10px rgba(18, 32, 52, 0.10) !important;
+    contain: layout paint style;
+}
+html body .widget-preview-card::before,
+html body .widget-preview-card::after {
+    filter: none !important;
+    animation: none !important;
+    transition: none !important;
+    box-shadow: none !important;
+}
+html body .widget-preview-card *,
+html body .widget-preview-card *::before,
+html body .widget-preview-card *::after {
+    animation: none !important;
+    transition: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+html body.dark-mode .widget-preview-card {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.30) !important;
+}
+
+/* ---------- 按需合成层：静止零 will-change，交互瞬间才提升 ----------
+   真实节点是 .desktop-widget-card / .widget-panel-card，没有额外挂
+   data-n26-lift；JS 的 pointerdown 也按这两个类名抓取，避免空转。
+   [data-n26-lift] 保留为将来新组件的可选钩子。
+
+   ★ 两条手感铁律：
+     ① 面板卡绝不改 transform —— gallery.enterDetail() 用 getBoundingClientRect()
+        量 backRect 做 FLIP，按压缩放会让起始矩形偏小、展开动画歪掉。
+     ② 拖动 / 缩放小组件必须 transition:none —— 原先主壳的
+        .widget-resizing { transition:none } 没有 !important，会被下面的
+        统一过渡压掉，导致拖动手感发粘（跟「丝滑」正好相反）。 */
+html body .desktop-widget-card:active,
+html body .widget-panel-card:hover,
+html body .widget-panel-card:active,
+html body [data-n26-lift]:active {
+    will-change: transform;
+}
+html body .desktop-widget-card,
+html body .widget-panel-card,
+html body [data-n26-lift] {
+    transition: transform var(--n26-tap) var(--n26-ease-out),
+                box-shadow var(--n26-tap) var(--n26-ease-out) !important;
+}
+html body .desktop-widget-card.dragging,
+html body .desktop-widget-card.widget-resizing {
+    transition: none !important;
+}
+html body [data-n26-lift]:active { transform: scale(0.985); }
+
+/* ---------- v2.9.96 商城横滑与小细节 ----------
+   精选卡是 overflow-x:auto 的横向轨道。手势引擎现在把横向 wheel 交回原生，
+   这里补上吸附与滚动链隔离：横滑不会带动整个商城左右晃，
+   但纵向滚轮仍能从轨道上方顺畅冒泡到 .as-main。 */
+html body .appstore-featured-scroll {
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: auto;
+    scroll-behavior: auto;
+    -webkit-overflow-scrolling: touch;
+}
+html body .appstore-featured-card { scroll-snap-align: start; }
+html body .appstore-detail-screenshots {
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+}
+html body .appstore-detail-screenshot { scroll-snap-align: start; }
+
+/* 卡片静止零合成层，hover 才抬；contain 把重绘锁在卡内 */
+html body .appstore-card {
+    contain: layout style;
+    transition: transform var(--n26-tap) var(--n26-ease-out),
+                box-shadow var(--n26-tap) var(--n26-ease-out) !important;
+}
+html body .appstore-card:hover { transform: translateY(-2px); }
+
+/* ---------- 减少动效：一帧到位，不做任何补间 ---------- */
+@media (prefers-reduced-motion: reduce) {
+    html body .widget-panel-card,
+    html body .widget-panel-card-icon,
+    html body .desktop-widget-card,
+    html body [data-n26-lift],
+    html body .widget-preview-card,
+    html body .appstore-card,
+    html body .appstore-featured-scroll {
+        animation: none !important;
+        transition: none !important;
+        will-change: auto !important;
+        transform: none !important;
+    }
+}
+
+/* ==========================================================================
+   v2.10.6 · 长列表跳过离屏渲染（真·丝滑的一条硬杠杆）
+   --------------------------------------------------------------------------
+   启动台 270 个元素、商城几百张卡片，都是「一次全建、全画」。
+   给滚动容器里的卡片加 content-visibility:auto 后，浏览器只渲染视口内的那几张，
+   离屏的直接跳过 layout + paint（保留尺寸占位，不会跳）。
+   ⚠ 只加在**纯展示卡片**上：带 sticky / 浮层的容器不要加，会裁掉浮层。
+   ========================================================================== */
+html body .appstore-card,
+html body .as-rail-item,
+html body #launchpad .launchpad-item {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 96px;
+}
+/* 卡片里如果含绝对定位浮层（角标、菜单），改回普通渲染，避免被裁 */
+html body .appstore-card:has(.appstore-card-menu),
+html body .appstore-card:has(.store-badge-pop) {
+    content-visibility: visible;
+}

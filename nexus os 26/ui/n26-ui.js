@@ -296,12 +296,27 @@
         }
 
         /* 键盘 / 程序化选中：灰胶囊先让位，玻璃匀速滑过去，到达后淡出、灰胶囊落位 */
+        /* ★ v2.10.15：切 Tab 之后的 ~320ms 里，页面正在做淡入（很多页面用
+           opacity 入场）。这段时间侧栏的 backdrop-filter 会每帧重采样，
+           内容一重就卡。挂一个 n26-xfade，让 CSS 把模糊降一档，结束再恢复。 */
+        var xfTimer = 0;
+        function markXfade() {
+            try {
+                var b = document.body;
+                if (!b) return;
+                b.classList.add('n26-xfade');
+                clearTimeout(xfTimer);
+                xfTimer = setTimeout(function () { b.classList.remove('n26-xfade'); }, 320);
+            } catch (e) { }
+        }
+
         function select(id, shouldFocus, silent) {
             var idx = -1;
             for (var i = 0; i < list.length; i++) {
                 if (list[i].id === id) { idx = i; break; }
             }
             if (idx < 0) return;
+            markXfade();
             var prev = applyActive(idx, shouldFocus, silent);
             if (prev < 0) { restAt(tabs[idx]); return; }
             holdCaps(true);

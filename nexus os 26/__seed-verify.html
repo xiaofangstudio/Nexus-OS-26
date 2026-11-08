@@ -3,10 +3,9 @@
 <body>
 <script>
 try {
-  localStorage.setItem('nexus_installed', 'true');
-  localStorage.setItem('installed', 'true');
+  localStorage.setItem('n26:installed', 'true');
   var theme = location.hash === '#dark' ? 'dark' : 'light';
-  localStorage.setItem('theme', theme);
+  localStorage.setItem('n26:theme', theme);
   var app = 'browser';
   location.replace('Nexus OS 26.html?app=' + app + (theme === 'dark' ? '&theme=dark' : '&theme=light'));
 } catch (e) { document.body.textContent = String(e); }

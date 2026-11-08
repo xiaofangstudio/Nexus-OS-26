@@ -170,11 +170,36 @@ html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #dock, #dockBar, #n
     -webkit-backdrop-filter: var(--n26-lg-filter) !important;
     backdrop-filter: var(--n26-lg-filter) !important;
 }
-/* 2.12 应用侧栏液态指示器 / 玻璃按钮与开关：只在「滑动 / 按住 / 演示」窗口内曝光，
-   静止时元素本身不消费滤镜（零开销）。 */
-html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, .n26-dng.n26-liquid-on.travel, .n26-dng.n26-liquid-on.glow, .n26-lg-ctrl.n26-liquid-on:active, .n26-lg-ctrl.n26-liquid-on:focus-visible, .n26-lg-ctrl.n26-liquid-on.n26-lg-live) {
+/* 2.12 应用侧栏液态指示器 / 玻璃按钮与开关。
+   v2.9.93：用户点名「现在所有的都没有折射引擎」——旧版把折射锁死在
+   .travel/.glow/:active 这几个瞬时状态里，静止的侧边玻璃、开关玻璃
+   全被第 1 节的 backdrop-filter:none !important 压成普通磨砂。
+   现在只要引擎真的挂上了（.n26-liquid-on）就常驻消费折射串。 */
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c,
+    .n26-dng.n26-liquid-on,
+    .n26-sw-blob.n26-liquid-on,
+    .n26-lg-ctrl.n26-liquid-on:hover,
+    .n26-lg-ctrl.n26-liquid-on:active,
+    .n26-lg-ctrl.n26-liquid-on:focus-visible,
+    .n26-lg-ctrl.n26-liquid-on.n26-lg-live,
+    .fu-switch.fu-liquid .fu-knob,
+    .toggle-switch.fu-liquid .fu-knob) {
     -webkit-backdrop-filter: var(--n26-lg-filter) !important;
     backdrop-filter: var(--n26-lg-filter) !important;
+}
+/* 侧边玻璃 hover 发光 / 按下更亮（用户钦定）；不删右侧原有观感 */
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, .n26-docknav-host:hover > .n26-dng.n26-liquid-on) {
+    box-shadow:
+        0 0 14px rgba(120, 190, 255, 0.40),
+        inset 0 1px 0 rgba(255, 255, 255, 0.62),
+        inset 0 -10px 20px rgba(0, 0, 0, 0.10) !important;
+}
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, .n26-docknav-host:active > .n26-dng.n26-liquid-on, .n26-docknav-host.n26-docknav-hold > .n26-dng.n26-liquid-on) {
+    box-shadow:
+        0 0 24px rgba(150, 210, 255, 0.78),
+        0 0 0 1px rgba(255, 255, 255, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.78),
+        inset 0 -10px 20px rgba(0, 0, 0, 0.12) !important;
 }
 
 /* ── 3. 不该磨砂：实底，不留半层 ───────────────────────────────── */
@@ -318,7 +343,7 @@ html body #launchpad * {
 /* 6.2 静止态旋钮也走同一条 400ms 曲线：先慢-中快-后慢，末端不过冲 */
 .fu-switch::after, .toggle-switch::after,
 .widget-alarm-toggle-btn::after, .alarm-toggle::after {
-    transition: transform .4s cubic-bezier(.42, 0, .24, 1), background .12s ease, box-shadow .16s ease !important;
+    transition: transform .4s cubic-bezier(.42, 0, .24, 1), background .12s cubic-bezier(.2, .7, .2, 1), box-shadow 260ms cubic-bezier(.2, .7, .2, 1) !important;
 }
 /* 6.3 液态玻璃旋钮：只在动效期 .fu-liquid 生效——用户钦定是「白胶囊 → 变液态玻璃 → 滑到另一端 → 变回白色」。
    液态期底色必须清零（否则白底盖住折射，等于没装玻璃），只剩折射 + 边缘高光 + 厚度内阴影。

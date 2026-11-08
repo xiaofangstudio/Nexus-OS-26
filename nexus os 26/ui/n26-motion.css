@@ -1,0 +1,115 @@
+/* ==========================================================================
+   Nexus OS 26 · 系统动效批次 1（ui/n26-motion.css）v2.10.11
+   --------------------------------------------------------------------------
+   设计纪律（和 n26-smooth / n26-switch 保持一致）：
+     · 一个物体只演一条动画，合成单关键帧，绝不叠 opacity+transform+filter 三条；
+     · 只动 transform / opacity / box-shadow，不碰 width/height/padding；
+     · 祖先不许加 filter（会新建 backdrop root，废掉子玻璃折射）；
+     · 光斑是**独立子层**，不复用宿主的 ::before/::after，
+       所以无论底部玻璃怎么改都不会打架；
+     · 全部尊重 prefers-reduced-motion 与 body.reduce-motion / body.n26-lite。
+   ========================================================================== */
+
+/* ---------- ① 玻璃表面的「呼吸光斑 + 指针高光」 ---------- */
+.n26-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity .45s ease;
+  contain: paint;
+}
+.n26-glow.on { opacity: 1; }
+.n26-glow::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0;
+  width: 180%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  /* 像素坐标来自 JS 的 --n26-gx/--n26-gy（相对光斑层左上角）；
+     -50% 是把这团光自己的圆心挪到指针上（translate 的百分比按自身盒子算） */
+  transform: translate3d(calc(var(--n26-gx, 0px) - 50%), calc(var(--n26-gy, 0px) - 50%), 0);
+  background: radial-gradient(closest-side,
+      rgba(255, 255, 255, .17) 0%,
+      rgba(255, 255, 255, .07) 46%,
+      rgba(255, 255, 255, 0) 72%);
+  animation: n26GlowBreath 9s ease-in-out infinite;
+}
+@keyframes n26GlowBreath {
+  0%, 100% { opacity: .55; }
+  50%      { opacity: 1; }
+}
+body.dark-mode .n26-glow::before {
+  background: radial-gradient(closest-side,
+      rgba(255, 255, 255, .12) 0%,
+      rgba(255, 255, 255, .05) 48%,
+      rgba(255, 255, 255, 0) 74%);
+}
+
+/* ---------- ② 全局点击火花（挂在 body，不动宿主任何布局） ---------- */
+.n26-spark {
+  position: fixed;
+  z-index: 2147483000;
+  width: 18px; height: 18px;
+  margin: -9px 0 0 -9px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 255, 255, .92) 0%, rgba(255, 255, 255, .28) 42%, rgba(255, 255, 255, 0) 70%);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .22);
+  animation: n26Spark .46s cubic-bezier(.2, .7, .2, 1) forwards;
+}
+@keyframes n26Spark {
+  0%   { opacity: .85; transform: scale(.35); }
+  45%  { opacity: .5; }
+  100% { opacity: 0; transform: scale(3.1); }
+}
+/* Dock 点击的径向扩散：更大更慢 */
+.n26-spark.dock {
+  width: 42px; height: 42px; margin: -21px 0 0 -21px;
+  background: radial-gradient(circle, rgba(255, 255, 255, .55) 0%, rgba(255, 255, 255, .16) 46%, rgba(255, 255, 255, 0) 72%);
+  animation-duration: .58s;
+}
+
+/* ---------- ③ 窗口拖动时「离地」 ---------- */
+html body .window.n26-lift {
+  box-shadow: 0 38px 76px rgba(0, 0, 0, .46), 0 10px 26px rgba(0, 0, 0, .30);
+  transition: box-shadow .22s cubic-bezier(.2, .7, .2, 1);
+}
+html body .window {
+  transition: box-shadow .32s cubic-bezier(.2, .7, .2, 1);
+}
+
+/* ---------- ④ 通知横幅：弹簧入场 / 干脆退场 ---------- */
+#notification-center .notification {
+  animation: n26NotifIn .46s cubic-bezier(.16, 1, .3, 1) both;
+}
+@keyframes n26NotifIn {
+  0%   { opacity: 0; transform: translate3d(30px, -10px, 0) scale(.94); }
+  62%  { opacity: 1; transform: translate3d(-3px, 0, 0) scale(1.008); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+#notification-center .notification.hide {
+  animation: n26NotifOut .24s cubic-bezier(.4, 0, 1, 1) forwards;
+}
+@keyframes n26NotifOut {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to   { opacity: 0; transform: translate3d(26px, -6px, 0) scale(.95); }
+}
+
+/* ---------- 统一关闸 ---------- */
+body.reduce-motion .n26-glow::before,
+body.n26-lite .n26-glow::before { animation: none; }
+body.reduce-motion .n26-spark,
+body.n26-lite .n26-spark { display: none; }
+body.reduce-motion #notification-center .notification,
+body.n26-lite #notification-center .notification { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .n26-glow::before { animation: none; }
+  .n26-spark { display: none; }
+  #notification-center .notification { animation: none; }
+  html body .window,
+  html body .window.n26-lift { transition: none; }
+}

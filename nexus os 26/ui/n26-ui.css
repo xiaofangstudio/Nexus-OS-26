@@ -104,7 +104,28 @@ body.perf-mode .n26ui-sidebar {
     opacity: 0;
     transition: none;
     transition-timing-function: linear;
-    will-change: transform, width, height;
+    /* ★ v2.10.15：原来写的是 `will-change: transform, width, height` ——
+       width/height 进 will-change 等于告诉浏览器「这元素每帧都要重新布局」，
+       于是滑行期间它被迫走主线程布局，又因为带 backdrop-filter 还要每帧
+       重新采样背景 → 音乐这种内容重的页面里就是「慢到离谱」。
+       尺寸只在滑行开始前设一次，根本不需要 will-change；只留 transform。 */
+    will-change: transform;
+    /* 把自己的布局和外部内容隔离，滑行时不牵连整页重排。
+       注意：不能写 contain:paint —— 那会把外发光 box-shadow 裁掉。 */
+    contain: layout style;
+    transform: translateZ(0);
+}
+/* ★ v2.10.15：滑行途中把背景模糊降一档。
+   带 backdrop-filter 的元素一旦移动，浏览器每帧都要重采样背景；14px 半径
+   在内容重的页面上就是几十毫秒。滑行时降到 8px，观感几乎一样，成本掉一半以上。
+   按住拖动（.glow）时位置变化慢，保留完整质感。 */
+.n26ui-glass.travel {
+    -webkit-backdrop-filter: blur(8px) saturate(1.4);
+    backdrop-filter: blur(8px) saturate(1.4);
+}
+.n26ui-glass.glow {
+    -webkit-backdrop-filter: blur(14px) saturate(1.5);
+    backdrop-filter: blur(14px) saturate(1.5);
 }
 /* 按住跟手时的发光态：冷白 + 淡蓝外晕，深浅色各一套 */
 .n26ui-glass.glow {
@@ -117,6 +138,17 @@ body.perf-mode .n26ui-sidebar {
 }
 /* 按住 / 滑行期间灰胶囊让位（按下瞬间即消失，不做淡出） */
 .n26ui-hold .n26ui-indicator { opacity: 0 !important; transition: none !important; }
+
+/* ★ v2.10.15：切页淡入期间（body.n26-xfade，约 300ms）侧栏不做实时模糊。
+   原因：页面内容在 opacity 渐变，侧栏的 backdrop-filter 每帧都要重新采样
+   一遍背景 —— 音乐这种页面重的应用就是「切个 Tab 卡一下、玻璃像在拖影」。
+   这段时间把半径降下来，等渐变结束再恢复，肉眼几乎看不出差别。 */
+body.n26-xfade .n26ui-sidebar {
+    -webkit-backdrop-filter: blur(6px) saturate(1.3);
+    backdrop-filter: blur(6px) saturate(1.3);
+}
+/* 侧栏内部的增删不牵动外壳重排 */
+.n26ui-sidebar { contain: layout style; }
 
 /* ---------- Tab：图标在上、小字在下 ---------- */
 .n26ui-tab {
@@ -142,7 +174,7 @@ body.perf-mode .n26ui-sidebar {
     overflow: hidden;
     cursor: pointer;
     user-select: none;
-    transition: background .15s ease, color .15s ease, transform .12s ease;
+    transition: background 260ms cubic-bezier(.2, .7, .2, 1), color 260ms cubic-bezier(.2, .7, .2, 1), transform .12s cubic-bezier(.2, .7, .2, 1);
 }
 .n26ui-tab > i {
     font-size: 15px;

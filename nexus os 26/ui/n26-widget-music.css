@@ -1,0 +1,873 @@
+/* ============================================================================
+ * Nexus OS 26 · 音乐小组件族（v2026.11.08）
+ * ----------------------------------------------------------------------------
+ * 五个组件各管一件事，尺寸不是「等比放大」而是「换内容」：
+ *   .nx-mu.is-md    正在播放 2×3   封面 + 曲名/歌手 + 进度 + 上一首/播放/下一首
+ *   .nx-mu.is-mini  正在播放 2×2   封面 + 一行曲名 + 一个播放键（进度=底边细线）
+ *   .nx-mu.is-lg    正在播放 ≥3×3  左封面右信息 + 可点进度 + 四键 + 音量条
+ *   .nx-mu.is-bar   正在播放 6×1   单行胶囊：小封面 + 曲名 + 播放键
+ *   .nx-mu.is-queue 播放队列      第 N / 共 M 首 + 接下来 3~6 首 + 总计
+ *   .nx-mu.is-search 音乐搜索     搜索框 + 最近搜索词（1 行 / 2 列 / 宽版三档）
+ *   .nx-mu.is-reco  每日推荐      2 / 3 / 4 / 6 张卡片（按尺寸给不同张数）
+ *   .nx-mu.is-radio 电台          2×2 方块格 / 横排胶囊 / 六风格两列
+ *
+ * 卡面背景 = 当前播放专辑：渲染函数在最外层写 --n26-music-art:url('…')，
+ * 本文件 .nx-mu-bg 消费；没有封面时退回深色渐变（绝不再是粉色）。
+ * 不使用 background-attachment:fixed，也不给卡片加 filter（会废掉子元素玻璃折射）。
+ * 文字只用 --w-text / --w-text-strong / --w-text-soft，不写死墨色。
+ * ==========================================================================*/
+
+/* ---------------------------------------------------------------------------
+ * 0 · 卡面令牌：音乐族一律白字（音乐卡的卡底由 .nx-mu-bg 整块盖住）
+ * -------------------------------------------------------------------------*/
+html body .desktop-widget-card[data-wtype="musicQueue"],
+html body .desktop-widget-card[data-wtype="musicSearch"],
+html body .desktop-widget-card[data-wtype="musicReco"],
+html body .desktop-widget-card[data-wtype="musicRadio"] {
+    --w-text: #ffffff;
+    --w-text-strong: #ffffff;
+    --w-text-soft: rgba(255, 255, 255, .78);
+    --w-text-faint: rgba(255, 255, 255, .54);
+    --w-hair: rgba(255, 255, 255, .18);
+    --w-well: rgba(255, 255, 255, .13);
+    --w-accent: #ffffff;
+    --w-fg: #ffffff;
+    --w-fg-soft: rgba(255, 255, 255, .78);
+    --w-fg-faint: rgba(255, 255, 255, .54);
+    color: #ffffff;
+}
+
+/* ---------------------------------------------------------------------------
+ * 1 · 根容器 + 专辑背景层
+ * -------------------------------------------------------------------------*/
+.nx.nx-mu {
+    /* .nx 默认把强调色改回蓝色，音乐卡里一律走白色（图标/进度/按钮） */
+    --w-accent: #ffffff;
+    --w-text-strong: #ffffff;
+    --nx-acc-text: #ffffff;
+    --nx-acc-tint: rgba(255, 255, 255, .16);
+    --nx-acc-line: rgba(255, 255, 255, .30);
+    position: relative;
+    /* 背景层与底边细线要压到卡片内边距之外，根节点不能裁切（外层 .widget-inner 会裁） */
+    overflow: visible;
+    gap: 5px;
+    color: var(--w-text);
+}
+
+.nx-mu > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* 整块卡面：负 inset 抵消 .widget-inner 的 14px 内边距，正好铺满整张卡 */
+.nx-mu > .nx-mu-bg {
+    position: absolute;
+    /* 抵消内边距，铺满整卡（四边各 1px 余量，避免圆角处露底） */
+    inset: calc(var(--w-pad, 14px) * -1);
+    z-index: 0;
+    overflow: hidden;
+    border-radius: 0;
+    pointer-events: none;
+    background-color: #0a1119;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: cover;
+    background-image: linear-gradient(158deg, #182a44 0%, #0a121d 78%);
+}
+body.dark-mode .nx-mu > .nx-mu-bg {
+    background-color: #05090f;
+    background-image: linear-gradient(158deg, #12203a 0%, #060b12 78%);
+}
+.nx-mu.is-queue > .nx-mu-bg {
+    background-image: linear-gradient(158deg, #142744 0%, #07101c 78%);
+}
+.nx-mu.is-search > .nx-mu-bg {
+    background-image: linear-gradient(158deg, #0d2b34 0%, #061016 80%);
+}
+.nx-mu.is-reco > .nx-mu-bg {
+    background-image: linear-gradient(158deg, #1b2742 0%, #090f1b 78%);
+}
+.nx-mu.is-radio > .nx-mu-bg {
+    background-image: linear-gradient(158deg, #2a2118 0%, #120d08 80%);
+}
+
+/* 有封面：整张卡 = 专辑封面（放大 + 模糊）+ 压暗层，保证白字读得清 */
+.nx-mu.has-art > .nx-mu-bg {
+    background-image:
+        linear-gradient(180deg, rgba(10, 14, 22, .32), rgba(10, 14, 22, .62)),
+        var(--n26-music-art);
+    background-size: 100% 100%, cover;
+    background-position: center, center;
+}
+/* 模糊放大的同图：只做氛围，不吃掉子元素的玻璃折射（filter 只挂在这层空元素上） */
+.nx-mu.has-art > .nx-mu-bg::before {
+    content: '';
+    position: absolute;
+    inset: -12%;
+    background-image: var(--n26-music-art);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: cover;
+    filter: blur(18px) saturate(1.15);
+}
+/* 压暗层：让白字在任何专辑上都够对比 */
+.nx-mu.has-art > .nx-mu-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(10, 14, 22, .30), rgba(10, 14, 22, .66));
+}
+
+/* ---------------------------------------------------------------------------
+ * 2 · 通用件
+ * -------------------------------------------------------------------------*/
+.nx-mu .nx-mu-hd {
+    flex: none;
+    min-width: 0;
+}
+.nx-mu .nx-mu-hd > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.nx-mu .nx-mu-hd .nx-hd-sub {
+    flex: none;
+    font-size: 9.5px;
+    font-variant-numeric: tabular-nums;
+}
+
+.nx-mu-tt {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
+    min-width: 0;
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.25;
+    color: var(--w-text-strong);
+    word-break: break-word;
+}
+.nx-mu-tt.is-2 {
+    -webkit-line-clamp: 2;
+}
+.nx-mu-sub {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
+    min-width: 0;
+    font-size: 9.5px;
+    line-height: 1.3;
+    color: var(--w-text-soft);
+}
+.nx-mu-fat {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
+    min-width: 0;
+    flex: 1 1 auto;
+    font-size: 9.5px;
+    color: var(--w-text-soft);
+}
+.nx-mu-time {
+    flex: none;
+    font-size: 9.5px;
+    color: var(--w-text-soft);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.nx-mu-tip {
+    flex: none;
+    font-size: 9px;
+    color: var(--w-text-faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 封面容器：内部 mediaCover 塞进来的是 img 或绝对定位图标 */
+.nx-mu .nx-mu-cover,
+.nx-mu .nx-mu-thumb {
+    position: relative;
+    overflow: hidden;
+    flex: none;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .10);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .30);
+}
+.nx-mu .nx-mu-cover img,
+.nx-mu .nx-mu-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* 进度：常规是中段一条细线；.is-seek 变大且可点 */
+.nx-mu .nx-mu-prog {
+    position: relative;
+    display: block;
+    flex: none;
+    height: 3px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, .22);
+    overflow: hidden;
+}
+.nx-mu .nx-mu-prog > i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: #ffffff;
+    transition: width .4s linear;
+}
+.nx-mu .nx-mu-prog.is-seek {
+    height: 4px;
+    cursor: pointer;
+}
+.nx-mu .nx-mu-prog.is-seek::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -6px;
+    bottom: -6px;
+}
+
+/* 控制键 */
+.nx-mu .nx-mu-ctl {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex: none;
+    min-width: 0;
+}
+.nx-mu .nx-mu-btn {
+    width: 28px;
+    height: 28px;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .14);
+    color: var(--w-text-strong);
+    font-family: inherit;
+    font-size: 10px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background .16s ease, transform .16s ease;
+}
+.nx-mu .nx-mu-btn:hover {
+    background: rgba(255, 255, 255, .28);
+}
+.nx-mu .nx-mu-btn:active {
+    transform: scale(.94);
+}
+.nx-mu .nx-mu-btn.is-play {
+    width: 34px;
+    height: 34px;
+    font-size: 12px;
+    background: #ffffff;
+    border-color: rgba(255, 255, 255, .9);
+    color: #10161f;
+}
+.nx-mu .nx-mu-btn.is-play:hover {
+    background: #ffffff;
+}
+.nx-mu .nx-mu-btn.sm {
+    width: 24px;
+    height: 24px;
+    font-size: 9px;
+}
+.nx-mu .nx-mu-btn.sm.is-play {
+    width: 26px;
+    height: 26px;
+    font-size: 10px;
+}
+
+/* 音量条 */
+.nx-mu .nx-mu-vol {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    min-width: 0;
+}
+.nx-mu .nx-mu-vol > i {
+    font-size: 9px;
+    color: var(--w-text-faint);
+    flex: none;
+}
+.nx-mu .nx-mu-vol input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 3px;
+    margin: 0;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, .26);
+    outline: none;
+    cursor: pointer;
+}
+.nx-mu .nx-mu-vol input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 11px;
+    height: 11px;
+    border: 0;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
+}
+.nx-mu .nx-mu-vol input[type="range"]::-moz-range-thumb {
+    width: 11px;
+    height: 11px;
+    border: 0;
+    border-radius: 50%;
+    background: #ffffff;
+}
+
+/* 空态 / 引导按钮 */
+.nx-mu .nx-mu-empty {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2px;
+    overflow: hidden;
+    min-width: 0;
+}
+.nx-mu .nx-mu-empty > i {
+    font-size: 15px;
+    color: var(--w-text-soft);
+    margin-bottom: 1px;
+}
+.nx-mu .nx-mu-empty > b {
+    font-size: 11px;
+    font-weight: 650;
+    color: var(--w-text-strong);
+}
+.nx-mu .nx-mu-empty > span {
+    font-size: 9.5px;
+    color: var(--w-text-soft);
+}
+.nx-mu .nx-mu-go {
+    flex: none;
+    align-self: flex-start;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .34);
+    background: rgba(255, 255, 255, .18);
+    color: var(--w-text-strong);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.nx-mu .nx-mu-go:hover {
+    background: rgba(255, 255, 255, .30);
+}
+
+/* ---------------------------------------------------------------------------
+ * 3 · ① 正在播放：2×3（默认）
+ * -------------------------------------------------------------------------*/
+.nx-mu.is-md {
+    height: 100%;
+}
+.nx-mu.is-md .nx-mu-cover {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    border-radius: 12px;
+}
+.nx-mu.is-md .nx-mu-prog {
+    height: 3px;
+}
+.nx-mu.is-md .nx-mu-ctl.is-md {
+    gap: 10px;
+    padding-top: 1px;
+}
+.nx-mu.is-md .nx-mu-hd {
+    font-size: 10px;
+}
+.nx-mu.is-md .nx-mu-hd > i {
+    font-size: 9px;
+}
+.nx-mu.is-md .nx-mu-hd > span {
+    font-size: 10px;
+}
+
+/* ---------------------------------------------------------------------------
+ * 4 · ① 正在播放：2×2 迷你（只有封面 + 一行标题 + 播放键）
+ * -------------------------------------------------------------------------*/
+.nx-mu.is-mini {
+    height: 100%;
+    gap: 4px;
+}
+.nx-mu.is-mini .nx-mu-cover.is-mini-cv {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    border-radius: 12px;
+}
+.nx-mu.is-mini .nx-mu-mini-row {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    height: 24px;
+}
+.nx-mu.is-mini .nx-mu-mini-row .nx-mu-tt {
+    flex: 1 1 auto;
+    font-size: 10.5px;
+}
+.nx-mu.is-mini .nx-mu-btn.sm.is-play {
+    width: 22px;
+    height: 22px;
+    font-size: 9px;
+}
+/* 2px 细线进度：压在卡片底边 */
+.nx-mu.is-mini > .nx-mu-prog {
+    position: absolute;
+    left: calc(var(--w-pad, 14px) * -1);
+    right: calc(var(--w-pad, 14px) * -1);
+    bottom: calc(var(--w-pad, 14px) * -1);
+    height: 2px;
+    border-radius: 0;
+    background: rgba(255, 255, 255, .22);
+}
+
+/* ---------------------------------------------------------------------------
+ * 5 · ① 正在播放：3×3 及以上（左封面右信息 + 四键 + 音量）
+ * -------------------------------------------------------------------------*/
+.nx-mu.is-lg {
+    height: 100%;
+    gap: 6px;
+}
+.nx-mu.is-lg .nx-mu-lg {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: stretch;
+    gap: 9px;
+    min-width: 0;
+}
+.nx-mu.is-lg .nx-mu-cover {
+    /* 跟卡高走：3×3 小、4×4 大，不会把右侧信息挤没；正方形不拉伸变形 */
+    flex: 0 0 auto;
+    width: clamp(52px, calc(var(--w-ph, 200px) * 0.40), 132px);
+    height: auto;
+    aspect-ratio: 1 / 1;
+    align-self: center;
+    max-height: 100%;
+    border-radius: 12px;
+}
+.nx-mu.is-lg .nx-mu-meta {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    overflow: hidden;
+}
+.nx-mu.is-lg .nx-mu-tt {
+    font-size: 12px;
+}
+.nx-mu.is-lg .nx-mu-sub {
+    font-size: 10px;
+}
+.nx-mu.is-lg .nx-mu-ctl {
+    justify-content: flex-start;
+    gap: 7px;
+    padding-left: 1px;
+}
+.nx-mu.is-lg .nx-mu-vol {
+    padding-left: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+ * 6 · ① 正在播放：6×1 胶囊
+ * -------------------------------------------------------------------------*/
+.nx-mu.is-bar {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    height: 100%;
+}
+.nx-mu.is-bar .nx-mu-thumb {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+}
+.nx-mu.is-bar .nx-mu-tt {
+    flex: 0 1 auto;
+    font-size: 11px;
+}
+.nx-mu.is-bar .nx-mu-fat {
+    flex: 1 1 auto;
+}
+/* 胶囊只有 32px 内容高，按钮要收小，不然会顶出卡片 */
+.nx-mu.is-bar .nx-mu-btn {
+    width: 26px;
+    height: 26px;
+    font-size: 10px;
+}
+.nx-mu.is-bar .nx-mu-btn.is-play {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+}
+.nx-mu.is-bar > .nx-mu-prog {
+    position: absolute;
+    left: calc(var(--w-pad, 14px) * -1);
+    right: calc(var(--w-pad, 14px) * -1);
+    bottom: calc(var(--w-pad, 14px) * -1);
+    height: 2px;
+    border-radius: 0;
+    background: rgba(255, 255, 255, .22);
+}
+
+/* ---------------------------------------------------------------------------
+ * 7 · ② 播放队列
+ * -------------------------------------------------------------------------*/
+.nx-mu.is-queue {
+    height: 100%;
+    gap: 5px;
+}
+.nx-mu.is-queue .nx-mu-ql {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+}
+.nx-mu.is-queue .nx-mu-qi {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    padding: 0 7px;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .08);
+    color: var(--w-text-soft);
+    font-family: inherit;
+    font-size: 10.5px;
+    text-align: left;
+    cursor: pointer;
+    overflow: hidden;
+}
+.nx-mu.is-queue .nx-mu-qi:hover {
+    background: rgba(255, 255, 255, .18);
+    color: var(--w-text-strong);
+}
+.nx-mu.is-queue .nx-mu-qi.on {
+    background: rgba(255, 255, 255, .22);
+    color: var(--w-text-strong);
+}
+.nx-mu.is-queue .nx-mu-qi > i {
+    flex: none;
+    font-size: 8px;
+    opacity: .8;
+}
+.nx-mu.is-queue .nx-mu-qi > b {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.nx-mu.is-queue .nx-mu-qi > span {
+    flex: none;
+    font-size: 9px;
+    color: var(--w-text-faint);
+    font-variant-numeric: tabular-nums;
+}
+.nx-mu.is-queue .nx-mu-qf {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 9px;
+    color: var(--w-text-faint);
+    font-variant-numeric: tabular-nums;
+}
+.nx-mu.is-queue .nx-mu-empty > i {
+    font-size: 16px;
+}
+
+/* ---------------------------------------------------------------------------
+ * 8 · ③ 音乐搜索
+ * -------------------------------------------------------------------------*/
+.nx-mu.is-search {
+    height: 100%;
+    gap: 5px;
+}
+.nx-mu.is-search .nx-mu-sbox {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+}
+.nx-mu.is-search .nx-mu-si {
+    flex: none;
+    font-size: 10px;
+    color: var(--w-text-soft);
+}
+.nx-mu.is-search .nx-mu-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 26px;
+    padding: 0 9px;
+    border: 1px solid rgba(255, 255, 255, .26);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .14);
+    color: var(--w-text-strong);
+    font-family: inherit;
+    font-size: 10.5px;
+    outline: none;
+}
+.nx-mu.is-search .nx-mu-input::placeholder {
+    color: rgba(255, 255, 255, .58);
+}
+.nx-mu.is-search .nx-mu-input:focus {
+    background: rgba(255, 255, 255, .22);
+    border-color: rgba(255, 255, 255, .60);
+}
+.nx-mu.is-search .nx-mu-input::-webkit-search-cancel-button {
+    display: none;
+}
+.nx-mu.is-search .nx-mu-sbtn {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, .26);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .18);
+    color: var(--w-text-strong);
+    font-size: 10px;
+    line-height: 1;
+    cursor: pointer;
+}
+.nx-mu.is-search .nx-mu-sbtn:hover {
+    background: rgba(255, 255, 255, .30);
+}
+.nx-mu.is-search .nx-mu-chips {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    align-content: flex-start;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.nx-mu .nx-mu-chip {
+    flex: none;
+    max-width: 100%;
+    height: 20px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .14);
+    color: var(--w-text-soft);
+    font-family: inherit;
+    font-size: 9.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+.nx-mu .nx-mu-chip:hover {
+    background: rgba(255, 255, 255, .26);
+    color: var(--w-text-strong);
+}
+/* 胶囊：一行 = 放大镜 + 输入框 + 两三个词条 */
+.nx-mu.is-search.is-bar {
+    flex-direction: row;
+    align-items: center;
+    gap: 7px;
+}
+.nx-mu.is-search.is-bar .nx-mu-sbox {
+    flex: 1 1 auto;
+}
+
+/* ---------------------------------------------------------------------------
+ * 9 · ④ 每日推荐
+ * -------------------------------------------------------------------------*/
+.nx-mu.is-reco {
+    height: 100%;
+    gap: 5px;
+}
+.nx-mu.is-reco .nx-mu-rcs {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-auto-rows: minmax(0, 1fr);
+    gap: 6px;
+    overflow: hidden;
+}
+.nx-mu .nx-mu-rc {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 5px;
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .10);
+    color: var(--w-text);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    overflow: hidden;
+}
+.nx-mu .nx-mu-rc:hover {
+    background: rgba(255, 255, 255, .20);
+}
+.nx-mu .nx-mu-rc-art {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, .10);
+}
+.nx-mu .nx-mu-rc-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.nx-mu .nx-mu-rc-art > i {
+    font-size: 16px;
+    color: rgba(255, 255, 255, .70);
+}
+.nx-mu .nx-mu-rc > b {
+    flex: none;
+    font-size: 10px;
+    font-weight: 650;
+    color: var(--w-text-strong);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.nx-mu .nx-mu-rc > span {
+    flex: none;
+    font-size: 9px;
+    color: var(--w-text-faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ---------------------------------------------------------------------------
+ * 10 · ⑤ 电台
+ * -------------------------------------------------------------------------*/
+.nx-mu.is-radio {
+    height: 100%;
+    gap: 5px;
+}
+.nx-mu.is-radio .nx-mu-rds {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+/* 2×2：两列方块 */
+.nx-mu.is-radio.is-tile .nx-mu-rds {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: 1fr;
+    gap: 5px;
+}
+.nx-mu .nx-mu-rd {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 6px;
+    border: 1px solid rgba(255, 255, 255, .16);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .10);
+    color: var(--w-text);
+    font-family: inherit;
+    font-size: 9.5px;
+    cursor: pointer;
+    overflow: hidden;
+}
+.nx-mu.is-radio.is-tile .nx-mu-rd {
+    flex-direction: column;
+    gap: 3px;
+    font-size: 9px;
+}
+.nx-mu .nx-mu-rd > i {
+    flex: none;
+    font-size: 11px;
+    color: var(--w-text-soft);
+}
+.nx-mu.is-radio.is-tile .nx-mu-rd > i {
+    font-size: 13px;
+}
+.nx-mu .nx-mu-rd > span {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.nx-mu .nx-mu-rd:hover {
+    background: rgba(255, 255, 255, .22);
+    color: var(--w-text-strong);
+}
+.nx-mu .nx-mu-rd.on {
+    background: rgba(255, 255, 255, .26);
+    border-color: rgba(255, 255, 255, .44);
+    color: var(--w-text-strong);
+}
+/* 3×2 / 4×2 / 3×3：横排胶囊，自动折行 */
+.nx-mu.is-radio:not(.is-tile) .nx-mu-rds {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 5px;
+}
+.nx-mu.is-radio:not(.is-tile) .nx-mu-rd {
+    flex: none;
+    height: 24px;
+    padding: 0 9px;
+    border-radius: 999px;
+}
+
+/* ---------------------------------------------------------------------------
+ * 11 · 降低动效：不做任何动画
+ * -------------------------------------------------------------------------*/
+@media (prefers-reduced-motion: reduce) {
+    .nx-mu .nx-mu-prog > i,
+    .nx-mu .nx-mu-btn {
+        transition: none;
+    }
+}

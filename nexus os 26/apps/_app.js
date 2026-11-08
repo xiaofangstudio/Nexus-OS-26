@@ -42,6 +42,38 @@
     } catch (e) { /* 静默：样式缺失不该挡住应用启动 */ }
   })();
 
+  /* ★ v2.9.97：所有 iframe 应用统一挂三个系统级模块。
+     iframe 是独立 realm —— 宿主 head 里的 CSS 与 Element.prototype hook
+     都到不了这里，所以「图标超椭圆」「控件点击零刷新感」「统一位置」
+     必须在每个应用文档里各挂一份。路径从本脚本自身 URL 推导，子目录应用
+     （apps/necta/、apps/floatapp/ 引 ../_app.js）也不会 404。
+     位置服务尤其不能在 iframe 里自调 navigator.geolocation：权限策略会
+     把它直接挡掉，且既不回成功也不回失败。 */
+  (function ensureSharedShell() {
+    try {
+      var _s = document.currentScript || document.querySelector('script[src*="_app.js"]');
+      var _base = (_s && _s.src) ? _s.src : location.href;
+      if (!document.querySelector('link[href*="n26-icon-squircle.css"]')) {
+        var l = document.createElement('link');
+        l.rel = 'stylesheet';
+        l.href = new URL('../ui/n26-icon-squircle.css?v=sq1', _base).href;
+        (document.head || document.documentElement).appendChild(l);
+      }
+      if (!window.N26DomKeep && !document.querySelector('script[src*="n26-dom-keep.js"]')) {
+        var sc = document.createElement('script');
+        sc.src = new URL('../ui/n26-dom-keep.js?v=dk1', _base).href;
+        sc.async = false;
+        (document.head || document.documentElement).appendChild(sc);
+      }
+      if (!window.N26GeoClient && !document.querySelector('script[src*="n26-geo-client.js"]')) {
+        var gc = document.createElement('script');
+        gc.src = new URL('../ui/n26-geo-client.js?v=geo1', _base).href;
+        gc.async = false;
+        (document.head || document.documentElement).appendChild(gc);
+      }
+    } catch (e) { /* 静默：共享层缺失不该挡住应用启动 */ }
+  })();
+
   /* 图标字体补全：
      iframe 是独立文档，宿主 <head> 里那份 Font Awesome 传不进来。
      之前只靠各应用自己 <link>，结果 16 个应用写了 <i class="fas ...">
@@ -177,11 +209,14 @@
     solid:  [0, 1, 1.7]
   };
 
-  /* 把玻璃材质真值落到本 iframe（液态/云母/磨砂/固态 + 全部六个参数）。
+  /* 把玻璃材质真值落到本 iframe（液态/云母/磨砂/固态 + 全部八个参数）。
      来源有二：① nexus:ready 的 settings.glass（完整）；
-              ② nexus:glass 广播（宿主只带 material + blur）——
+              ② nexus:glass 广播（v2.9.94 起宿主发全量 live=true）——
                  缺参时由 hydrateGlass() 走同源桥接回读 settings.glass。
-     参数写进 :root，由 _polish.css 的侧栏白名单统一消费。 */
+     参数写进 :root，由 _polish.css 的侧栏白名单统一消费。
+     ★ v2.9.94：radius / dispersion / lg-blur 三条以前根本没进 iframe，
+       所以「应用内左侧边栏半透明 + 顶栏（软件名与红绿灯）+ 底部液态玻璃」
+       的参数调了完全没反应。现在全部落进 CSS 真值链。 */
   function applyGlass(g) {
     if (!g || !g.material) return;
     var root = document.documentElement;
@@ -196,10 +231,13 @@
     var hi = _clamp(g.highlight, 0, 100, 35) / 100;
     var refr = liquid ? _clamp(g.refraction, 0, 100, 0) : 0;
     var noise = liquid ? _clamp(g.noise, 0, 100, 0) : 0;
+    var radius = _clamp(g.radius, 6, 26, 14);
+    var disp = liquid ? _clamp(g.dispersion, 0, 20, 0) : 0;
 
     root.setAttribute('data-glass', mat);
     b.classList.remove('mat-liquid', 'mat-frost', 'mat-mica', 'mat-solid');
     b.classList.add('mat-' + mat);
+    b.setAttribute('data-n26-glass', mat);
 
     root.style.setProperty('--glass-blur', px + 'px');
     root.style.setProperty('--n26-blur', px + 'px');
@@ -209,6 +247,11 @@
     // 液态专属：非液态一律撤成 0（用户存值在宿主里保留，切回液态再恢复）
     root.style.setProperty('--n26-refr', String(refr));
     root.style.setProperty('--n26-noise', String(noise));
+    root.style.setProperty('--n26-disp', String(disp));
+    root.style.setProperty('--n26-ui-radius', radius + 'px');
+    /* 折射面微模糊：与宿主 n26ApplyGlass 的映射逐字一致，
+       否则同一条参数在宿主和 iframe 里会呈现两种玻璃厚度。 */
+    root.style.setProperty('--n26-lg-blur', (0.25 + (mat === 'solid' ? 0 : g.blur == null ? 18 : g.blur) / 40 * 2.75).toFixed(2) + 'px');
     root.style.setProperty('--n26-k', String(k[0]));
     root.style.setProperty('--n26-sat-k', String(k[1]));
     root.style.setProperty('--n26-alpha-k', String(k[2]));
@@ -218,7 +261,7 @@
     _currentGlass = {
       material: mat, blur: px,
       opacity: Math.round(alpha * 100), saturation: sat, highlight: Math.round(hi * 100),
-      refraction: refr, noise: noise
+      radius: radius, refraction: refr, dispersion: disp, noise: noise
     };
   }
 
@@ -244,7 +287,9 @@
         opacity: Math.round(num('--n26-glass-alpha', 0.55) * 100),
         saturation: num('--n26-glass-sat', 148),
         highlight: Math.round(num('--n26-glass-hi', 0.35) * 100),
+        radius: num('--n26-ui-radius', 14),
         refraction: num('--n26-refr', 0),
+        dispersion: num('--n26-disp', 0),
         noise: num('--n26-noise', 0)
       };
     } catch (e) { return null; }
@@ -279,11 +324,15 @@
   // 监听宿主玻璃材质切换广播
   window.addEventListener('nexus:glass', function (e) {
     var g = (e.detail) || {};
-    var live = readHostGlass();
-    applyGlass(live || g);
+    /* ★ v2.9.94：宿主广播已是「完整当前生效值」(live:true)，直接用它。
+       旧版无条件 readHostGlass() 回读父窗口变量，跨源/独立打开读不到，
+       拖动滑杆时还会拿到上一帧的旧值 → 参数看着没反应。 */
+    var full = (g.live === true && typeof g.opacity === 'number');
+    var live = full ? g : (readHostGlass() || g);
+    applyGlass(live);
     _fire(_glassCbs, _currentGlass);
-    // 广播只有 material + blur；读不到父窗口变量时再回读一次落盘值
-    if (!live && typeof g.opacity !== 'number') hydrateGlass();
+    // 只有既没带全量、又读不到父窗口变量时，才回读一次落盘值
+    if (!full && typeof g.opacity !== 'number' && !readHostGlass()) hydrateGlass();
   });
 
   // 若脚本加载晚于 nexus:ready（context 已就绪），直接应用一次

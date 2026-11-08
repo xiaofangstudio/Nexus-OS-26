@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="../ui/tokens.css">
 <link rel="stylesheet" href="../ui/glass.css">
 <link rel="stylesheet" href="../vendor/fontawesome/all.min.css">
+<link rel="stylesheet" href="../ui/n26-docknav.css?v=2979">
 <style>
 /* ============================================================
    方聊 · 独立 iframe 应用（apps/fangchat.html）
@@ -99,6 +100,26 @@ body.fc-solo.dark-mode{background:radial-gradient(130% 120% at 8% 0%,#1a2130 0%,
 .fc-tab:hover{background:var(--fc-hover);color:var(--text-1);}
 .fc-tab.active{background:var(--fc-accent-soft);color:var(--fc-accent-ink);font-weight:600;}
 .fc-tab.active i{color:var(--fc-accent);}
+/* 最侧栏接入统一液态玻璃 Dock：选中项底色让位给玻璃指示器 */
+html body .fc-rail.n26-dng-persistent .fc-tab.active { background: transparent !important; }
+
+/* v2.10.3 · 弹窗宿主：原来 #fcOverlay 没有任何定位，遮罩靠 inset:0 碰上谁算谁，
+   层级不可控（可能被侧栏/顶栏压住 → 看着就是「点了没反应」）。这里给它一个
+   明确的全屏层，自身不吃事件，只让子层吃。 */
+#fcOverlay{position:fixed;inset:0;z-index:80;pointer-events:none;}
+#fcOverlay > *{pointer-events:auto;}
+
+/* 通讯录顶部「添加好友」常驻入口 */
+.fc-addrow{display:flex;align-items:center;gap:10px;margin:0 0 8px;padding:10px 12px;border-radius:12px;
+  background:var(--fc-chip);border:1px solid var(--fc-border-2);cursor:pointer;user-select:none;}
+.fc-addrow:hover{background:var(--fc-hover);}
+.fc-addrow:active{transform:scale(.995);}
+.fc-addrow-ic{width:32px;height:32px;flex:none;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  background:var(--fc-accent-soft);color:var(--fc-accent-ink);font-size:13px;}
+.fc-addrow-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
+.fc-addrow-tx b{font-size:13px;font-weight:650;color:var(--text-1);}
+.fc-addrow-tx small{font-size:11px;color:var(--fc-text-sub);line-height:1.35;}
+.fc-addrow-ar{font-size:11px;color:var(--fc-text-sub);opacity:.6;}
 .fc-tabdirt{position:absolute;top:5px;right:11px;width:7px;height:7px;border-radius:50%;background:var(--fc-danger);box-shadow:0 0 0 2px rgba(255,255,255,.35);}
 body.dark-mode .fc-tabdirt{box-shadow:0 0 0 2px rgba(0,0,0,.35);}
 .fc-rail-grow{flex:1 1 auto;}
@@ -201,7 +222,11 @@ body.dark-mode .fc-cloudbtn.ok{color:#8CFF6E;}
 .fc-hbtn.on{background:var(--fc-accent-soft);color:var(--fc-accent);}
 .fc-hbtn.danger:hover{background:var(--fc-danger-soft);color:var(--fc-danger);}
 
-.fc-banner{flex:none;display:flex;align-items:center;gap:8px;padding:7px 14px;background:var(--fc-danger-soft);color:var(--fc-danger);font-size:11px;border-bottom:1px solid var(--fc-line);}
+/* 云端状态横幅：在线 = 青蓝淡底；本地 = 中性灰底（本地可用，不是错误） */
+.fc-banner{flex:none;display:flex;align-items:center;gap:8px;padding:7px 14px;background:rgba(13,148,168,.10);color:#0A6C7A;font-size:11px;border-bottom:1px solid var(--fc-line);}
+body.dark-mode .fc-banner{background:rgba(56,199,220,.13);color:#8FE3EE;}
+.fc-banner.muted{background:var(--fc-chip);color:var(--fc-text-sub);}
+body.dark-mode .fc-banner.muted{background:rgba(255,255,255,.06);color:var(--fc-text-sub);}
 .fc-banner i{font-size:11px;}
 .fc-banner span{flex:1;min-width:0;}
 .fc-banner button{flex:none;height:22px;padding:0 9px;border:1px solid currentColor;border-radius:7px;background:transparent;color:inherit;font:inherit;font-size:10.5px;cursor:pointer;}
@@ -452,13 +477,18 @@ body.dark-mode .fc-honor{color:#FFDD9E;background:linear-gradient(135deg,#5A4310
 
 <script src="../ui/motion.js"></script>
 <script src="_bridge.js"></script>
-<script src="_app.js?v=2.9.57"></script>
+<script src="_app.js?v=2.9.97"></script>
+<script src="../ui/n26-docknav.js?v=dn12"></script>
 <script>
 (function () {
 'use strict';
 
 var KEY = 'fangchat.v3';
-var DEFAULT_WORKER = 'https://fangliao.fanggame.company';
+/* 默认后端：系统主后端（/api/store、/api/chat 等真实端点），方聊专用的
+   fangliao.fanggame.company 从未部署，不能作为默认值 */
+var DEFAULT_WORKER = 'https://ai.fanggame.company';
+/* 已知的历史后端地址：只在这些值上做迁移，用户自填的其它地址不动 */
+var LEGACY_WORKERS = ['https://fangliao.fanggame.company', 'http://fangliao.fanggame.company'];
 var ANN_TAG = '[[ANN]]';
 var S = {
   started: false, ctx: null, db: null,
@@ -466,7 +496,7 @@ var S = {
   search: '', csearch: '', drafts: {},
   pop: null, dialog: null, view: null, ctx: null, quote: null, groupPanel: false,
   demo: false, solo: false,
-  cloud: { status: 'off', kv: null, error: '', at: 0, fails: 0 },
+  cloud: { status: 'off', kv: null, backend: '', error: '', at: 0, fails: 0 },
   timer: null,
   toastT: 0
 };
@@ -541,7 +571,28 @@ function myName() {
 }
 function myAvatar() {
   if (S.db && S.db.profile && S.db.profile.avatar) return S.db.profile.avatar;
-  return (S.ctx && S.ctx.user && S.ctx.user.avatar) || null;
+  if (S.ctx && S.ctx.user && S.ctx.user.avatar) return S.ctx.user.avatar;
+  /* 主壳共享的账号头像缓存：键可能是 n26:nexus_profile_cache / nexus_profile_cache，
+     值可能是 JSON 字符串（avatar / photo / avatarUrl / avatar_url / profile.avatar）或直接的 dataURL 字符串 */
+  try {
+    var keys = ['n26:nexus_profile_cache', 'nexus_profile_cache'];
+    for (var i = 0; i < keys.length; i++) {
+      var raw = localStorage.getItem(keys[i]);
+      if (!raw || typeof raw !== 'string') continue;
+      var val = null;
+      try {
+        var obj = JSON.parse(raw);
+        if (obj && typeof obj === 'object') {
+          val = obj.avatar || obj.photo || obj.avatarUrl || obj.avatar_url || null;
+          if (!val && obj.profile && typeof obj.profile === 'object') val = obj.profile.avatar || null;
+        }
+      } catch (e) { val = null; }
+      /* JSON 解析失败时，值本身可能就是直接的头像地址 / dataURL */
+      if (!val && (/^data:image\//.test(raw) || /^https?:\/\//.test(raw))) val = raw;
+      if (val && typeof val === 'string') return val;
+    }
+  } catch (e) {}
+  return null;
 }
 /* ================= 账号身份（头衔 / 蓝 V）=================
    账号资料接口就绪后，把字段注入 ctx.user（或 ctx.user.profile / identity）即可。
@@ -654,12 +705,27 @@ function defaultDb() {
     created: Date.now()
   };
 }
+/* 老数据兼容：仅当存的是已知旧地址时替换为当前默认后端 */
+function migrateWorker(db) {
+  try {
+    if (!db || !db.settings || typeof db.settings.worker !== 'string') return;
+    var cur = db.settings.worker.trim().replace(/\/+$/, '');
+    if (!cur) { db.settings.worker = DEFAULT_WORKER; return; }
+    for (var i = 0; i < LEGACY_WORKERS.length; i++) {
+      if (cur.toLowerCase() === LEGACY_WORKERS[i].toLowerCase().replace(/\/+$/, '')) {
+        db.settings.worker = DEFAULT_WORKER;
+        return;
+      }
+    }
+  } catch (e) {}
+}
 function normalize(db) {
   if (!db || typeof db !== 'object') db = defaultDb();
   db.v = 3;
   db.profile = db.profile || {};
   db.settings = Object.assign({ notify: true, autoCloud: true, cloudOn: true, worker: DEFAULT_WORKER }, db.settings || {});
   if (!db.settings.worker) db.settings.worker = DEFAULT_WORKER;
+  migrateWorker(db);
   db.threads = Array.isArray(db.threads) ? db.threads.filter(function (t) { return t && t.id; }) : [];
   db.threads.forEach(function (t) {
     t.messages = Array.isArray(t.messages) ? t.messages : [];
@@ -741,7 +807,7 @@ function save() {
     } catch (e) { return false; }
   }
   try {
-    localStorage.setItem('user_' + myScope() + '_' + KEY, JSON.stringify(S.db));
+    localStorage.setItem('n26:user_' + myScope() + '_' + KEY, JSON.stringify(S.db));
     return true;
   } catch (e) {
     toast('本机存储空间不足，请清理聊天记录后再试', 'err');
@@ -800,11 +866,10 @@ function cloudClass() {
 }
 function cloudTitle() {
   if (S.demo) return '演示模式';
-  if (!workerUrl()) return '未配置云后端 · 点此设置';
-  if (S.cloud.status === 'ok') return '云端已连接' + (S.cloud.kv ? '（KV 持久化）' : '（Worker 内存）');
-  if (S.cloud.status === 'fail') return '云端连接失败 · 点此重试：' + (S.cloud.error || '');
-  if (S.cloud.status === 'checking') return '正在检测云端…';
-  return '本地模式 · 点此配置云端';
+  if (!workerUrl()) return '未配置后端 · 点此设置';
+  if (S.cloud.status === 'ok') return '已连接 · 消息云端同步';
+  if (S.cloud.status === 'checking') return '正在连接…';
+  return '本地模式 · 消息保存在本机';
 }
 function ensureCloudGroup() {
   if (S.db.threads.some(function (t) { return t.cloudChat === 'all'; })) return false;
@@ -819,7 +884,7 @@ function ensureCloudGroup() {
 function cloudCheck(silent) {
   if (S.demo) return;
   if (!cloudWanted()) {
-    S.cloud = { status: 'off', kv: null, error: '', at: 0, fails: 0 };
+    S.cloud = { status: 'off', kv: null, backend: '', error: '', at: 0, fails: 0 };
     stopPolling();
     softRender();
     return;
@@ -827,26 +892,46 @@ function cloudCheck(silent) {
   S.cloud.status = 'checking';
   S.cloud.error = '';
   softRender();
-  var url = workerUrl();
-  var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-  var to = setTimeout(function () { if (ctrl) ctrl.abort(); }, 7000);
-  fetch(url + '/?t=' + Date.now(), { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined })
-    .then(function (r) { return r.json(); })
-    .then(function (j) {
-      clearTimeout(to);
-      if (!j || !j.ok) throw new Error('后端返回异常');
-      S.cloud = { status: 'ok', kv: !!j.kv_bound, error: '', at: Date.now(), fails: 0 };
-      ensureCloudGroup();
-      startPolling();
-      softRender();
-    })
-    .catch(function (e) {
-      clearTimeout(to);
-      S.cloud = { status: 'fail', kv: null, error: String(e && e.message || e), at: Date.now(), fails: 0 };
-      stopPolling();
-      softRender();
-      if (!silent) toast('云端连接失败：' + S.cloud.error, 'err');
-    });
+  var base = workerUrl();
+  /* 依次探测：真实数据端点 /api/store（返回 JSON = 后端在线）→ 健康页 /。
+     任一成功即视为在线，并记录命中的 backend，避免把工程细节留给用户 */
+  var targets = [
+    { url: base + '/api/store', name: 'store' },
+    { url: base + '/', name: 'root' }
+  ];
+  var idx = 0, lastErr = '';
+  function ok(name, j) {
+    S.cloud = { status: 'ok', kv: !!(j && (j.kv_bound || j.kv)), backend: name, error: '', at: Date.now(), fails: 0 };
+    ensureCloudGroup();
+    startPolling();
+    flushQueue();
+    softRender();
+  }
+  function bad(err) {
+    S.cloud = { status: 'fail', kv: null, backend: '', error: err || '', at: Date.now(), fails: 0 };
+    stopPolling();
+    softRender();
+    if (!silent) toast('当前为本地模式，消息保存在本机');
+  }
+  function next() {
+    if (idx >= targets.length) { bad(lastErr || '连接超时'); return; }
+    var target = targets[idx++];
+    var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    var to = setTimeout(function () { if (ctrl) { try { ctrl.abort(); } catch (e) {} } }, 7000);
+    fetch(target.url, { mode: 'cors', cache: 'no-store', signal: ctrl ? ctrl.signal : undefined })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        clearTimeout(to);
+        if (!j || typeof j !== 'object') throw new Error('返回内容无法识别');
+        ok(target.name, j);
+      })
+      .catch(function (e) {
+        clearTimeout(to);
+        lastErr = String((e && e.message) || e || '');
+        next();
+      });
+  }
+  next();
 }
 function startPolling() {
   stopPolling();
@@ -920,7 +1005,7 @@ function pollThread(t) {
 }
 function pushCloud(t, msg) {
   var url = workerUrl();
-  if (!url) { msg.status = 'failed'; msg.error = '未配置云端'; return; }
+  if (!url) { msg.status = 'queued'; msg.error = '未配置后端'; return; }
   fetch(url + '/api/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -936,13 +1021,50 @@ function pushCloud(t, msg) {
     })
     .catch(function (e) {
       msg.error = String(e && e.message || e);
-      msg.status = 'failed';
+      msg.status = 'queued';
     })
     .then(function () {
       save();
       if (t.id === S.thread) renderChatBody(true);
       refreshSideList();
+      /* 云端在线且仍有排队消息时做一次有限补发；仅在本条发送成功时触发，
+         并用 flushScheduled 防堆叠，避免失败消息被无限重试 */
+      if (S.cloud.status === 'ok' && msg.status === 'sent' && hasQueuedMsgs() && !flushScheduled) {
+        flushScheduled = true;
+        setTimeout(function () { flushScheduled = false; flushQueue(); }, 1500);
+      }
     });
+}
+/* 离线期间的消息排队：云端恢复后逐条补发；flushing 防重入避免递归 */
+var flushing = false;
+var flushScheduled = false;
+function hasQueuedMsgs() {
+  if (!S.db) return false;
+  var found = false;
+  S.db.threads.forEach(function (t) {
+    if (found || !t || t.delivery !== 'cloud') return;
+    (t.messages || []).forEach(function (m) {
+      if (m && m.dir === 'out' && (m.status === 'queued' || m.status === 'failed')) found = true;
+    });
+  });
+  return found;
+}
+function flushQueue() {
+  if (flushing) return;
+  if (!S.db || S.cloud.status !== 'ok') return;
+  flushing = true;
+  try {
+    S.db.threads.forEach(function (t) {
+      if (!t || t.delivery !== 'cloud') return;
+      (t.messages || []).forEach(function (msg) {
+        if (!msg || msg.dir !== 'out') return;
+        if (msg.status !== 'queued' && msg.status !== 'failed') return;
+        if (S.cloud.status === 'ok') { msg.status = 'sending'; pushCloud(t, msg); }
+      });
+    });
+  } catch (e) {}
+  flushing = false;
+  save();
 }
 
 /* ================= 渲染：外壳 ================= */
@@ -956,6 +1078,13 @@ function render() {
   if (ta) { autosize(ta); syncSendState(); }
   var body = document.getElementById('fcChatBody');
   if (body) body.scrollTop = body.scrollHeight;
+  /* 最侧栏 .fc-rail 不在 DockNav 注册表内，DOM 重建后显式叠加液态玻璃指示器 */
+  setTimeout(function () {
+    try {
+      var r = document.querySelector('.fc-rail[data-n26dock]');
+      if (r && window.N26DockNav) window.N26DockNav.enhance(r, { item: '.fc-tab', on: 'active' });
+    } catch (e) {}
+  }, 0);
 }
 /* 群资料面板：群公告 + 成员（成员按该会话真实发言人统计，不伪造名单） */
 function groupPanelHtml() {
@@ -1016,7 +1145,7 @@ function softRender() {
 }
 function railHtml() {
   var unread = totalUnread();
-  return '<aside class="fc-rail">' +
+  return '<aside class="fc-rail" data-n26dock="v">' +
     '<button class="fc-myav' + (S.tab === 'me' ? ' active' : '') + '" data-act="tab" data-tab="me" title="我的">' +
       avatarHtml(myName(), myAvatar(), 38, 'self') + '</button>' +
     tabBtn('chats', 'fa-comment-dots', '聊天', unread) +
@@ -1043,7 +1172,8 @@ function sideHtml() {
   return '<section class="fc-side">' +
     '<div class="fc-side-head"><h2 class="fc-side-title">' + (isChats ? '聊天' : '通讯录') + '</h2>' +
       '<button class="fc-icbtn" data-act="' + (isChats ? 'new-chat' : 'new-contact') + '" title="' + (isChats ? '新建会话' : '添加联系人') + '">' +
-      '<i class="fas fa-plus"></i></button></div>' +
+      '<i class="fas fa-plus"></i></button>' +
+      '<button class="fc-icbtn" data-act="add-friend" title="添加好友"><i class="fas fa-user-plus"></i></button></div>' +
     '<div class="fc-search' + (q ? ' has' : '') + '"><i class="fas fa-magnifying-glass"></i>' +
       '<input id="' + (isChats ? 'fcSearch' : 'fcCSearch') + '" value="' + esc(q) + '" placeholder="' +
       (isChats ? '搜索会话或消息' : '搜索联系人或备注') + '">' +
@@ -1098,15 +1228,22 @@ function refreshSideList() {
 }
 function contactsHtml() {
   var q = String(S.csearch || '').trim().toLowerCase();
+  /* v2.10.3：通讯录顶部固定一条「添加好友」入口。
+     原来只有侧栏那两个 28px 小图标，一旦顶栏挤或用户没注意就等于「没法加好友」。
+     这一条无论有没有联系人都常驻，且不参与搜索过滤。 */
+  var addRow = '<div class="fc-addrow" data-act="add-friend" role="button" tabindex="0">' +
+    '<span class="fc-addrow-ic"><i class="fas fa-user-plus"></i></span>' +
+    '<span class="fc-addrow-tx"><b>添加好友</b><small>输入账号名或昵称，添加到通讯录</small></span>' +
+    '<i class="fas fa-chevron-right fc-addrow-ar"></i></div>';
   var list = S.db.contacts.filter(function (c) {
     if (!q) return true;
     return String(c.name || '').toLowerCase().indexOf(q) >= 0 ||
       String(c.note || '').toLowerCase().indexOf(q) >= 0;
   }).sort(sortContacts);
   if (!list.length) {
-    return '<div class="fc-empty-list"><i class="fas fa-address-book"></i>' +
-      '<p>' + (q ? '没有匹配的联系人' : '通讯录还是空的<br>联系人只保存在本机') + '</p>' +
-      (q ? '' : '<button data-act="new-contact">添加联系人</button>') + '</div>';
+    return addRow + '<div class="fc-empty-list"><i class="fas fa-address-book"></i>' +
+      '<p>' + (q ? '没有匹配的联系人' : '通讯录还是空的<br>点上面「添加好友」开始') + '</p>' +
+      (q ? '' : '<button data-act="new-contact">添加本地联系人</button>') + '</div>';
   }
   var groups = {}, letters = [];
   list.forEach(function (c) {
@@ -1132,7 +1269,7 @@ function contactsHtml() {
           '<i class="fas fa-chevron-right fc-cchev"></i></div>';
       }).join('');
   }).join('');
-  return '<div class="fc-contact-wrap">' + idx + body + '</div>';
+  return addRow + '<div class="fc-contact-wrap">' + idx + body + '</div>';
 }
 function meMenuHtml() {
   var items = [
@@ -1144,15 +1281,28 @@ function meMenuHtml() {
     return '<button class="fc-menu-item' + (S.me === it[0] ? ' active' : '') + '" data-act="me-panel" data-panel="' + it[0] + '">' +
       '<i class="fas ' + it[1] + '"></i><span>' + it[2] + '</span><i class="fas fa-chevron-right chev"></i></button>';
   }).join('') + '</div>';
-  var cloud = !workerUrl() ? '未配置云端，所有消息只在本机。'
-    : S.cloud.status === 'ok' ? '云端已连接' + (S.cloud.kv ? '，消息写入 KV。' : '，Worker 内存模式。')
-    : S.cloud.status === 'fail' ? '云端连接失败：' + (S.cloud.error || '未知错误')
-    : S.cloud.status === 'checking' ? '正在检测云端…' : '当前为本地模式。';
+  var cloud = !workerUrl() ? '未配置后端 · 消息只保存在本机'
+    : S.cloud.status === 'ok' ? '已连接 · 消息云端同步'
+    : S.cloud.status === 'checking' ? '正在连接…'
+    : '本地模式 · 消息保存在本机';
   return menu + '<div class="fc-cloud-mini ' + (S.cloud.status === 'ok' ? 'ok' : S.cloud.status === 'fail' ? 'fail' : S.cloud.status === 'checking' ? 'checking' : '') + '">' +
-    '<b><span class="st-dot"></span>云端中转</b>' + esc(cloud) + '</div>';
+    '<b><span class="st-dot"></span>连接状态</b>' + esc(cloud) + '</div>';
 }
 
 /* ================= 渲染：聊天 ================= */
+/* 云端状态横幅：只出现在需要云端的会话里；本地模式不是错误，用中性灰底 */
+function cloudBannerHtml(t) {
+  if (!t || t.delivery !== 'cloud') return '';
+  var st = S.cloud.status;
+  var muted = st !== 'ok';
+  var icon = st === 'ok' ? 'fa-circle-check' : st === 'checking' ? 'fa-cloud-arrow-down' : 'fa-hard-drive';
+  var text = st === 'ok' ? '已连接 · 消息云端同步'
+    : st === 'checking' ? '正在连接…'
+    : '本地模式 · 消息保存在本机';
+  return '<div class="fc-banner' + (muted ? ' muted' : '') + '" id="fcCloudBanner">' +
+    '<i class="fas ' + icon + '"></i><span>' + text + '</span>' +
+    (st === 'fail' ? '<button data-act="cloud-retry" title="重新连接">重试</button>' : '') + '</div>';
+}
 function chatMainHtml() {
   var t = activeThread();
   if (!t) {
@@ -1161,9 +1311,8 @@ function chatMainHtml() {
       '<h3>选择一个会话</h3><p>左侧是会话列表；通讯录里的联系人都只保存在本机。</p>' +
       '<button data-act="new-chat">新建会话</button></div></main>';
   }
-  var offline = t.delivery === 'cloud' && S.cloud.status !== 'ok';
   var sub = t.type === 'self' ? '仅本机 · 文件传输助手'
-    : t.type === 'group' ? '公开频道 · ' + (S.cloud.status === 'ok' ? (S.cloud.kv ? '云端已连接（KV）' : '云端已连接') : '云端未连接')
+    : t.type === 'group' ? '公开频道 · ' + (S.cloud.status === 'ok' ? '已连接 · 消息云端同步' : '本地模式 · 消息保存在本机')
     : '仅本机 · 本地会话';
   return '<main class="fc-main">' +
     '<header class="fc-chat-head">' +
@@ -1177,8 +1326,7 @@ function chatMainHtml() {
         '<button class="fc-hbtn' + (t.muted ? ' on' : '') + '" data-act="mute-thread" title="' + (t.muted ? '关闭免打扰' : '免打扰') + '"><i class="fas fa-' + (t.muted ? 'bell-slash' : 'bell') + '"></i></button>' +
         (t.type === 'self' ? '' : '<button class="fc-hbtn danger" data-act="delete-thread" title="删除会话"><i class="fas fa-trash-can"></i></button>') +
       '</div></header>' +
-    (offline ? '<div class="fc-banner" id="fcCloudBanner"><i class="fas fa-circle-exclamation"></i>' +
-      '<span>云端未连接，消息发不出去。</span><button data-act="me-settings">去连接</button></div>' : '') +
+    cloudBannerHtml(t) +
     '<div class="fc-msgs" id="fcChatBody">' + msgsHtml(t) + '</div>' +
     composerHtml(t) +
     '</main>';
@@ -1204,7 +1352,7 @@ function msgsHtml(t) {
   var msgs = t.messages.slice().sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); });
   if (!msgs.length) {
     var hint = t.type === 'self' ? '这里的消息只保存在本机，适合临时存图片和文件。'
-      : t.type === 'group' ? '公开频道的消息走 Worker 中转，所有人可见。' : '这是本地会话，只有这台机器上能看到。';
+      : t.type === 'group' ? '公开频道的消息走云端中转，所有人可见。' : '这是本地会话，只有这台机器上能看到。';
     return '<div class="fc-chat-empty"><div class="art" style="width:72px;height:72px;border-radius:20px;background:var(--fc-accent-soft);display:flex;align-items:center;justify-content:center;margin-bottom:14px">' +
       '<i class="fas fa-comments" style="font-size:28px;color:var(--fc-accent)"></i></div>' +
       '<h3 style="font-size:14px;margin:0 0 4px;color:var(--text-1)">还没有消息</h3>' +
@@ -1258,6 +1406,7 @@ function statusHtml(t, m) {
   if (t.type === 'self') return '<span title="本机会话，已读只在本机记录">已读</span>';
   if (m.status === 'sending') return '<span>发送中…</span>';
   if (m.status === 'failed') return '<button data-act="retry" data-id="' + esc(m.id) + '" title="' + esc(m.error || '') + '">未送达 · 重试</button>';
+  if (m.status === 'queued') return '<span title="连接云端后会自动发送">待发送…</span>';
   if (t.delivery === 'cloud') return '<span title="云端频道接口没有已读回执">已送达</span>';
   return '<span title="本机会话，已读只在本机记录">已读</span>';
 }
@@ -1273,7 +1422,7 @@ function renderChatBody(nearBottom) {
   var sub = document.getElementById('fcChatSub');
   if (sub) {
     var s = t.type === 'self' ? '仅本机 · 文件传输助手'
-      : t.type === 'group' ? '公开频道 · ' + (S.cloud.status === 'ok' ? (S.cloud.kv ? '云端已连接（KV）' : '云端已连接') : '云端未连接')
+      : t.type === 'group' ? '公开频道 · ' + (S.cloud.status === 'ok' ? '已连接 · 消息云端同步' : '本地模式 · 消息保存在本机')
       : '仅本机 · 本地会话';
     sub.textContent = s;
   }
@@ -1286,8 +1435,8 @@ function composerValue() {
 function syncSendState() {
   var btn = document.getElementById('fcSend');
   if (!btn) return;
-  var t = activeThread();
-  var ok = !!composerValue().trim() && !(t && t.delivery === 'cloud' && S.cloud.status !== 'ok');
+  /* 离线时也能发消息：云端未连接只是把消息排入队列，不再禁用发送按钮 */
+  var ok = !!composerValue().trim();
   btn.disabled = !ok;
 }
 function autosize(el) {
@@ -1357,7 +1506,7 @@ function profileHtml() {
 }
 function cloudChip() {
   var st = S.cloud.status;
-  var label = st === 'ok' ? (S.cloud.kv ? '已连接 · KV' : '已连接 · 内存') : st === 'fail' ? '连接失败' : st === 'checking' ? '检测中…' : '未连接';
+  var label = st === 'ok' ? '已连接 · 消息云端同步' : st === 'fail' ? '本地模式 · 消息保存在本机' : st === 'checking' ? '正在连接…' : '未连接';
   var cls = st === 'ok' ? 'ok' : st === 'fail' ? 'fail' : st === 'checking' ? 'checking' : '';
   return '<span class="fc-chip-status ' + cls + '"><span class="st-dot"></span>' + label + '</span>';
 }
@@ -1370,8 +1519,8 @@ function settingsHtml() {
     '<h1>设置与数据</h1><p class="lead">云端只做消息中转；本机会话的“已读”是本机状态，云端只显示“已送达”。</p>' +
 
     '<div class="fc-sec"><h3>云端中转</h3><div class="fc-card">' +
-      '<div class="fc-row-line"><div class="t"><b>Worker 状态</b><small>' + (S.cloud.status === 'fail' ? esc(S.cloud.error || '连接失败') : '健康检查会真实请求后端，不做假在线状态') + '</small></div>' + cloudChip() + '</div>' +
-      '<div class="fc-row-line" style="display:block"><div class="fc-label">Worker 地址</div>' +
+      '<div class="fc-row-line"><div class="t"><b>连接状态</b><small>' + (S.cloud.status === 'fail' ? '当前为本地模式，消息保存在本机' : '会真实请求后端，不做假在线状态') + '</small></div>' + cloudChip() + '</div>' +
+      '<div class="fc-row-line" style="display:block"><div class="fc-label">后端地址</div>' +
         '<div class="fc-cloud-row"><input class="fc-input" id="fcWorker" value="' + esc(st.worker || '') + '" placeholder="' + DEFAULT_WORKER + '">' +
         '<button class="fc-btn primary" data-act="cloud-connect">保存并连接</button></div>' +
         '<p class="fc-hint">接口：<code>GET/POST /api/messages</code>，按 chat 存文本，单会话上限 200 条。<br>' +
@@ -1406,14 +1555,14 @@ function aboutHtml() {
       '<li>聊天：文字、图片、文件、表情、引用、2 分钟内撤回、日期分隔、发送状态。</li>' +
       '<li>群聊：群资料面板（成员按真实发言人汇总）、群公告（云端频道同步）、群成员列表。</li>' +
       '<li>通讯录：拼音首字母分组与索引，联系人仅保存在本机。</li>' +
-      '<li>云端：真实 Worker 健康检查 + 全体群文本中转（8 秒轮询）。</li>' +
+      '<li>云端：后端健康检查 + 全体群文本中转（8 秒轮询）。</li>' +
       '<li>身份标记：账号资料的头衔金标与蓝 V，字段为空时整块不显示。</li>' +
     '</ul></div>' +
     '<div class="fc-sec"><h3>明确限制</h3><ul class="fc-limit">' +
       '<li>本机会话的“已读”只代表本机已打开；云端没有已读回执接口，只显示“已送达”。</li>' +
-      '<li>云端消息无法撤回（Worker 没有撤回接口），右键菜单会明确提示而不是假装成功。</li>' +
+      '<li>云端消息无法撤回（后端没有撤回接口），右键菜单会明确提示而不是假装成功。</li>' +
       '<li>公开频道只支持文字；图片/文件仅在本地会话可用。</li>' +
-      '<li>单会话云端上限 200 条（Worker 限制）；本机存储受浏览器配额限制。</li>' +
+      '<li>单会话云端上限 200 条（后端限制）；本机存储受浏览器配额限制。</li>' +
       '<li>朋友圈/发现：没有后端与内容源，明确不做。</li>' +
     '</ul></div>' +
     '</div></main>';
@@ -1519,7 +1668,6 @@ function sendNow() {
   if (!t || !ta) return;
   var text = ta.value.trim();
   if (!text) return;
-  if (t.delivery === 'cloud' && S.cloud.status !== 'ok') { toast('云端未连接，先到设置里重试连接', 'err'); return; }
   var quote = (S.quote && S.quote.threadId === t.id) ? {
     id: S.quote.id, from: S.quote.from, text: S.quote.text, dir: S.quote.dir
   } : null;
@@ -1528,7 +1676,7 @@ function sendNow() {
   var msg = {
     id: uid(), dir: 'out', from: myName(), ts: Date.now(),
     kind: 'text', text: text,
-    status: t.delivery === 'cloud' ? 'sending' : 'sent'
+    status: (t.delivery === 'cloud' && S.cloud.status !== 'ok') ? 'queued' : 'sent'
   };
   if (quote && t.delivery !== 'cloud') msg.quote = quote;
   S.quote = null;
@@ -1542,12 +1690,19 @@ function sendNow() {
   renderChatBody(true);
   refreshSideList();
   ta.focus();
-  if (t.delivery === 'cloud') pushCloud(t, msg);
+  if (t.delivery === 'cloud' && S.cloud.status === 'ok') pushCloud(t, msg);
 }
 function retryMsg(id) {
   var pair = findMsg(id);
   if (!pair || !pair.t.cloudChat || pair.m.kind !== 'text') return;
-  if (S.cloud.status !== 'ok') { toast('云端未连接，先到设置里重试连接', 'err'); return; }
+  if (S.cloud.status !== 'ok') {
+    pair.m.status = 'queued';
+    pair.m.error = '';
+    save();
+    renderChatBody(true);
+    toast('已加入待发送队列');
+    return;
+  }
   pair.m.status = 'sending';
   pair.m.error = '';
   renderChatBody(true);
@@ -1668,6 +1823,48 @@ function newContactDialog() {
       S.db.contacts.push(c);
       S.contact = c.id; save(); render();
       toast('已添加联系人');
+    }
+  });
+}
+/* 添加好友：建本地联系人+会话，并把 {id,name} 合并写入主壳好友表 n26:friends */
+function addFriendDialog() {
+  openDialog({
+    title: '添加好友', desc: '输入对方账号名 / 昵称，建立本机会话并写入系统好友表。',
+    fields: [{ label: '对方账号名 / 昵称', placeholder: '例如：陈默', max: 24 }],
+    okText: '添加', onOk: function (v) {
+      var name = String(v[0] || '').trim();
+      if (!name) return false;
+      createContactChat(name, '', true);
+      var c = S.db.contacts.find(function (x) { return x.name === name; });
+      var item = { id: c ? c.id : 'ct' + name, name: name };
+      try {
+        var raw = localStorage.getItem('n26:friends');
+        var data = null;
+        if (raw) { try { data = JSON.parse(raw); } catch (e) { data = null; } }
+        if (Array.isArray(data)) {
+          var dup = false;
+          for (var i = 0; i < data.length; i++) {
+            if (data[i] && (String(data[i].id) === String(item.id) || String(data[i].name) === name)) { dup = true; break; }
+          }
+          if (!dup) data.push(item);
+        } else if (data && typeof data === 'object') {
+          /* 对象形态：兼容 {friends:[...]} / {list:[...]} 或以 id 为键的映射 */
+          var arr = Array.isArray(data.friends) ? data.friends : (Array.isArray(data.list) ? data.list : null);
+          if (arr) {
+            var dup2 = false;
+            for (var j = 0; j < arr.length; j++) {
+              if (arr[j] && (String(arr[j].id) === String(item.id) || String(arr[j].name) === name)) { dup2 = true; break; }
+            }
+            if (!dup2) arr.push(item);
+          } else if (!data[item.id]) {
+            data[item.id] = item;
+          }
+        } else {
+          data = [item];
+        }
+        localStorage.setItem('n26:friends', JSON.stringify(data));
+      } catch (e) {}
+      toast('已添加好友：' + name);
     }
   });
 }
@@ -1871,7 +2068,7 @@ function setSetting(key, val) {
 function connectCloud() {
   var inp = document.getElementById('fcWorker');
   var url = inp ? inp.value.trim().replace(/\/+$/, '') : '';
-  if (!url) { toast('请填写 Worker 地址', 'err'); return false; }
+  if (!url) { toast('请填写后端地址', 'err'); return false; }
   if (!/^https?:\/\//i.test(url)) { toast('地址需以 http:// 或 https:// 开头', 'err'); return false; }
   S.db.settings.worker = url;
   S.db.settings.cloudOn = true;
@@ -1927,6 +2124,7 @@ document.addEventListener('click', function (e) {
     case 'open-contact': openContact(id); return;
     case 'new-chat': newChatDialog(); return;
     case 'new-contact': newContactDialog(); return;
+    case 'add-friend': addFriendDialog(); return;
     case 'clear-search': clearSearch(); return;
     case 'letter':
       var L = actEl.getAttribute('data-letter');
@@ -2000,6 +2198,7 @@ document.addEventListener('click', function (e) {
       if (key === 'notify' && on) toast('已开启系统新消息通知');
       return;
     case 'cloud-connect': connectCloud(); return;
+    case 'cloud-retry': cloudCheck(false); return;
     case 'cloud-off':
       S.db.settings.cloudOn = false; save();
       S.cloud.status = 'off';

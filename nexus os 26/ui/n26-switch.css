@@ -1,0 +1,162 @@
+/* ============================================================
+   N26 Switch · 四段液态玻璃开关（v2.9.93）
+   必须与 ui/n26-glass-system.css 之后加载：那边第 1 节有一条
+   `html body :is(3个id, *) { backdrop-filter:none !important }` 全关规则，
+   这里用同样的 :is(3个id, 目标) 抬到同特异性、靠加载顺序放行折射串。
+   ============================================================ */
+
+/* ── ① 动效期间：白色胶囊静默隐藏，只留玻璃块 ───────────────── */
+html body :is(#n26a #n26b #n26c,
+    .fu-switch.n26-sw-busy::after,
+    .toggle-switch.n26-sw-busy::after,
+    .widget-alarm-toggle-btn.n26-sw-busy::after,
+    .alarm-toggle.n26-sw-busy::after,
+    .fu-switch.n26-sw-busy > .fu-knob,
+    .toggle-switch.n26-sw-busy > .fu-knob,
+    .widget-alarm-toggle-btn.n26-sw-busy > .fu-knob,
+    .alarm-toggle.n26-sw-busy > .fu-knob) {
+    opacity: 0 !important;
+}
+
+/* ── ①b 切换期间白点「彻底不见」────────────────────────────────
+   v2.10.3：用户三次强调 ——「正在切换状态的时候，小圆圈是完全不见的，
+   完全变成液态玻璃」。只写 opacity 不够：
+   · opacity 过渡途中还有半透明白影，和玻璃叠在一起就是两颗球；
+   · 业务把开关整块重建时 .n26-sw-busy 会丢，白点当场回来。
+   所以这里补 visibility + 禁过渡，并用 :has(> .n26-sw-blob) 兜底：
+   只要玻璃块在，白点就不许出现，与类名是否还在无关。 */
+html body :is(#n26a #n26b #n26c,
+    .fu-switch.n26-sw-busy::after,
+    .toggle-switch.n26-sw-busy::after,
+    .widget-alarm-toggle-btn.n26-sw-busy::after,
+    .alarm-toggle.n26-sw-busy::after,
+    .fu-switch.n26-sw-busy > .fu-knob,
+    .toggle-switch.n26-sw-busy > .fu-knob,
+    .widget-alarm-toggle-btn.n26-sw-busy > .fu-knob,
+    .alarm-toggle.n26-sw-busy > .fu-knob,
+    .fu-switch:has(> .n26-sw-blob)::after,
+    .toggle-switch:has(> .n26-sw-blob)::after,
+    .widget-alarm-toggle-btn:has(> .n26-sw-blob)::after,
+    .alarm-toggle:has(> .n26-sw-blob)::after) {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transition: none !important;
+}
+
+/* ── ② 玻璃块本体（尺寸/位置全部由 rAF 逐帧写） ───────────────── */
+html body :is(#n26a #n26b #n26c, .n26-sw-blob) {
+    position: absolute;
+    box-sizing: border-box;
+    z-index: 3;
+    border-radius: 999px;
+    pointer-events: none;
+    will-change: left, width, height, opacity;
+    /* v2.9.94：底色对齐 liquid-glass-web 参照物 —— 0.08 白 + 底部内阴影
+       提供厚度。旧版 0.42 白渐变 + 0.82 白描边是一块「白饼 / 塑料」，
+       会把背景弯折完全盖住，折射看着像没生效。 */
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    box-shadow:
+        0 0 12px rgba(120, 190, 255, 0.30),
+        0 4px 8px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.42),
+        inset 0 -8px 18px rgba(0, 0, 0, 0.15);
+    /* 斜向柔光只扫一道细光，不铺满整块 */
+    background-image:
+        linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.30) 50%, transparent 62%),
+        linear-gradient(155deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.04) 62%, rgba(190, 225, 255, 0.10));
+    background-size: 220% 100%, 100% 100%;
+    animation: n26SwGloss 0.52s ease-out both;
+}
+/* 拖动期间：禁掉浏览器手势与文本选中，玻璃跟手不丢帧 */
+html body :is(#n26a #n26b #n26c,
+    .fu-switch.n26-sw-dragging,
+    .toggle-switch.n26-sw-dragging,
+    .widget-alarm-toggle-btn.n26-sw-dragging,
+    .alarm-toggle.n26-sw-dragging) {
+    touch-action: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    cursor: grabbing !important;
+}
+/* 拖动时柔光动画不要重播，否则每次指针移动都闪一下 */
+html body :is(#n26a #n26b #n26c, .n26-sw-dragging > .n26-sw-blob) {
+    animation: none !important;
+    box-shadow:
+        0 0 22px rgba(120, 190, 255, 0.52),
+        0 4px 8px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.56),
+        inset 0 -8px 18px rgba(0, 0, 0, 0.15);
+}
+@keyframes n26SwGloss {
+    from { background-position: 130% 0, 0 0; }
+    to   { background-position: -70% 0, 0 0; }
+}
+
+/* 真折射：优先吃元素级 --n26-lg-filter（feDisplacementMap 光线扭曲），
+   绝不叠 blur()（用户明确「没有磨砂」，磨砂只由设置滑块控制）。 */
+html body :is(#n26a #n26b #n26c, .n26-sw-blob.n26-liquid-on) {
+    -webkit-backdrop-filter: var(--n26-lg-filter) !important;
+    backdrop-filter: var(--n26-lg-filter) !important;
+}
+/* 引擎不可用时的降级：仍然是一块有光学感的玻璃，不是白饼 */
+html body :is(#n26a #n26b #n26c, .n26-sw-blob.n26-sw-nolg) {
+    -webkit-backdrop-filter: saturate(1.5) brightness(1.06) contrast(1.12) !important;
+    backdrop-filter: saturate(1.5) brightness(1.06) contrast(1.12) !important;
+}
+
+/* ── ③ 悬停发光 / 按下更亮（用户钦定） ───────────────────────── */
+html body :is(#n26a #n26b #n26c,
+    .fu-switch:hover,
+    .toggle-switch:hover,
+    .widget-alarm-toggle-btn:hover,
+    .alarm-toggle:hover) {
+    /* 用 box-shadow 而不是 filter：祖先上的 filter 会新建 backdrop root，
+       把子玻璃的 backdrop-filter 折射采样直接废掉。 */
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 9px rgba(120, 190, 255, 0.48) !important;
+}
+html body :is(#n26a #n26b #n26c,
+    .fu-switch:active,
+    .toggle-switch:active,
+    .widget-alarm-toggle-btn:active,
+    .alarm-toggle:active) {
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 16px rgba(150, 210, 255, 0.88) !important;
+}
+html body :is(#n26a #n26b #n26c,
+    .fu-switch:hover > .n26-sw-blob,
+    .toggle-switch:hover > .n26-sw-blob,
+    .widget-alarm-toggle-btn:hover > .n26-sw-blob,
+    .alarm-toggle:hover > .n26-sw-blob) {
+    box-shadow:
+        0 0 18px rgba(120, 190, 255, 0.62),
+        0 6px 16px rgba(20, 40, 70, 0.20),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98),
+        inset 0 -6px 12px rgba(0, 0, 0, 0.10) !important;
+}
+html body :is(#n26a #n26b #n26c,
+    .fu-switch:active > .n26-sw-blob,
+    .toggle-switch:active > .n26-sw-blob,
+    .widget-alarm-toggle-btn:active > .n26-sw-blob,
+    .alarm-toggle:active > .n26-sw-blob) {
+    box-shadow:
+        0 0 26px rgba(150, 210, 255, 0.92),
+        0 0 0 1px rgba(255, 255, 255, 0.80),
+        0 6px 16px rgba(20, 40, 70, 0.20),
+        inset 0 1px 0 rgba(255, 255, 255, 1),
+        inset 0 -6px 12px rgba(0, 0, 0, 0.10) !important;
+}
+
+/* 深色：玻璃底更透、发光更冷，白胶囊对照更清楚 */
+html body.dark-mode :is(#n26a #n26b #n26c, .n26-sw-blob) {
+    background-image:
+        linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.38) 48%, transparent 64%),
+        linear-gradient(155deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.06) 62%, rgba(120, 180, 235, 0.18));
+    border-color: rgba(210, 232, 255, 0.55);
+}
+
+/* 减弱动画：不生成玻璃块，也不做发光过渡 */
+html body.reduce-motion :is(#n26a #n26b #n26c,
+    .fu-switch:hover, .toggle-switch:hover,
+    .widget-alarm-toggle-btn:hover, .alarm-toggle:hover) {
+    filter: none !important;
+}

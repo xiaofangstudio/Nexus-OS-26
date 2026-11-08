@@ -1,0 +1,122 @@
+/* ============================================================
+   N26 小组件选择面板 · 平铺 / 层级 / 无框架（v2.9.97）
+   ------------------------------------------------------------
+   用户截图直指三件事：
+     ① 每张预览卡外面有一圈浅灰底板 + padding，卡片左右留缝；
+        小组件应直接平铺，不要任何底部框架。
+     ② 桌面 Dock 浮在面板之上。
+     ③ 相册卡仍是紫色（真值链是 [data-wtype="photos"] 的
+        --w-tint-*，不是 .w-ph-empty —— 后者是旧版 fallback 死代码）。
+   本层最后加载，压过 n26-widgets.css 的高特异性画廊规则。
+   ============================================================ */
+
+/* ---------- ① 层级：面板盖住 Dock / 顶栏 ---------- */
+html body #widgetPanel.widget-panel-overlay { z-index: 10050 !important; }
+body.widget-panel-open #dock,
+body.widget-panel-open #finder-bar { z-index: 90 !important; }
+/* v2.9.99：Dock Bar 是「跟随前台应用」的条，选组件时它挂在面板顶部会显得莫名其妙
+   （用户原话「在选择小组件面板的上面头不合常理」）。面板一开就把它收掉。 */
+body.widget-panel-open #dockBar {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translateX(-50%) translateY(12px) !important;
+}
+
+/* ---------- ② 平铺：撤掉外层底板、边框、内边距 ---------- */
+html body #widgetPanel .widget-panel-card,
+html body.dark-mode #widgetPanel .widget-panel-card {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    gap: 6px !important;
+    border-radius: 0 !important;
+}
+html body #widgetPanel .widget-panel-card:hover,
+html body #widgetPanel .widget-panel-card:focus-visible,
+html body.dark-mode #widgetPanel .widget-panel-card:hover,
+html body.dark-mode #widgetPanel .widget-panel-card:focus-visible {
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+    outline: none;
+}
+html body #widgetPanel .widget-panel-card::before { display: none !important; }
+
+/* 预览框本身也全透明，白色组件卡直接撑满 = 平铺无缝 */
+html body #widgetPanel .widget-panel-card-preview {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: var(--w-radius, 20px) !important;
+}
+html body #widgetPanel .widget-panel-card-preview .widget-preview-card {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    transform: none !important;
+    margin: 0 !important;
+    border-radius: var(--w-radius, 20px) !important;
+}
+html body #widgetPanel .widget-panel-card-preview .widget-preview-card > .widget-inner {
+    width: 100%; height: 100%; box-sizing: border-box;
+}
+
+/* 名称标签保留，但不再像一块底部框架 */
+html body #widgetPanel .widget-panel-card-name {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 2px !important;
+}
+html body #widgetPanel .widget-panel-card-sizes {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+/* ---------- ③ 禁紫：相册卡身份色改蓝（真值链） ---------- */
+html body .desktop-widget-card[data-wtype="photos"] {
+    --w-tint-a: #0ea5e9 !important;
+    --w-tint-b: #38bdf8 !important;
+    --w-tint-da: #0284c7 !important;
+    --w-tint-db: #075985 !important;
+}
+html body .desktop-widget-card[data-wtype="photos"] .nx-accent,
+html body .desktop-widget-card[data-wtype="photos"] .nx-btn-accent {
+    color: #38bdf8 !important;
+}
+
+/* ---------- ④ 尺寸滚轮：左右圆形切换按钮 ---------- */
+html body .n26-wheel-navs { display: inline-flex; align-items: center; gap: 8px; }
+html body .n26-wheel-nav {
+    width: 34px; height: 34px; flex: 0 0 34px;
+    border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0; margin: 0;
+    font-size: 20px; line-height: 1; font-weight: 600;
+    border: 1px solid rgba(15, 23, 42, .12);
+    background: rgba(255, 255, 255, .84);
+    color: rgba(15, 23, 42, .74);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, .10);
+    cursor: pointer;
+    transition: transform 260ms cubic-bezier(.2, .7, .2, 1), box-shadow 260ms cubic-bezier(.2, .7, .2, 1), opacity 260ms cubic-bezier(.2, .7, .2, 1);
+    -webkit-tap-highlight-color: transparent;
+}
+html body .n26-wheel-nav:hover:not(:disabled) {
+    transform: scale(1.09);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .17);
+}
+html body .n26-wheel-nav:active:not(:disabled) { transform: scale(.93); }
+html body .n26-wheel-nav:disabled { opacity: .3; cursor: default; }
+html body.dark-mode .n26-wheel-nav {
+    background: rgba(255, 255, 255, .13);
+    color: rgba(255, 255, 255, .84);
+    border-color: rgba(255, 255, 255, .18);
+}
+
+/* ---------- ⑤ 所有尺寸卡常驻可见，不再滚着滚着突然消失 ---------- */
+html body .n26-w-item { transition: transform .24s cubic-bezier(.16, 1, .3, 1), opacity 260ms cubic-bezier(.2, .7, .2, 1); }
+html body .n26-w-item:not(.on) { opacity: .72; }
+html body .n26-w-item:not(.on):hover { opacity: 1; }

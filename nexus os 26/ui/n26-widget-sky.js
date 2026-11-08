@@ -126,7 +126,15 @@
             }
         }
         if (list && list[3] && isFinite(list[3].lat)) return list[3];
-        return { lat: 22.5431, lon: 114.0579 };   // 深圳（系统默认城市）
+        /* v2.9.97：统一位置服务 ui/n26-geolocation.js 在顶层文档只定位一次，
+           结果写共享 localStorage['n26:geo'] 并广播给所有 iframe。
+           不再各自硬编码深圳（主壳是北京，两边日出日落一直对不上）。 */
+        try {
+            var g = (window.N26GeoClient && window.N26GeoClient.get()) ||
+                (window.N26Geo && window.N26Geo.get()) || null;
+            if (g && isFinite(g.lat) && isFinite(g.lon)) return { lat: g.lat, lon: g.lon };
+        } catch (e) { }
+        return { lat: 39.9042, lon: 116.4074 };   // 与主壳统一兜底
     }
     function skyData() {
         var d = { sunrise: '06:00', sunset: '18:30', status: '晴', source: 'fallback' };
@@ -139,7 +147,7 @@
                 try { st = n26WeatherState(); } catch (e) { st = null; }
             }
             if (!st) {
-                var raw = localStorage.getItem('nexus_n26_weather_state_v1');
+                var raw = localStorage.getItem('n26:n26_weather_state_v1');
                 if (raw) st = JSON.parse(raw);
                 else if (typeof getUserLS === 'function') st = getUserLS('n26_weather_state_v1');
             }
@@ -344,7 +352,7 @@
         /* 天气应用切换城市/刷新后会写共享键：主文档能收到 storage 事件，立即换天空，
            不必等下一次分钟轮询；三处表面同一刻保持一致。 */
         window.addEventListener('storage', function (ev) {
-            if (ev && ev.key === 'nexus_n26_weather_state_v1') apply();
+            if (ev && ev.key === 'n26:n26_weather_state_v1') apply();
         });
         try { window.N26SkyRefresh = apply; } catch (e) { }
         document.addEventListener('visibilitychange', function () { if (!document.hidden) apply(); });

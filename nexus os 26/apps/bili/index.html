@@ -22,8 +22,8 @@
 <link rel="stylesheet" href="../../ui/glass.css">
 <link rel="stylesheet" href="../../vendor/fontawesome/all.min.css">
 <script src="../_bridge.js"></script>
-<script src="../_app.js?v=2.9.57"></script>
-<script src="../../ui/n26-gestures.js"></script>
+<script src="../_app.js?v=2.9.97"></script>
+<script src="../../ui/n26-gestures.js?v=20261108c"></script>
 <style>
   /* ================= 主题变量（浅色 / 深色都成立） ================= */
   :root {
@@ -768,6 +768,21 @@
   body.dark-mode .player { border: 1px solid rgba(255, 255, 255, 0.10); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); }
   .player:fullscreen { width: 100vw; height: 100vh; aspect-ratio: auto; border-radius: 0; }
   .player:-webkit-full-screen { width: 100vw; height: 100vh; }
+  /* 应用内嵌入全屏：iframe 内 position:fixed 的包含块就是应用窗口视口，
+     只铺满方哩方哩窗口，不会提到浏览器顶层盖住 Nexus OS 26 桌面。 */
+  .player.in-window-full {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    aspect-ratio: auto; border-radius: 0; z-index: 9999;
+  }
+  /* ★ v2.10.2：应用内全屏时，播放器已经搬到 body 下（见 toggleFs），
+     这里把会压在画面上的东西全部藏掉 —— 左侧导航、详情右栏（相关推荐）、
+     以及页面滚动，避免「看视频时推荐封面还浮在画面上」。 */
+  body.bili-iwf { overflow: hidden; }
+  body.bili-iwf .rail,
+  body.bili-iwf .detail-hero > aside,
+  body.bili-iwf .detail-hero > .side,
+  body.bili-iwf .topbar { visibility: hidden !important; }
+  body.bili-iwf .player.in-window-full { visibility: visible !important; }
 
   .poster {
     position: absolute; inset: 0;
@@ -824,6 +839,11 @@
     backdrop-filter: blur(18px) saturate(150%);
     transition: opacity var(--dur-base) var(--ease-out-quart), transform var(--dur-base) var(--ease-out-quart);
   }
+  /* 控制条自动隐藏：鼠标静止/离开后淡出，动一下即恢复（同 apps/video.html 的观感） */
+  .player.ui-hidden { cursor: none; }
+  .player.ui-hidden .pcontrols { opacity: 0; transform: translateY(10px); pointer-events: none; }
+  .player.ui-hidden .bigplay { opacity: 0; }
+  .player.ui-hidden .stage-shade { opacity: 0; }
   .seek {
     position: relative; height: 18px;
     display: flex; align-items: center;
@@ -1157,6 +1177,81 @@
   .qr-status.error { color: var(--danger); }
   .qr-actions { display: flex; gap: 8px; margin-top: 14px; }
 
+  /* ================= 扫码登录弹层（应用内直连 passport，不走网页登录） ================= */
+  .login-mask {
+    position: fixed; inset: 0; z-index: 900;
+    display: flex; align-items: center; justify-content: center;
+    padding: 18px;
+    background: rgba(10, 16, 26, 0.42);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    opacity: 0; pointer-events: none;
+    transition: opacity var(--dur-base) var(--ease-out-quart);
+  }
+  .login-mask.show { opacity: 1; pointer-events: auto; }
+  .login-panel {
+    width: 100%; max-width: 360px;
+    padding: 15px 18px 18px;
+    border-radius: var(--r-lg);
+    background: var(--panel-solid);
+    border: 1px solid var(--line);
+    box-shadow: var(--sh-pop);
+    transform: translateY(8px) scale(0.985);
+    transition: transform var(--dur-base) var(--ease-spring);
+  }
+  .login-mask.show .login-panel { transform: none; }
+  .login-head { display: flex; align-items: center; gap: 10px; }
+  .login-title { font-size: var(--fs-15); font-weight: 800; }
+  .login-x {
+    margin-left: auto; width: 26px; height: 26px; border-radius: 50%;
+    display: grid; place-items: center; flex: none;
+    border: 1px solid var(--line); background: transparent;
+    color: var(--text-2); font-size: var(--fs-12);
+  }
+  .login-x:hover { background: var(--chip-hover); color: var(--text-1); }
+  .login-qr {
+    width: 180px; height: 180px; margin: 14px auto 0;
+    padding: 8px; border-radius: var(--r-md);
+    display: grid; place-items: center; overflow: hidden;
+    background: #fff; border: 1px solid var(--line-2);
+    color: #0f172a; font-size: var(--fs-11); line-height: 1.6; text-align: center;
+  }
+  .login-qr svg, .login-qr img { width: 100%; height: 100%; display: block; }
+  .login-qr .login-qr-url { word-break: break-all; font-size: 10px; opacity: 0.72; }
+  .login-status {
+    margin-top: 12px; text-align: center;
+    font-size: var(--fs-12); font-weight: 600; color: var(--text-2); line-height: 1.6;
+  }
+  .login-status.scanned { color: var(--accent); }
+  .login-status.error { color: var(--danger); }
+  .login-tip { margin-top: 6px; text-align: center; font-size: var(--fs-11); color: var(--text-3); line-height: 1.6; }
+  .login-actions { display: flex; justify-content: center; margin-top: 12px; }
+  .login-actions .btn[hidden] { display: none; }
+
+  /* 头像下拉菜单 */
+  .acct-menu {
+    position: fixed; z-index: 880; min-width: 136px; padding: 6px;
+    border-radius: var(--r-md);
+    background: var(--panel-solid); border: 1px solid var(--line);
+    box-shadow: var(--sh-pop);
+    opacity: 0; pointer-events: none; transform: translateY(-4px);
+    transition: opacity var(--dur-fast) var(--ease-out-quart), transform var(--dur-fast) var(--ease-out-quart);
+  }
+  .acct-menu.show { opacity: 1; pointer-events: auto; transform: none; }
+  .acct-menu-item {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    padding: 8px 10px; border: 0; border-radius: var(--r-sm);
+    background: transparent; color: var(--text-1);
+    font-size: var(--fs-12); font-weight: 600; text-align: left;
+  }
+  .acct-menu-item i { font-size: var(--fs-11); color: var(--text-3); }
+  .acct-menu-item:hover { background: var(--chip-hover); }
+  .acct-menu-item.danger, .acct-menu-item.danger i { color: var(--danger); }
+
+  /* 「我的」页：账号信息 / 投稿缺口说明 */
+  .me-block { margin-top: 16px; padding: 16px 18px; border-radius: var(--r-md); background: var(--panel); border: 1px solid var(--line); }
+  .me-block-title { font-size: var(--fs-13); font-weight: 800; }
+  .me-block-note { margin-top: 6px; font-size: var(--fs-11); line-height: 1.7; color: var(--text-3); }
+
   /* ================= 窄窗适配 ================= */
   @media (max-width: 880px) {
     .titles { display: none; }
@@ -1252,6 +1347,24 @@
   </main>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="login-mask" id="loginMask" aria-hidden="true">
+  <div class="login-panel" role="dialog" aria-modal="true" aria-label="B站扫码登录">
+    <div class="login-head">
+      <div class="login-title">扫码登录 B站</div>
+      <button class="login-x" id="loginClose" aria-label="关闭"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="login-qr" id="loginQr"><span>正在生成二维码…</span></div>
+    <div class="login-status" id="loginStatus">正在生成二维码…</div>
+    <div class="login-tip" id="loginTip">手机 B站 → 我的 → 扫一扫</div>
+    <div class="login-actions"><button class="btn" id="loginRefresh" hidden>刷新二维码</button></div>
+  </div>
+</div>
+
+<div class="acct-menu" id="acctMenu" role="menu" aria-hidden="true">
+  <button class="acct-menu-item" id="acctMe" role="menuitem"><i class="fa-solid fa-user"></i>我的</button>
+  <button class="acct-menu-item danger" id="acctLogout" role="menuitem"><i class="fa-solid fa-right-from-bracket"></i>退出登录</button>
+</div>
 
 <script>
 /* ==========================================================================
@@ -1449,6 +1562,149 @@
   function watchPercent(h) {
     if (!h || !h.duration) return 0;
     return clamp(Math.round((h.t / h.duration) * 100), 0, 100);
+  }
+
+  /* ======================= 主壳桌面小组件桥 =======================
+     约定（只走这几个键，不碰主壳其它存储）：
+       n26:bili:now  {title, up, cover, progress, t, d, playing}  ← 本应用只写
+       n26:bili:reco [{title, bvid}]（≤8 条）                     ← 本应用只写
+       n26:bili:q    搜索关键词  ← 小组件写入，这里消费后删键
+       n26:bili:open bvid        ← 小组件写入，这里消费后删键
+     所有写入都 try/catch：存储被禁用时小组件退化成引导态，不影响播放。 */
+  var NOW_KEY = 'n26:bili:now';
+  var RECO_KEY = 'n26:bili:reco';
+  var Q_KEY = 'n26:bili:q';
+  var OPEN_KEY = 'n26:bili:open';
+
+  var nowCtx = null;      /* { video, title, up, cover } 由 setupPlayer 登记 */
+  var nowAt = 0;          /* 上次写入时间，timeupdate 用它节流到 ~1s */
+  var nowJSON = '';
+  var recoJSON = '';
+  var n26Player = null;   /* { video, toggle, cycleRate, toggleDm } 给 Dock Bar 用 */
+
+  function publishNow(force, stopped) {
+    try {
+      var ctx = nowCtx;
+      if (!ctx || !ctx.video || !ctx.title) return;
+      var el = ctx.video;
+      var d = Number(el.duration);
+      var t = Number(el.currentTime);
+      if (!isFinite(d) || d <= 0) d = 0;
+      if (!isFinite(t) || t < 0) t = 0;
+      var payload = {
+        title: String(ctx.title),
+        up: String(ctx.up || ''),
+        cover: String(ctx.cover || ''),
+        progress: d > 0 ? Math.round(clamp(t / d, 0, 1) * 1000) / 1000 : 0,
+        t: Math.round(t),
+        d: Math.round(d),
+        playing: stopped === true ? false : !el.paused
+      };
+      var json = JSON.stringify(payload);
+      var now = Date.now();
+      if (!force) {
+        if (json === nowJSON) return;
+        if (now - nowAt < 1000) return;
+      }
+      nowAt = now;
+      nowJSON = json;
+      localStorage.setItem(NOW_KEY, json);
+    } catch (e) {}
+  }
+
+  /* 推荐流真的拿到数据才写：同一份列表（JSON 相同）只写一次，不造假数据 */
+  function publishReco(items) {
+    try {
+      if (!items || !items.length) return;
+      var out = [];
+      for (var i = 0; i < items.length && out.length < 8; i++) {
+        var it = items[i];
+        if (!it || !it.bvid || !it.title) continue;
+        out.push({ title: String(it.title), bvid: String(it.bvid) });
+      }
+      if (!out.length) return;
+      var json = JSON.stringify(out);
+      if (json === recoJSON) return;
+      recoJSON = json;
+      localStorage.setItem(RECO_KEY, json);
+    } catch (e) {}
+  }
+
+  function runAppSearch(kw) {
+    kw = String(kw == null ? '' : kw).trim();
+    if (!kw) return;
+    if (topSearch) topSearch.value = kw;
+    navigate({ view: 'search', keyword: kw, nav: 'search', focus: false });
+  }
+
+  function takeCommand(key) {
+    try {
+      var v = localStorage.getItem(key);
+      if (v == null || v === '') return '';
+      localStorage.removeItem(key);
+      return String(v);
+    } catch (e) { return ''; }
+  }
+
+  /* 首屏渲染完成后消费小组件留下的命令：两个键都有时 open 优先 */
+  function consumeCommands() {
+    try {
+      var bvid = takeCommand(OPEN_KEY);
+      var kw = takeCommand(Q_KEY);
+      if (bvid) { openVideo({ bvid: bvid }); return; }
+      if (kw) runAppSearch(kw);
+    } catch (e) {}
+  }
+
+  /* 应用已经开着时小组件再写命令：storage 事件在别的窗口触发，这里补一次消费 */
+  window.addEventListener('storage', function (ev) {
+    try {
+      if (!ev || ev.key == null) return;
+      if (ev.key === OPEN_KEY) {
+        var bvid = takeCommand(OPEN_KEY);
+        if (bvid) openVideo({ bvid: bvid });
+        return;
+      }
+      if (ev.key === Q_KEY) {
+        if (!ev.newValue) return;
+        if (document.visibilityState === 'hidden') return;
+        runAppSearch(ev.newValue);
+      }
+    } catch (e) {}
+  });
+
+  /* ---- Dock Bar：主壳 ui/n26-dockbar.js 回传
+     postMessage({__nexusEvt:true, name:'dockbar', data:{type:'button', id}}) ---- */
+  var DOCK_RATES = [1, 1.25, 1.5, 2, 0.75];
+
+  function runDockAction(id) {
+    if (!id) return;
+    if (id === 'back10' || id === 'fwd10') {
+      var el = (n26Player && n26Player.video) || $('#video', scrollEl);
+      if (!el) return;
+      var d = Number(el.duration);
+      if (!isFinite(d) || d <= 0) return;
+      var step = id === 'back10' ? -10 : 10;
+      el.currentTime = clamp(Number(el.currentTime || 0) + step, 0, d);
+      publishNow(true);
+      return;
+    }
+    if (!n26Player) return;
+    if (id === 'toggle') { n26Player.toggle(); return; }
+    if (id === 'rate') { n26Player.cycleRate(); return; }
+    if (id === 'dm') { n26Player.toggleDm(); return; }
+  }
+
+  function bindDockBar() {
+    window.addEventListener('message', function (ev) {
+      try {
+        var msg = ev && ev.data;
+        if (!msg || msg.__nexusEvt !== true || msg.name !== 'dockbar') return;
+        var p = msg.data || {};
+        if (p.type && p.type !== 'button') return;
+        runDockAction(p.id);
+      } catch (e) {}
+    });
   }
 
   /* ======================= 颜色与封面（仅用于缺图兜底，不生成假视频） ======================= */
@@ -1787,17 +2043,65 @@
   }
 
   /* ======================= B站账号：Worker 扫码登录 =======================
-     二维码与 Cookie 全部在服务端处理；前端只拿会话 token、昵称、头像和公开资料。 */
+     登录走 passport 扫码接口（服务端代理），完全不加载 B站网页登录页，
+     因此不会撞上 Cloudflare 人机校验。前端只保存会话 token，
+     Cookie 由服务端加密保存，后续接口以 ?token= 携带登录态。 */
+  var TOKEN_KEY = 'n26:bili:token';
+  var LEGACY_TOKEN_KEY = 'bili26.token';
+  var POLL_MS = 1600;
+
+  function readToken() {
+    var t = '';
+    try {
+      t = localStorage.getItem(TOKEN_KEY) || '';
+      if (!t) {
+        var old = localStorage.getItem(LEGACY_TOKEN_KEY);
+        if (old) {
+          var parsed = old;
+          try { parsed = JSON.parse(old); } catch (e) {}
+          if (parsed) {
+            t = String(parsed);
+            localStorage.setItem(TOKEN_KEY, t);
+            localStorage.removeItem(LEGACY_TOKEN_KEY);
+          }
+        }
+      }
+    } catch (e) { t = ''; }
+    return String(t || '');
+  }
+
+  function writeToken(t) {
+    try {
+      if (t) localStorage.setItem(TOKEN_KEY, String(t));
+      else {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(LEGACY_TOKEN_KEY);
+      }
+    } catch (e) {}
+  }
+
+  var loginMask = document.getElementById('loginMask');
+  var loginQr = document.getElementById('loginQr');
+  var loginStatus = document.getElementById('loginStatus');
+  var loginTip = document.getElementById('loginTip');
+  var loginRefresh = document.getElementById('loginRefresh');
+  var loginClose = document.getElementById('loginClose');
+  var acctMenu = document.getElementById('acctMenu');
+  var acctMe = document.getElementById('acctMe');
+  var acctLogout = document.getElementById('acctLogout');
+
   var AUTH = {
-    token: String(LS.get('token', '') || ''),
+    token: readToken(),
     status: 'anonymous',        /* checking / anonymous / logged */
     profile: null,
     at: 0,
-    qr: null,                   /* { token, url, svg } */
-    qrState: '',                /* '' / loading / waiting / scanned / expired / error */
+    qrToken: '',
+    qrSvg: '',
+    qrUrl: '',
+    qrState: 'idle',            /* idle / loading / waiting / scanned / expired / error */
     qrMsg: '',
     qrBusy: false,
-    qrRetried: false,
+    modalOpen: false,
     pollTimer: 0,
     pollBusy: false,
     pollFails: 0
@@ -1805,11 +2109,12 @@
   AUTH.status = AUTH.token ? 'checking' : 'anonymous';
 
   var QR_TEXT = {
+    idle: '正在生成二维码…',
     loading: '正在生成二维码…',
-    waiting: '等待扫码：用「哔哩哔哩」App 扫一扫（二维码 180 秒内有效）',
-    scanned: '已扫码，请在手机上点「确认登录」',
-    expired: '二维码已过期（超过 180 秒），请点「换一张」',
-    error: '二维码不可用'
+    waiting: '请用 B 站手机客户端扫码',
+    scanned: '已扫码，请在手机上确认',
+    expired: '二维码已过期',
+    error: '扫码服务暂时不可用，稍后再试'
   };
 
   function loggedProfile() {
@@ -1880,8 +2185,10 @@
 
   function stopPoll() {
     if (AUTH.pollTimer) { clearInterval(AUTH.pollTimer); AUTH.pollTimer = 0; }
+    AUTH.pollBusy = false;
   }
 
+  /* 启动时静默校验 token：失败就直接回到未登录态，不弹任何错误框 */
   function restoreLogin() {
     if (!AUTH.token) { AUTH.status = 'anonymous'; renderAccountBtn(); return; }
     AUTH.status = 'checking';
@@ -1891,14 +2198,16 @@
         AUTH.at = Number(d.at || 0);
         AUTH.status = 'logged';
       } else {
+        AUTH.profile = null;
         AUTH.token = '';
-        LS.set('token', null);
+        writeToken('');
         AUTH.status = 'anonymous';
       }
-    }).catch(function (e) {
+    }).catch(function () {
+      AUTH.profile = null;
+      AUTH.token = '';
+      writeToken('');
       AUTH.status = 'anonymous';
-      AUTH.qrState = 'error';
-      AUTH.qrMsg = '登录态校验失败：' + ((e && e.message) || '网络错误');
     }).then(function () {
       renderAccountBtn();
       if (S.route) updateChrome(S.route);
@@ -1906,135 +2215,176 @@
     });
   }
 
-  function paintQrState() {
-    var box = $('#qrStatus', scrollEl);
-    if (box) {
-      box.className = 'qr-status' +
-        (AUTH.qrState === 'scanned' ? ' scanned' : '') +
-        (AUTH.qrState === 'error' ? ' error' : '');
-      box.textContent = AUTH.qrMsg || QR_TEXT[AUTH.qrState] || '等待扫码';
-    }
-    var rf = $('#qrRefresh', scrollEl);
-    if (rf) rf.textContent = AUTH.qr ? '换一张' : '重新生成';
+  /* ---------- 扫码登录面板（应用内，1.6s 轮询） ---------- */
+  function qrText(st) {
+    if (st === 'waiting') return '请用 B 站手机客户端扫码';
+    if (st === 'scanned') return '已扫码，请在手机上确认';
+    if (st === 'expired') return '二维码已过期';
+    return QR_TEXT[st] || '等待扫码';
   }
 
-  function refreshQr(isRetry) {
-    if (AUTH.qrBusy) return;
-    if (!isRetry) AUTH.qrRetried = false;
+  function paintLogin() {
+    if (loginQr) {
+      var stamp = AUTH.qrToken + '|' + AUTH.qrState;
+      if (loginQr.getAttribute('data-stamp') !== stamp) {
+        loginQr.setAttribute('data-stamp', stamp);
+        if (AUTH.qrSvg) loginQr.innerHTML = AUTH.qrSvg;
+        else if (AUTH.qrUrl) {
+          loginQr.innerHTML = '<span class="login-qr-url">二维码图像不可用<br>请在浏览器打开：' + esc(AUTH.qrUrl) + '</span>';
+        } else if (AUTH.qrState === 'expired') loginQr.innerHTML = '<span>二维码已过期<br>请点下方刷新</span>';
+        else if (AUTH.qrState === 'error') loginQr.innerHTML = '<span>二维码不可用</span>';
+        else loginQr.innerHTML = '<span>正在生成二维码…</span>';
+      }
+    }
+    if (loginStatus) {
+      loginStatus.className = 'login-status' +
+        (AUTH.qrState === 'scanned' ? ' scanned' : '') +
+        (AUTH.qrState === 'error' ? ' error' : '');
+      loginStatus.textContent = AUTH.qrMsg || qrText(AUTH.qrState);
+    }
+    if (loginTip) {
+      loginTip.textContent = AUTH.qrState === 'scanned'
+        ? '在手机上点「确认登录」后，这里会自动完成'
+        : '手机 B站 → 我的 → 扫一扫';
+    }
+    if (loginRefresh) loginRefresh.hidden = !(AUTH.qrState === 'expired' || AUTH.qrState === 'error');
+  }
+
+  function openLogin() {
+    hideAcctMenu();
+    if (AUTH.status === 'logged') return;
+    if (loginMask) {
+      loginMask.classList.add('show');
+      loginMask.setAttribute('aria-hidden', 'false');
+    }
+    AUTH.modalOpen = true;
+    if (AUTH.qrToken && (AUTH.qrState === 'waiting' || AUTH.qrState === 'scanned')) {
+      paintLogin();
+      startPoll(AUTH.qrToken);
+      return;
+    }
+    loadQr();
+  }
+
+  function closeLogin() {
+    AUTH.modalOpen = false;
     stopPoll();
+    if (loginMask) {
+      loginMask.classList.remove('show');
+      loginMask.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  function loadQr() {
+    if (AUTH.qrBusy) return;
     AUTH.qrBusy = true;
-    AUTH.qr = null;
+    stopPoll();
+    AUTH.qrToken = '';
+    AUTH.qrSvg = '';
+    AUTH.qrUrl = '';
     AUTH.qrState = 'loading';
-    AUTH.qrMsg = isRetry ? '中转限流，正在重试…' : QR_TEXT.loading;
-    if (S.route && S.route.view === 'me') viewMe();
-    apiNoCache('/api/bili/login/qrcode', null, 32000).then(function (d) {
-      if (!d || !d.token || !d.svg) throw new Error('接口没有返回二维码');
-      AUTH.qr = { token: d.token, url: d.url || '', svg: d.svg, at: Date.now() };
-      AUTH.qrState = 'waiting';
-      AUTH.qrMsg = QR_TEXT.waiting;
+    AUTH.qrMsg = QR_TEXT.loading;
+    AUTH.pollFails = 0;
+    paintLogin();
+    apiNoCache('/api/bili/login/qrcode', null, 30000).then(function (d) {
       AUTH.qrBusy = false;
-      if (S.route && S.route.view === 'me') viewMe();
-      startPoll(d.token);
+      if (!d || !d.token) throw new Error('接口没有返回 token');
+      AUTH.qrToken = String(d.token);
+      AUTH.qrSvg = d.svg ? String(d.svg) : '';
+      AUTH.qrUrl = d.url ? String(d.url) : '';
+      AUTH.qrState = 'waiting';
+      AUTH.qrMsg = qrText('waiting');
+      if (!AUTH.modalOpen) return;
+      paintLogin();
+      startPoll(AUTH.qrToken);
     }).catch(function (e) {
       AUTH.qrBusy = false;
-      var msg = (e && e.message) || '网络错误';
-      if (!AUTH.qrRetried) {
-        AUTH.qrRetried = true;
-        AUTH.qrState = 'loading';
-        AUTH.qrMsg = '二维码生成失败，正在自动重试…';
-        if (S.route && S.route.view === 'me') paintQrState();
-        setTimeout(function () { refreshQr(true); }, 1600);
-        return;
-      }
+      if (!AUTH.modalOpen) return;
       AUTH.qrState = 'error';
-      AUTH.qrMsg = '二维码生成失败：' + msg;
-      if (S.route && S.route.view === 'me') viewMe();
+      AUTH.qrMsg = '扫码服务暂时不可用，稍后再试' + (e && e.message ? '（' + e.message + '）' : '');
+      paintLogin();
     });
   }
 
   function startPoll(token) {
     stopPoll();
+    if (!token) return;
     AUTH.pollFails = 0;
-    AUTH.pollTimer = setInterval(function () { pollOnce(token); }, 4000);
+    AUTH.pollTimer = setInterval(function () { pollOnce(token); }, POLL_MS);
     pollOnce(token);
   }
 
   function pollOnce(token) {
-    if (!AUTH.qr || AUTH.qr.token !== token || AUTH.pollBusy) return;
+    if (!AUTH.modalOpen || !token || token !== AUTH.qrToken || AUTH.pollBusy) return;
     AUTH.pollBusy = true;
-    apiNoCache('/api/bili/login/poll', { token: token }, 15000).then(function (d) {
+    apiNoCache('/api/bili/login/poll', { token: token }, 12000).then(function (d) {
       AUTH.pollBusy = false;
       AUTH.pollFails = 0;
-      if (!AUTH.qr || AUTH.qr.token !== token) return;
+      if (!AUTH.modalOpen || token !== AUTH.qrToken) return;
       var st = (d && d.status) || 'waiting';
-      if (st === 'ok') {
-        stopPoll();
-        AUTH.qr = null;
-        AUTH.token = token;
-        LS.set('token', token);
-        AUTH.profile = (d && d.profile) || {};
-        AUTH.at = Number((d && d.at) || Date.now());
-        /* 不急着宣布成功：先回读 /login/me，确认会话确实存住了 */
-        AUTH.status = 'checking';
-        AUTH.qrState = 'checking';
-        AUTH.qrMsg = '扫码已通过，正在回读登录态…';
-        if (S.route && S.route.view === 'me') viewMe();
-        apiNoCache('/api/bili/login/me', { token: token }).then(function (m) {
-          if (m && m.status === 'ok') {
-            AUTH.status = 'logged';
-            AUTH.profile = m.profile || AUTH.profile || {};
-            AUTH.at = Number(m.at || AUTH.at || 0);
-            AUTH.qrState = '';
-            AUTH.qrMsg = '';
-            renderAccountBtn();
-            var nm = AUTH.profile && AUTH.profile.name;
-            toast(nm ? '已登录：' + nm : '登录已生效，但昵称/头像没回读（上游 412 限流）');
-            if (S.route) updateChrome(S.route);
-            if (S.route && S.route.view === 'me') viewMe();
-          } else {
-            AUTH.status = 'anonymous';
-            AUTH.token = '';
-            LS.set('token', null);
-            AUTH.qrState = 'error';
-            AUTH.qrMsg = 'B站已确认扫码通过，但服务端会话没存住（存储写入失败），请重新生成二维码再试';
-            renderAccountBtn();
-            if (S.route && S.route.view === 'me') viewMe();
-          }
-        }).catch(function (e) {
-          AUTH.status = 'anonymous';
-          AUTH.qrState = 'error';
-          AUTH.qrMsg = '扫码已通过，但回读登录态失败：' + ((e && e.message) || '网络错误');
-          if (S.route && S.route.view === 'me') viewMe();
-        });
-        return;
-      }
-      AUTH.qrState = st === 'scanned' ? 'scanned' : (st === 'expired' ? 'expired' : 'waiting');
-      AUTH.qrMsg = st === 'waiting'
-        ? QR_TEXT.waiting
-        : ((d && d.message) || QR_TEXT[AUTH.qrState] || '等待扫码');
+      if (st === 'ok') { confirmLogin(token); return; }
       if (st === 'expired') {
         stopPoll();
-        AUTH.qr = null;
+        AUTH.qrState = 'expired';
+        AUTH.qrMsg = '二维码已过期，请刷新';
+        paintLogin();
+        return;
       }
-      if (S.route && S.route.view === 'me') {
-        if (AUTH.qr) paintQrState();
-        else viewMe();
+      if (st === 'error') {
+        stopPoll();
+        AUTH.qrState = 'error';
+        AUTH.qrMsg = (d && d.message) || '扫码服务暂时不可用，稍后再试';
+        paintLogin();
+        return;
       }
-    }).catch(function (e) {
+      AUTH.qrState = st === 'scanned' ? 'scanned' : 'waiting';
+      AUTH.qrMsg = qrText(AUTH.qrState);
+      paintLogin();
+    }).catch(function () {
       AUTH.pollBusy = false;
-      if (!AUTH.qr || AUTH.qr.token !== token) return;
+      if (!AUTH.modalOpen || token !== AUTH.qrToken) return;
       AUTH.pollFails += 1;
       if (AUTH.pollFails >= 5) {
         stopPoll();
-        AUTH.qr = null;
         AUTH.qrState = 'error';
-        AUTH.qrMsg = '扫码状态查询失败：' + ((e && e.message) || '网络错误');
-        if (S.route && S.route.view === 'me') viewMe();
+        AUTH.qrMsg = '扫码服务暂时不可用，稍后再试';
+        paintLogin();
         return;
       }
-      AUTH.qrState = 'waiting';
-      AUTH.qrMsg = '网络波动，正在重试（' + AUTH.pollFails + '/5）…';
-      if (S.route && S.route.view === 'me') paintQrState();
+      AUTH.qrMsg = '网络不稳定，正在重试…';
+      paintLogin();
+    });
+  }
+
+  /* ok 之后先回读 /me 确认会话确实落库，再写本地 token */
+  function confirmLogin(token) {
+    stopPoll();
+    AUTH.qrState = 'waiting';
+    AUTH.qrMsg = '已扫码通过，正在确认登录…';
+    paintLogin();
+    apiNoCache('/api/bili/login/me', { token: token }, 15000).then(function (m) {
+      if (!m || m.status !== 'ok' || !m.profile) throw new Error('会话没有落库');
+      AUTH.token = token;
+      writeToken(token);
+      AUTH.profile = m.profile || {};
+      AUTH.at = Number(m.at || Date.now());
+      AUTH.status = 'logged';
+      AUTH.qrToken = '';
+      AUTH.qrSvg = '';
+      AUTH.qrUrl = '';
+      AUTH.qrState = 'idle';
+      AUTH.qrMsg = '';
+      closeLogin();
+      renderAccountBtn();
+      var nm = AUTH.profile && AUTH.profile.name;
+      toast(nm ? '已登录：' + nm : '已登录');
+      if (S.route) updateChrome(S.route);
+      if (S.route && S.route.view === 'me') viewMe();
+    }).catch(function () {
+      stopPoll();
+      AUTH.qrState = 'error';
+      AUTH.qrMsg = '登录没生效（服务端会话写入失败），请刷新二维码重试';
+      paintLogin();
     });
   }
 
@@ -2045,16 +2395,41 @@
     AUTH.profile = null;
     AUTH.at = 0;
     AUTH.status = 'anonymous';
-    AUTH.qr = null;
-    AUTH.qrState = '';
+    AUTH.qrToken = '';
+    AUTH.qrSvg = '';
+    AUTH.qrUrl = '';
+    AUTH.qrState = 'idle';
     AUTH.qrMsg = '';
     AUTH.qrBusy = false;
-    LS.set('token', null);
+    writeToken('');
+    hideAcctMenu();
+    if (AUTH.modalOpen) closeLogin();
     renderAccountBtn();
-    if (t) apiNoCache('/api/bili/login/logout', { token: t }).catch(function () {});
+    /* 服务端只清这个 token 的会话，失败也不影响本地退出 */
+    if (t) apiNoCache('/api/bili/login/logout', { token: t }, 10000).catch(function () {});
     if (S.route && S.route.view === 'me') viewMe();
     else if (S.route) updateChrome(S.route);
-    toast('已退出 B站账号');
+    toast('已退出登录');
+  }
+
+  /* ---------- 头像菜单 ---------- */
+  function hideAcctMenu() {
+    if (!acctMenu) return;
+    acctMenu.classList.remove('show');
+    acctMenu.setAttribute('aria-hidden', 'true');
+  }
+
+  function toggleAcctMenu() {
+    if (!acctMenu || !acctBtn) return;
+    if (acctMenu.classList.contains('show')) { hideAcctMenu(); return; }
+    var r = acctBtn.getBoundingClientRect();
+    acctMenu.classList.add('show');
+    acctMenu.setAttribute('aria-hidden', 'false');
+    var w = acctMenu.offsetWidth || 140;
+    var left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8));
+    var top = Math.min(r.bottom + 6, window.innerHeight - acctMenu.offsetHeight - 8);
+    acctMenu.style.left = left + 'px';
+    acctMenu.style.top = Math.max(8, top) + 'px';
   }
 
   function meLoggedHTML(p) {
@@ -2076,28 +2451,21 @@
       '<div class="me-mid">' + mid + ' · 扫码登录</div>' +
       (p.sign ? '<div class="me-sign">' + esc(p.sign) + '</div>' : '') +
       '</div></div>' + stats + incomplete +
+      '<div class="me-block">' +
+      '<div class="me-block-title">我的投稿</div>' +
+      '<div class="me-block-note">个人投稿需要后端支持：当前 Worker 只提供 feed / search / video / play / related / danmaku / subtitle 与 login/* 接口，没有 UP 主投稿（space arc / search）端点，所以这里只展示账号信息，不编造作品列表。</div>' +
+      '</div>' +
       '<div class="me-actions"><button class="btn danger" id="meLogout">退出登录</button></div>' +
       '<p class="me-note">Cookie 加密保存在服务端，按会话 token 隔离、7 天短期有效；浏览器只保存 token，不接触 Cookie 明文。</p>';
   }
 
   function meAnonHTML() {
-    var box;
-    if (AUTH.qr && AUTH.qr.svg) box = AUTH.qr.svg;
-    else if (AUTH.qrBusy || AUTH.qrState === 'loading') box = '<span>生成中…</span>';
-    else if (AUTH.qrState === 'error') box = '<span>生成失败</span>';
-    else if (AUTH.qrState === 'expired') box = '<span>二维码已过期</span>';
-    else box = '<span>准备生成…</span>';
-    var st = AUTH.qrMsg || QR_TEXT[AUTH.qrState] || '等待扫码';
-    return '<div class="qr-card">' +
-      '<div class="qr-box">' + box + '</div>' +
-      '<div class="qr-side">' +
-      '<div class="qr-title">用哔哩哔哩 App 扫码登录</div>' +
-      '<div class="qr-desc">手机 B站 → 我的 → 扫一扫。二维码在服务端生成，登录成功后 Cookie 由服务端加密保存，前端只接收登录态、昵称和头像。</div>' +
-      '<div class="qr-status' + (AUTH.qrState === 'scanned' ? ' scanned' : '') +
-      (AUTH.qrState === 'error' ? ' error' : '') + '" id="qrStatus">' + esc(st) + '</div>' +
-      '<div class="qr-actions"><button class="btn" id="qrRefresh">' + (AUTH.qr ? '换一张' : '重新生成') + '</button></div>' +
-      '</div></div>' +
-      '<p class="me-note">B站对 Cloudflare 出口可能返回 412，Worker 会先直连、失败再走中转；若仍失败，状态栏会显示具体错误，不会用假账号兜底。</p>';
+    return '<div class="me-block">' +
+      '<div class="me-block-title">还没登录 B站账号</div>' +
+      '<div class="me-block-note">用手机 B站 App 扫一扫即可登录，不走网页登录页，不会遇到 Cloudflare 人机校验。登录后头像、昵称、UID 会显示在这里。</div>' +
+      '<div class="me-actions"><button class="btn primary" id="meLogin">扫码登录</button></div>' +
+      '</div>' +
+      '<p class="me-note">二维码与 Cookie 全部由服务端处理：浏览器只保存会话 token，不接触 Cookie 明文。</p>';
   }
 
   function viewMe() {
@@ -2109,9 +2477,8 @@
       '</div>';
     var body;
     if (AUTH.status === 'checking') {
-      body = '<div class="qr-card"><div class="qr-box"><span>校验中…</span></div>' +
-        '<div class="qr-side"><div class="qr-title">正在校验登录态</div>' +
-        '<div class="qr-desc">从服务端读取加密会话，确认 token 是否仍然有效…</div></div></div>';
+      body = '<div class="me-block"><div class="me-block-title">正在校验登录态…</div>' +
+        '<div class="me-block-note">从服务端读取加密会话，确认 token 是否仍然有效。</div></div>';
     } else if (AUTH.status === 'logged') {
       body = meLoggedHTML(AUTH.profile || {});
     } else {
@@ -2120,9 +2487,8 @@
     scrollEl.innerHTML = '<div class="view">' + head + body + '</div>';
     var lg = $('#meLogout', scrollEl);
     if (lg) lg.addEventListener('click', logoutBili);
-    var rf = $('#qrRefresh', scrollEl);
-    if (rf) rf.addEventListener('click', refreshQr);
-    if (AUTH.status === 'anonymous' && !AUTH.qr && !AUTH.qrBusy && !AUTH.qrState) refreshQr();
+    var lb = $('#meLogin', scrollEl);
+    if (lb) lb.addEventListener('click', function () { openLogin(); });
   }
 
   /* ======================= 路由 ======================= */
@@ -2499,6 +2865,8 @@
 
   function paintFeed(route, st, token) {
     var hmap = progressMap();
+    /* 列表真的拿到数据才同步给桌面小组件（骨架屏 / 错误态不写） */
+    if (st.items.length) publishReco(st.items);
     var isHome = route.kind === 'recommend';
     var heroItem = (isHome && st.items.length) ? st.items[0] : null;
     var list = heroItem ? st.items.slice(1) : st.items;
@@ -3237,6 +3605,7 @@
       '<button class="cbtn wide" id="qualityBtn" title="清晰度">自动</button>' +
       '<button class="cbtn wide" id="speedBtn" title="播放速度">1.0x</button>' +
       '<button class="cbtn wide" id="dmBtn" title="弹幕开关">弹幕</button>' +
+      '<button class="cbtn wide" id="capBtn" title="字幕开关">字幕</button>' +
       '<button class="cbtn" id="fsBtn" title="全屏"><i class="fa-solid fa-expand"></i></button>' +
       '</div></div>' +
       '<div class="pmenu" id="qualityMenu"></div>' +
@@ -3345,12 +3714,52 @@
       });
     }
 
+    /* 详情数据（bvid / cid）就绪后再拉字幕；失败静默，离线照常播放 */
+    loadSubtitle(bvid || detail.bvid, activeCid);
     setupPlayer(detail, play, activeCid);
   }
 
   /* ======================= 播放器 ======================= */
   var fsChangeHandler = null;
   var menuDocHandler = null;
+  var subCues = [];
+  var lastCaption = '';
+  var subtitleToken = 0;
+  var capOn = true;
+
+  /* ---- 字幕：复用系统旁白（主壳 ui/n26-caption-bridge.js → N26A11Y.showCaption）。
+     这里只拉 cue 并把「当前句」postMessage 出去，样式/深浅色/字幕开关全部由主壳负责，
+     bili 内不另写一套字幕 CSS。接口失败静默，保证离线可用。 ---- */
+  function loadSubtitle(bvid, cid) {
+    subCues = [];
+    lastCaption = '';
+    var myToken = ++subtitleToken;
+    if (!bvid || !cid) return;
+    apiGet('/api/bili/subtitle', { bvid: bvid, cid: cid }, 12000).then(function (d) {
+      if (myToken !== subtitleToken) return;
+      var raw = [];
+      if (d) {
+        if (Array.isArray(d.items)) raw = d.items;
+        else if (Array.isArray(d.subtitles)) raw = d.subtitles;
+        else if (Array.isArray(d.body)) raw = d.body;
+        else if (Array.isArray(d)) raw = d;
+      }
+      var cues = [];
+      raw.forEach(function (it) {
+        if (!it) return;
+        var from = Number(it.from != null ? it.from : it.start);
+        var to = Number(it.to != null ? it.to : it.end);
+        var text = String(it.content != null ? it.content : (it.text != null ? it.text : '')).trim();
+        if (!isFinite(from) || !text) return;
+        if (!isFinite(to) || to <= from) to = from + 3;
+        cues.push({ from: from, to: to, text: text });
+      });
+      cues.sort(function (a, b) { return a.from - b.from; });
+      subCues = cues;
+    }).catch(function () {
+      if (myToken === subtitleToken) subCues = [];
+    });
+  }
 
   function clock(s) {
     s = Math.max(0, Math.floor(Number(s) || 0));
@@ -3361,6 +3770,8 @@
   }
 
   function setupPlayer(detail, play, activeCid) {
+    /* 换集 / 切视频会重建播放器，别让上一个播放器的「应用内全屏」把滚动锁住 */
+    if (scrollEl) scrollEl.style.overflow = '';
     var stage = $('#stage', scrollEl);
     var video = $('#video', scrollEl);
     var poster = $('#poster', scrollEl);
@@ -3383,7 +3794,17 @@
     var timeText = $('#timeText', scrollEl);
     var dmLayer = $('#dmLayer', scrollEl);
     var dmBtn = $('#dmBtn', scrollEl);
+    var capBtn = $('#capBtn', scrollEl);
     if (!stage || !video) return;
+
+    /* 换集 / 切清晰度都会重建播放器：小组件与 Dock Bar 的指针跟着换 */
+    nowCtx = {
+      video: video,
+      title: detail.title || '',
+      up: (detail.owner && detail.owner.name) || detail.author || '',
+      cover: detail.cover ? imgURL(detail.cover) : ''
+    };
+    publishNow(true);
 
     var qualities = [{ id: '', label: '自动' }].concat(play.qualities || []);
     var currentQ = play.current || '';
@@ -3404,8 +3825,9 @@
     updateQBtn();
     updateSpeedBtn();
 
-    /* ---- 弹幕：默认开启，开关写入 bili26.dm，失败时如实提示，不伪造 ---- */
-    var dmOn = LS.get('dm', true) !== false;
+    /* ---- 弹幕：默认开启，开关写入 bili26.dm；上游不可达时用本地兜底让弹幕层滚动 ---- */
+    var v = LS.get('dm', true);
+    var dmOn = v !== false && v !== 'false' && v !== 0;
     var dmItems = [];
     var dmLoaded = false;
     var dmLoading = false;
@@ -3471,13 +3893,34 @@
       }
     }
 
+    /* 上游不可达时的本地兜底，不伪造实时在线弹幕：只铺几条中性观感文字（含当前视频标题），
+       让弹幕层在离线 / 风控时仍有内容滚动，避免整块空白。元素结构与接口弹幕一致 {t,x,c,shown}。 */
+    function localDm() {
+      var title = String(detail.title || '这个视频');
+      var words = ['来了', '这个不错', '前方高能', '画面好赞', '打卡',
+        '收藏了', 'UP 主加油', '值得一看', '正好刷到', '看完啦'];
+      var times = [0, 1.2, 2.6, 4.2, 6, 8, 10.5, 13, 16, 20];
+      var out = [];
+      words.forEach(function (w, i) {
+        out.push({ t: times[i], x: w, c: 16777215, shown: false });
+      });
+      out.push({ t: 2, x: '「' + title.slice(0, 24) + '」打卡', c: 16777215, shown: false });
+      return out;
+    }
+
+    function useLocalDm() {
+      dmItems = localDm();
+      dmItems.sort(function (a, b) { return a.t - b.t; });
+      dmLoaded = true;
+      dmUnavailable = false;
+      dmLoading = false;
+      paintDm();
+      dmTick();
+    }
+
     function loadDm() {
       if (!dmOn || dmLoaded || dmLoading) return;
-      if (!cid) {
-        dmUnavailable = true;
-        paintDm();
-        return;
-      }
+      if (!cid) { useLocalDm(); return; }
       dmLoading = true;
       apiGet('/api/bili/danmaku', { cid: cid }, 15000).then(function (d) {
         dmLoading = false;
@@ -3490,31 +3933,33 @@
           dmItems.push({ t: at, x: txt.slice(0, 80), c: Number(it.c) || 16777215, shown: false });
         });
         dmItems.sort(function (a, b) { return a.t - b.t; });
+        if (!dmItems.length) { useLocalDm(); return; }
         dmLoaded = true;
-        dmUnavailable = !dmItems.length;
+        dmUnavailable = false;
         paintDm();
-        if (dmUnavailable) toast('这个视频暂时没有拉到弹幕');
+        dmTick();
       }).catch(function () {
-        dmLoading = false;
-        dmUnavailable = true;
-        paintDm();
-        toast('弹幕接口暂不可用，可切到 iframe 模式观看');
+        useLocalDm();
       });
+    }
+
+    function toggleDm() {
+      dmOn = !dmOn;
+      LS.set('dm', dmOn);
+      if (!dmOn) clearDm();
+      paintDm();
+      if (dmOn) {
+        toast('弹幕已开启');
+        loadDm();
+      } else {
+        toast('弹幕已关闭');
+      }
     }
 
     if (dmBtn) {
       dmBtn.addEventListener('click', function (e) {
         e.stopPropagation();
-        dmOn = !dmOn;
-        LS.set('dm', dmOn);
-        if (!dmOn) clearDm();
-        paintDm();
-        if (dmOn) {
-          toast('弹幕已开启');
-          loadDm();
-        } else {
-          toast('弹幕已关闭');
-        }
+        toggleDm();
       });
     }
     resetDmLanes();
@@ -3530,6 +3975,21 @@
     }
 
     function updateSpeedBtn() { sBtn.textContent = rateLabel(rate); }
+
+    /* Dock Bar 的 rate：1 → 1.25 → 1.5 → 2 → 0.75 → 1 轮换 */
+    function cycleRate() {
+      var idx = -1;
+      for (var i = 0; i < DOCK_RATES.length; i++) {
+        if (DOCK_RATES[i] === rate) idx = i;
+      }
+      var next = DOCK_RATES[(idx + 1) % DOCK_RATES.length];
+      rate = next;
+      video.playbackRate = next;
+      LS.set('rate', next);
+      updateSpeedBtn();
+      buildSpeedMenu();
+      toast('播放速度 ' + rateLabel(next));
+    }
 
     function updateVolIcon() {
       var muted = video.muted || video.volume === 0;
@@ -3633,15 +4093,41 @@
       }
     }
 
+    /* 应用内嵌入全屏：只切 class，不调用 requestFullscreen（那会把元素提到浏览器顶层盖住桌面）。
+       iframe 内 position:fixed 天然只铺满应用窗口。 */
     function toggleFs() {
-      if (document.fullscreenElement) {
-        document.exitFullscreen().catch(function () {});
-      } else if (stage.requestFullscreen) {
-        stage.requestFullscreen().catch(function () { toast('当前环境不支持全屏'); });
+      var on = !stage.classList.contains('in-window-full');
+      /* ★ v2.10.2：进全屏时把播放器**搬到 body 下**。
+         原来只加 .in-window-full（position:fixed; z-index:9999），但它的祖先
+         `.player-col` 是 `position: sticky` —— sticky 会新建层叠上下文，
+         于是 fixed 的播放器被关在这个上下文里，z-index 再大也压不过
+         后面 DOM 里的 `aside`（相关推荐）和左侧 `.rail`。
+         表现就是「看视频时推荐页的封面还浮在画面上」。
+         搬到 body 后，它的包含块就是视口、层叠上下文是根，谁也压不过。 */
+      if (on) {
+        if (!stage.__n26Home) {
+          stage.__n26Home = { parent: stage.parentNode, next: stage.nextSibling };
+        }
+        if (document.body && stage.parentNode !== document.body) document.body.appendChild(stage);
+        stage.classList.add('in-window-full');
+        document.body.classList.add('bili-iwf');
       } else {
-        toast('当前环境不支持全屏');
+        stage.classList.remove('in-window-full');
+        document.body.classList.remove('bili-iwf');
+        var home = stage.__n26Home;
+        if (home && home.parent) {
+          try { home.parent.insertBefore(stage, home.next || null); } catch (e) { home.parent.appendChild(stage); }
+        }
+        stage.__n26Home = null;
       }
+      try { fsBtn.querySelector('i').className = on ? 'fa-solid fa-compress' : 'fa-solid fa-expand'; } catch (e) {}
+      if (scrollEl) scrollEl.style.overflow = on ? 'hidden' : '';
+      if (on) { try { showUI(); } catch (e) { } }
+      /* 应用内全屏时让宿主的 Dock Bar 也让开：视频画面里不该有任何系统条 */
+      try { parent.postMessage({ __n26DockBarVisible: !on }, '*'); } catch (e) { }
     }
+    /* Esc 在 setupPlayer 外面，拿不到闭包里的 stage/fsBtn，这里挂一个统一出口 */
+    window.__n26BiliToggleFs = toggleFs;
 
     function closeMenus() {
       qualityMenu.classList.remove('show');
@@ -3720,6 +4206,26 @@
     }
 
     /* --- 事件绑定 --- */
+    /* 控制条自动隐藏：鼠标一动就显示，静止 1.8s 且未拖拽 / 未开菜单时自动淡出。
+       暂停时 showUI 不启动计时器，控制条常驻，方便点按钮。 */
+    var uiHideTimer = null;
+    function showUI() {
+      stage.classList.remove('ui-hidden');
+      clearTimeout(uiHideTimer);
+      if (!video.paused) {
+        uiHideTimer = setTimeout(function () {
+          if (!dragging && !qualityMenu.classList.contains('show') && !speedMenu.classList.contains('show')) {
+            stage.classList.add('ui-hidden');
+          }
+        }, 1800);
+      }
+    }
+    stage.addEventListener('pointermove', showUI);
+    stage.addEventListener('pointerenter', showUI);
+    stage.addEventListener('pointerleave', function () {
+      if (!video.paused) stage.classList.add('ui-hidden');
+    });
+
     if (play.url) {
       video.src = play.url;
     } else {
@@ -3741,26 +4247,47 @@
         toast('已从上次 ' + clock(h.t) + ' 继续播放');
         updateSeek();
       }
+      publishNow(true);
     });
     video.addEventListener('durationchange', updateSeek);
-    video.addEventListener('timeupdate', function () { updateSeek(); saveProgress(false); dmTick(); });
+    video.addEventListener('timeupdate', function () {
+      updateSeek(); saveProgress(false); dmTick();
+      publishNow(false);
+      if (capOn) {
+        var t = video.currentTime;
+        var cur = '';
+        for (var si = 0; si < subCues.length; si++) {
+          if (t >= subCues[si].from && t <= subCues[si].to) { cur = subCues[si].text; break; }
+          if (subCues[si].from > t) break;
+        }
+        if (cur !== lastCaption) {
+          lastCaption = cur;
+          try { parent.postMessage({ __n26Caption: cur }, '*'); } catch (e) {}
+        }
+      }
+    });
     video.addEventListener('progress', updateSeek);
     video.addEventListener('playing', markStart);
     video.addEventListener('play', function () {
       updatePlayIcon();
       if (dmLayer) dmLayer.classList.remove('paused');
+      dmTick();
+      showUI();
+      publishNow(true);
     });
     video.addEventListener('pause', function () {
       updatePlayIcon();
       saveProgress(true);
       if (dmLayer) dmLayer.classList.add('paused');
+      showUI();
+      publishNow(true);
     });
     video.addEventListener('seeking', function () {
       clearDm();
       dmItems.forEach(function (d) { d.shown = d.t < video.currentTime; });
     });
-    video.addEventListener('seeked', dmTick);
-    video.addEventListener('ended', function () { saveProgress(true); updatePlayIcon(); });
+    video.addEventListener('seeked', function () { dmTick(); showUI(); });
+    video.addEventListener('ended', function () { saveProgress(true); updatePlayIcon(); publishNow(true); });
     video.addEventListener('error', function () {
       showErr('视频加载失败：播放地址不可用或代理异常，点重试重新获取');
     });
@@ -3830,6 +4357,17 @@
       if (!open) speedMenu.classList.add('show');
     });
     fsBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleFs(); });
+    if (capBtn) {
+      capBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        capOn = !capOn;
+        capBtn.classList.toggle('dm-off', !capOn);
+        if (!capOn) {
+          lastCaption = '';
+          try { parent.postMessage({ __n26Caption: '' }, '*'); } catch (e2) {}
+        }
+      });
+    }
 
     buildQualityMenu();
     buildSpeedMenu();
@@ -3849,8 +4387,16 @@
     };
     document.addEventListener('fullscreenchange', fsChangeHandler);
 
-    window.addEventListener('pagehide', function () { saveProgress(true); });
-    window.addEventListener('beforeunload', function () { saveProgress(true); });
+    /* Dock Bar 复用现有播放器函数 */
+    n26Player = {
+      video: video,
+      toggle: togglePlay,
+      cycleRate: cycleRate,
+      toggleDm: toggleDm
+    };
+
+    window.addEventListener('pagehide', function () { saveProgress(true); publishNow(true, true); });
+    window.addEventListener('beforeunload', function () { saveProgress(true); publishNow(true, true); });
   }
 
   /* ======================= 渲染分发 / 启动 ======================= */
@@ -3858,6 +4404,11 @@
     var token = ++renderToken;
     if (feedIO) { feedIO.disconnect(); feedIO = null; }
     var r = S.route || { view: 'feed', kind: 'recommend', nav: 'recommend' };
+    /* 离开播放页时播放器已被卸载、事件不会再回来：把小组件的「正在播放」置为暂停 */
+    if (r.view !== 'detail') {
+      if (nowCtx) { publishNow(true, true); nowCtx = null; }
+      n26Player = null;
+    }
     updateChrome(r);
     pendingRestore = (typeof r.scroll === 'number') ? r.scroll : null;
     if (pendingRestore == null) scrollEl.scrollTop = 0;
@@ -4053,7 +4604,44 @@
   restoreLogin();
   bindModeSwitch();
   bindGestureBus();
-  if (acctBtn) acctBtn.addEventListener('click', function () { navTo('me'); });
+  bindDockBar();
+  if (acctBtn) {
+    acctBtn.addEventListener('click', function (e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      if (AUTH.status === 'logged') toggleAcctMenu();
+      else openLogin();
+    });
+  }
+  if (loginClose) loginClose.addEventListener('click', closeLogin);
+  if (loginMask) {
+    loginMask.addEventListener('click', function (e) {
+      if (e && e.target === loginMask) closeLogin();
+    });
+  }
+  if (loginRefresh) loginRefresh.addEventListener('click', function () { loadQr(); });
+  if (acctMe) {
+    acctMe.addEventListener('click', function () {
+      hideAcctMenu();
+      navTo('me');
+    });
+  }
+  if (acctLogout) acctLogout.addEventListener('click', logoutBili);
+  document.addEventListener('click', function (e) {
+    if (!acctMenu || !acctMenu.classList.contains('show')) return;
+    var t = e && e.target;
+    if (t === acctBtn || (acctMenu.contains && acctMenu.contains(t))) return;
+    hideAcctMenu();
+  });
+  window.addEventListener('resize', hideAcctMenu);
+  /* 组件卸载 / 页面隐藏时必须停轮询，不能在后台一直打接口 */
+  window.addEventListener('pagehide', function () {
+    AUTH.modalOpen = false;
+    stopPoll();
+  });
+  window.addEventListener('beforeunload', function () {
+    AUTH.modalOpen = false;
+    stopPoll();
+  });
 
   if (topSearchForm) {
     topSearchForm.addEventListener('submit', function (e) {
@@ -4066,7 +4654,24 @@
 
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
+      hideAcctMenu();
+      if (AUTH.modalOpen) closeLogin();
       $$('.pmenu.show', scrollEl).forEach(function (m) { m.classList.remove('show'); });
+      var iwf = document.querySelector('.player.in-window-full');
+      if (iwf) {
+        /* 全屏时播放器被搬到 body 下，scorllEl 里已经找不到它了，
+           统一走 toggleFs 的退出分支（会把它搬回原位 + 清 body 类）。 */
+        if (window.__n26BiliToggleFs) { window.__n26BiliToggleFs(); }
+        else {
+          iwf.classList.remove('in-window-full');
+          if (scrollEl) scrollEl.style.overflow = '';
+          var fb = $('#fsBtn', scrollEl);
+          if (fb) {
+            var ico = fb.querySelector('i');
+            if (ico) ico.className = 'fa-solid fa-expand';
+          }
+        }
+      }
     }
     if (S.route && S.route.view !== 'detail') return;
     if (e.code !== 'Space' && e.key !== 'k') return;
@@ -4087,6 +4692,9 @@
   });
 
   render();
+
+  /* 首屏渲染完成、navigate / openVideo 都可用之后，再消费小组件留下的命令 */
+  setTimeout(consumeCommands, 0);
 })();
 </script>
 </body>

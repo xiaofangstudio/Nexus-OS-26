@@ -193,7 +193,7 @@
                     document.getElementById('peStatus').textContent = '分盘完成！正在返回系统...';
                     document.getElementById('peStatus').innerHTML += '<span class="pe-blink">_</span>';
                     setTimeout(() => {
-                        localStorage.setItem('nexus_pe_disks', JSON.stringify(diskConfig));
+                        localStorage.setItem('n26:pe_disks', JSON.stringify(diskConfig));
                         window.location.href = 'Nexus OS 26.html?diskUpdated=true';
                     }, 1500);
                 }, 500);

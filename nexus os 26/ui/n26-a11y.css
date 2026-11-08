@@ -334,7 +334,7 @@ body.n26-a11y-hc-white.n26-a11y-focus-ring :focus {
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    transition: background .18s var(--ease-out), transform .18s var(--ease-out);
+    transition: background 260ms cubic-bezier(.2, .7, .2, 1), transform 260ms cubic-bezier(.2, .7, .2, 1);
 }
 .a11y-back:hover { background: rgba(255, 255, 255, .92); transform: translateX(-1px); }
 body.dark-mode .a11y-back {
@@ -418,7 +418,7 @@ body.dark-mode .a11y-value { background: rgba(96, 165, 250, .16); color: #93c5fd
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    transition: background .18s var(--ease-out), color .18s var(--ease-out), border-color .18s var(--ease-out), transform .18s var(--ease-out);
+    transition: background 260ms cubic-bezier(.2, .7, .2, 1), color 260ms cubic-bezier(.2, .7, .2, 1), border-color 260ms cubic-bezier(.2, .7, .2, 1), transform 260ms cubic-bezier(.2, .7, .2, 1);
 }
 .a11y-chip:hover { background: rgba(255, 255, 255, .90); transform: translateY(-1px); }
 .a11y-chip.active {
@@ -481,7 +481,7 @@ body.dark-mode .a11y-reset-row { color: rgba(255, 255, 255, .68); }
     font-weight: 700;
     cursor: pointer;
     white-space: nowrap;
-    transition: background .18s var(--ease-out), transform .18s var(--ease-out);
+    transition: background 260ms cubic-bezier(.2, .7, .2, 1), transform 260ms cubic-bezier(.2, .7, .2, 1);
 }
 .a11y-reset-btn:hover { background: rgba(239, 68, 68, .18); transform: translateY(-1px); }
 body.dark-mode .a11y-reset-btn {
@@ -830,7 +830,7 @@ html body.n26-a11y-hc-white .window {
     opacity: 0;
     visibility: hidden;
     transform: translate(-50%, -50%) scale(.94);
-    transition: opacity .2s var(--ease-out, ease), transform .2s var(--ease-out, ease);
+    transition: opacity 260ms cubic-bezier(.2, .7, .2, 1), transform 260ms cubic-bezier(.2, .7, .2, 1);
     /* 镜片本身完全透明：只做「框」，绝不垫任何半透明底，否则镜内文字会发灰 */
     background: transparent;
     border: 2px solid rgba(255, 255, 255, .98);
@@ -1003,7 +1003,7 @@ body.n26-a11y-pointer-2 *::after {
     opacity: 0;
     pointer-events: none;
     z-index: 2147483200;
-    transition: opacity .2s var(--ease-out, ease), transform .2s var(--ease-out, ease);
+    transition: opacity 260ms cubic-bezier(.2, .7, .2, 1), transform 260ms cubic-bezier(.2, .7, .2, 1);
 }
 #n26-a11y-captions.show { opacity: 1; transform: translate(-50%, 0); }
 #n26-a11y-captions.n26-cap-bg-dark { background: rgba(15, 17, 22, .88); color: #fff; }
@@ -1062,7 +1062,7 @@ body.n26-a11y-reduce-motion #n26-a11y-flash.pulse {
     font-weight: 600;
     opacity: 0;
     transform: translateY(8px);
-    transition: opacity .2s, transform .2s;
+    transition: opacity 260ms, transform 260ms;
     pointer-events: none;
     z-index: 2147483200;
 }

@@ -85,26 +85,19 @@ ok('os-transitioning 已把底栏 opacity 钉死为 1（历史残留也无害）
     /body\.os-transitioning[\s\S]{0,240}#win-taskbar\s*\{\s*opacity:\s*1\s*!important/.test(hCode) &&
     !/body\.os-transitioning[\s\S]{0,240}opacity:\s*0\s*!important/.test(hCode));
 
-/* ---------- ③ OS 切换链路：零预隐藏、任务栏真的会创建 ---------- */
-console.log('\n[3] OS 切换链路');
+/* ---------- ③ OS 风格链路（v2.9.83 起固定 macOS · Dock） ---------- */
+console.log('\n[3] OS 风格链路（已固定 macOS）');
 ok('applyOSStyle 不再挂 os-transitioning', !/classList\.add\('os-transitioning'\)/.test(hCode));
-ok('applyOSStyle 直接 doSwitch（无 250ms 定时器 / 嵌套 rAF）',
-    /classList\.remove\('os-transitioning'\);\s*doSwitch\(\);/.test(hCode));
-ok('n26SetOSStyle 两个分支都清 os-transitioning', (() => {
-    const i = hCode.indexOf('function n26SetOSStyle(');
-    const seg = i >= 0 ? hCode.slice(i, i + 1600) : '';
-    return /remove\('os-win', 'win-style', 'os-transitioning'\)/.test(seg) &&
-        /remove\('os-mac', 'os-transitioning'\)/.test(seg);
-})());
-ok('mac 分支复位 Dock / Finder 的 inline display',
-    /if \(dock\) dock\.style\.display = '';/.test(hCode) &&
-    /if \(finder\) finder\.style\.display = '';/.test(hCode));
-ok('win 分支会创建 Windows 任务栏', /createWinTaskbar\(\);/.test(hCode));
-ok('Windows 皮肤下任务栏 display:flex 且 z-index 有效',
-    /body\.os-win #win-taskbar\s*\{\s*display:\s*flex\s*!important/.test(hCode));
-ok('启动链会执行 applyOSStyle()', /\n\s*applyOSStyle\(\);/.test(hCode));
-ok('设置面板仍有系统风格切回入口',
-    H.includes('onclick="n26SetOSStyle(\'mac\')"') && /window\.n26SetOSStyle = n26SetOSStyle/.test(hCode));
+ok('历史残留的 os-transitioning 兜底钉死 opacity:1（dock / finder / 任务栏三者都在）',
+    /body\.os-transitioning[\s\S]{0,240}#win-taskbar\s*\{\s*opacity:\s*1\s*!important/.test(hCode) &&
+    !/body\.os-transitioning[\s\S]{0,240}opacity:\s*0\s*!important/.test(hCode));
+ok('系统风格已固定 macOS · Dock（启动时清掉用户遗留 osStyle，Dock 永不再被藏）',
+    /function n26PurgeLegacyOSStyle\(\)/.test(hCode) &&
+    /applyUserSettings\(\)\s*\{\s*n26PurgeLegacyOSStyle\(\);/.test(hCode));
+ok('purge 会把 body 从 os-win 切回 os-mac',
+    /document\.body\.classList\.remove\('os-win', 'win-style'\);\s*document\.body\.classList\.add\('os-mac'\)/.test(hCode));
+ok('旧 Windows 切换入口已从设置面板移除（如实记录重构现状）',
+    !H.includes('onclick="n26SetOSStyle(\'mac\')"'));
 ok('Dock 位置默认是底部（不会默认藏起来）',
     /const DOCK_DEFAULT_POSITION = 'bottom';/.test(hCode));
 

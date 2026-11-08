@@ -67,10 +67,10 @@ body.dark-mode .as-rail {
     color: rgba(30, 52, 78, 0.72);
     font-size: 10.5px;
     line-height: 1.1;
-    transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
+    transition: background 260ms cubic-bezier(.2, .7, .2, 1), color 260ms cubic-bezier(.2, .7, .2, 1), transform 0.12s cubic-bezier(.2, .7, .2, 1);
     user-select: none;
 }
-.as-rail-item i { font-size: 15px; transition: transform .4s cubic-bezier(.3,.7,.3,1), color .15s ease; }
+.as-rail-item i { font-size: 15px; transition: transform .4s cubic-bezier(.3,.7,.3,1), color 260ms cubic-bezier(.2, .7, .2, 1); }
 .as-rail-item:hover { background: rgba(255, 255, 255, 0.85); color: #16324e; }
 .as-rail-item:active { transform: scale(0.95); }
 /* M-30/M-31：选中态交给 docknav 的胶囊指示器，不再整块刷品牌色 */
@@ -750,7 +750,7 @@ body #control-center.n26cc.show {
 body #control-center.n26cc.closing {
     transform: translateX(calc(100% + 24px)) scale(0.985);
     opacity: 0;
-    transition: transform 0.26s cubic-bezier(0.55, 0, 1, 0.45), opacity 0.2s ease;
+    transition: transform 0.26s cubic-bezier(0.55, 0, 1, 0.45), opacity 260ms cubic-bezier(.2, .7, .2, 1);
 }
 body.dark-mode #control-center.n26cc {
     background: rgba(24, 27, 36, 0.76);
@@ -774,7 +774,7 @@ body.dark-mode #control-center.n26cc {
     background: rgba(120, 132, 152, 0.10);
     color: inherit; font-size: 12.5px; cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center;
-    transition: background 0.18s ease, transform 0.18s ease;
+    transition: background 260ms cubic-bezier(.2, .7, .2, 1), transform 260ms cubic-bezier(.2, .7, .2, 1);
 }
 .n26cc-hbtn:hover { background: rgba(120, 132, 152, 0.20); }
 .n26cc-hbtn:active { scale: 0.94; }
@@ -896,7 +896,7 @@ body.dark-mode .n26cc-track { background: rgba(255, 255, 255, 0.12); }
     background: #fff;
     box-shadow: 0 2px 8px rgba(10, 40, 80, 0.28), 0 0 0 0.5px rgba(16, 32, 52, 0.10);
     pointer-events: none;
-    transition: left 0.08s linear, transform 0.16s ease;
+    transition: left 0.08s linear, transform 260ms cubic-bezier(.2, .7, .2, 1);
 }
 .n26cc-range:active ~ .n26cc-knob { transform: scale(1.12); }
 /* 原生 range 铺满整个轨道、完全透明 —— 交互交给它，视觉交给上面两层 */
@@ -964,7 +964,7 @@ body.dark-mode .n26cc-msg { background: rgba(255, 255, 255, 0.05); border-color:
     border: 1px solid rgba(120, 132, 152, 0.14);
     background: rgba(255, 255, 255, 0.45);
     color: inherit; cursor: pointer; font-family: inherit;
-    transition: background 0.2s ease, transform 0.18s ease;
+    transition: background 260ms cubic-bezier(.2, .7, .2, 1), transform 260ms cubic-bezier(.2, .7, .2, 1);
 }
 body.dark-mode .n26cc-quick button { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.08); }
 .n26cc-quick button:hover { background: rgba(120, 132, 152, 0.18); }
@@ -1104,7 +1104,10 @@ body.dock-top #dock .dock-item > span:not(.dock-tooltip) {
 /* ══════════════════════════════════════════════════════════════════
    v2.9.77 · 应用商城深度化：管理视图 / 状态 / 截图 / 评论 / 实时预览
    ══════════════════════════════════════════════════════════════════ */
-.as-rail { scrollbar-width: thin; overscroll-behavior: contain; scroll-behavior: smooth; }
+/* v2.9.96 滚轮跟手：contain 会掐断滚动链（左栏滚到底后主区不再接手），
+   scroll-behavior:smooth 会让 n26StoreRailWheel 的程序化滚动黏滞发飘。
+   两者一起就是「滚轮滑动极其困难」在商城里最明显的那段。 */
+.as-rail { scrollbar-width: thin; overscroll-behavior: auto; scroll-behavior: auto; }
 .as-rail::-webkit-scrollbar { width: 4px; }
 .as-rail::-webkit-scrollbar-thumb { background: rgba(20, 45, 75, .16); border-radius: 4px; }
 body.dark-mode .as-rail::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .16); }
@@ -1227,7 +1230,7 @@ body.dark-mode .appstore-card-ver { color: rgba(255, 255, 255, .44); }
 .appstore-detail-screenshot {
     flex: 0 0 auto; width: 220px; aspect-ratio: 16 / 10; border-radius: 12px; overflow: hidden;
     padding: 0; border: 1px solid rgba(0, 0, 0, .08); background: rgba(0, 0, 0, .04);
-    cursor: zoom-in; transition: transform .18s ease, box-shadow .18s ease;
+    cursor: zoom-in; transition: transform 260ms cubic-bezier(.2, .7, .2, 1), box-shadow 260ms cubic-bezier(.2, .7, .2, 1);
 }
 .appstore-detail-screenshot:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 0, 0, .14); }
 .appstore-detail-screenshot img { width: 100%; height: 100%; object-fit: cover; display: block; }

@@ -248,8 +248,8 @@ body.perf-mode #wallpaper * {
    在这里是未定义变量，整条声明在计算期失效 → 启动台彻底没有磨砂。
    改为直接吃全局滑杆令牌，深浅色/材质档一起生效。 */
 #launchpad {
-    backdrop-filter: blur(var(--n26-blur, 18px)) saturate(var(--n26-glass-sat, 148%)) var(--n26-grain-fn, opacity(1)) !important;
-    -webkit-backdrop-filter: blur(var(--n26-blur, 18px)) saturate(var(--n26-glass-sat, 148%)) var(--n26-grain-fn, opacity(1)) !important;
+    backdrop-filter: blur(var(--n26-blur, 18px)) saturate(var(--n26-glass-sat, 148%)) !important;
+    -webkit-backdrop-filter: blur(var(--n26-blur, 18px)) saturate(var(--n26-glass-sat, 148%)) !important;
 }
 
 /* 窗口内部不再叠第二层模糊：窗口本体已经是一整块玻璃，

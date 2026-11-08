@@ -7,9 +7,9 @@
 <meta name="color-scheme" content="light dark">
 <link rel="stylesheet" href="../ui/tokens.css">
 <link rel="stylesheet" href="../ui/glass.css">
-<link rel="stylesheet" href="../ui/n26-ui.css?v=2975">
+<link rel="stylesheet" href="../ui/n26-ui.css?v=2976">
 <link rel="stylesheet" href="../vendor/fontawesome/all.min.css">
-<script src="../ui/n26-ui.js?v=2977"></script>
+<script src="../ui/n26-ui.js?v=2978"></script>
 <script src="_bridge.js"></script>
 <script src="_app.js"></script>
 <style>
@@ -1004,7 +1004,7 @@ body.dark-mode .ms-note { background: rgba(16, 185, 129, .14); }
 
   var MIN_ZOOM = 4;
   var MAX_ZOOM = 18;
-  var HOME = { lat: 39.9087, lon: 116.3975, zoom: 11 };
+  var _g = (window.N26GeoClient && window.N26GeoClient.get()) || null; var HOME = { lat: _g && isFinite(_g.lat) ? _g.lat : 39.9087, lon: _g && isFinite(_g.lon) ? _g.lon : 116.3975, zoom: 11 };
 
   /* ============================================================
      工具
@@ -1261,15 +1261,14 @@ body.dark-mode .ms-note { background: rgba(16, 185, 129, .14); }
       tileCache.clear();
       stats.ok = 0; stats.err = 0; firstTile = false;
       failBox.classList.remove('show');
-      loadChip.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>已切换 OpenStreetMap…';
+      loadChip.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>使用 OpenStreetMap 底图…';
       loadChip.classList.remove('done');
       tileLayer.innerHTML = '';
       labelLayer.innerHTML = '';
       var attr = $('#mapAttr');
       if (attr) attr.textContent = '© OpenStreetMap contributors';
       var satBtn = document.querySelector('.ml-btn[data-layer="sat"]');
-      if (satBtn) { satBtn.setAttribute('aria-disabled', 'true'); satBtn.title = 'OSM 降级模式暂不支持卫星'; }
-      toast('高德底图不可达，已自动降级到 OpenStreetMap 栅格');
+      if (satBtn) { satBtn.setAttribute('aria-disabled', 'true'); satBtn.title = '地图服务 · OSM'; }
       switching = false;
       render();
     }
@@ -1829,7 +1828,7 @@ body.dark-mode .ms-note { background: rgba(16, 185, 129, .14); }
     if (!hint) return;
     if (state.keyState === false) {
       hint.innerHTML = '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>' +
-        '<span>未配置 AMAP_KEY · 已降级为 OpenStreetMap 检索 + OSRM 路线</span>' +
+        '<span>地图服务 · OSM</span>' +
         '<button type="button" id="keyHintGo">查看接口</button>';
       hint.style.display = '';
       var b = $('#keyHintGo');
@@ -1922,7 +1921,7 @@ body.dark-mode .ms-note { background: rgba(16, 185, 129, .14); }
     });
     var center = { lat: map.view.lat, lon: map.view.lon };
     var note = '<div class="ms-note"><i class="fa-solid fa-location-crosshairs"></i>' +
-      (state.keyState === false ? '未配置 AMAP_KEY · 内置地名库匹配' : '内置地名库匹配') + '</div>';
+      (state.keyState === false ? '地图服务 · OSM · 内置地名库匹配' : '内置地名库匹配') + '</div>';
     var html = note + items.map(function (p) {
       return '<button type="button" class="ms-item" data-poi="' + esc(p.id) + '">' +
         '<span class="ms-item-ico"><i class="fa-solid fa-location-dot"></i></span>' +
@@ -1979,7 +1978,7 @@ body.dark-mode .ms-note { background: rgba(16, 185, 129, .14); }
       });
       var center = { lat: map.view.lat, lon: map.view.lon };
       var note = '<div class="ms-note"><i class="fa-solid fa-cloud-arrow-down"></i>' +
-        (state.keyState === false ? '未配置 AMAP_KEY，已降级用 OpenStreetMap 检索' : '高德服务不可用，已降级用 OpenStreetMap 检索') + '</div>';
+        (state.keyState === false ? '由 OpenStreetMap 提供' : '当前使用开放地图数据') + '</div>';
       var html = note + items.map(function (p, i) {
         return '<button type="button" class="ms-item" data-poi="' + esc(p.id) + '">' +
           '<span class="ms-item-ico"><i class="fa-solid fa-location-dot"></i></span>' +
@@ -2059,8 +2058,8 @@ body.dark-mode .ms-note { background: rgba(16, 185, 129, .14); }
         state.keyMessage = e.message;
         renderKeyHint();
         setSearchState(
-          '<div class="ms-state"><div class="ms-state-title"><i class="fa-solid fa-triangle-exclamation"></i>未配置 AMAP_KEY</div>' +
-          '<div class="ms-state-body">' + esc(e.message) + '。<br>正在降级到 OpenStreetMap 检索；也可直接输入 <code>纬度,经度</code> 定位。</div>' +
+          '<div class="ms-state"><div class="ms-state-title"><i class="fa-solid fa-triangle-exclamation"></i>地图服务 · OSM</div>' +
+          '<div class="ms-state-body">' + esc(e.message) + '。<br>由 OpenStreetMap 提供检索；也可直接输入 <code>纬度,经度</code> 定位。</div>' +
           '<button type="button" class="ms-act" id="searchRetryKey">查看接口状态</button></div>', true);
         var b = $('#searchRetryKey');
         if (b) b.addEventListener('click', function () { shell.select('api'); });
@@ -2078,7 +2077,6 @@ body.dark-mode .ms-note { background: rgba(16, 185, 129, .14); }
       var o = $('#searchOsm');
       if (o) o.addEventListener('click', function () { var s = ++state.searchSeq; searchNominatim(kw, s); });
       /* 任何高德侧故障（超时 / 断网 / 5xx）都自动降级到 OSM，绝不停在转圈 */
-      toast('高德检索不可用，已改用 OpenStreetMap');
       searchNominatim(kw, seq);
     });
   }
@@ -2103,6 +2101,13 @@ body.dark-mode .ms-note { background: rgba(16, 185, 129, .14); }
         $('#searchCard').classList.remove('show-results');
         map.flyTo(m.lat, m.lon, Math.max(map.view.zoom, 15));
         selectMarker(m.id, true);
+        /* v2.10.4：用户在搜索里选中了一个地点 → 记为系统级位置偏好，
+           天气 / 天空层 / 其它应用都跟着用，下次不再重复问。 */
+        try {
+          if (window.N26GeoClient && N26GeoClient.set) {
+            N26GeoClient.set({ lat: +m.lat, lon: +m.lon, name: m.name || btn.textContent || '' });
+          }
+        } catch (e) { }
       });
     });
   }
@@ -2174,7 +2179,7 @@ body.dark-mode .ms-note { background: rgba(16, 185, 129, .14); }
         renderKeyHint();
         var row = $('#pinAddressRow');
         if (row && !$('#pinNote')) {
-          row.insertAdjacentHTML('afterend', '<div class="msheet-note" id="pinNote"><i class="fa-solid fa-triangle-exclamation"></i>未配置 AMAP_KEY，无法把坐标解析成地址；坐标本身是准确的。</div>');
+          row.insertAdjacentHTML('afterend', '<div class="msheet-note" id="pinNote">当前使用开放地图数据</div>');
         }
       } else {
         var row2 = $('#pinAddressRow');
@@ -2227,13 +2232,29 @@ body.dark-mode .ms-note { background: rgba(16, 185, 129, .14); }
      当前位置
      ============================================================ */
   function locateMe() {
+    var g = (window.N26GeoClient && window.N26GeoClient.get()) || null, at;
+    if (window.N26GeoClient) {
+      if (!g || !isFinite(g.lat) || !isFinite(g.lon)) {
+        toast('正在获取当前位置…');
+        return;
+      }
+      at = toDisplay(g.lon, g.lat);
+      state.markers = state.markers.filter(function (m) { return m.kind !== 'me'; });
+      addMarker({ id: 'me', lat: at.lat, lon: at.lon, title: '我的位置', kind: 'me', icon: 'fa-location-crosshairs' });
+      selectMarker('me', false);
+      map.flyTo(at.lat, at.lon, 15);
+      openMeSheet(at.lat, at.lon);
+      toast('定位成功');
+      return;
+    }
+    /* 兜底：统一位置服务不存在时才用浏览器定位 */
     if (!navigator.geolocation) {
       toast('当前环境不支持定位，可在搜索框输入 纬度,经度');
       return;
     }
     toast('正在获取当前位置…');
     navigator.geolocation.getCurrentPosition(function (pos) {
-      var at = toDisplay(pos.coords.longitude, pos.coords.latitude);
+      at = toDisplay(pos.coords.longitude, pos.coords.latitude);
       state.markers = state.markers.filter(function (m) { return m.kind !== 'me'; });
       addMarker({ id: 'me', lat: at.lat, lon: at.lon, title: '我的位置', kind: 'me', icon: 'fa-location-crosshairs' });
       selectMarker('me', false);
@@ -2551,9 +2572,9 @@ body.dark-mode .ms-note { background: rgba(16, 185, 129, .14); }
         '<div class="status-row"><span class="dot ok"></span>高德 Web 服务可用<span class="status-pill ok">已连接</span></div>' +
         '<div class="card-note">地点搜索、地址解析、逆地理走 Worker 代理；key 不会出现在前端。</div></div>';
     } else if (configured === false) {
-      keyCard = '<div class="panel-card warn-card"><div class="card-head"><i class="fa-solid fa-triangle-exclamation"></i>未配置 AMAP_KEY</div>' +
-        '<div class="status-row"><span class="dot warn"></span>Worker 返回 503 <code>MAP_NO_KEY</code><span class="status-pill warn">未连接</span></div>' +
-        '<div class="card-note">地点检索、地址解析、逆地理暂不可用。底图浏览、缩放拖动、地图选点、路线规划仍可用。配置命令：<code>wrangler secret put AMAP_KEY</code>，重新部署后生效。</div></div>';
+      keyCard = '<div class="panel-card warn-card"><div class="card-head"><i class="fa-solid fa-triangle-exclamation"></i>地图服务 · OSM</div>' +
+        '<div class="status-row"><span class="dot warn"></span>由 OpenStreetMap 提供<span class="status-pill warn">可用</span></div>' +
+        '<div class="card-note">当前使用开放地图数据。底图浏览、缩放拖动、地图选点、路线规划均可用。</div></div>';
     } else if (configured === null && !state.keyMessage) {
       keyCard = '<div class="panel-card"><div class="card-head"><i class="fa-solid fa-circle-notch fa-spin"></i>正在检测服务状态</div>' +
         '<div class="status-row"><span class="dot"></span>正在请求 <code>/api/map/health</code><span class="status-pill">检测中</span></div></div>';
@@ -2591,7 +2612,6 @@ body.dark-mode .ms-note { background: rgba(16, 185, 129, .14); }
       return;
     }
     if (BASE_MODE === 'osm' && layer === 'sat') {
-      toast('OSM 降级模式暂不支持卫星底图');
       return;
     }
     state.layer = layer;
@@ -2674,6 +2694,18 @@ body.dark-mode .ms-note { background: rgba(16, 185, 129, .14); }
       updateRouteForm();
     });
     $('#useMe').addEventListener('click', function () {
+      var g = (window.N26GeoClient && window.N26GeoClient.get()) || null;
+      if (window.N26GeoClient) {
+        if (g && isFinite(g.lat) && isFinite(g.lon)) {
+          state.origin = toDisplay(g.lon, g.lat);
+          updateRouteForm();
+          toast('起点已设为当前位置');
+        } else {
+          toast('正在获取当前位置…');
+        }
+        return;
+      }
+      /* 兜底：统一位置服务不存在时才用浏览器定位 */
       if (!navigator.geolocation) { toast('当前环境不支持定位'); return; }
       toast('正在获取当前位置…');
       navigator.geolocation.getCurrentPosition(function (pos) {
@@ -2765,6 +2797,19 @@ body.dark-mode .ms-note { background: rgba(16, 185, 129, .14); }
     Nexus.ready(function () { applyForcedTheme(); });
   }
   window.addEventListener('nexus:theme', function () { applyForcedTheme(); });
+
+  /* 统一位置服务：主壳广播新坐标时把地图重新居中 */
+  window.addEventListener('n26:geo', function (e) {
+    try {
+      var g = (e && e.detail) || (window.N26GeoClient && window.N26GeoClient.get()) || null;
+      if (!g || !isFinite(g.lat) || !isFinite(g.lon)) return;
+      var at = toDisplay(g.lon, g.lat);
+      if (map && map.setView) {
+        map.setView({ lat: at.lat, lon: at.lon, zoom: (map.view && isFinite(map.view.zoom)) ? map.view.zoom : HOME.zoom });
+      }
+    } catch (err) { /* ignore */ }
+  });
+  try { parent.postMessage({ __n26GeoReq: 1 }, '*'); } catch (e) { /* ignore */ }
 })();
 </script>
 </body>

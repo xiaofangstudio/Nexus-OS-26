@@ -18,7 +18,12 @@
         if (!document.getElementById('n26StoreCatViewStyle')) {
             var _catCss = document.createElement('style');
             _catCss.id = 'n26StoreCatViewStyle';
-            _catCss.textContent = '.as-main.n26-as-cat-view > .n26-as-hero{display:none !important;}';
+            /* v2.9.94：自绘图标包下，已有真实图标的应用在商城里不垫彩色底板。
+               用户点名的三处之一（应用商城）；没有真图的仍走 FA 彩色底板。 */
+            _catCss.textContent = '.as-main.n26-as-cat-view > .n26-as-hero{display:none !important;}' +
+                'html body .n26-store-real{background:transparent !important;box-shadow:none !important;border-color:transparent !important;}' +
+                'html body .n26-store-real::before,html body .n26-store-real::after{display:none !important;}' +
+                'html body .n26-store-real>img{display:block;width:100%;height:100%;object-fit:contain;position:relative;z-index:1;}';
             (document.head || document.documentElement).appendChild(_catCss);
         }
     } catch (e) { }
@@ -158,7 +163,20 @@
         // 这样超椭圆裁切只作用在底板上，投影留在不裁切的外层元素上。
         var col = (typeof n26TileColor === 'function') ? n26TileColor(a.id, a.color) : (a.color || '#4A9BF5');
         var ic = a.icon || 'fa-cube';
-        return '<div class="' + cls + '" style="--app-color:' + col + ';--app-color-2:' + shade(col) +
+        /* ★ v2.9.94：用户「不用 UA 图标、用自绘图标时，把已有真图标的应用
+           的颜色背景全部去掉」。商城卡片大图原本已走 .store-app-icon.drawn
+           （无底板），但精选 / 榜单这些小图标仍由 ico() 垫 --app-color 渐变。
+           自绘包 + 有真图时改用真图且挂 .n26-store-real 让 CSS 摘掉底板；
+           没有真图的应用照旧保留 FA 彩色底，避免留一个空白块。 */
+        try {
+            var _pack = (typeof getIconPack === 'function') ? getIconPack() : 'flat';
+            var _src = a.iconUrl || ((typeof N26_APP_ICONS === 'object' && N26_APP_ICONS[a.id]) || '');
+            if (_pack === 'n26' && _src) {
+                return '<div class="' + cls + ' n26-store-real" data-n26-icon="1" style="font-size:' + (size || 18) + 'px">' +
+                    '<img loading="lazy" decoding="async" data-n26-icon="1" src="' + esc(_src) + '" alt="' + esc(a.id || '') + '"></div>';
+            }
+        } catch (e) { /* 桥未就绪时保持原有彩色底 */ }
+        return '<div class="' + cls + '" data-n26-icon="1" style="--app-color:' + col + ';--app-color-2:' + shade(col) +
             ';font-size:' + (size || 18) + 'px"><i class="fas ' + esc(ic) + '"></i></div>';
     }
     function shade(hex) {
@@ -1138,11 +1156,14 @@
             } else {
                 empty = '这个分类暂时没有应用<br><small>换一个分类，或回到「为你推荐」。</small>';
             }
-            grid.innerHTML = '<div class="appstore-empty">' + empty + '</div>';
+            /* v2.9.96：子节点级 diff，不再整块销毁重建（点下载零刷新感） */
+            if (window.N26DomKeep) window.N26DomKeep.patch(grid, '<div class="appstore-empty">' + empty + '</div>');
+            else grid.innerHTML = '<div class="appstore-empty">' + empty + '</div>';
             paintSrv();
             return;
         }
-        grid.innerHTML = apps.map(cardHTML).join('');
+        if (window.N26DomKeep) window.N26DomKeep.patch(grid, apps.map(cardHTML).join(''));
+        else grid.innerHTML = apps.map(cardHTML).join('');
         paintSrv();
     }
 

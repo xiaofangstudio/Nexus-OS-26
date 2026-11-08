@@ -172,16 +172,27 @@
 
     function detectKind(e) {
         var t = now();
-        // 鼠标滚轮是「一格一个离散事件」，触控板是「连续高频事件流」：
-        // 只有凑够连续 3 帧才判定为触控板，避免单击滚轮被误平滑。
+        /* ★ v2.9.96「滚轮滑动极其困难」根因：
+           旧版只要连续 3 个 wheel 间隔 <24ms 就判 trackpad。鼠标快速连滚
+           3 格完全满足，于是鼠标滚轮被 e.preventDefault() + 自绘平滑引擎
+           接管，一次只滚一点点，还常被边缘手势整口吞掉。
+           现在先把「铁定是鼠标」的情况挡掉，再谈触控板判定。 */
+        var ax0 = Math.abs(e.deltaX || 0), ay0 = Math.abs(e.deltaY || 0);
+        // 行模式 / 页模式：只有真实鼠标滚轮会给 deltaMode 1/2
+        if (e.deltaMode && e.deltaMode !== 0) {
+            wheelStreak = 0; lastWheelTs = t; return 'mouse';
+        }
+        // 纯垂直 + 整数大格（40 / 53 / 100 / 120…）：典型鼠标滚轮一格
+        if (ax0 < 0.5 && ay0 >= 40 && Math.abs(ay0 - Math.round(ay0)) < 1e-4) {
+            wheelStreak = 0; lastWheelTs = t; return 'mouse';
+        }
         if (t - lastWheelTs < 24) wheelStreak++; else wheelStreak = 1;
         lastWheelTs = t;
-        if (wheelStreak >= 3) return 'trackpad';
-        if (e.deltaMode && e.deltaMode !== 0) return 'mouse';
-        var ax = Math.abs(e.deltaX || 0), ay = Math.abs(e.deltaY || 0);
-        if (ax > 0.5) return 'trackpad';
-        if (ay > 0 && (ay < 1 || Math.abs(ay - Math.round(ay)) > 1e-4)) return 'trackpad';
-        if (ay > 0 && ay < 36) return 'trackpad';
+        // 门槛 3→5，且必须是小位移连续流，才认定触控板
+        if (wheelStreak >= 5 && ay0 < 48 && ax0 < 48) return 'trackpad';
+        if (ax0 > 0.5 && ay0 < 1) return 'trackpad';
+        if (ay0 > 0 && (ay0 < 1 || Math.abs(ay0 - Math.round(ay0)) > 1e-4)) return 'trackpad';
+        if (ay0 > 0 && ay0 < 36) return 'trackpad';
         return 'mouse';
     }
 
@@ -272,6 +283,10 @@
         this.flingTimer = 0;
         this.lastBounce = 0;
         this.lastEdge = '';
+        /* v2.9.94：上一帧自己写回的滚动位置，用来区分「外部接管」和
+           「本引擎自己造成的帧间位移」，避免误伤快速滚动。 */
+        this.lastWrittenX = null;
+        this.lastWrittenY = null;
     }
 
     // 只把近几次位移换算成速度，供惯性使用；定位永远由 tx/ty 决定
@@ -292,6 +307,29 @@
     Engine.prototype.push = function (dx, dy, kind) {
         var b = bounds(this.el);
         var on = cfg.bounce && !reduced();
+
+        /* ★ v2.9.94 P0：外部滚动位置同步。
+           Engine 的 tx/ty 是自己维护的目标值。只要别处改过真实 scrollTop
+           （拖动滚动条、键盘 PageDown、面板 innerHTML 重建后 scrollkeep 写回、
+           内容高度变化导致浏览器自动钳位），内部目标就会过时；下一次 step()
+           仍把旧目标写回 el.scrollTop → 肉眼就是「往下滑太快突然回滚，
+           甚至直接回到没滑之前」。这里在每次输入前对齐一次，代价 O(1)。 */
+        var realX = this.el.scrollLeft, realY = this.el.scrollTop;
+        if (Math.abs(realX - this.cx) > 2 || Math.abs(realY - this.cy) > 2) {
+            this.cx = this.tx = realX;
+            this.cy = this.ty = realY;
+            this.mvx = this.mvy = 0;
+            this.samples.length = 0;
+            /* 对齐后同步「上一帧写回基准」，否则下一帧的接管检测会把
+               这次合法对齐误判成外部改动而提前结束滚动。 */
+            this.lastWrittenX = realX;
+            this.lastWrittenY = realY;
+        }
+        /* 内容变短时旧的 ty 可能远超新的 maxY，先钳回来再累加，
+           否则第一次写回就会被 clamp 到 maxY，出现「跳回顶部」的错觉。 */
+        if (this.ty > b.maxY || this.ty < 0) this.ty = clamp(this.ty, 0, b.maxY);
+        if (this.tx > b.maxX || this.tx < 0) this.tx = clamp(this.tx, 0, b.maxX);
+
         this.momentum = false;          // 手指一动就接管，惯性立即让位
         if (b.maxX > 0) this.tx = rubber(this.tx + dx, 0, b.maxX, on);
         else this.tx = this.cx;
@@ -363,14 +401,36 @@
         var dt = this.lastFrame ? clamp(t - this.lastFrame, 4, 48) : 16;
         this.lastFrame = t;
 
+        /* ★ v2.9.94：帧间「外部接管」检测。
+           面板 innerHTML 重建 / scrollkeep 恢复 / 程序 scrollTop= / 滚动条拖动
+           都会在两帧之间把真实滚动位置改掉。旧版照旧把内部旧目标写回，
+           于是「直接回到没滑之前」。这里发现外部接管就安静让位，
+           并把内部状态对齐到真实位置，绝不反向拉扯用户。 */
+        if (this.lastWrittenY !== null &&
+            (Math.abs(this.el.scrollTop - this.lastWrittenY) > 4 ||
+             Math.abs(this.el.scrollLeft - (this.lastWrittenX || 0)) > 4)) {
+            var ex = this.el.scrollLeft, ey = this.el.scrollTop;
+            this.cx = this.tx = ex;
+            this.cy = this.ty = ey;
+            this.mvx = this.mvy = 0;
+            this.momentum = false;
+            this.ended = true;
+            this.lastWrittenX = ex;
+            this.lastWrittenY = ey;
+            return;
+        }
+
         if (this.momentum) {
             var tau = Math.max(120, +cfg.momentumTau || 360);
             var decay = Math.exp(-dt / tau);
             this.mvx *= decay;
             this.mvy *= decay;
-            var on = cfg.bounce && !reduced();
-            if (b.maxX > 0) this.tx = rubber(this.tx + this.mvx * dt, 0, b.maxX, on);
-            if (b.maxY > 0) this.ty = rubber(this.ty + this.mvy * dt, 0, b.maxY, on);
+            /* ★ v2.9.94：惯性阶段不做橡皮筋过冲。
+               快速下滑时旧版会先冲出 maxY 再被 rubber 弹回来，
+               正是用户说的「往下滑太快会往回滚一下」。
+               橡皮筋只保留给手指主动拉扯（push 里），惯性到底即稳稳停住。 */
+            if (b.maxX > 0) this.tx = clamp(this.tx + this.mvx * dt, 0, b.maxX);
+            if (b.maxY > 0) this.ty = clamp(this.ty + this.mvy * dt, 0, b.maxY);
             // 撞到硬边就停在这个轴，不再继续顶出去
             if (this.tx <= 0 && this.mvx < 0) this.mvx = 0;
             else if (this.tx >= b.maxX && this.mvx > 0) this.mvx = 0;
@@ -396,6 +456,8 @@
             this.el.scrollLeft = rx;
             this.el.scrollTop = ry;
         }
+        this.lastWrittenX = rx;
+        this.lastWrittenY = ry;
 
         var moving = Math.abs(this.tx - this.cx) > 0.3 || Math.abs(this.ty - this.cy) > 0.3;
         if (moving) { this.start(); return; }
@@ -429,7 +491,19 @@
         if (speed !== 1) { dx *= speed; dy *= speed; }
         var horizontal = Math.abs(dx) > Math.abs(dy) * 1.15 && Math.abs(dx) > 1;
 
-        var scroller = horizontal ? findScroller(node, true) : findScroller(node, false);
+        /* ★ v2.9.96：横向滚动区一律放行原生。
+           应用商城的精选卡 / 详情页截图条 / 各类标签栏都是 overflow-x:auto，
+           旧版只要判定成触控板就 e.preventDefault() 把整个 wheel 吃掉，
+           横滑和竖滚互相打架 —— 用户说的「应用商店可以左右滑」和
+           「滚轮极其困难」是同一个病灶。横向交给浏览器，垂直才谈平滑。 */
+        if (horizontal) {
+            emit('scroll', {
+                el: findScroller(node, true), dx: dx, dy: dy, kind: kind, passive: true
+            });
+            return false;
+        }
+
+        var scroller = findScroller(node, false);
         if (!scroller) return false;    // 无容器：放行原生
 
         if (claimed('scroll', { el: scroller, dx: dx, dy: dy, kind: kind, source: e })) return false;
@@ -665,6 +739,9 @@
         var dx = norm(e, 'deltaX');
         var dy = norm(e, 'deltaY');
         var t = now();
+        /* ★ v2.9.96：纯垂直的大格滚轮绝不参与边缘/三指手势，
+           否则在窗口边缘滚一下就被吃掉，用户会觉得「滑不动」。 */
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) >= 40) return false;
 
         // 手势刚触发：残余位移继续吞掉，画面不再跟着滚
         if (t < edgeHoldUntil) { e.preventDefault(); return true; }

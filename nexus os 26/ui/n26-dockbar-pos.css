@@ -1,0 +1,143 @@
+/* ==========================================================================
+   Nexus OS 26 · Dock Bar 位置层（v2.10.1）
+   --------------------------------------------------------------------------
+   用户要求：
+     「Dock Bar 直接整合到顶上导航栏，顶上导航栏右半部分就是 Dock Bar」
+     「Dock Bar 也能在设置里头选位置：顶侧 / 左侧 / 右侧，
+       但是不能放到底侧，放到底侧就会和原本有的 Dock 冲了」
+     「Dock Bar 太高了，有些遮挡 UI」
+
+   做法：不再让 DockBar 跟着底部 Dock 的四边位置走（那套是 body.dock-top/left/right），
+   改为独立的三档 body.n26-db-pos-top|left|right。
+   顶部模式高度压到 26px，正好嵌进 32px 的顶栏里，不再像一条悬空的横条挡住内容。
+
+   ★ transform 一律清掉，位移改用独立的 `translate` 属性。
+     原来的规则用 `transform: translateX(-50%) translateY(...)` 居中，
+     和这里的定位会互相打架；translate 不参与 transform 栈，互不影响。
+   ========================================================================== */
+
+/* ---------- 公共：清掉旧的居中 transform，统一用 translate 做位移 ---------- */
+html body #dockBar {
+    transform: none !important;
+    transition: opacity .2s ease,
+                translate .26s cubic-bezier(.2, .7, .2, 1),
+                width .2s ease,
+                height .2s ease;
+    will-change: opacity, translate;
+}
+
+/* ---------- ① 默认：顶部导航栏右半部分 ---------- */
+html body.n26-db-pos-top #dockBar {
+    top: 3px;
+    bottom: auto;
+    left: auto;
+    right: 12px;
+    height: 26px;
+    max-width: 46vw;
+    padding: 0 10px;
+    gap: 6px;
+    border-radius: 9px;
+    translate: 0 -8px;
+    opacity: 0;
+    pointer-events: none;
+}
+html body.n26-db-pos-top #dockBar.show {
+    translate: 0 0;
+    opacity: 1;
+    pointer-events: auto;
+}
+/* 顶部模式下把「品牌图标 + 分隔线」压掉，只留内容，26px 高度才装得下 */
+html body.n26-db-pos-top #dockBar .db-brand,
+html body.n26-db-pos-top #dockBar .db-sep { display: none; }
+html body.n26-db-pos-top #dockBar .db-title { font-size: 11px; }
+html body.n26-db-pos-top #dockBar .db-tile { width: 22px; height: 22px; }
+html body.n26-db-pos-top #dockBar .db-btn { height: 22px; padding: 0 7px; font-size: 11px; }
+html body.n26-db-pos-top #dockBar .db-text { font-size: 11px; }
+html body.n26-db-pos-top #dockBar .db-prog { left: 10px; right: 10px; bottom: 2px; height: 1.5px; }
+
+/* v2.10.4：**不再隐藏顶栏右侧的系统控件**。
+   用户反馈「软件最大化的时候，顶部导航栏的一些控件会消失不见」——
+   上一版为了让条和图标不重叠，直接把 .n26-topbar-right 淡出了。
+   现在改成：条让到图标左边（右边距 = 图标簇实测宽度 + 12px），
+   图标永远都在，条自己变窄并用省略号收尾。 */
+html body.n26-db-pos-top #dockBar {
+    right: calc(var(--n26-db-right, 196px) + 12px);
+    max-width: calc(100vw - var(--n26-db-right, 196px) - 210px);
+}
+
+/* ---------- ② 左侧 ---------- */
+html body.n26-db-pos-left #dockBar {
+    top: 44px;
+    bottom: auto;
+    left: 8px;
+    right: auto;
+    height: auto;
+    max-height: 62vh;
+    max-width: none;
+    width: 58px;
+    flex-direction: column;
+    padding: 8px 6px;
+    border-radius: 14px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    translate: -10px 0;
+    opacity: 0;
+    pointer-events: none;
+}
+html body.n26-db-pos-left #dockBar.show {
+    translate: 0 0;
+    opacity: 1;
+    pointer-events: auto;
+}
+html body.n26-db-pos-left #dockBar .db-sep { width: 26px; height: 1px; }
+html body.n26-db-pos-left #dockBar .db-tiles { flex-direction: column; overflow-x: hidden; overflow-y: auto; }
+html body.n26-db-pos-left #dockBar .db-text { text-align: center; white-space: normal; }
+html body.n26-db-pos-left #dockBar .db-prog { display: none; }
+
+/* ---------- ③ 右侧 ---------- */
+html body.n26-db-pos-right #dockBar {
+    top: 44px;
+    bottom: auto;
+    right: 8px;
+    left: auto;
+    height: auto;
+    max-height: 62vh;
+    max-width: none;
+    width: 58px;
+    flex-direction: column;
+    padding: 8px 6px;
+    border-radius: 14px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    translate: 10px 0;
+    opacity: 0;
+    pointer-events: none;
+}
+html body.n26-db-pos-right #dockBar.show {
+    translate: 0 0;
+    opacity: 1;
+    pointer-events: auto;
+}
+html body.n26-db-pos-right #dockBar .db-sep { width: 26px; height: 1px; }
+html body.n26-db-pos-right #dockBar .db-tiles { flex-direction: column; overflow-x: hidden; overflow-y: auto; }
+html body.n26-db-pos-right #dockBar .db-text { text-align: center; white-space: normal; }
+html body.n26-db-pos-right #dockBar .db-prog { display: none; }
+
+/* ---------- 兼容：底部 Dock 换边不再影响 DockBar ---------- */
+html body.dock-top #dockBar,
+html body.dock-left #dockBar,
+html body.dock-right #dockBar {
+    /* 只清掉「跟随底部 Dock 换边」的旧位移，位置由 n26-db-pos-* 决定 */
+    bottom: auto;
+}
+
+/* ---------- 深色：顶栏里那条要跟顶栏一个色系 ---------- */
+html body.dark-mode.n26-db-pos-top #dockBar {
+    background: rgba(18, 22, 34, 0.82) !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+/* ---------- 减少动态效果 ---------- */
+@media (prefers-reduced-motion: reduce) {
+    html body #dockBar { transition: opacity .01ms !important; }
+}

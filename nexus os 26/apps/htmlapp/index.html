@@ -168,7 +168,7 @@
   function applyTheme(dark) { document.body.classList.toggle('dark-mode', !!dark); }
   (function () {
     var t = null;
-    try { t = localStorage.getItem('nexus_theme') || localStorage.getItem('theme'); } catch (e) { }
+    try { t = localStorage.getItem('n26:theme'); } catch (e) { }
     applyTheme(t === 'dark');
   })();
   window.addEventListener('message', function (e) {
@@ -194,7 +194,7 @@
     return [];
   }
   function selfPubList() {
-    return readList(['nexus_n26SelfPub', 'n26SelfPub', 'n26_store_selfpub']);
+    return readList(['n26:n26SelfPub', 'n26SelfPub', 'n26_store_selfpub']);
   }
   function findEntry(key) {
     if (!key) return null;

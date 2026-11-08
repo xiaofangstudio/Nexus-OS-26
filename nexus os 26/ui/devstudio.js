@@ -199,9 +199,9 @@
     t._timer = setTimeout(function () { t.className = 'toast'; }, 2600);
   }
 
-  /* ================= localStorage（与主壳 nexus_ 前缀兼容） ================= */
+  /* ================= localStorage（统一 n26: 命名空间，与初代 nexus_ 隔离） ================= */
   function readLS(key, fallback) {
-    var names = ['nexus_' + key, key];
+    var names = ['n26:' + key, key];
     for (var i = 0; i < names.length; i++) {
       try {
         var v = JSON.parse(localStorage.getItem(names[i]));
@@ -213,7 +213,7 @@
   function writeLS(key, value) {
     var str = JSON.stringify(value);
     var ok = false;
-    try { localStorage.setItem('nexus_' + key, str); ok = true; } catch (e) { }
+    try { localStorage.setItem('n26:' + key, str); ok = true; } catch (e) { }
     if (!ok) return false;
     // 裸键便于直接打开的运行时读取；失败不影响主流程
     try { localStorage.setItem(key, str); } catch (e) { }
@@ -346,7 +346,7 @@
   }
   function initTheme() {
     var stored = null;
-    try { stored = localStorage.getItem('nexus_theme') || localStorage.getItem('theme'); } catch (e) { }
+    try { stored = localStorage.getItem('n26:theme') || localStorage.getItem('n26:themeSource'); } catch (e) { }
     applyTheme(stored === 'dark');
   }
   initTheme();

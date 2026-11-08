@@ -7,8 +7,8 @@
 <link rel="stylesheet" href="../ui/tokens.css">
 <link rel="stylesheet" href="../ui/glass.css">
 <script src="_bridge.js"></script>
-<script src="../ui/n26-gestures.js?v=1.1.0"></script>
-<script src="_app.js?v=2.9.57"></script>
+<script src="../ui/n26-gestures.js?v=20261108c"></script>
+<script src="_app.js?v=2.9.97"></script>
 <style>
 /* ============================================================
    Nexus OS 26 · 天气
@@ -652,6 +652,8 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .hero-icon i, #precip, #stars span, .sk-hero::after, .sk-line::after, .sk-card::after { animation: none !important; }
 }
 </style>
+<!-- v2.9.95 天气视觉打磨：最后加载，压过内联样式（独立模块，不新增模糊层） -->
+<link rel="stylesheet" href="../ui/n26-weather-polish.css?v=wx2">
 </head>
 <body>
 <div id="sky" aria-hidden="true">
@@ -901,7 +903,6 @@ var CACHE_KEY = 'n26_wx2_cache_v1';
 var CITIES_KEY = 'n26_wx2_cities';
 var CUR_KEY = 'n26_wx2_cur';
 var UNIT_KEY = 'n26_wx2_unit';
-var GEO_ASKED_KEY = 'n26_wx2_geo_asked';
 var CACHE_TTL = 24 * 60 * 60 * 1000;
 
 /* 与主壳共享的存储键（主壳的 getLS 会额外加 nexus_ 前缀） */
@@ -2436,6 +2437,13 @@ function animateSwap() {
 function switchToIndex(i) {
   var c = S.cities[i];
   if (!c) return;
+  /* v2.10.4：用户在天气里亲手切了城市 → 记为系统级位置偏好（pin），
+     地图/天空层/其它应用都跟着用它，而且下次进天气不会再问他一次。 */
+  try {
+    if (window.N26GeoClient && N26GeoClient.set && isFinite(c.lat) && isFinite(c.lon)) {
+      N26GeoClient.set({ lat: +c.lat, lon: +c.lon, name: c.name || '' });
+    }
+  } catch (e) { }
   if (c.id === S.curId && S.data && S.dataCityKey === cacheKeyOf(c)) {
     closeSheets();
     return;
@@ -3101,6 +3109,12 @@ function addCity(city) {
   if (idx >= 0) S.cities[idx] = city;
   else S.cities.push(city);
   S.curId = city.id;
+  /* v2.10.4：搜索添加城市也是「用户亲手选的位置」→ 落 pin，别下次再问 */
+  try {
+    if (window.N26GeoClient && N26GeoClient.set && isFinite(city.lat) && isFinite(city.lon)) {
+      N26GeoClient.set({ lat: +city.lat, lon: +city.lon, name: city.name || '' });
+    }
+  } catch (e) { }
   usSet(CITIES_KEY, S.cities);
   usSet(CUR_KEY, S.curId);
   closeSheets();
@@ -3217,21 +3231,46 @@ function reverseGeocode(lat, lon) {
 
 function locate() {
   if (S.locating) return;
+  var g = null;
+  var hint = $('cityHint'), btn = null, lat, lon;
+  try {
+    g = (window.N26GeoClient && window.N26GeoClient.get()) || null;
+    if (window.N26GeoClient) {
+      if (g && isFinite(num(g.lat, NaN)) && isFinite(num(g.lon, NaN))) {
+        lat = Math.round(num(g.lat, 0) * 10000) / 10000;
+        lon = Math.round(num(g.lon, 0) * 10000) / 10000;
+        if (hint) hint.textContent = '定位完成';
+        addCity({
+          id: 'geo:' + lat.toFixed(2) + ',' + lon.toFixed(2),
+          name: g.name || '我的位置',
+          adm: g.adm || '',
+          lat: lat,
+          lon: lon,
+          geo: true
+        });
+      } else {
+        if (hint) hint.textContent = '正在定位…';
+        toast('正在获取当前位置…');
+      }
+      return;
+    }
+  } catch (e) {
+    if (window.N26GeoClient) return;
+  }
+  /* 兜底：统一位置服务不存在时才用浏览器定位 */
   if (!navigator.geolocation) { toast('当前环境不支持定位'); return; }
   S.locating = true;
-  var hint = $('cityHint');
-  var btn = $('btnLocate');
+  btn = $('btnLocate');
   if (hint) hint.textContent = '正在定位…';
   if (btn) btn.disabled = true;
 
   navigator.geolocation.getCurrentPosition(function (pos) {
-    var lat = Math.round(pos.coords.latitude * 10000) / 10000;
-    var lon = Math.round(pos.coords.longitude * 10000) / 10000;
+    lat = Math.round(pos.coords.latitude * 10000) / 10000;
+    lon = Math.round(pos.coords.longitude * 10000) / 10000;
     reverseGeocode(lat, lon).then(function (info) {
       S.locating = false;
       if (btn) btn.disabled = false;
       if (hint) hint.textContent = '定位完成';
-      usSet(GEO_ASKED_KEY, true);
       addCity({
         id: 'geo:' + lat.toFixed(2) + ',' + lon.toFixed(2),
         name: info.name,
@@ -3251,8 +3290,27 @@ function locate() {
 
 function maybeAutoLocate() {
   if (S.demo || S.cities.length) return;
-  if (lsGet(GEO_ASKED_KEY)) return;
-  usSet(GEO_ASKED_KEY, true);
+  var g = null, lat, lon;
+  try {
+    g = (window.N26GeoClient && window.N26GeoClient.get()) || null;
+    if (window.N26GeoClient) {
+      if (g && isFinite(num(g.lat, NaN)) && isFinite(num(g.lon, NaN))) {
+        lat = Math.round(num(g.lat, 0) * 10000) / 10000;
+        lon = Math.round(num(g.lon, 0) * 10000) / 10000;
+        addCity({
+          id: 'geo:' + lat.toFixed(2) + ',' + lon.toFixed(2),
+          name: g.name || '我的位置',
+          adm: g.adm || '',
+          lat: lat,
+          lon: lon,
+          geo: true
+        });
+      }
+      return;
+    }
+  } catch (e) {
+    if (window.N26GeoClient) return;
+  }
   setTimeout(locate, 700);
 }
 
@@ -3538,7 +3596,8 @@ function init() {
 
     /* 系统位置（主壳 n26_geo）：没有城市时直接用它；已有城市时补进列表，
        当前选择保持不变，直到系统位置在外面发生变化（storage 事件） */
-    var geo = sharedGet(SHARED_GEO_KEY);
+    var geo = null;
+    try { geo = (window.N26GeoClient && window.N26GeoClient.get()) || sharedGet(SHARED_GEO_KEY); } catch (e) { geo = sharedGet(SHARED_GEO_KEY); }
     if (geo && isFinite(num(geo.lat, NaN)) && isFinite(num(geo.lon, NaN))) {
       S.lastGeoKey = String(num(geo.lat, 0)) + ',' + String(num(geo.lon, 0));
     }
@@ -3582,6 +3641,25 @@ if (window.Nexus && Nexus.ready) {
 } else {
   setTimeout(init, 0);
 }
+
+/* 统一位置服务：主壳广播新坐标时重新播种当前城市 */
+window.addEventListener('n26:geo', function (e) {
+  try {
+    if (S.demo) return;
+    var g = (e && e.detail) || (window.N26GeoClient && window.N26GeoClient.get()) || null;
+    if (!g || !isFinite(num(g.lat, NaN)) || !isFinite(num(g.lon, NaN))) return;
+    var lat = Math.round(num(g.lat, 0) * 10000) / 10000;
+    var lon = Math.round(num(g.lon, 0) * 10000) / 10000;
+    addCity({
+      id: 'geo:' + lat.toFixed(2) + ',' + lon.toFixed(2),
+      name: g.name || '我的位置',
+      adm: g.adm || '',
+      lat: lat,
+      lon: lon,
+      geo: true
+    });
+  } catch (err) { /* ignore */ }
+});
 
 })();
 </script>

@@ -286,8 +286,12 @@ body.dark-mode .ag-side-item.active { background: rgba(59,130,246,0.22); color: 
 /* 配置浮层不能参与 grid 布局 */
 .ag-cfg { position: fixed !important; }
 </style>
-<link rel="stylesheet" href="../ui/n26-docknav.css?v=2965">
-<script src="../ui/n26-docknav.js?v=2965"></script>
+<link rel="stylesheet" href="../ui/n26-docknav.css?v=2979">
+<!-- v2.9.93：iframe 独立文档用自带折射引擎（宿主 SVG 滤镜跨文档引用不到） -->
+<script src="../ui/n26-lg-core.js?v=lg1"></script>
+<script src="../ui/n26-docknav.js?v=dn12"></script>
+<link rel="stylesheet" href="../ui/n26-switch.css?v=sw12">
+<script src="../ui/n26-switch.js?v=sw12"></script>
 </head>
 <body>
 <div class="ag-wrap">
@@ -350,7 +354,7 @@ body.dark-mode .ag-side-item.active { background: rgba(59,130,246,0.22); color: 
 </div>
 
 <script src="_bridge.js"></script>
-<script src="_app.js?v=2.9.57"></script>
+<script src="_app.js?v=2.9.97"></script>
 <script>
 (function () {
     'use strict';

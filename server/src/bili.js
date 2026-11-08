@@ -266,7 +266,7 @@ function buildTargets(env, path, query, withRelayParams) {
 
 async function biliGet(env, request, path, paramsIn, opt = {}) {
   const ttl = opt.ttl || 0;
-  const userCookie = request.headers.get('X-Bili-Cookie') || '';
+  const userCookie = opt.userCookie || request.headers.get('X-Bili-Cookie') || '';
   const useCache = ttl > 0 && !userCookie;
   const key = 'bili:v3:' + path + '?' + qs(paramsIn) + (opt.wbi ? '&wbi' : '');
   if (useCache) {
@@ -763,6 +763,10 @@ async function handlePlay(request, env, url, origin) {
   let cid = String(url.searchParams.get('cid') || '').trim();
   const qn = parseInt(url.searchParams.get('q') || url.searchParams.get('qn') || '64', 10) || 64;
   const aid = String(url.searchParams.get('aid') || '').trim();
+  /* v2.10.11：带上「方哩方哩的登录态」去请求 playurl —— 匿名最高 720P，
+     登录后才有 1080P / 1080P+ / 4K。token 无效就当匿名，不报错。 */
+  const token = String(url.searchParams.get('token') || '').trim();
+  const lc = await loginCookie(env, token);
   if (!bvid && !aid) return fail('BAD_REQUEST', '缺少 bvid（或 aid）参数', 400, env, request);
 
   // 没给 cid：先取详情的第一 P（API 失败时用页面兜底，避免播放页整条链路断掉）
@@ -789,11 +793,13 @@ async function handlePlay(request, env, url, origin) {
     wbi: true,
     ttl: TTL.play,
     timeout: PLAY_TIMEOUT,
+    userCookie: lc,
   });
   if (!r.ok || !(r.body.data && Array.isArray(r.body.data.durl) && r.body.data.durl.length)) {
     r = await biliGet(env, request, '/x/player/playurl', { bvid, cid, qn, fnval: 1, fnver: 0, fourk: 1 }, {
       ttl: TTL.play,
       timeout: PLAY_TIMEOUT,
+      userCookie: lc,
     });
   }
   if (!r.ok || !(r.body.data && Array.isArray(r.body.data.durl) && r.body.data.durl.length)) {
@@ -802,7 +808,7 @@ async function handlePlay(request, env, url, origin) {
       request,
       '/x/player/playurl',
       { bvid, cid, qn, fnval: 0, fnver: 0, platform: 'html5', high_quality: 1, fourk: 1 },
-      { ttl: TTL.play, timeout: PLAY_TIMEOUT }
+      { ttl: TTL.play, timeout: PLAY_TIMEOUT, userCookie: lc }
     );
   }
   if (!r.ok) return fail(r.err.code, r.err.error, r.err.status, env, request, {}, r.err.upstream);
@@ -825,7 +831,10 @@ async function handlePlay(request, env, url, origin) {
       format: 'mp4',
       url: all[0] || '',
       backup: all.slice(1),
-      proxy: all.length && origin ? origin + '/api/bili/stream?' + q : '',
+      /* 登录态一起带下去：1080P 的 CDN 校验比匿名严，流也要用同一个 Cookie 取 */
+      proxy: all.length && origin
+        ? origin + '/api/bili/stream?' + q + (lc ? '&token=' + encodeURIComponent(token) : '')
+        : '',
     };
   });
   const chosen = qualities.find((q) => q.id === (Number(d.quality) || qn)) || { id: d.quality || qn, label: '' };
@@ -835,8 +844,9 @@ async function handlePlay(request, env, url, origin) {
       cid: Number(cid),
       quality: chosen,
       accept: qualities,
+      loggedIn: !!lc,
       loginRequired: !durl.length,
-      note: durl.length ? '' : '上游未返回可直接播放的 MP4，可能需要在服务器配置 BILI_COOKIE（SESSDATA）。',
+      note: durl.length ? '' : '上游未返回可直接播放的 MP4，可能需要在服务器配置 BILI_COOKIE（SESSDATA），或在方哩方哩扫码登录。',
       durl,
     },
     200,
@@ -923,7 +933,7 @@ async function handleStream(request, env, url) {
     return fail('BAD_TARGET', '仅允许 B站视频 CDN 域名', 400, env, request);
   }
 
-  const headers = baseHeaders(await getCookie(env));
+  const headers = baseHeaders((await loginCookie(env, url.searchParams.get('token'))) || (await getCookie(env)));
   const range = request.headers.get('Range');
   if (range) headers.Range = range; // 拖进度条关键：透传 Range
 
@@ -1394,6 +1404,35 @@ async function sealSession(env, token, cookie, profile) {
   return { v: 1, iv: b64(iv), c: b64(enc), profile, at: Date.now() };
 }
 
+/* v2.10.11：解开登录会话拿回 Cookie。
+   用途：MV 要 1080P 就必须带账号 Cookie 去请求 playurl（匿名只给到 720P），
+   而账号 Cookie 只在用户「在方哩方哩扫码登录」之后才存在。 */
+function unb64(s) {
+  const bin = atob(String(s || ''));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+async function unsealSession(env, token, rec) {
+  if (!rec || !rec.c || !rec.iv) return '';
+  try {
+    const key = await loginAesKey(env, token);
+    const buf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(rec.iv) }, key, unb64(rec.c));
+    return new TextDecoder().decode(buf);
+  } catch (e) {
+    return '';
+  }
+}
+/* URL 上的 token → 登录 Cookie；没登录 / 过期 / 解不开都返回空串 */
+async function loginCookie(env, token) {
+  const t = String(token || '');
+  if (!/^[0-9a-f]{24,64}$/.test(t)) return '';
+  let rec = null;
+  try { rec = await lGet(env, 'bili:login:sess:' + t); } catch (e) { rec = null; }
+  if (!rec) return '';
+  return await unsealSession(env, t, rec);
+}
+
 async function kvDel(env, key) {
   try {
     if (env.BILI_KV) await env.BILI_KV.delete(key);
@@ -1410,15 +1449,20 @@ function lreq(key) {
   return new Request(LSTORE + encodeURIComponent(key));
 }
 async function lPut(env, key, value, ttl) {
+  /* ★ v2.10.11：KV 只收字符串，对象必须先 JSON.stringify。
+     之前直接把对象丢给 KV.put，KV 路径存进去的是 "[object Object]"，
+     而 Cache 路径存的是真 JSON —— 两条路的读出来长得不一样，
+     结果就是「有时能认出登录、有时认不出」。这里统一成 JSON 文本。 */
+  const str = (typeof value === 'string') ? value : JSON.stringify(value);
   try {
-    if (env.BILI_KV) await env.BILI_KV.put(key, value, { expirationTtl: ttl });
+    if (env.BILI_KV) await env.BILI_KV.put(key, str, { expirationTtl: ttl });
   } catch (e) {
     /* KV 额度用尽，走 Cache */
   }
   try {
     await caches.default.put(
       lreq(key),
-      new Response(JSON.stringify(value), {
+      new Response(str, {
         headers: {
           'Content-Type': 'application/json',
           'Cache-Control': 'max-age=' + Math.max(60, ttl),
@@ -1433,7 +1477,8 @@ async function lGet(env, key) {
   try {
     if (env.BILI_KV) {
       const v = await env.BILI_KV.get(key);
-      if (v) return v;
+      /* KV 里存的是 JSON 文本 → 解析成对象，和 Cache 路径保持同一形状 */
+      if (v) { try { return JSON.parse(v); } catch (e) { return v; } }
     }
   } catch (e) {
     /* ignore */

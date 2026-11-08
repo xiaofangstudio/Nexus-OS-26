@@ -221,7 +221,7 @@ body.dark-mode .n26-tour-dots span.past { background: rgba(74, 144, 247, .45); }
     border: none; background: var(--n26-blue); color: #fff; font-family: inherit;
     font-size: 13.5px; font-weight: 650; padding: 11px 26px; border-radius: 12px;
     cursor: pointer; box-shadow: 0 6px 18px rgba(47, 124, 246, .28);
-    transition: transform .2s var(--n26-ease), box-shadow .2s var(--n26-ease);
+    transition: transform 260ms var(--n26-ease), box-shadow 260ms var(--n26-ease);
 }
 .n26-tour-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(47, 124, 246, .34); }
 .n26-tour-primary:active { transform: scale(.97); }
@@ -254,7 +254,7 @@ body.dark-mode .n26-tour-dots span.past { background: rgba(74, 144, 247, .45); }
 .n26-tour-reel::before { top: 0; background: linear-gradient(#fff, rgba(255, 255, 255, 0)); }
 .n26-tour-reel::after { bottom: 0; background: linear-gradient(rgba(255, 255, 255, 0), #fff); }
 .n26-tour-reel.locked { background: #eef3fa; }
-.n26-tour-reel-cell { height: 44px; display: grid; place-items: center; font-size: 24px; color: #9aa8ba; transition: transform .3s var(--n26-ease), color .2s ease; }
+.n26-tour-reel-cell { height: 44px; display: grid; place-items: center; font-size: 24px; color: #9aa8ba; transition: transform .3s var(--n26-ease), color 260ms cubic-bezier(.2, .7, .2, 1); }
 .n26-tour-reel-cell.cur { color: var(--n26-blue); font-size: 30px; }
 .n26-tour-reel.locked .n26-tour-reel-cell.cur { color: #1c7a5b; }
 .n26-tour-reel-tag { position: absolute; top: 7px; font-size: var(--tn); color: var(--n26-ink-3); z-index: 3; letter-spacing: .06em; }
@@ -267,7 +267,7 @@ body.dark-mode .n26-tour-dots span.past { background: rgba(74, 144, 247, .45); }
 /* 互动件 ④：横向双指滑动 */
 .n26-tour-track { width: 78%; height: 62px; border-radius: 16px; background: #fff; border: 1px solid rgba(28, 42, 64, .07); display: flex; align-items: center; justify-content: center; padding: 0 14px; box-shadow: 0 8px 20px rgba(22, 36, 56, .07); }
 /* 横滑轨道只留圆点，不放箭头图标 */
-.n26-tour-dot { width: 34px; height: 34px; border-radius: 50%; background: var(--n26-blue); box-shadow: 0 4px 12px rgba(47, 124, 246, .34); transition: transform .16s var(--n26-ease); }
+.n26-tour-dot { width: 34px; height: 34px; border-radius: 50%; background: var(--n26-blue); box-shadow: 0 4px 12px rgba(47, 124, 246, .34); transition: transform 260ms var(--n26-ease); }
 
 /* 互动件 ⑤：一指甲按住 + 另一指轻滑的拖动 */
 .n26-tour-drag { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; gap: 36px; }
@@ -278,7 +278,7 @@ body.dark-mode .n26-tour-dots span.past { background: rgba(74, 144, 247, .45); }
     box-shadow: 0 8px 18px rgba(22, 36, 56, .08);
     cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
     position: relative; z-index: 1;
-    transition: transform .2s var(--n26-ease), box-shadow .2s var(--n26-ease);
+    transition: transform 260ms var(--n26-ease), box-shadow 260ms var(--n26-ease);
 }
 .n26-tour-drag-tile.grabbing { cursor: grabbing; box-shadow: 0 14px 30px rgba(22, 36, 56, .18); }
 .n26-tour-drag-slot {
@@ -287,7 +287,7 @@ body.dark-mode .n26-tour-dots span.past { background: rgba(74, 144, 247, .45); }
     font-size: var(--ts); font-weight: 600; color: var(--n26-ink-3);
     border: 2px dashed rgba(47, 124, 246, .34);
     background: transparent;
-    transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s var(--n26-ease);
+    transition: background 260ms cubic-bezier(.2, .7, .2, 1), border-color 260ms cubic-bezier(.2, .7, .2, 1), color 260ms cubic-bezier(.2, .7, .2, 1), transform 260ms var(--n26-ease);
 }
 /* 投放区只留虚线框 + 文字 */
 .n26-tour-drag-slot.is-over {
