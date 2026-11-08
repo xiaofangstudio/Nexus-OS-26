@@ -19874,8 +19874,8 @@
         </filter>
         <!-- v3 水波位移：只做"真扭曲"，由 #covi-wave 的 backdrop-filter 引用 -->
         <filter id="coviWaveWarp" x="-8%" y="-8%" width="116%" height="116%" color-interpolation-filters="sRGB">
-            <feTurbulence type="fractalNoise" baseFrequency="0.008 0.026" numOctaves="2" seed="11" result="coviWaveNoise"/>
-            <feDisplacementMap in="SourceGraphic" in2="coviWaveNoise" scale="26" xChannelSelector="R" yChannelSelector="G"/>
+            <feTurbulence type="fractalNoise" baseFrequency="0.005 0.014" numOctaves="2" seed="11" result="coviWaveNoise"/>
+            <feDisplacementMap in="SourceGraphic" in2="coviWaveNoise" scale="22" xChannelSelector="R" yChannelSelector="G"/>
         </filter>
     </svg>
     <div id="covi-stage" aria-hidden="true">
@@ -24365,6 +24365,8 @@
     // ==================== 锁屏/登录 ====================
     let lockTopVisible = true;  // 锁屏上层（时间+账户）是否可见
     function showLockScreen() {
+        // P0：回锁屏即结束安全模式（清标记 + 退出），避免登录后仍被上一次误触拖回安全模式
+        try { n26SafeModeSessionReset('lock-screen'); } catch (e) { }
         // 记录锁屏时间与用户名，供"锁屏后免密码进入"判定（仅当当前有登录用户时）
         if (currentUser) {
             lastLockTime = Date.now();
@@ -28423,6 +28425,8 @@
 
     // ==================== 桌面 ====================
     function enterDesktop() {
+        // P0：登录成功清除安全模式持久化标记（只清 marker，不打断显式进入的安全模式界面）
+        try { n26ClearSafeModeMarker('login'); } catch (e) { }
         // v2.9.61：入场 600ms 内摘掉全系统背景模糊（模糊层数是性能唯一真杠杆），
         // 让入场动画那一帧不用同时合成几十层 backdrop-filter
         document.body.classList.add('n26-busy');
@@ -53959,10 +53963,83 @@
     }
 
     // ==================== 安全模式 ====================
-    // 仅开机Logo显示期间（3秒窗口）按4键才触发，其他时间按4无反应
+    // P0 止血：安全模式只接受显式请求（开机 3 秒窗口内 Alt/Ctrl/Shift + 4）。
+    // 输密码时的 4/P、锁屏出现后的按键等隐式触发，一律写入 n26:boot.log 后跳过，保证能进桌面。
     let safeModeListenerAdded = false;
     let isBooting = false;
     let bootWindowTimer = null;
+
+    const N26_BOOT_LOG_KEY = 'n26:boot.log';
+    const N26_SAFE_MODE_MARKER = 'n26SafeMode';
+
+    function n26BootLog(evt, detail) {
+        try {
+            const line = new Date().toISOString() + ' [' + evt + '] ' + (detail || '');
+            let arr = [];
+            try { arr = JSON.parse(localStorage.getItem(N26_BOOT_LOG_KEY) || '[]'); } catch (e) { arr = []; }
+            if (!Array.isArray(arr)) arr = [];
+            arr.push(line);
+            if (arr.length > 60) arr = arr.slice(arr.length - 60);
+            localStorage.setItem(N26_BOOT_LOG_KEY, JSON.stringify(arr));
+        } catch (e) { /* 日志失败绝不影响启动 */ }
+    }
+
+    // 是否处于“用户正在输入”的焦点（密码框/输入框/可编辑区域）
+    function n26IsTypingTarget(el) {
+        try {
+            if (!el || el.nodeType !== 1) return false;
+            const tag = el.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+            return !!el.isContentEditable;
+        } catch (e) { return false; }
+    }
+
+    // 锁屏是否已显示：锁屏出现后按键属于登录输入，不再算开机请求
+    function n26LockScreenVisible() {
+        try {
+            const el = document.getElementById('lock-screen');
+            if (!el) return false;
+            return el.classList.contains('show') || (el.style.display && el.style.display !== 'none');
+        } catch (e) { return false; }
+    }
+
+    // 唯一进入口：source 必须为 explicit，其余一律记日志并跳过（P0 止血）
+    function n26EnterSafeMode(source) {
+        if (source !== 'explicit') {
+            n26BootLog('safe-mode-auto-blocked', 'source=' + source + '（自动触发已跳过）');
+            return false;
+        }
+        if (safeMode) return false;
+        safeMode = true;
+        n26BootLog('safe-mode-enter', '显式组合键进入安全模式');
+        endBootWindow();
+        enterSafeModeTransition();
+        return true;
+    }
+
+    // 只清持久化标记（登录成功时调用）：n26SafeMode 历史上是死写，这里保证读写两端都不再残留
+    function n26ClearSafeModeMarker(reason) {
+        try {
+            let had = false;
+            try {
+                if (sessionStorage.getItem(N26_SAFE_MODE_MARKER)) { sessionStorage.removeItem(N26_SAFE_MODE_MARKER); had = true; }
+                if (sessionStorage.getItem('n26:SafeMode')) { sessionStorage.removeItem('n26:SafeMode'); had = true; }
+            } catch (e) { }
+            if (had) n26BootLog('safe-mode-marker-cleared', 'reason=' + reason);
+            return had;
+        } catch (e) { return false; }
+    }
+
+    // 回锁屏/注销时复位：安全模式只属于单次开机，不跨登录传递（否则形成“输密码仍是安全模式”的死循环）
+    function n26SafeModeSessionReset(reason) {
+        n26ClearSafeModeMarker(reason);
+        try {
+            if (safeMode) {
+                n26BootLog('safe-mode-exit', 'reason=' + reason);
+                exitSafeMode();
+            }
+        } catch (e) { }
+    }
 
     function startBootWindow() {
         isBooting = true;
@@ -53979,15 +54056,23 @@
         if (safeModeListenerAdded) return;
         safeModeListenerAdded = true;
         document.addEventListener('keydown', function(e) {
-            // 按4进入安全模式
-            if ((e.key === '4' || e.keyCode === 52) && isBooting && !safeMode) {
-                safeMode = true;
-                endBootWindow();
-                enterSafeModeTransition();
+            const isFour = (e.code === 'Digit4' || e.key === '4' || e.keyCode === 52);
+            const isPe = (e.code === 'KeyP' || e.key === 'p' || e.key === 'P' || e.keyCode === 80);
+            if (!isFour && !isPe) return;
+            if (!isBooting) return;  // 非开机窗口：按 4/P 无反应
+            const explicit = !!(e.altKey || e.ctrlKey || e.metaKey || e.shiftKey);
+            const typing = n26IsTypingTarget(e.target || document.activeElement);
+            const lockVisible = n26LockScreenVisible();
+            // 隐式触发（含密码框内输入 4/P）：只记日志并跳过
+            if (!explicit || typing || lockVisible) {
+                n26BootLog('safe-mode-key-skip', 'key=' + (isFour ? '4' : 'P')
+                    + ' explicit=' + explicit + ' typing=' + typing + ' lockScreen=' + lockVisible);
+                return;
             }
-            // 按P进入PE系统（恢复环境）
-            if ((e.key === 'p' || e.key === 'P') && isBooting && !peMode) {
+            if (isFour) { n26EnterSafeMode('explicit'); return; }
+            if (isPe && !peMode) {
                 endBootWindow();
+                n26BootLog('pe-enter', '显式组合键进入 PE');
                 enterPEMode();
             }
         });
