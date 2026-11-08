@@ -1,0 +1,241 @@
+/* ============================================================
+   N26 UI · 侧边栏 / Tab 壳（ui/n26-ui.css）
+   ------------------------------------------------------------
+   本文件只提供「规范侧边栏」的默认视觉，所有数值均取自现有实现：
+     · 侧栏玻璃：ui/n26-docknav.css  .fm-sidebar[data-n26dock]
+                  rgba(255,255,255,.50) / 边框 .62 / 圆角 16px
+     · 胶囊指示器：ui/n26-docknav.css  .n26-dng
+                  rgba(125,135,155,.16) / 内高光 .35 / 圆角 999px
+     · 滑动玻璃：  ui/n26-docknav.css  .n26-dng.travel
+                  blur(14px) saturate(1.5) / 白边 .55 / 阴影 0 10px 26px
+     · 项尺寸：    ui/n26-docknav.css  7px 0 6px / gap 3px / 圆角 11px /
+                  图标 15px / 文字 10.5px / 行高 1.1
+     · 选中色：    ui/n26-docknav.css  --n26dock-accent #2f7cf6
+                  （深色文字 #eef3fa，来自同文件 body.dark-mode 段）
+     · 内容区内边距：ui/n26-shell.css  .as-shell 18px 20px 24px
+     · 焦点环：    apps/_polish.css    2px rgba(74,155,245,.72) / offset 2px
+   令牌优先：tokens.css 已提供时直接吃 var()；未加载时使用上面的真实兜底值。
+   ============================================================ */
+
+.n26ui-shell {
+    display: flex;
+    align-items: stretch;
+    height: 100%;
+    min-height: 0;
+    font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif);
+    color: var(--text-1, rgba(15, 23, 42, .92));
+}
+
+/* ---------- 侧边栏：76px 圆 dock（同 .fm-sidebar[data-n26dock]） ---------- */
+.n26ui-sidebar {
+    position: relative;
+    flex: 0 0 76px;
+    width: 76px;
+    box-sizing: border-box;
+    padding: 7px 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* v2.9.61：与宿主个性化玻璃滑块同源（_app.js 写入本 iframe :root） */
+    background: rgba(255, 255, 255,
+        calc(var(--n26-glass-alpha, .50) * var(--n26-alpha-k, 1)));
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 17px) * var(--n26-k, 1) * 0.62))
+        saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1)));
+    backdrop-filter: blur(calc(var(--n26-blur, 17px) * var(--n26-k, 1) * 0.62))
+        saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1)));
+    border: 1px solid rgba(255, 255, 255, .62);
+    border-radius: 16px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .70), 0 6px 18px rgba(20, 40, 70, .10);
+    scrollbar-width: none;
+    -webkit-tap-highlight-color: transparent;
+}
+/* 纯色材质 / 性能模式：不采样背景，只留实心底色（与 _polish.css 侧栏白名单一致） */
+body.mat-solid .n26ui-sidebar,
+body.perf-mode .n26ui-sidebar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+.n26ui-sidebar::-webkit-scrollbar { width: 0; height: 0; }
+
+/* ---------- 胶囊指示器：垫底，内容保持清晰 ---------- */
+.n26ui-indicator {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 0;
+    width: 0;
+    height: 0;
+    border-radius: 999px;
+    background: rgba(125, 135, 155, .16);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .25s ease;
+    will-change: transform, width, height;
+}
+/* 滑动中：液态玻璃水滴（配方来自 .n26-dng.travel） */
+.n26ui-indicator.travel {
+    background: linear-gradient(160deg, rgba(255, 255, 255, .36), rgba(255, 255, 255, .12));
+    -webkit-backdrop-filter: blur(14px) saturate(1.5);
+    backdrop-filter: blur(14px) saturate(1.5);
+    border: 1px solid rgba(255, 255, 255, .55);
+    box-shadow: 0 10px 26px rgba(20, 40, 70, .16), inset 0 1px 0 rgba(255, 255, 255, .55);
+}
+
+/* ---------- Tab：图标在上、小字在下 ---------- */
+.n26ui-tab {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    width: 100%;
+    margin: 0 0 2px;
+    padding: 7px 0 6px;
+    border: 0;
+    border-radius: 11px;
+    background: transparent;
+    color: rgba(30, 52, 78, .72);
+    font: inherit;
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 1.1;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s ease, color .15s ease, transform .12s ease;
+}
+.n26ui-tab > i {
+    font-size: 15px;
+    line-height: 1;
+    color: inherit;
+    transition: color .35s ease;
+}
+.n26ui-tab-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.n26ui-tab:hover:not(.active) { background: rgba(255, 255, 255, .85); color: #16324e; }
+.n26ui-tab:active { transform: scale(.95); }
+.n26ui-tab.active { color: #1c2b3a; }
+.n26ui-tab.active > i { color: var(--n26dock-accent, #2f7cf6); }
+.n26ui-tab:disabled,
+.n26ui-tab[aria-disabled="true"] {
+    color: var(--text-3, rgba(15, 23, 42, .42));
+    cursor: not-allowed;
+    pointer-events: none;
+}
+/* 键盘焦点：与 apps/_polish.css 同一条环 */
+.n26ui-tab:focus-visible {
+    outline: 2px solid rgba(74, 155, 245, .72);
+    outline-offset: 2px;
+}
+
+/* ---------- 图标弹跳：新图标先缩小再弹回（同 .n26-icon-pop） ---------- */
+.n26ui-icon-pop { animation: n26UiIconPop .4s cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes n26UiIconPop {
+    0%   { transform: scale(1); }
+    32%  { transform: scale(.76); }
+    68%  { transform: scale(1.12); }
+    100% { transform: scale(1); }
+}
+
+/* ---------- 内容区与面板 ---------- */
+.n26ui-content {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    box-sizing: border-box;
+    padding: 18px 20px 24px;
+}
+.n26ui-panel { min-width: 0; }
+.n26ui-panel[hidden] { display: none; }
+
+/* 内容沿切换方向轻推淡入（同 .n26-nudge-*，0.42s） */
+.n26ui-nudge-up,
+.n26ui-nudge-down {
+    animation-duration: .42s;
+    animation-timing-function: cubic-bezier(.3, .7, .3, 1);
+}
+.n26ui-nudge-down { animation-name: n26UiNudgeD; }
+.n26ui-nudge-up { animation-name: n26UiNudgeU; }
+@keyframes n26UiNudgeD {
+    from { opacity: .4; transform: translateY(12px); }
+    to   { opacity: 1; transform: none; }
+}
+@keyframes n26UiNudgeU {
+    from { opacity: .4; transform: translateY(-12px); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* ---------- 折叠：只留图标；宽度取 --sp-7（48px） ---------- */
+.n26ui-shell.n26ui-collapsed .n26ui-sidebar {
+    flex-basis: var(--sp-7, 48px);
+    width: var(--sp-7, 48px);
+    padding: 7px 4px;
+}
+.n26ui-shell.n26ui-collapsed .n26ui-tab { padding: var(--sp-2, 8px) 0; }
+.n26ui-shell.n26ui-collapsed .n26ui-tab-label { display: none; }
+
+/* 窄屏自动折叠：断点沿用 ui/n26-shell.css 的 760px */
+@media (max-width: 760px) {
+    .n26ui-sidebar { flex-basis: var(--sp-7, 48px); width: var(--sp-7, 48px); padding: 7px 4px; }
+    .n26ui-tab { padding: var(--sp-2, 8px) 0; }
+    .n26ui-tab-label { display: none; }
+    .n26ui-content { padding: var(--sp-3, 12px); }
+}
+
+/* ---------- 深色：白边 + 中性黑影（tokens.css body.dark-mode） ---------- */
+:is(body.dark-mode, html[data-theme="dark"], html[data-mode="dark"], body[data-theme="dark"], .n26ui-shell[data-theme="dark"]) .n26ui-sidebar {
+    background: rgba(255, 255, 255, .07);
+    border-color: rgba(255, 255, 255, .12);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+:is(body.dark-mode, html[data-theme="dark"], html[data-mode="dark"], body[data-theme="dark"], .n26ui-shell[data-theme="dark"]) .n26ui-indicator {
+    background: rgba(255, 255, 255, .10);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14);
+}
+:is(body.dark-mode, html[data-theme="dark"], html[data-mode="dark"], body[data-theme="dark"], .n26ui-shell[data-theme="dark"]) .n26ui-indicator.travel {
+    background: linear-gradient(160deg, rgba(255, 255, 255, .17), rgba(255, 255, 255, .07));
+    border-color: rgba(255, 255, 255, .22);
+}
+:is(body.dark-mode, html[data-theme="dark"], html[data-mode="dark"], body[data-theme="dark"], .n26ui-shell[data-theme="dark"]) .n26ui-tab {
+    color: rgba(255, 255, 255, .68);
+}
+:is(body.dark-mode, html[data-theme="dark"], html[data-mode="dark"], body[data-theme="dark"], .n26ui-shell[data-theme="dark"]) .n26ui-tab:hover:not(.active) {
+    background: rgba(255, 255, 255, .12);
+    color: #fff;
+}
+:is(body.dark-mode, html[data-theme="dark"], html[data-mode="dark"], body[data-theme="dark"], .n26ui-shell[data-theme="dark"]) .n26ui-tab.active {
+    color: #eef3fa;
+}
+:is(body.dark-mode, html[data-theme="dark"], html[data-mode="dark"], body[data-theme="dark"], .n26ui-shell[data-theme="dark"]) .n26ui-tab.active > i {
+    color: var(--n26dock-accent, #2f7cf6);
+}
+:is(body.dark-mode, html[data-theme="dark"], html[data-mode="dark"], body[data-theme="dark"], .n26ui-shell[data-theme="dark"]) .n26ui-tab[aria-disabled="true"] {
+    color: rgba(203, 213, 225, .48);
+}
+
+/* ---------- 降级：减少动效 / 性能模式 ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .n26ui-indicator { transition: none !important; }
+    .n26ui-indicator.travel { animation: none !important; }
+    .n26ui-icon-pop,
+    .n26ui-nudge-up,
+    .n26ui-nudge-down { animation: none !important; }
+    .n26ui-tab { transition: none !important; }
+}
+body.perf-mode .n26ui-indicator.travel {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+body.perf-mode .n26ui-icon-pop,
+body.perf-mode .n26ui-nudge-up,
+body.perf-mode .n26ui-nudge-down { animation: none !important; }

@@ -1,0 +1,348 @@
+/* ============================================================
+   N26 DockNav — 液态玻璃 Dock 导航（应用商店同款圆 dock）
+   v2.9.65
+   · 选中态统一：偏灰胶囊色块 + 蓝色图标
+   · 切换动画：胶囊变大 → 液态玻璃水滴滑过去（前沿先到、中间拉长、
+     略压扁）→ 弹簧回弹停稳（约 400ms）→ 缩回灰色胶囊
+   · 新图标先缩小再弹回；文字颜色渐变；内容沿点击方向轻推淡入
+   · 长按可拖动，松手向最近的 tab 吸附（水滴方式）
+   用法：容器加 data-n26dock="v"（竖）或 "h"（横），页面引入
+        n26-docknav.css + n26-docknav.js（自动增强，不动原 onclick）
+   ============================================================ */
+
+:root { --n26dock-accent: #2f7cf6; }
+
+/* ---------- 宿主与层叠（指示器垫底，内容保持清晰） ---------- */
+.n26-docknav-host { position: relative; }
+.n26-docknav-host > * { position: relative; z-index: 1; }
+/* v2.9.82：玻璃已是 body 下的独立浮层，不再受宿主 z-index 约束（见下方 .n26-dng） */
+.n26-docknav-host.n26-docknav-drag { user-select: none; -webkit-user-select: none; cursor: grabbing; }
+
+/* ---------- 液态玻璃指示器 ---------- */
+/* v2.9.79：按住/拖动期间，激活项让出自身底色，只留 .n26-dng 跟着指针走；
+   松手滑行与淡出结束后 hold 解除，灰色胶囊在目标项重新出现。 */
+.n26-docknav-host.n26-docknav-hold .as-rail-item.active,
+.n26-docknav-host.n26-docknav-hold .nav-item.on,
+.n26-docknav-host.n26-docknav-hold .fm-sidebar-item.active,
+.n26-docknav-host.n26-docknav-hold .settings-item.active,
+.n26-docknav-host.n26-docknav-hold .ag-side-item.active,
+.n26-docknav-host.n26-docknav-drag .as-rail-item.active,
+.n26-docknav-host.n26-docknav-drag .nav-item.on,
+.n26-docknav-host.n26-docknav-drag .fm-sidebar-item.active,
+.n26-docknav-host.n26-docknav-drag .settings-item.active,
+.n26-docknav-host.n26-docknav-drag .ag-side-item.active {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+/* v2.9.81：按住瞬间灰胶囊立即消失（压掉 background-color 的 0.2s 过渡） */
+.n26-docknav-host.n26-docknav-hold .active,
+.n26-docknav-host.n26-docknav-hold .on {
+    transition: none !important;
+}
+
+/* 横向 Dock 条（含 .on/.active 两种命名）同样让位 */
+.n26-docknav-host.n26-docknav-hold[data-n26dock="h"] > .on,
+.n26-docknav-host.n26-docknav-hold[data-n26dock="h"] > .active,
+.n26-docknav-host.n26-docknav-hold[data-n26dock="h"] > .on:hover,
+.n26-docknav-host.n26-docknav-hold[data-n26dock="h"] > .active:hover {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+/* 拖动期间彻底禁用玻璃自身的过渡，保证中心严丝合缝贴住指针 */
+.n26-dng.travel,
+.n26-dng.glow {
+    transition: none !important;
+}
+/* v2.9.82 浮层：玻璃挂在 body 上、用视口坐标定位。
+   这样侧栏的 overflow:hidden / 轨道内边距都裁不到它，四周外扩（OUT=5px）
+   才能真正越出整条侧栏的外轮廓。 */
+.n26-dng {
+    position: fixed; left: 0; top: 0; z-index: 2147483000;
+    margin: 0;
+    border-radius: 999px;
+    background: rgba(125, 135, 155, 0.16);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s linear;
+    transition-timing-function: linear;
+    will-change: transform, width, height;
+}
+/* 滑动中：变液态玻璃——透明、磨砂、描边、光泽 */
+.n26-dng.travel {
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.12));
+    backdrop-filter: blur(14px) saturate(1.5);
+    -webkit-backdrop-filter: blur(14px) saturate(1.5);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    box-shadow: 0 10px 26px rgba(20, 40, 70, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+/* v2.9.79：按住跟手时的发光态（深浅色各一套，不糊成一团） */
+.n26-dng.glow {
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.16));
+    border-color: rgba(255, 255, 255, 0.78);
+    /* v2.9.81：按下凸出时的折射感（只调感知，不动任何颜色令牌） */
+    backdrop-filter: blur(16px) saturate(1.6) brightness(1.06);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6) brightness(1.06);
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.55),
+        0 0 16px rgba(120, 190, 255, 0.38),
+        0 10px 26px rgba(20, 40, 70, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+body.dark-mode .n26-dng.glow {
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
+    border-color: rgba(190, 220, 255, 0.42);
+    box-shadow:
+        0 0 0 1px rgba(190, 220, 255, 0.28),
+        0 0 18px rgba(110, 180, 255, 0.34),
+        0 10px 26px rgba(0, 0, 0, 0.32),
+        inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+/* 经过时产生光泽感 */
+.n26-dng.travel::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit;
+    background: linear-gradient(115deg, transparent 32%, rgba(255, 255, 255, 0.55) 47%, transparent 60%);
+    background-size: 240% 100%;
+    animation: n26DngGloss 0.42s ease both;
+    pointer-events: none;
+}
+@keyframes n26DngGloss { from { background-position: 130% 0; } to { background-position: -70% 0; } }
+
+body.dark-mode .n26-dng { background: rgba(255, 255, 255, 0.10); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14); }
+body.dark-mode .n26-dng.travel {
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.17), rgba(255, 255, 255, 0.07));
+    border-color: rgba(255, 255, 255, 0.22);
+}
+
+/* ---------- 新图标：先缩小再弹回 ---------- */
+.n26-icon-pop { animation: n26IconPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes n26IconPop {
+    0% { transform: scale(1); }
+    32% { transform: scale(0.76); }
+    68% { transform: scale(1.12); }
+    100% { transform: scale(1); }
+}
+
+/* ---------- 页面内容沿点击方向轻推淡入 ---------- */
+.n26-nudge-left, .n26-nudge-right, .n26-nudge-up, .n26-nudge-down {
+    animation-duration: 0.42s; animation-timing-function: cubic-bezier(0.3, 0.7, 0.3, 1);
+}
+.n26-nudge-left { animation-name: n26NudgeL; }
+.n26-nudge-right { animation-name: n26NudgeR; }
+.n26-nudge-up { animation-name: n26NudgeU; }
+.n26-nudge-down { animation-name: n26NudgeD; }
+@keyframes n26NudgeL { from { opacity: 0.4; transform: translateX(-12px); } to { opacity: 1; transform: none; } }
+@keyframes n26NudgeR { from { opacity: 0.4; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+@keyframes n26NudgeU { from { opacity: 0.4; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
+@keyframes n26NudgeD { from { opacity: 0.4; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* ---------- 文字颜色渐变（不覆盖位移类过渡） ---------- */
+.n26-docknav-host .as-rail-item,
+.n26-docknav-host .nav-item,
+.n26-docknav-host .fm-sidebar-item,
+.n26-docknav-host .settings-item,
+.n26-docknav-host .ag-side-item,
+.n26-docknav-host [data-n26dock="h"] > * {
+    transition: background 0.3s ease, color 0.35s ease, opacity 0.3s ease, transform 0.15s ease;
+}
+
+/* ---------- 选中态统一：偏灰胶囊 + 蓝色图标 ---------- */
+.n26-docknav-host .as-rail-item.active,
+.n26-docknav-host .nav-item.on,
+.n26-docknav-host .fm-sidebar-item.active,
+.n26-docknav-host .settings-item.active,
+.n26-docknav-host .ag-side-item.active {
+    background: rgba(125, 135, 155, 0.16) !important;
+    color: #1c2b3a !important;
+    box-shadow: none !important;
+}
+.n26-docknav-host .as-rail-item.active i,
+.n26-docknav-host .nav-item.on i,
+.n26-docknav-host .fm-sidebar-item.active i,
+.n26-docknav-host .settings-item.active i,
+.n26-docknav-host .ag-side-item.active i {
+    color: var(--n26dock-accent) !important;
+}
+body.dark-mode .n26-docknav-host .as-rail-item.active,
+body.dark-mode .n26-docknav-host .nav-item.on,
+body.dark-mode .n26-docknav-host .fm-sidebar-item.active,
+body.dark-mode .n26-docknav-host .settings-item.active,
+body.dark-mode .n26-docknav-host .ag-side-item.active {
+    background: rgba(255, 255, 255, 0.10) !important;
+    color: #eef3fa !important;
+}
+
+/* ============================================================
+   竖向 Dock 改造（原侧边大选项 → 应用商店同款圆 dock）
+   ============================================================ */
+
+/* 文件管理器侧栏 → 76px 圆 dock（图标在上、小字在下） */
+.fm-sidebar[data-n26dock] {
+    width: 76px !important;
+    padding: 7px 5px !important;
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.62);
+    border-radius: 16px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 6px 18px rgba(20, 40, 70, 0.10);
+    overflow-y: auto; overflow-x: hidden;
+}
+.fm-sidebar[data-n26dock]::-webkit-scrollbar { width: 0; }
+.fm-sidebar[data-n26dock] .fm-sidebar-item {
+    flex-direction: column; align-items: center; gap: 3px;
+    padding: 7px 0 6px !important; margin: 0 0 2px;
+    border-radius: 11px;
+    font-size: 10.5px !important; line-height: 1.1;
+    white-space: nowrap; overflow: hidden;
+}
+.fm-sidebar[data-n26dock] .fm-sidebar-item i { font-size: 15px; }
+.fm-sidebar[data-n26dock] .fm-side-txt {
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+}
+.fm-sidebar[data-n26dock] .fm-sidebar-item:hover { background: rgba(255, 255, 255, 0.85); }
+.fm-sidebar[data-n26dock] #fmBridgeList > div,
+.fm-sidebar[data-n26dock] #fmRealList > div {
+    text-align: center; font-size: 9.5px !important; line-height: 1.5 !important;
+    padding: 6px 4px !important; border-radius: 9px;
+}
+.fm-side-label {
+    padding: 9px 0 3px; margin-bottom: 1px;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
+    color: rgba(60, 70, 90, 0.4); text-align: center;
+}
+body.dark-mode .fm-sidebar[data-n26dock] {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+body.dark-mode .fm-side-label { color: rgba(255, 255, 255, 0.35); }
+
+/* 音乐侧栏 → 圆 dock */
+#side[data-n26dock] {
+    width: 74px; padding: 8px 5px 10px;
+    background: rgba(255, 255, 255, 0.5);
+    border-right: none;
+    border-radius: 16px; margin: 10px 0 10px 10px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 6px 18px rgba(20, 40, 70, 0.08);
+}
+#side[data-n26dock] .brand { font-size: 11px; justify-content: center; padding: 0 0 9px; }
+#side[data-n26dock] .nav-item {
+    flex-direction: column; align-items: center; gap: 3px;
+    padding: 7px 0 6px; margin: 0 0 2px; border-radius: 11px;
+    font-size: 10.5px; line-height: 1.1; white-space: nowrap;
+}
+#side[data-n26dock] .nav-item i { width: auto; font-size: 15px; }
+#side[data-n26dock] .nav-item .cnt { margin: 0; font-size: 9px; opacity: 0.55; }
+#side[data-n26dock] .nav-item:hover { background: rgba(255, 255, 255, 0.85); color: inherit; }
+#side[data-n26dock] #sideFoot { font-size: 9px; padding: 8px 6px 0; text-align: center; }
+
+/* Nexus Extra 侧栏（复用 settings 类，仅此实例） → 圆 dock */
+.settings-sidebar[data-n26dock] {
+    width: 76px !important; flex: 0 0 76px;
+    padding: 7px 5px !important;
+    background: rgba(255, 255, 255, 0.5) !important;
+    border: 1px solid rgba(255, 255, 255, 0.62) !important;
+    border-radius: 16px !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 6px 18px rgba(20, 40, 70, 0.10) !important;
+    overflow-y: auto; overflow-x: hidden;
+}
+.settings-sidebar[data-n26dock]::-webkit-scrollbar { width: 3px; }
+.settings-sidebar[data-n26dock]::-webkit-scrollbar-track { background: transparent; }
+.settings-sidebar[data-n26dock]::-webkit-scrollbar-thumb { background: rgba(20, 45, 75, .18); border-radius: 3px; }
+body.dark-mode .settings-sidebar[data-n26dock]::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .22); }
+.settings-sidebar[data-n26dock] > div:first-child {
+    border-bottom: none !important; margin-bottom: 2px !important;
+    padding: 2px 0 8px !important; text-align: center; font-size: 9.5px !important;
+}
+.settings-sidebar[data-n26dock] .settings-item {
+    flex-direction: column; align-items: center; gap: 3px;
+    padding: 7px 0 6px !important; margin: 0 0 2px;
+    border-radius: 11px; font-size: 10.5px; line-height: 1.1;
+    white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+}
+/* 76px 窄栏放不下分组标签与账户副信息；隐藏比挤压变形更干净 */
+.settings-sidebar[data-n26dock] .n26-set-group-label { display: none !important; }
+.settings-sidebar[data-n26dock] .settings-user-info,
+.settings-sidebar[data-n26dock] .settings-user-arrow { display: none !important; }
+.settings-sidebar[data-n26dock] .settings-user-avatar { justify-content: center; padding: 0 0 4px !important; }
+/* 搜索框在 76px 内不可用，直接隐藏，避免留下点不动的假输入框 */
+.settings-sidebar[data-n26dock] .n26-set-search { display: none !important; }
+.settings-sidebar[data-n26dock] .settings-item i { font-size: 15px; }
+.settings-sidebar[data-n26dock] .settings-item:hover { background: rgba(255, 255, 255, 0.85); }
+body.dark-mode .settings-sidebar[data-n26dock] {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* FangClaw Agent 侧导航（长标签，保持行式但统一胶囊） */
+.ag-side-nav[data-n26dock] {
+    padding: 5px !important;
+    background: rgba(125, 135, 155, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.42);
+    border-radius: 14px;
+}
+.ag-side-nav[data-n26dock] .ag-side-item { border-radius: 999px !important; }
+
+/* ============================================================
+   横向 Dock 条（原顶部 tab 条统一为圆 dock，位置不变）
+   ============================================================ */
+[data-n26dock="h"] {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px !important;
+    border-radius: 14px !important;
+    background: rgba(125, 135, 155, 0.10) !important;
+    border: 1px solid rgba(255, 255, 255, 0.42) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    max-width: 100%;
+}
+body.dark-mode [data-n26dock="h"] {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    box-shadow: none;
+}
+[data-n26dock="h"] > * {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    border-radius: 999px !important;
+    color: inherit;
+    opacity: 0.78;
+}
+[data-n26dock="h"] > *:hover { background: rgba(255, 255, 255, 0.6) !important; opacity: 1; }
+body.dark-mode [data-n26dock="h"] > *:hover { background: rgba(255, 255, 255, 0.10) !important; }
+[data-n26dock="h"] > .on,
+[data-n26dock="h"] > .active {
+    background: rgba(125, 135, 155, 0.16) !important;
+    color: var(--n26dock-accent) !important;
+    opacity: 1 !important;
+}
+body.dark-mode [data-n26dock="h"] > .on,
+body.dark-mode [data-n26dock="h"] > .active {
+    background: rgba(255, 255, 255, 0.10) !important;
+    color: #6db3ff !important;
+}
+[data-n26dock="h"] > .on i,
+[data-n26dock="h"] > .active i { color: var(--n26dock-accent) !important; }
+
+/* dfd 两枚等宽按钮在 dock 条里保持等宽 */
+[data-n26dock="h"].dfd-tabs > .dfd-tab { flex: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+    .n26-dng, .n26-icon-pop, .n26-nudge-left, .n26-nudge-right, .n26-nudge-up, .n26-nudge-down {
+        animation: none !important; transition: none !important;
+    }
+}
+
+ /* ★ v2.9.68 文件管理侧栏：选中项只保留内层蓝色图标，去掉外层灰胶囊。
+   作用域严格限定在 .fm-sidebar[data-n26dock]，不影响商店/音乐/设置侧栏的胶囊。
+   不动 .fm-sidebar-item.active i（蓝色图标要保留）。
+   注意：主壳把 .n26-docknav-host 直接挂在 .fm-sidebar 上（不是祖先），
+   所以既要覆盖「host 是祖先」的写法，也要覆盖「host 与 .fm-sidebar 同一元素」的写法。 */
+.n26-docknav-host.n26-docknav-hold .fm-sidebar[data-n26dock] .fm-sidebar-item.active,
+.n26-docknav-host.n26-docknav-hold .fm-sidebar[data-n26dock] .fm-sidebar-item.active:hover,
+.n26-docknav-host.n26-docknav-hold.fm-sidebar[data-n26dock] .fm-sidebar-item.active,
+.n26-docknav-host.n26-docknav-hold.fm-sidebar[data-n26dock] .fm-sidebar-item.active:hover,
+body.dark-mode .n26-docknav-host.n26-docknav-hold .fm-sidebar[data-n26dock] .fm-sidebar-item.active,
+body.dark-mode .n26-docknav-host.n26-docknav-hold.fm-sidebar[data-n26dock] .fm-sidebar-item.active {
+    background: transparent !important;
+    box-shadow: none !important;
+}

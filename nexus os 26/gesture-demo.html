@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus OS 26 · 精准触控板手势演示</title>
+<style>
+    :root{
+        --bg:#080a10;
+        --panel:rgba(255,255,255,.055);
+        --panel-2:rgba(255,255,255,.085);
+        --line:rgba(255,255,255,.11);
+        --text:#e9eefb;
+        --dim:rgba(233,238,251,.55);
+        --dimmer:rgba(233,238,251,.32);
+        --accent:#8ab4ff;
+        --accent-2:#64e0c8;
+        --warn:#ffca7a;
+        --bad:#ff8f8f;
+        --radius:18px;
+    }
+    *{box-sizing:border-box;}
+    html,body{height:100%;margin:0;overflow:hidden;}
+    body{
+        background:
+            radial-gradient(1100px 620px at 12% -8%, rgba(84,120,255,.18), transparent 62%),
+            radial-gradient(900px 560px at 92% 4%, rgba(0,210,190,.12), transparent 58%),
+            radial-gradient(800px 600px at 50% 112%, rgba(150,90,255,.12), transparent 60%),
+            var(--bg);
+        color:var(--text);
+        font:14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+        -webkit-font-smoothing:antialiased;
+        display:flex;flex-direction:column;
+    }
+    body.reduce-motion *{scroll-behavior:auto!important;}
+
+    /* ---------- 顶栏 ---------- */
+    .topbar{
+        flex:0 0 auto;display:flex;align-items:center;gap:18px;
+        padding:16px 22px 12px;
+    }
+    .brand{display:flex;align-items:center;gap:11px;min-width:0;}
+    .logo{
+        width:34px;height:34px;border-radius:10px;flex:0 0 auto;
+        background:linear-gradient(140deg,#7aa2ff,#4b6bff 48%,#31d9c4);
+        box-shadow:0 8px 22px rgba(80,120,255,.34), inset 0 1px 0 rgba(255,255,255,.4);
+        display:grid;place-items:center;font-weight:800;font-size:15px;color:#08101e;
+    }
+    .brand h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap;}
+    .brand p{margin:0;font-size:11.5px;color:var(--dimmer);white-space:nowrap;}
+
+    .tabs{display:flex;gap:4px;margin-left:auto;background:rgba(255,255,255,.045);
+        border:1px solid var(--line);border-radius:12px;padding:4px;}
+    .tab{
+        border:0;background:transparent;color:var(--dim);font:inherit;font-size:12.5px;
+        padding:7px 15px;border-radius:9px;cursor:pointer;transition:background .18s,color .18s;
+    }
+    .tab:hover{color:var(--text);} 
+    .tab.active{background:rgba(255,255,255,.13);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.16);}
+
+    .tools{display:flex;gap:8px;margin-left:8px;}
+    .tool{
+        border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--dim);
+        font:inherit;font-size:12px;padding:7px 12px;border-radius:10px;cursor:pointer;
+        display:flex;align-items:center;gap:6px;transition:.18s;
+    }
+    .tool:hover{background:rgba(255,255,255,.1);color:var(--text);}
+    .tool.on{border-color:rgba(100,224,200,.5);background:rgba(100,224,200,.14);color:#bff8ee;}
+    .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.8;}
+
+    /* ---------- 舞台 ---------- */
+    .stage{flex:1;min-height:0;padding:6px 22px 22px;display:flex;flex-direction:column;}
+    .pane{display:none;flex:1;min-height:0;}
+    .pane.active{display:flex;}
+
+    /* ---------- 演示网格 ---------- */
+    .grid{
+        flex:1;min-height:0;width:100%;
+        display:grid;grid-template-columns:1.06fr .94fr;grid-template-rows:1.05fr .95fr;
+        gap:14px;
+    }
+    .card{
+        min-height:0;min-width:0;display:flex;flex-direction:column;
+        background:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.035));
+        border:1px solid var(--line);border-radius:var(--radius);
+        box-shadow:0 22px 50px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.09);
+        overflow:hidden;
+        backdrop-filter:blur(16px) saturate(1.2);
+    }
+    .card-head{
+        flex:0 0 auto;display:flex;align-items:center;gap:9px;
+        padding:12px 15px 10px;border-bottom:1px solid rgba(255,255,255,.07);
+    }
+    .card-head .k{
+        font-size:11px;letter-spacing:.6px;color:var(--accent);
+        background:rgba(138,180,255,.12);border:1px solid rgba(138,180,255,.2);
+        padding:2px 7px;border-radius:6px;white-space:nowrap;
+    }
+    .card-head h2{margin:0;font-size:13.5px;font-weight:600;}
+    .card-head .hint{margin-left:auto;font-size:11.5px;color:var(--dimmer);text-align:right;}
+    .card-body{flex:1;min-height:0;padding:13px 15px;display:flex;flex-direction:column;}
+
+    /* ---------- 滚动卡 ---------- */
+    .scroll-list{
+        flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+        border-radius:12px;border:1px solid rgba(255,255,255,.08);
+        background:rgba(0,0,0,.18);
+        padding:6px;
+    }
+    .row{
+        display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;
+        color:var(--dim);font-size:12.5px;
+    }
+    .row:hover{background:rgba(255,255,255,.05);color:var(--text);}
+    .row .n{
+        width:22px;height:22px;flex:0 0 auto;border-radius:7px;
+        background:linear-gradient(150deg,rgba(138,180,255,.35),rgba(90,120,255,.12));
+        border:1px solid rgba(138,180,255,.2);
+        display:grid;place-items:center;font-size:11px;color:#cfe0ff;
+    }
+    .rail-wrap{margin-top:10px;flex:0 0 auto;}
+    .rail-label{font-size:11px;color:var(--dimmer);margin-bottom:6px;display:flex;justify-content:space-between;}
+    .rail{
+        display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;
+        padding-bottom:6px;scrollbar-width:thin;
+    }
+    .tile{
+        flex:0 0 108px;height:64px;border-radius:11px;border:1px solid rgba(255,255,255,.12);
+        display:flex;align-items:flex-end;padding:8px;font-size:11px;color:rgba(255,255,255,.78);
+        background:linear-gradient(150deg,#3b4f86,#243252 60%,#16203a);
+        position:relative;overflow:hidden;
+    }
+    .tile:nth-child(2){background:linear-gradient(150deg,#1e6b62,#164a45 60%,#0e2e2b);}
+    .tile:nth-child(3){background:linear-gradient(150deg,#7a4a8c,#4a2c56 60%,#2b1833);}
+    .tile:nth-child(4){background:linear-gradient(150deg,#8a6034,#56391d 60%,#2f2011);}
+    .tile:nth-child(5){background:linear-gradient(150deg,#3c6f96,#224458 60%,#132834);}
+    .tile:nth-child(6){background:linear-gradient(150deg,#7c3d4c,#4a222c 60%,#291318);}
+    .tile::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 70% 20%,rgba(255,255,255,.24),transparent 55%);}
+
+    /* ---------- 捏合卡 ---------- */
+    .pinch-wrap{flex:1;min-height:0;display:flex;gap:12px;}
+    .photo-box{
+        flex:1.15;min-width:0;min-height:0;border-radius:13px;overflow:hidden;
+        border:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.25);
+        display:grid;place-items:center;position:relative;
+    }
+    .photo-box img{
+        max-width:100%;max-height:100%;display:block;
+        transition:transform .06s linear;transform-origin:50% 50%;
+        will-change:transform;
+    }
+    .photo-badge{
+        position:absolute;left:8px;bottom:8px;font-size:11px;color:rgba(255,255,255,.82);
+        background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.14);border-radius:7px;
+        padding:2px 7px;backdrop-filter:blur(8px);pointer-events:none;
+    }
+    .canvas-box{
+        flex:.85;min-width:0;min-height:0;border-radius:13px;overflow:hidden;
+        border:1px solid rgba(255,255,255,.1);background:
+            linear-gradient(180deg,rgba(20,26,44,.9),rgba(12,16,28,.95));
+        display:grid;place-items:center;position:relative;
+    }
+    .mock-canvas{
+        width:170px;height:130px;border-radius:10px;
+        background:
+            repeating-linear-gradient(0deg,rgba(255,255,255,.09) 0 1px,transparent 1px 22px),
+            repeating-linear-gradient(90deg,rgba(255,255,255,.09) 0 1px,transparent 1px 22px),
+            linear-gradient(150deg,rgba(90,130,255,.28),rgba(20,40,90,.5));
+        border:1px solid rgba(140,180,255,.28);
+        box-shadow:0 0 28px rgba(90,130,255,.18);
+        transform-origin:50% 50%;
+        display:grid;place-items:center;font-size:11px;color:rgba(255,255,255,.6);
+    }
+    .pinch-legend{flex:0 0 auto;margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;font-size:11.5px;color:var(--dimmer);}
+    .kbd{
+        border:1px solid rgba(255,255,255,.16);border-radius:6px;padding:1px 6px;
+        background:rgba(255,255,255,.06);color:rgba(255,255,255,.72);font-size:11px;
+        font-family:ui-monospace,Consolas,monospace;
+    }
+
+    /* ---------- 系统手势卡 ---------- */
+    .sys-wrap{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;}
+    .sys-demo{
+        flex:1;min-height:0;position:relative;border-radius:13px;
+        border:1px solid rgba(255,255,255,.09);
+        background:
+            radial-gradient(60% 70% at 50% 120%,rgba(90,120,255,.2),transparent 70%),
+            linear-gradient(160deg,rgba(22,28,46,.92),rgba(10,14,24,.96));
+        overflow:hidden;display:flex;flex-direction:column;
+    }
+    .edge-zone{
+        position:absolute;top:0;bottom:0;width:22px;display:flex;align-items:center;justify-content:center;
+        font-size:10px;color:rgba(255,255,255,.35);writing-mode:vertical-rl;letter-spacing:2px;
+        background:linear-gradient(90deg,rgba(138,180,255,.22),transparent);
+        transition:background .2s,color .2s;
+    }
+    .edge-zone.left{left:0;border-radius:12px 0 0 12px;}
+    .edge-zone.right{right:0;border-radius:0 12px 12px 0;
+        background:linear-gradient(270deg,rgba(138,180,255,.22),transparent);}
+    .edge-zone.hit{background:rgba(138,180,255,.35);color:#fff;}
+    .sys-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:12px;}
+    .sys-title{font-size:12px;color:var(--dimmer);}
+    .sys-page{
+        font-size:20px;font-weight:650;letter-spacing:.6px;color:#dfe9ff;
+        text-shadow:0 0 22px rgba(110,150,255,.4);
+    }
+    .sys-sub{font-size:11.5px;color:var(--dimmer);}
+    .sys-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:6px;}
+    .chipbtn{
+        border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);
+        color:var(--dim);font:inherit;font-size:11.5px;padding:5px 10px;border-radius:8px;cursor:pointer;
+        transition:.16s;
+    }
+    .chipbtn:hover{background:rgba(255,255,255,.12);color:#fff;transform:translateY(-1px);}
+    .chipbtn.sys3{border-color:rgba(138,180,255,.3);color:#cfe0ff;}
+    .sys-toggle{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--dim);}
+    .switch{
+        width:38px;height:21px;border-radius:11px;border:1px solid rgba(255,255,255,.16);
+        background:rgba(255,255,255,.08);position:relative;cursor:pointer;flex:0 0 auto;
+    }
+    .switch i{position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;
+        background:#c9d6f5;transition:left .18s,background .18s;}
+    .switch.on{background:rgba(100,224,200,.3);border-color:rgba(100,224,200,.55);}
+    .switch.on i{left:18px;background:#a9f6e8;}
+
+    /* ---------- 拖移 + 日志 ---------- */
+    .drag-wrap{flex:1;min-height:0;display:flex;gap:12px;}
+    .drag-area{flex:1;min-width:0;display:flex;flex-direction:column;gap:9px;}
+    .drops{display:flex;gap:8px;flex:1;min-height:0;}
+    .drop{
+        flex:1;border:1px dashed rgba(255,255,255,.18);border-radius:12px;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+        background:rgba(255,255,255,.025);color:var(--dimmer);font-size:11.5px;
+        transition:border-color .16s,background .16s;min-height:84px;
+    }
+    .drop.hover{border-color:rgba(100,224,200,.65);background:rgba(100,224,200,.09);}
+    .dragger{
+        width:74px;height:44px;border-radius:11px;cursor:grab;touch-action:none;
+        background:linear-gradient(150deg,rgba(138,180,255,.45),rgba(70,100,220,.25));
+        border:1px solid rgba(160,200,255,.4);
+        display:grid;place-items:center;font-size:12px;color:#eaf1ff;
+        box-shadow:0 10px 24px rgba(40,70,160,.35);user-select:none;
+    }
+    .dragger:active{cursor:grabbing;}
+
+    .logbox{
+        flex:0 0 40%;min-width:0;display:flex;flex-direction:column;
+        border-left:1px solid rgba(255,255,255,.07);padding-left:12px;
+    }
+    .logbox h3{margin:0 0 6px;font-size:11.5px;font-weight:600;color:var(--dim);letter-spacing:.3px;}
+    .elog{
+        flex:1;min-height:0;overflow-y:auto;font-family:ui-monospace,Consolas,monospace;
+        font-size:10.5px;line-height:1.7;color:rgba(233,238,251,.55);
+    }
+    .elog div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .elog b{color:#9dc0ff;font-weight:500;}
+    .elog .t{color:rgba(255,255,255,.24);}
+
+    /* ---------- 表格页 ---------- */
+    .doc-wrap{flex:1;min-height:0;width:100%;overflow-y:auto;overscroll-behavior:contain;
+        border:1px solid var(--line);border-radius:var(--radius);
+        background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
+        padding:22px 26px 34px;}
+    .doc-wrap h2{margin:0 0 6px;font-size:19px;letter-spacing:.2px;}
+    .doc-wrap .lead{color:var(--dim);font-size:12.5px;margin:0 0 20px;max-width:900px;}
+    .doc-wrap h3{margin:26px 0 10px;font-size:14px;color:#cfdcff;display:flex;align-items:center;gap:8px;}
+    .doc-wrap h3::before{content:"";width:3px;height:14px;border-radius:2px;background:linear-gradient(180deg,#8ab4ff,#3fd8c0);}
+    table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:4px;}
+    th{
+        text-align:left;font-weight:600;color:#cbd8f5;background:rgba(255,255,255,.06);
+        padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.12);white-space:nowrap;
+    }
+    td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.055);color:var(--dim);vertical-align:top;}
+    td:first-child,th:first-child{color:rgba(233,238,251,.42);width:38px;text-align:center;}
+    td code,th code,td .mono{
+        font-family:ui-monospace,Consolas,monospace;font-size:11px;
+        background:rgba(255,255,255,.07);border-radius:5px;padding:1px 5px;color:#cfe0ff;
+    }
+    tr:hover td{background:rgba(255,255,255,.025);color:rgba(233,238,251,.78);}
+    .tag{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:6px;white-space:nowrap;}
+    .tag.ok{background:rgba(100,224,200,.15);color:#9df3e4;border:1px solid rgba(100,224,200,.25);}
+    .tag.no{background:rgba(255,143,143,.13);color:#ffb3b3;border:1px solid rgba(255,143,143,.25);}
+    .tag.cf{background:rgba(255,202,122,.13);color:#ffd39a;border:1px solid rgba(255,202,122,.25);}
+    .note{
+        margin-top:14px;padding:11px 14px;border-radius:11px;font-size:12px;color:var(--dim);
+        background:rgba(138,180,255,.07);border:1px solid rgba(138,180,255,.16);
+    }
+    .note b{color:#cfdcff;}
+
+    /* ---------- 横向方向自检 ---------- */
+    .dir-check{margin-top:9px;flex:0 0 auto;}
+    .dir-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:var(--dimmer);margin-bottom:5px;}
+    .dir-head b{color:var(--accent);font-weight:600;}
+    .dir-track{position:relative;height:26px;border-radius:8px;overflow:hidden;
+        background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.09);}
+    .dir-track::before{content:"";position:absolute;left:8px;right:8px;top:50%;height:1px;background:rgba(255,255,255,.13);}
+    .dir-ball{position:absolute;left:50%;top:5px;margin-left:-8px;width:16px;height:16px;border-radius:50%;
+        background:linear-gradient(150deg,#9dc0ff,#4d74ff);box-shadow:0 4px 12px rgba(80,120,255,.45);
+        transition:transform .14s linear,background .2s;will-change:transform;}
+    .dir-ball.bad{background:linear-gradient(150deg,#ffb3b3,#d84b4b);box-shadow:0 4px 12px rgba(216,75,75,.4);}
+    .dir-tags{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--dimmer);}
+    .dir-tags .ok{color:#9df3e4;}
+    .dir-tags .bad{color:#ffb3b3;}
+    .dir-tags .chipbtn{padding:3px 8px;font-size:11px;}
+
+    @media (max-width:1050px){
+        .grid{grid-template-columns:1fr;grid-template-rows:repeat(4,minmax(240px,1fr));}
+        .brand p{display:none;}
+        .tabs{margin-left:0;}
+        .topbar{flex-wrap:wrap;}
+    }
+    @media (max-width:720px){
+        .topbar{padding:12px 14px 10px;}
+        .stage{padding:4px 14px 14px;}
+        .pinch-wrap,.drag-wrap{flex-direction:column;}
+        .doc-wrap{padding:16px;}
+    }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+    <div class="brand">
+        <div class="logo">N</div>
+        <div>
+            <h1>精准触控板 · 手势Demo</h1>
+            <p>Nexus OS 26 · 全局手势层 N26Gestures v1.1.0</p>
+        </div>
+    </div>
+    <div class="tabs">
+        <button class="tab active" data-pane="demo">手势演示</button>
+        <button class="tab" data-pane="audit">审计表</button>
+        <button class="tab" data-pane="map">手势映射</button>
+    </div>
+    <div class="tools">
+        <button class="tool" id="btnHud"><span class="dot"></span>调试 HUD</button>
+        <button class="tool" id="btnReduced"><span class="dot"></span>减少动效</button>
+    </div>
+</div>
+
+<div class="stage">
+
+    <!-- ================= 演示 ================= -->
+    <div class="pane active" id="pane-demo">
+        <div class="grid">
+
+            <!-- 滚动 -->
+            <section class="card">
+                <div class="card-head">
+                    <span class="k">双指</span>
+                    <h2>滚动 · 惯性 · 边缘回弹</h2>
+                    <span class="hint">在列表内滑动；横向轨可双指横滚</span>
+                </div>
+                <div class="card-body">
+                    <div class="scroll-list" id="scrollList"></div>
+                    <div class="rail-wrap">
+                        <div class="rail-label"><span>横向推荐轨</span><span id="railHint">← 双指横滚 →</span></div>
+                        <div class="rail" id="rail"></div>
+                    </div>
+                    <div class="dir-check">
+                        <div class="dir-head"><b>横向方向自检</b><span id="dirText">两指横放左边，往右拨 → 小球应往右</span></div>
+                        <div class="dir-track"><i class="dir-ball" id="dirBall"></i></div>
+                        <div class="dir-tags">
+                            <span class="ok">改后：右拨→右移 / 左拨→左移</span>
+                            <span class="bad">改前：右拨→左移（反的）</span>
+                            <button class="chipbtn" id="dirRight">模拟右拨</button>
+                            <button class="chipbtn" id="dirLeft">模拟左拨</button>
+                            <button class="chipbtn" id="dirFlip">切到改前映射</button>
+                        </div>
+                    </div>
+                    <div class="pinch-legend" style="margin-top:8px;">
+                        <span>回弹事件 <b id="bounceCount">0</b></span>
+                        <span>滚动结束 <b id="scrollEndCount">0</b></span>
+                        <span>识别为 <b id="kindText">-</b></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 捏合 -->
+            <section class="card">
+                <div class="card-head">
+                    <span class="k">捏合</span>
+                    <h2>内容缩放，不是整页缩放</h2>
+                    <span class="hint">Ctrl + 滚轮 / 触控板捏合</span>
+                </div>
+                <div class="card-body">
+                    <div class="pinch-wrap">
+                        <div class="photo-box">
+                            <img id="demoPhoto" alt="示例照片"
+                                 src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cozy%20minimal%20wooden%20desk%20with%20laptop%20and%20warm%20sunlight%2C%20photorealistic&image_size=landscape_4_3">
+                            <span class="photo-badge" id="photoBadge">图片 ×1.00 · 双击复位</span>
+                        </div>
+                        <div class="canvas-box">
+                            <div class="mock-canvas" id="mockCanvas" data-n26-pinch="custom">画布 / 仅事件</div>
+                        </div>
+                    </div>
+                    <div class="pinch-legend">
+                        <span>左：<b>auto</b> 由手势层直接缩放</span>
+                        <span>右：<b>custom</b> 只发事件，画布自己处理</span>
+                        <span>整页缩放已拦截</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 三指 + 边缘 -->
+            <section class="card">
+                <div class="card-head">
+                    <span class="k">三指 / 边缘</span>
+                    <h2>启动台 · 桌面 · 前进后退</h2>
+                    <span class="hint">从屏幕最边缘开始横滑</span>
+                </div>
+                <div class="card-body">
+                    <div class="sys-wrap">
+                        <div class="sys-demo" id="sysDemo">
+                            <div class="edge-zone left" id="edgeLeft">返回</div>
+                            <div class="edge-zone right" id="edgeRight">前进</div>
+                            <div class="sys-center">
+                                <div class="sys-title" id="sysTitle">当前窗口</div>
+                                <div class="sys-page" id="sysPage">页面 1 / 3</div>
+                                <div class="sys-sub" id="sysSub">左缘右滑 = 返回；右缘左滑 = 前进</div>
+                                <div class="sys-actions">
+                                    <button class="chipbtn sys3" data-swipe="up">三指上滑</button>
+                                    <button class="chipbtn sys3" data-swipe="down">三指下滑</button>
+                                    <button class="chipbtn sys3" data-swipe="left">三指左滑</button>
+                                    <button class="chipbtn sys3" data-swipe="right">三指右滑</button>
+                                    <button class="chipbtn" data-edge="left">左缘返回</button>
+                                    <button class="chipbtn" data-edge="right">右缘前进</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="sys-toggle">
+                            <div class="switch" id="sw3"><i></i></div>
+                            <span>开启三指滚轮推断（默认关闭，Web 拿不到真实手指数）</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 拖移 + 日志 -->
+            <section class="card">
+                <div class="card-head">
+                    <span class="k">拖移</span>
+                    <h2>一指按住 + 另一指轻滑</h2>
+                    <span class="hint">第一根手指按住不动，第二根手指滑到虚线框</span>
+                </div>
+                <div class="card-body">
+                    <div class="drag-wrap">
+                        <div class="drag-area">
+                            <div class="drops">
+                                <div class="drop" data-n26-drop="a"><span>投放区 A</span></div>
+                                <div class="drop" data-n26-drop="b"><span>投放区 B</span></div>
+                            </div>
+                            <div style="display:flex;gap:10px;justify-content:center;padding:2px 0;">
+                                <div class="dragger" data-drag="1">拖我</div>
+                                <div class="dragger" data-drag="2">拖我</div>
+                            </div>
+                            <div class="pinch-legend" style="margin-top:2px;">
+                                <span>第一根手指按住不动 = 按住；第二根手指轻滑 = 拖动</span>
+                                <span>不需要长按，也不需要同一点持续按压位移</span>
+                            </div>
+                        </div>
+                        <div class="logbox">
+                            <h3>手势事件流</h3>
+                            <div class="elog" id="evtLog"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- ================= 审计表 ================= -->
+    <div class="pane" id="pane-audit">
+        <div class="doc-wrap">
+            <h2>精准触控板审计</h2>
+            <p class="lead">结论：触控板目前只活在首次引导里。引导之外，系统没有手势总线，也没有任何一处做滚轮归一化、惯性和多指识别。以下为逐项审计，代码位置以主壳函数名为准（主壳正被并发修改，行号不稳定）。</p>
+
+            <h3>已支持</h3>
+            <table>
+                <thead><tr><th>#</th><th>能力</th><th>位置</th><th>实现</th><th>可用度</th></tr></thead>
+                <tbody>
+                <tr><td>1</td><td>触控板首次引导（6 步）</td><td><code>ui/n26-tour.js</code></td><td>轻点 / 双指滑 / 捏合 / 横滑，5 语言，<code>n26TourDone</code> 标记</td><td><span class="tag ok">完整</span></td></tr>
+                <tr><td>2</td><td>引导内双指滚动</td><td><code>n26-tour.js</code> setupWheel</td><td>舞台内 wheel，<code>passive:false</code>，26px 一格</td><td><span class="tag ok">仅引导</span></td></tr>
+                <tr><td>3</td><td>引导内捏合</td><td><code>n26-tour.js</code> setupPinch</td><td><code>ctrlKey + wheel</code> 与 <code>gesturechange</code>，0.007 系数</td><td><span class="tag ok">仅引导</span></td></tr>
+                <tr><td>4</td><td>引导内横滑</td><td><code>n26-tour.js</code> setupSwipe</td><td>deltaX 主导时移动圆点</td><td><span class="tag ok">仅引导</span></td></tr>
+                <tr><td>5</td><td>启动台双指翻页</td><td>主壳 launchpad</td><td>wheel 的 deltaY + deltaX 直接翻页</td><td><span class="tag ok">局部</span></td></tr>
+                <tr><td>6</td><td>浏览器前进 / 后退</td><td><code>browserGoBack / Forward</code></td><td>按钮 + 标签历史栈</td><td><span class="tag ok">仅按钮</span></td></tr>
+                <tr><td>7</td><td>文件管理前进 / 后退</td><td><code>fmGoBack / fmGoForward</code></td><td>真实路径历史 fmHistory</td><td><span class="tag ok">仅按钮</span></td></tr>
+                <tr><td>8</td><td>相册查看器缩放 / 旋转</td><td><code>albumImgZoom / rotateAlbumImg</code></td><td>工具栏按钮，scale + rotate 字符串</td><td><span class="tag ok">仅按钮</span></td></tr>
+                <tr><td>9</td><td>图片查看器滚轮缩放 + 拖拽平移</td><td><code>apps/image.html</code></td><td>wheel 无条件缩放，mousedown/mousemove 平移</td><td><span class="tag ok">局部</span></td></tr>
+                <tr><td>10</td><td>星空滚轮缩放 / 拖拽旋转</td><td>主壳 starmap</td><td>canvas wheel 改相机，鼠标拖拽改 rot</td><td><span class="tag ok">局部</span></td></tr>
+                <tr><td>11</td><td>天气 3D 地球缩放</td><td>主壳 天气</td><td>canvas wheel</td><td><span class="tag ok">局部</span></td></tr>
+                <tr><td>12</td><td>Dock / 侧栏长按拖动</td><td><code>ui/n26-docknav.js</code></td><td>280ms 长按 + 吸附，指针 capture</td><td><span class="tag ok">局部</span></td></tr>
+                <tr><td>13</td><td>窗口拖动</td><td><code>startDrag()</code></td><td>标题栏 mousedown + mousemove</td><td><span class="tag ok">可用</span></td></tr>
+                <tr><td>14</td><td>应用切换器</td><td>主壳 <code>#app-switcher</code></td><td>Cmd/Ctrl + Tab</td><td><span class="tag ok">键盘</span></td></tr>
+                <tr><td>15</td><td>减少动效</td><td><code>ui/n26-a11y.js</code></td><td>body 类 + prefers-reduced-motion</td><td><span class="tag ok">已有</span></td></tr>
+                <tr><td>16</td><td>应用 iframe 通信桥</td><td><code>apps/_bridge.js</code></td><td>postMessage + Promise</td><td><span class="tag ok">可复用</span></td></tr>
+                </tbody>
+            </table>
+
+            <h3>缺失</h3>
+            <table>
+                <thead><tr><th>#</th><th>缺失项</th><th>影响</th><th>备注</th></tr></thead>
+                <tbody>
+                <tr><td>1</td><td>系统级手势总线</td><td>全局</td><td>没有任何 N26Gestures 单例</td></tr>
+                <tr><td>2</td><td>滚轮归一化 + 惯性 + 回弹</td><td>所有列表 / 文档 / 设置</td><td>完全依赖系统原生滚动</td></tr>
+                <tr><td>3</td><td>鼠标滚轮 vs 触控板区分</td><td>全局</td><td>全库只有 ctrlKey 判断</td></tr>
+                <tr><td>4</td><td>三指手势</td><td>启动台 / 桌面 / 切应用</td><td>完全缺失，Web 拿不到手指数</td></tr>
+                <tr><td>5</td><td>边缘滑动</td><td>浏览器 / 文件管理</td><td>完全缺失</td></tr>
+                <tr><td>6</td><td>轻点拖拽 / 三指拖移</td><td>窗口 / 图层 / 文件</td><td>只有 DockNav 长按拖动，不通用</td></tr>
+                <tr><td>7</td><td>手势调试 HUD</td><td>调试</td><td>无</td></tr>
+                <tr><td>8</td><td>识别失败回退策略</td><td>全局</td><td>无</td></tr>
+                <tr><td>9</td><td>教程「拖动」步骤</td><td>新手引导</td><td>文案反复说「不要拖动」</td></tr>
+                <tr><td>10</td><td>设置里的触控板面板</td><td>设置</td><td>全库无「触控板」设置项</td></tr>
+                <tr><td>11</td><td>相册双指 / 滚轮缩放</td><td>相册</td><td>只有按钮</td></tr>
+                <tr><td>12</td><td>浏览器手势后退 / 页面缩放</td><td>浏览器</td><td>iframe 内无手势</td></tr>
+                <tr><td>13</td><td>文件拖移 / 边缘返回</td><td>文件管理</td><td>只有按钮</td></tr>
+                <tr><td>14</td><td>方哩方哩横向条的双指横滚</td><td>方哩方哩</td><td>apps/bili 已有 overflow-x 横向条（.cw-row），但纵向滚轮不会转横向</td></tr>
+                <tr><td>15</td><td>地图应用</td><td>—</td><td>全库无地图实现</td></tr>
+                <tr><td>16</td><td>iframe 应用手势接入</td><td>所有拆分应用</td><td>主壳收不到子文档的 wheel</td></tr>
+                </tbody>
+            </table>
+
+            <h3>冲突</h3>
+            <table>
+                <thead><tr><th>#</th><th>冲突</th><th>位置</th><th>后果</th><th>处理</th></tr></thead>
+                <tbody>
+                <tr><td>1</td><td>canvas wheel 无条件缩放</td><td>星空 / 天气地球</td><td>滚动与缩放同时发生</td><td>全局层遇 canvas 直接放行</td></tr>
+                <tr><td>2</td><td>图片查看器任意滚轮都缩放</td><td><code>apps/image.html</code></td><td>无法纵向滚动，与惯性叠加抖动</td><td>改为 ctrl / 捏合才缩放</td></tr>
+                <tr><td>3</td><td>锁屏滚轮上推解锁</td><td><code>#lock-screen</code></td><td>解锁滚轮被吃</td><td>锁屏可见时整层暂停</td></tr>
+                <tr><td>4</td><td>启动台滚轮翻页</td><td><code>#launchpad</code></td><td>横滑被判成三指，翻页失效</td><td>标记 data-n26-gestures="off"</td></tr>
+                <tr><td>5</td><td>教程同时监听 wheel 与 gesture</td><td><code>n26-tour.js</code></td><td>Safari 捏合算两次，缩放跳变</td><td>gesture 存在时忽略 ctrl+wheel</td></tr>
+                <tr><td>6</td><td>窗口拖动 mousedown</td><td><code>startDrag</code></td><td>全局 tap-drag 抢事件会拖不动窗口</td><td>全局拖移只走显式 enableDrag</td></tr>
+                <tr><td>7</td><td>ctrl+wheel = 浏览器整页缩放</td><td>壳层</td><td>整个 OS UI 被放大</td><td>默认 blockPageZoom</td></tr>
+                <tr><td>8</td><td>教程舞台 wheel preventDefault</td><td><code>n26-tour.js</code></td><td>弹窗背后无法滚动（预期）</td><td>引导层加 gestures="off"</td></tr>
+                <tr><td>9</td><td>多层横向容器</td><td>设置 / 商店 / tabs</td><td>横滚被最外层吃掉</td><td>从光标向上找最近可横滚祖先</td></tr>
+                <tr><td>10</td><td>主壳正被并发写入</td><td><code>Nexus OS 26.html</code></td><td>行号漂移，改错风险</td><td>本轮不动主壳；接入前备份 + 静置确认</td></tr>
+                </tbody>
+            </table>
+
+            <div class="note">
+                <b>三个硬约束：</b>浏览器拿不到手指数，三指只能靠滚轮爆发形态推断，默认关闭；
+                iframe 是独立文档，手势层必须由应用自己引入或同源注入；
+                Web 没有旋转手势，相册「旋转」只能保留按钮 / 快捷键。
+            </div>
+
+            <h3>教程改写方案（待确认后落地）</h3>
+            <table>
+                <thead><tr><th>步</th><th>改动</th><th>新文案要点</th></tr></thead>
+                <tbody>
+                <tr><td>1</td><td>welcome 重写</td><td>滑动移动、轻点选中、按住拖动，三件事一次说完</td></tr>
+                <tr><td>2</td><td>删除否定句</td><td>「不用按住、不用拖动」全部移除</td></tr>
+                <tr><td>3</td><td>新增 drag 步骤</td><td>按住圆点 → 拖到虚线框 → 松手</td></tr>
+                <tr><td>4</td><td>wheel 用真实列表</td><td>两指滑 = 滚动，快速滑动会有轻微惯性</td></tr>
+                <tr><td>5</td><td>pinch 补一句</td><td>只缩放你看的内容，不放大整个系统</td></tr>
+                <tr><td>6</td><td>swipe 扩展</td><td>双指横滑切换内容，三指横扫切换应用（需开启）</td></tr>
+                <tr><td>7</td><td>done 补边缘手势</td><td>左缘右滑返回，右缘左滑前进</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ================= 映射表 ================= -->
+    <div class="pane" id="pane-map">
+        <div class="doc-wrap">
+            <h2>全局手势映射</h2>
+            <p class="lead">优先级：应用 claim &gt; 系统默认 &gt; 原生行为。任何一步识别失败都放行，不吞事件。</p>
+
+            <table>
+                <thead><tr><th>手势</th><th>识别条件</th><th>系统默认</th><th>应用覆盖点</th><th>失败时</th></tr></thead>
+                <tbody>
+                <tr><td>双指上下滑</td><td>非 ctrl，deltaY 主导</td><td>最近可纵向滚动祖先：归一化 + 惯性 + 边缘阻力</td><td>设置 / 商店调摩擦；画布 claim 自处理</td><td><span class="tag ok">放行原生</span></td></tr>
+                <tr><td>双指横滑</td><td>非 ctrl，deltaX 主导</td><td>最近可横滚祖先横滚</td><td>方哩方哩 rail / tabs / 时间线</td><td><span class="tag ok">放行原生</span></td></tr>
+                <tr><td>双指捏合</td><td>ctrl + wheel 或 gesturechange</td><td>命中图片则按光标锚点缩放</td><td>相册 / 地图 / Strata / Reelix / 浏览器</td><td><span class="tag cf">吞掉整页缩放（可配）</span></td></tr>
+                <tr><td>三指上滑</td><td>≤300ms，|Δy|≥384，非滚动区</td><td>打开启动台</td><td>应用可 intercept</td><td><span class="tag no">不动</span></td></tr>
+                <tr><td>三指下滑</td><td>同上反向</td><td>显示桌面（最小化全部）</td><td>应用可 intercept</td><td><span class="tag no">不动</span></td></tr>
+                <tr><td>三指左 / 右滑</td><td>≤420ms，|Δx|≥240，|Δx|&gt;1.5|Δy|</td><td>上一个 / 下一个应用</td><td>data-n26-gesture-3="history" 时改前进后退</td><td><span class="tag no">不动</span></td></tr>
+                <tr><td>左缘右滑</td><td>起点 x≤26，Δx&gt;30，|Δy|&lt;30</td><td>当前窗口返回</td><td>浏览器 / 文件管理 / 阅读器</td><td><span class="tag no">轻微回弹</span></td></tr>
+                <tr><td>右缘左滑</td><td>起点 x≥屏宽-26，Δx&lt;-30</td><td>当前窗口前进</td><td>同上</td><td><span class="tag no">轻微回弹</span></td></tr>
+                <tr><td>轻点拖拽</td><td>enableDrag 宿主 + 位移&gt;4px</td><td>窗口 / 图层 / 文件拖移，data-n26-drop 吸附</td><td>相册排序、桌面图标、图层</td><td><span class="tag ok">当作点击</span></td></tr>
+                <tr><td>长按拖动</td><td>按住 280ms 后移动</td><td>保留 DockNav 排序</td><td>—</td><td><span class="tag no">无动作</span></td></tr>
+                </tbody>
+            </table>
+
+            <h3>分应用接入优先级</h3>
+            <table>
+                <thead><tr><th>优先级</th><th>应用</th><th>接入手势</th><th>现状</th><th>工作量</th></tr></thead>
+                <tbody>
+                <tr><td>P0</td><td>浏览器</td><td>边缘后退 / 前进、捏合页面缩放、标签横滑</td><td>只有按钮</td><td>中</td></tr>
+                <tr><td>P0</td><td>相册</td><td>查看器捏合缩放、双击复位、左右滑动翻页</td><td>只有按钮</td><td>小</td></tr>
+                <tr><td>P0</td><td>方哩方哩</td><td>横向条双指横滚（已有 .cw-row，补映射）</td><td>有横向条，无手势</td><td>小</td></tr>
+                <tr><td>P1</td><td>文件管理</td><td>左缘返回、拖移到文件夹、列表惯性</td><td>只有按钮</td><td>中</td></tr>
+                <tr><td>P1</td><td>设置 / 商店</td><td>滚动惯性、无回弹抖动</td><td>原生滚动</td><td>小</td></tr>
+                <tr><td>P2</td><td>Strata / Reelix</td><td>画布捏合缩放、双指平移、Space 临时抓手</td><td>已有内部实现</td><td>小</td></tr>
+                <tr><td>P2</td><td>地图</td><td>捏合缩放、双指平移、边缘返回</td><td>应用不存在</td><td>需立项</td></tr>
+                <tr><td>P3</td><td>星空 / 天气地球</td><td>canvas claim，防冲突</td><td>已有滚轮</td><td>小</td></tr>
+                </tbody>
+            </table>
+
+            <h3>接入主壳步骤（下一轮）</h3>
+            <table>
+                <thead><tr><th>#</th><th>动作</th><th>说明</th></tr></thead>
+                <tbody>
+                <tr><td>1</td><td>备份主壳</td><td><code>Nexus OS 26.html</code> → <code>.bak-日期-gestures</code></td></tr>
+                <tr><td>2</td><td>确认稳定</td><td>连续 5 分钟无写入（当前正被并发修改）</td></tr>
+                <tr><td>3</td><td>引入脚本</td><td><code>&lt;script src="ui/n26-gestures.js?v=...&gt;&lt;/script&gt;</code> 放 body 末</td></tr>
+                <tr><td>4</td><td>注册默认动作</td><td>swipe3 → 启动台 / 桌面 / 切应用；edge → 浏览器与文件历史</td></tr>
+                <tr><td>5</td><td>标记禁区</td><td>锁屏、启动台、引导层加 <code>data-n26-gestures="off"</code></td></tr>
+                <tr><td>6</td><td>iframe 桥</td><td>扩展 <code>apps/_bridge.js</code> 回报 gesture，避免每个应用重复监听</td></tr>
+                </tbody>
+            </table>
+
+            <div class="note">
+                <b>调试入口：</b>控制台 <code>N26Gestures.debug(true)</code> 显示 HUD；
+                <code>N26Gestures.state()</code> 看当前配置与识别状态；
+                <code>N26Gestures.configure({threeFinger:true})</code> 打开三指推断。
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="ui/n26-gestures.js"></script>
+<script>
+(function () {
+    'use strict';
+    var G = window.N26Gestures;
+
+    // 演示页把卡片边缘当作「屏幕边缘」，稍微放宽判定宽度（仅本次会话，不写回系统设置）
+    G.configure({ edgeWidth: 40 }, { persist: false });
+
+    /* ---------- 顶栏 ---------- */
+    var tabs = document.querySelectorAll('.tab');
+    for (var i = 0; i < tabs.length; i++) {
+        tabs[i].addEventListener('click', function () {
+            for (var j = 0; j < tabs.length; j++) tabs[j].classList.remove('active');
+            this.classList.add('active');
+            var panes = document.querySelectorAll('.pane');
+            for (var k = 0; k < panes.length; k++) panes[k].classList.remove('active');
+            var el = document.getElementById('pane-' + this.getAttribute('data-pane'));
+            if (el) el.classList.add('active');
+        });
+    }
+
+    var btnHud = document.getElementById('btnHud');
+    btnHud.addEventListener('click', function () {
+        var on = !btnHud.classList.contains('on');
+        btnHud.classList.toggle('on', on);
+        G.debug(on);
+    });
+
+    var btnReduced = document.getElementById('btnReduced');
+    btnReduced.addEventListener('click', function () {
+        var on = !document.body.classList.contains('reduce-motion');
+        document.body.classList.toggle('reduce-motion', on);
+        btnReduced.classList.toggle('on', on);
+    });
+
+    /* ---------- 滚动演示 ---------- */
+    var list = document.getElementById('scrollList');
+    var rows = '';
+    for (var r = 1; r <= 26; r++) {
+        rows += '<div class="row"><span class="n">' + r + '</span><span>列表项 ' + r +
+            ' · 双指上下滑，松手后还有一点惯性</span></div>';
+    }
+    list.innerHTML = rows;
+
+    var rail = document.getElementById('rail');
+    var tiles = ['方案 A', '方案 B', '方案 C', '方案 D', '方案 E', '方案 F'];
+    for (var t = 0; t < tiles.length; t++) {
+        rail.innerHTML += '<div class="tile">' + tiles[t] + '</div>';
+    }
+
+    /* ---------- 横向方向自检（改前 / 改后） ---------- */
+    var dirBall = document.getElementById('dirBall');
+    var dirText = document.getElementById('dirText');
+    var dirFlipBtn = document.getElementById('dirFlip');
+    var dirPos = 0, dirInverted = false;
+
+    // finger: >0 表示手指往右拨（自然滚动下 deltaX < 0，所以调用处取反）
+    function dirMove(finger) {
+        var d = dirInverted ? -finger : finger;
+        dirPos = Math.max(-120, Math.min(120, dirPos + d));
+        dirBall.style.transform = 'translateX(' + dirPos.toFixed(1) + 'px)';
+        dirBall.classList.toggle('bad', dirInverted);
+        var right = finger > 0;
+        var wentRight = d > 0;
+        dirText.textContent = (dirInverted ? '【改前映射】' : '【改后映射】') +
+            (right ? '手指右拨 → 小球' : '手指左拨 → 小球') +
+            (wentRight ? '向右' : '向左') +
+            (right === wentRight ? '（方向一致 ✓）' : '（方向相反 ✗）');
+    }
+    function bindDir(btn, finger) {
+        if (!btn) return;
+        btn.addEventListener('click', function () { dirMove(finger); });
+    }
+    bindDir(document.getElementById('dirRight'), 36);
+    bindDir(document.getElementById('dirLeft'), -36);
+    if (dirFlipBtn) {
+        dirFlipBtn.addEventListener('click', function () {
+            dirInverted = !dirInverted;
+            dirFlipBtn.textContent = dirInverted ? '切回改后映射' : '切到改前映射';
+            dirBall.classList.toggle('bad', dirInverted);
+            dirText.textContent = dirInverted
+                ? '已切到改前映射：手指往右拨，小球会往左（复现原问题）'
+                : '已切回改后映射：手指往右拨，小球往右';
+        });
+    }
+    var scrollCard = list.parentNode;
+    if (scrollCard) {
+        scrollCard.addEventListener('wheel', function (e) {
+            if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+            // 自然滚动语义：手指方向 = -deltaX
+            dirMove(-e.deltaX);
+        }, { passive: true });
+    }
+
+    /* ---------- 捏合演示 ---------- */
+    var photo = document.getElementById('demoPhoto');
+    var badge = document.getElementById('photoBadge');
+    var photoScale = 1;
+
+    G.on('pinch', function (d) {
+        if (d.target === photo && d.applied) {
+            var m = /scale\(([\d.]+)\)/.exec(photo.style.transform || '');
+            photoScale = m ? parseFloat(m[1]) : photoScale;
+            badge.textContent = '图片 ×' + photoScale.toFixed(2) + ' · 双击复位';
+        }
+    });
+    photo.addEventListener('dblclick', function () {
+        G.resetPinch(photo);
+        photoScale = 1;
+        badge.textContent = '图片 ×1.00 · 双击复位';
+    });
+
+    /* 自定义画布：只收事件，自己决定怎么缩放 */
+    var canvas = document.getElementById('mockCanvas');
+    var canvasScale = 1, canvasRot = 0;
+    G.on('pinch', function (d) {
+        if (d.target !== canvas) return;
+        canvasScale = Math.max(0.6, Math.min(3, canvasScale * d.factor));
+        canvas.style.transform = 'scale(' + canvasScale.toFixed(3) + ') rotate(' + canvasRot + 'deg)';
+    });
+    canvas.addEventListener('dblclick', function () {
+        canvasScale = 1; canvasRot = 0;
+        canvas.style.transform = '';
+    });
+
+    /* ---------- 事件统计 / 日志 ---------- */
+    var bounceCount = 0, scrollEndCount = 0;
+    var bounceEl = document.getElementById('bounceCount');
+    var scrollEndEl = document.getElementById('scrollEndCount');
+    var kindEl = document.getElementById('kindText');
+    var evtLog = document.getElementById('evtLog');
+    var logItems = [];
+
+    function pushLog(type, d) {
+        var time = new Date();
+        var hh = ('0' + time.getHours()).slice(-2);
+        var mm = ('0' + time.getMinutes()).slice(-2);
+        var ss = ('0' + time.getSeconds()).slice(-2);
+        var detail = '';
+        if (d) {
+            if (d.kind) detail = d.kind;
+            if (d.dx !== undefined) detail += ' Δ' + Math.round(d.dx) + ',' + Math.round(d.dy || 0);
+            if (d.edge) detail += ' ' + d.edge;
+            if (d.side) detail += ' ' + d.side;
+            if (d.direction) detail += ' ' + d.direction;
+            if (d.factor) detail += ' ×' + d.factor.toFixed(3);
+            if (d.target && d.target.tagName) detail += ' ' + d.target.tagName.toLowerCase();
+            if (d.target && d.target.getAttribute && d.target.getAttribute('data-n26-drop')) {
+                detail += ' → drop ' + d.target.getAttribute('data-n26-drop');
+            }
+        }
+        logItems.unshift('<div><span class="t">' + hh + ':' + mm + ':' + ss + '</span> <b>' + type + '</b> ' + detail + '</div>');
+        if (logItems.length > 40) logItems.length = 40;
+        evtLog.innerHTML = logItems.join('');
+    }
+
+    var scrollThrottle = 0;
+    var types = ['scroll', 'scrollend', 'bounce', 'pinch', 'pinchend', 'pinchnone', 'swipe3', 'edge', 'dragstart', 'drag', 'dragend', 'drop'];
+    types.forEach(function (type) {
+        G.on(type, function (d) {
+            if (type === 'bounce') { bounceCount++; bounceEl.textContent = bounceCount; }
+            if (type === 'scrollend') { scrollEndCount++; scrollEndEl.textContent = scrollEndCount; }
+            if (type === 'scroll') {
+                var k = d.kind === 'mouse' ? '鼠标滚轮' : '触控板';
+                kindEl.textContent = k + (d.passive ? '（放行）' : '');
+                var now = Date.now();
+                if (now - scrollThrottle < 90) return;
+                scrollThrottle = now;
+            }
+            pushLog(type, d);
+        });
+    });
+
+    /* ---------- 系统手势演示 ---------- */
+    var pageIdx = 1;
+    var sysPage = document.getElementById('sysPage');
+    var sysSub = document.getElementById('sysSub');
+    var sysTitle = document.getElementById('sysTitle');
+    var edgeLeft = document.getElementById('edgeLeft');
+    var edgeRight = document.getElementById('edgeRight');
+
+    function renderPage() {
+        sysPage.textContent = '页面 ' + pageIdx + ' / 3';
+    }
+    function flashEdge(el) {
+        el.classList.add('hit');
+        setTimeout(function () { el.classList.remove('hit'); }, 260);
+    }
+
+    G.on('edge', function (d) {
+        if (d.side === 'left') {
+            pageIdx = Math.max(1, pageIdx - 1);
+            flashEdge(edgeLeft);
+            sysSub.textContent = '左缘右滑 · 返回 → 页面 ' + pageIdx;
+        } else {
+            pageIdx = Math.min(3, pageIdx + 1);
+            flashEdge(edgeRight);
+            sysSub.textContent = '右缘左滑 · 前进 → 页面 ' + pageIdx;
+        }
+        renderPage();
+    });
+
+    G.on('swipe3', function (d) {
+        var map = {
+            up: '三指上滑 · 打开启动台',
+            down: '三指下滑 · 显示桌面',
+            left: '三指左滑 · 下一个应用',
+            right: '三指右滑 · 上一个应用'
+        };
+        sysTitle.textContent = map[d.direction] || '三指手势';
+        sysSub.textContent = d.keyboard ? '（键盘兜底触发）' : ('识别耗时 ' + Math.round(d.dt || 0) + 'ms');
+        setTimeout(function () { sysTitle.textContent = '当前窗口'; renderPage(); }, 1600);
+    });
+
+    var swipeBtns = document.querySelectorAll('[data-swipe]');
+    for (var s = 0; s < swipeBtns.length; s++) {
+        swipeBtns[s].addEventListener('click', function () {
+            G.simulate('swipe3', { direction: this.getAttribute('data-swipe') });
+        });
+    }
+    var edgeBtns = document.querySelectorAll('[data-edge]');
+    for (var e2 = 0; e2 < edgeBtns.length; e2++) {
+        edgeBtns[e2].addEventListener('click', function () {
+            G.simulate('edge', { side: this.getAttribute('data-edge') });
+        });
+    }
+
+    var sw3 = document.getElementById('sw3');
+    sw3.addEventListener('click', function () {
+        var on = !sw3.classList.contains('on');
+        sw3.classList.toggle('on', on);
+        G.configure({ threeFinger: on }, { persist: false });
+        sysSub.textContent = on ? '三指推断已开启：在非滚动区快速上/下/横扫' : '三指推断已关闭（默认）';
+    });
+
+    /* 三指开启后，在演示区里做真实推断；失败也不拦滚动 */
+    var sysDemo = document.getElementById('sysDemo');
+    sysDemo.addEventListener('mouseenter', function () { sysTitle.textContent = '当前窗口'; });
+
+    /* ---------- 拖移演示 ---------- */
+    var drags = document.querySelectorAll('[data-drag]');
+    var drops = document.querySelectorAll('.drop');
+
+    for (var dr = 0; dr < drags.length; dr++) {
+        (function (el) {
+            G.enableDrag(el, {
+                dropSelector: '[data-n26-drop]',
+                ghost: true,
+                onEnd: function (dx, dy, drop) {
+                    if (drop) drop.appendChild(el);
+                }
+            });
+        })(drags[dr]);
+    }
+
+    function clearHover() {
+        for (var i = 0; i < drops.length; i++) drops[i].classList.remove('hover');
+    }
+    document.addEventListener('pointermove', function (ev) {
+        clearHover();
+        var stack = document.elementsFromPoint(ev.clientX, ev.clientY) || [];
+        for (var i = 0; i < stack.length; i++) {
+            if (stack[i].classList && stack[i].classList.contains('drop')) {
+                stack[i].classList.add('hover');
+                break;
+            }
+        }
+    }, { passive: true });
+
+    /* ---------- 首次提示 ---------- */
+    renderPage();
+    pushLog('ready', {});
+})();
+</script>
+</body>
+</html>

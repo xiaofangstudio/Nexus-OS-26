@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>文档</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<link rel="stylesheet" href="../ui/n26-ui.css">
+<link rel="stylesheet" href="_polish.css">
+<link rel="stylesheet" href="_office.css">
+<style>
+/* ===== Nexus 文档 · 文字处理（Word） ===== */
+html,body{height:100%;margin:0}
+body{background:transparent;overflow:hidden;-webkit-font-smoothing:antialiased}
+
+.of-app.wd{
+  --of-accent:hsl(214 88% 52%);
+  --of-accent-press:hsl(214 88% 45%);
+  --of-accent-ink:hsl(214 82% 40%);
+  --of-accent-weak:color-mix(in srgb,var(--of-accent) 12%,transparent);
+  --of-accent-weak2:color-mix(in srgb,var(--of-accent) 32%,transparent);
+  --of-on-accent:rgb(255 255 255 / .96);
+}
+html[data-mode="dark"] .of-app.wd,html[data-theme="dark"] .of-app.wd,body.dark-mode .of-app.wd{
+  --of-accent:hsl(214 92% 63%);
+  --of-accent-press:hsl(214 92% 56%);
+  --of-accent-ink:hsl(214 96% 78%);
+  --of-on-accent:rgb(7 16 30 / .92);
+}
+
+/* 编辑器整体 */
+.wd{height:100%;min-height:0;display:flex;flex-direction:column}
+.wd-main{position:relative;flex:1;min-height:0;overflow:auto;padding:24px 22px 46px;background:
+  radial-gradient(110% 80% at 50% -10%,color-mix(in srgb,var(--of-accent) 6%,transparent),transparent 60%),
+  rgba(15,23,42,.035)}
+html[data-mode="dark"] .wd-main,body.dark-mode .wd-main{background:
+  radial-gradient(110% 80% at 50% -10%,color-mix(in srgb,var(--of-accent) 10%,transparent),transparent 60%),
+  rgba(0,0,0,.22)}
+
+.wd-wrap{position:relative;margin:0 auto;width:794px}
+.wd-page{
+  position:absolute;top:0;left:0;
+  width:794px;min-height:1123px;
+  padding:72px 78px 86px;
+  box-sizing:border-box;
+  transform-origin:top left;
+  background:rgb(253 253 252);
+  color:rgb(28 34 44);
+  border:1px solid rgba(15,23,42,.08);
+  border-radius:3px;
+  box-shadow:0 1px 2px rgba(15,23,42,.06),0 10px 30px rgba(15,23,42,.12);
+  font-family:var(--font-sans);
+  font-size:14.5px;
+  line-height:1.78;
+  outline:none;
+  overflow-wrap:break-word;
+}
+html[data-mode="dark"] .wd-page,html[data-theme="dark"] .wd-page,body.dark-mode .wd-page{
+  background:rgb(30 35 45);
+  color:rgb(236 240 248);
+  border-color:rgba(255,255,255,.09);
+  box-shadow:0 1px 2px rgba(0,0,0,.3),0 14px 34px rgba(0,0,0,.42);
+}
+.wd-page:empty::before{
+  content:"从这里开始写。选中文字可以改字体、段落、插入表格和图表…";
+  color:var(--text-3);
+  pointer-events:none;
+}
+.wd-page:focus{box-shadow:0 1px 2px var(--sh-card),0 10px 34px color-mix(in srgb,var(--of-accent) 14%,transparent)}
+
+/* 正文排版 */
+.wd-page h1,.wd-page .wd-st-h1{font-size:27px;line-height:1.3;margin:.35em 0 .45em;font-weight:700;letter-spacing:-.4px}
+.wd-page h2,.wd-page .wd-st-h2{font-size:20px;line-height:1.4;margin:1.15em 0 .35em;font-weight:650;letter-spacing:-.2px}
+.wd-page h3,.wd-page .wd-st-h3{font-size:16px;line-height:1.45;margin:1em 0 .3em;font-weight:600}
+.wd-page p{margin:.55em 0}
+.wd-page ul,.wd-page ol{margin:.5em 0;padding-left:1.7em}
+.wd-page li{margin:.22em 0}
+.wd-page blockquote,.wd-page .wd-st-quote{margin:.9em 0;padding:.4em .9em;border-left:3px solid var(--of-accent);background:color-mix(in srgb,var(--of-accent) 8%,transparent);border-radius:0 7px 7px 0;color:var(--text-2)}
+.wd-page pre,.wd-page .wd-st-code{font-family:var(--font-mono);font-size:12.8px;line-height:1.7;margin:.8em 0;padding:10px 12px;border-radius:8px;border:1px solid rgba(15,23,42,.10);background:rgba(15,23,42,.045);white-space:pre-wrap;overflow-wrap:anywhere}
+html[data-mode="dark"] .wd-page pre,html[data-mode="dark"] .wd-page .wd-st-code,html[data-theme="dark"] .wd-page pre,html[data-theme="dark"] .wd-page .wd-st-code,body.dark-mode .wd-page pre,body.dark-mode .wd-page .wd-st-code{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.06)}
+.wd-page .wd-st-caption{font-size:11.5px;line-height:1.6;color:var(--text-3);text-align:center;margin:.25em 0 1.1em;font-weight:400}
+.wd-page a{color:var(--of-accent-ink);text-decoration:underline;text-underline-offset:2px}
+.wd-page code{font-family:var(--font-mono);font-size:.92em;background:rgba(15,23,42,.06);padding:.1em .35em;border-radius:4px}
+html[data-mode="dark"] .wd-page code,body.dark-mode .wd-page code{background:rgba(255,255,255,.10)}
+.wd-page img{max-width:100%;height:auto;border-radius:7px;margin:.5em 0}
+.wd-page hr{border:0;border-top:1px solid rgba(15,23,42,.16);margin:1.3em 0}
+html[data-mode="dark"] .wd-page hr,body.dark-mode .wd-page hr{border-top-color:rgba(255,255,255,.16)}
+.wd-page table{border-collapse:collapse;width:100%;margin:.7em 0;font-size:.94em}
+.wd-page th,.wd-page td{border:1px solid rgba(15,23,42,.18);padding:6px 9px;vertical-align:top;min-width:44px}
+.wd-page th{background:color-mix(in srgb,var(--of-accent) 10%,transparent);font-weight:600;text-align:left}
+html[data-mode="dark"] .wd-page th,html[data-mode="dark"] .wd-page td,body.dark-mode .wd-page th,body.dark-mode .wd-page td{border-color:rgba(255,255,255,.18)}
+.wd-page td:focus,th:focus{outline:2px solid var(--of-accent-weak2);outline-offset:-2px}
+.wd-chart{margin:.9em 0;padding:10px 12px 6px;border:1px solid rgba(15,23,42,.10);border-radius:10px;background:rgba(255,255,255,.55);page-break-inside:avoid}
+html[data-mode="dark"] .wd-chart,body.dark-mode .wd-chart{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.045)}
+.wd-chart-head{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:2px}
+.wd-chart-plot{height:220px}
+.wd-chart-tip{font-size:10.5px;color:var(--text-3);text-align:right}
+
+/* 文档库补充 */
+.wd .of-cards{grid-template-columns:repeat(auto-fill,minmax(236px,1fr))}
+.wd-card-badge{position:absolute;left:11px;top:11px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:7px;background:var(--of-accent-weak);color:var(--of-accent-ink);font-size:12px}
+.wd-card-excerpt{font-size:11px;line-height:1.5;color:var(--text-3);height:2.9em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.wd-card .of-card-name{padding-left:34px;min-height:26px;display:flex;align-items:center}
+
+/* 模板 */
+.wd-tpl{height:100%;overflow:auto;padding:18px 20px}
+.wd-tpl-head{font-size:18px;font-weight:600;margin-bottom:3px}
+.wd-tpl-sub{font-size:11.5px;color:var(--text-3);margin-bottom:16px}
+.wd-tpl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:11px}
+.wd-tpl-card{display:flex;flex-direction:column;gap:9px;padding:13px;border:1px solid rgba(15,23,42,.09);border-radius:12px;background:rgba(255,255,255,.60);cursor:pointer;text-align:left;font-family:inherit;color:var(--text-1);transition:transform var(--dur-fast) var(--ease-out-expo),border-color var(--dur-fast) var(--ease-out-expo),box-shadow var(--dur-fast) var(--ease-out-expo)}
+html[data-mode="dark"] .wd-tpl-card,body.dark-mode .wd-tpl-card{border-color:rgba(255,255,255,.10);background:rgba(255,255,255,.055)}
+.wd-tpl-card:hover{transform:translateY(-1px);border-color:var(--of-accent-weak2);box-shadow:var(--sh-card)}
+.wd-tpl-prev{height:64px;border-radius:8px;background:
+  linear-gradient(180deg,color-mix(in srgb,var(--of-accent) 10%,transparent),transparent),
+  rgba(15,23,42,.04);display:flex;align-items:center;justify-content:center;color:var(--of-accent-ink);font-size:22px}
+html[data-mode="dark"] .wd-tpl-prev{background-color:rgba(255,255,255,.05)}
+.wd-tpl-card b{font-size:13px;font-weight:600}
+.wd-tpl-card span{font-size:11px;color:var(--text-3);line-height:1.5}
+
+/* 状态栏缩放 */
+.wd-zoom{display:flex;align-items:center;gap:1px}
+.wd-zoom .of-btn{height:22px;min-width:22px;font-size:10px;padding:0 3px}
+.wd-zoom span{min-width:38px;text-align:center;font-size:10.5px;color:var(--text-2)}
+
+/* 样式下拉 */
+#wdStyle{width:112px}
+
+/* 页码层（右侧留白区真实分页标记） */
+.wd-furn{position:absolute;left:0;top:0;pointer-events:none;transform-origin:top left;z-index:1}
+.wd-furn span{position:absolute;font-size:10.5px;letter-spacing:.4px;color:rgba(120,128,141,.9);font-variant-numeric:tabular-nums;white-space:nowrap}
+html[data-mode="dark"] .wd-furn span,html[data-theme="dark"] .wd-furn span,body.dark-mode .wd-furn span{color:rgba(190,198,212,.6)}
+
+/* 查找替换条 */
+.of-findbar{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:6px 12px;overflow-x:auto;scrollbar-width:thin;border-bottom:1px solid rgba(15,23,42,.08);background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.of-findbar[hidden]{display:none}
+html[data-mode="dark"] .of-findbar,html[data-theme="dark"] .of-findbar,body.dark-mode .of-findbar{border-bottom-color:rgba(255,255,255,.09);background:rgba(255,255,255,.055)}
+.of-findbar .of-search{min-width:150px;max-width:210px}
+.of-findbar .of-btn{height:26px;min-width:26px;font-size:11px;padding:0 7px;white-space:nowrap}
+.of-findcount{font-size:11px;color:var(--text-3);min-width:54px;font-variant-numeric:tabular-nums}
+.of-chk{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-2);cursor:pointer;white-space:nowrap}
+::highlight(wd-find){background:color-mix(in srgb,var(--of-accent) 26%,transparent)}
+
+/* 打印：只留纸面 */
+@media print{
+  .of-top,.of-body,.of-status,.of-toasts,.of-findbar,.wd-furn{display:none}
+  .wd-main{overflow:visible;padding:0;background:transparent}
+  .wd-wrap{width:auto;height:auto}
+  .wd-page{position:static;transform:none;border:0;box-shadow:none;border-radius:0;width:100%;min-height:0;padding:0;background:rgb(255 255 255);color:rgb(0 0 0)}
+}
+</style>
+</head>
+<body>
+<div id="app" class="of-app wd">
+  <header class="of-top">
+    <div class="of-brand"><i class="fa-solid fa-file-word" aria-hidden="true"></i><b>文档</b></div>
+    <input id="wdTitle" class="of-top-title" aria-label="文档标题" placeholder="未命名文档" spellcheck="false">
+    <span id="wdSave" class="of-save" data-state="idle" title="自动保存到系统本地存储">已保存</span>
+    <button class="of-btn wide" id="wdSaveBtn" title="立即保存（Ctrl+S）"><i class="fa-solid fa-floppy-disk"></i>保存</button>
+    <button class="of-btn wide" id="wdExport" title="导出为 HTML"><i class="fa-solid fa-arrow-up-from-bracket"></i>导出</button>
+    <button class="of-btn wide" id="wdPrint" title="打印 / 另存为 PDF"><i class="fa-solid fa-print"></i>打印</button>
+  </header>
+
+  <div class="of-body">
+    <div id="wdShell"></div>
+  </div>
+</div>
+
+<input type="file" id="wdFile" accept="image/*" hidden>
+
+<script src="../ui/motion.js"></script>
+<script src="_bridge.js"></script>
+<script src="_app.js?v=2.9.57"></script>
+<script src="../ui/n26-gestures.js"></script>
+<script src="../ui/n26-ui.js"></script>
+<script src="_office.js"></script>
+<script>
+(function () {
+'use strict';
+
+var store = OF.store('n26WordDocs');
+var state = { v: 1, docs: [], currentId: null };
+var shell = null;
+var current = null;
+var zoom = 1;
+var PAGE_W = 794, PAGE_H = 1123, MM = 3.779528;
+var findBar = null;
+var findState = { q: '', cs: false, hits: [], idx: -1 };
+var styleTick = 0;
+var lastRange = null;
+var saveTimer = null;
+var saveState = 'idle';
+var booted = false;
+
+var el = {
+  title: document.getElementById('wdTitle'),
+  save: document.getElementById('wdSave'),
+  file: document.getElementById('wdFile'),
+  shellMount: document.getElementById('wdShell')
+};
+var page, wrap, scroll, words, pages, zoomLabel, cards, libCount;
+
+/* ---------- 文档模型 ---------- */
+function serialize() {
+  return { v: 1, currentId: state.currentId, docs: state.docs };
+}
+
+function findDoc(id) {
+  for (var i = 0; i < state.docs.length; i++) if (state.docs[i].id === id) return state.docs[i];
+  return null;
+}
+
+function newDoc(title, html) {
+  var now = Date.now();
+  return {
+    id: OF.uid('wd'),
+    title: title || '未命名文档',
+    html: html || '',
+    page: null,
+    created: now,
+    updated: now
+  };
+}
+
+function stripText(html) {
+  var d = document.createElement('div');
+  d.innerHTML = html || '';
+  return (d.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
+function setSaveState(s) {
+  saveState = s;
+  var txt = s === 'dirty' ? '正在保存…' : s === 'saved' ? ('已保存 ' + OF.fmtClock()) : s === 'error' ? '保存失败' : '已保存';
+  el.save.textContent = txt;
+  el.save.dataset.state = s;
+}
+
+function scheduleSave() {
+  if (!booted) return;
+  setSaveState('dirty');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, 620);
+}
+
+function flush() {
+  if (!current) return Promise.resolve(true);
+  current.title = (el.title.value || '').trim() || '未命名文档';
+  if (page) current.html = page.innerHTML;
+  current.updated = Date.now();
+  var i = state.docs.findIndex(function (d) { return d.id === current.id; });
+  if (i >= 0) state.docs[i] = current;
+  return store.write(serialize()).then(function (ok) {
+    setSaveState(ok ? 'saved' : 'error');
+    renderLibrary();
+    return ok;
+  });
+}
+
+function load() {
+  return store.read().then(function (data) {
+    if (data && Array.isArray(data.docs) && data.docs.length) {
+      state.docs = data.docs.map(function (d) {
+        return {
+          id: d.id || OF.uid('wd'),
+          title: d.title || '未命名文档',
+          html: typeof d.html === 'string' ? d.html : '',
+          page: d.page || null,
+          created: d.created || Date.now(),
+          updated: d.updated || d.created || Date.now()
+        };
+      });
+      state.currentId = data.currentId && findDoc(data.currentId) ? data.currentId : state.docs[0].id;
+    } else {
+      var seed = newDoc('欢迎使用 Nexus 文档', WELCOME);
+      state.docs = [seed];
+      state.currentId = seed.id;
+      return store.write(serialize());
+    }
+    return true;
+  }).catch(function () {
+    var seed = newDoc('欢迎使用 Nexus 文档', WELCOME);
+    state.docs = [seed];
+    state.currentId = seed.id;
+    OF.toast('读取本地文档失败，已创建新文档', 'error');
+  });
+}
+
+/* ---------- 打开 / 切换 ---------- */
+function openDoc(id, goEdit) {
+  if (current && current.id !== id) flush();
+  var doc = findDoc(id);
+  if (!doc) return;
+  current = doc;
+  state.currentId = id;
+  el.title.value = doc.title;
+  if (page) page.innerHTML = doc.html || '';
+  if (wrap) { applyZoom(); updateStatus(); }
+  renderLibrary();
+  if (goEdit !== false && shell) shell.select('edit');
+  scheduleSave();
+}
+
+function createNew(title, html) {
+  flush();
+  var doc = newDoc(title || '未命名文档', html || '');
+  state.docs.unshift(doc);
+  openDoc(doc.id);
+  setSaveState('dirty');
+  flush();
+  if (page) page.focus();
+}
+
+function deleteDoc(id) {
+  var doc = findDoc(id);
+  if (!doc) return;
+  OF.confirm({
+    title: '删除文档',
+    message: '「' + doc.title + '」将从系统本地存储中删除，此操作不可撤销。',
+    okText: '删除'
+  }).then(function (ok) {
+    if (!ok) return;
+    state.docs = state.docs.filter(function (d) { return d.id !== id; });
+    if (state.docs.length === 0) {
+      var seed = newDoc('未命名文档', '');
+      state.docs = [seed];
+    }
+    if (!findDoc(state.currentId)) {
+      state.currentId = state.docs[0].id;
+      current = null;
+      openDoc(state.currentId, false);
+    }
+    flush();
+    renderLibrary();
+    OF.toast('已删除文档', 'success');
+  });
+}
+
+function duplicateDoc(id) {
+  var doc = findDoc(id);
+  if (!doc) return;
+  flush();
+  var copy = newDoc(doc.title + ' 副本', doc.html);
+  state.docs.unshift(copy);
+  flush();
+  renderLibrary();
+  OF.toast('已创建副本', 'success');
+}
+
+function renameDoc(id) {
+  var doc = findDoc(id);
+  if (!doc) return;
+  OF.prompt({ title: '重命名文档', label: '文档名称', value: doc.title, okText: '重命名' }).then(function (name) {
+    if (name == null) return;
+    name = name.trim();
+    if (!name) return;
+    doc.title = name;
+    doc.updated = Date.now();
+    if (current && current.id === id) el.title.value = name;
+    flush();
+    renderLibrary();
+  });
+}
+
+/* ---------- 文档库 ---------- */
+function renderLibrary() {
+  if (!cards) return;
+  var q = (document.getElementById('wdSearchInput') || {}).value || '';
+  q = q.trim().toLowerCase();
+  var list = state.docs.slice().sort(function (a, b) { return (b.updated || 0) - (a.updated || 0); });
+  if (q) {
+    list = list.filter(function (d) {
+      return (d.title || '').toLowerCase().indexOf(q) >= 0 ||
+        stripText(d.html).toLowerCase().indexOf(q) >= 0;
+    });
+  }
+  if (libCount) libCount.textContent = state.docs.length + ' 篇文档 · 自动保存';
+  cards.innerHTML = '';
+
+  var add = document.createElement('button');
+  add.className = 'of-card of-card-new';
+  add.type = 'button';
+  add.innerHTML = '<i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i><b>新建空白文档</b><span style="font-size:11px;color:var(--text-3)">从一张白纸开始</span>';
+  add.addEventListener('click', function () { createNew('未命名文档', ''); });
+  cards.appendChild(add);
+
+  if (!list.length) {
+    var empty = document.createElement('div');
+    empty.className = 'of-empty';
+    empty.style.gridColumn = '1 / -1';
+    empty.innerHTML = '<i class="fa-solid fa-folder-open" aria-hidden="true"></i><b>没有匹配的文档</b><span>换个关键词试试，或新建一篇。</span>';
+    cards.appendChild(empty);
+    return;
+  }
+
+  list.forEach(function (doc) {
+    var card = document.createElement('div');
+    card.className = 'of-card';
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    var excerpt = stripText(doc.html).slice(0, 46) || '空白文档';
+    card.innerHTML =
+      '<div class="wd-card-badge"><i class="fa-solid fa-file-lines" aria-hidden="true"></i></div>' +
+      '<div class="of-card-name"></div>' +
+      '<div class="of-card-sub"><span>' + OF.esc(OF.fmtTime(doc.updated)) + '</span><span>' + stripText(doc.html).length + ' 字</span></div>' +
+      '<div class="wd-card-excerpt"></div>' +
+      '<div class="of-card-tools">' +
+      '<button class="of-btn" data-act="rename" title="重命名"><i class="fa-solid fa-pen"></i></button>' +
+      '<button class="of-btn" data-act="copy" title="创建副本"><i class="fa-regular fa-clone"></i></button>' +
+      '<button class="of-btn danger" data-act="del" title="删除"><i class="fa-solid fa-trash"></i></button>' +
+      '</div>';
+    card.querySelector('.of-card-name').textContent = doc.title;
+    card.querySelector('.wd-card-excerpt').textContent = excerpt;
+    card.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-act]');
+      if (btn) {
+        e.stopPropagation();
+        var act = btn.dataset.act;
+        if (act === 'rename') renameDoc(doc.id);
+        else if (act === 'copy') duplicateDoc(doc.id);
+        else if (act === 'del') deleteDoc(doc.id);
+        return;
+      }
+      openDoc(doc.id);
+    });
+    card.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDoc(doc.id); }
+    });
+    cards.appendChild(card);
+  });
+}
+
+function buildLibrary() {
+  var root = document.createElement('div');
+  root.className = 'of-lib';
+  root.innerHTML =
+    '<div class="of-lib-head">' +
+      '<div class="of-lib-title"><b>我的文档</b><span id="wdLibCount"></span></div>' +
+      '<div class="of-spacer"></div>' +
+      '<label class="of-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>' +
+        '<input id="wdSearchInput" type="search" placeholder="搜索标题或正文" aria-label="搜索文档"></label>' +
+      '<button class="of-btn primary wide" id="wdNew"><i class="fa-solid fa-plus"></i>新建</button>' +
+    '</div>' +
+    '<div class="of-cards" id="wdCards"></div>';
+  cards = root.querySelector('#wdCards');
+  libCount = root.querySelector('#wdLibCount');
+  root.querySelector('#wdSearchInput').addEventListener('input', OF.debounce(renderLibrary, 120));
+  root.querySelector('#wdNew').addEventListener('click', function () { createNew('未命名文档', ''); });
+  renderLibrary();
+  return root;
+}
+
+/* ---------- 编辑器面板 ---------- */
+function buildEditor() {
+  var root = document.createElement('div');
+  root.className = 'wd';
+  root.innerHTML =
+    '<div class="of-ribbon" id="wdRibbon">' +
+      grp('文件', '<button class="of-btn" data-cmd="new" title="新建 (Ctrl+N)"><i class="fa-solid fa-file-circle-plus"></i></button>' +
+        '<button class="of-btn" data-cmd="save" title="保存 (Ctrl+S)"><i class="fa-solid fa-floppy-disk"></i></button>' +
+        '<button class="of-btn" data-cmd="export" title="导出 HTML"><i class="fa-solid fa-arrow-up-from-bracket"></i></button>') +
+      grp('历史', '<button class="of-btn" data-cmd="undo" title="撤销 (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>' +
+        '<button class="of-btn" data-cmd="redo" title="重做 (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>') +
+      grp('字体',
+        '<select class="of-select" id="wdFont" title="字体">' +
+          '<option value="">系统默认</option><option value="PingFang SC, Microsoft YaHei, sans-serif">苹方 / 雅黑</option>' +
+          '<option value="SimSun, Songti SC, serif">宋体</option><option value="KaiTi, Kaiti SC, serif">楷体</option>' +
+          '<option value="FangSong, STFangsong, serif">仿宋</option><option value="SimHei, Heiti SC, sans-serif">黑体</option>' +
+          '<option value="Georgia, serif">Georgia</option><option value="Arial, Helvetica, sans-serif">Arial</option>' +
+        '</select>' +
+        '<select class="of-select compact" id="wdSize" title="字号">' +
+          [10,11,12,14,16,18,20,24,28,32,36,48,72].map(function (n) { return '<option value="' + n + '"' + (n === 16 ? ' selected' : '') + '>' + n + ' pt</option>'; }).join('') +
+        '</select>' +
+        '<span class="of-grp-row">' +
+          btn('bold', 'fa-bold', '加粗 (Ctrl+B)', true) + btn('italic', 'fa-italic', '斜体 (Ctrl+I)', true) +
+          btn('underline', 'fa-underline', '下划线 (Ctrl+U)', true) + btn('strike', 'fa-strikethrough', '删除线') +
+          '<input class="of-color" type="color" id="wdColor" value="rgb(28,34,44)" title="文字颜色">' +
+          '<input class="of-color" type="color" id="wdHighlight" value="rgb(255,235,120)" title="荧光标记">' +
+          btn('clear', 'fa-eraser', '清除格式') +
+        '</span>') +
+      grp('样式',
+        '<select class="of-select" id="wdStyle" title="段落样式">' +
+          '<option value="normal">正文</option><option value="h1">标题 1</option><option value="h2">标题 2</option>' +
+          '<option value="h3">标题 3</option><option value="quote">引用</option><option value="code">代码</option>' +
+          '<option value="caption">图注</option>' +
+        '</select>') +
+      grp('段落',
+        '<span class="of-grp-row">' +
+          btn('left', 'fa-align-left', '左对齐') + btn('center', 'fa-align-center', '居中') +
+          btn('right', 'fa-align-right', '右对齐') + btn('justify', 'fa-align-justify', '两端对齐') +
+          '<select class="of-select compact" id="wdLine" title="行距"><option value="">行距</option><option value="1.2">1.2</option><option value="1.5">1.5</option><option value="1.75">1.75</option><option value="2">2.0</option></select>' +
+        '</span>' +
+        '<span class="of-grp-row">' +
+          btn('ul', 'fa-list-ul', '无序列表') + btn('ol', 'fa-list-ol', '有序列表') +
+          btn('indent', 'fa-indent', '增加缩进') + btn('outdent', 'fa-outdent', '减少缩进') +
+        '</span>') +
+      grp('插入',
+        '<span class="of-grp-row">' +
+          btn('image', 'fa-image', '插入图片') + btn('link', 'fa-link', '插入链接') +
+          btn('table', 'fa-table', '插入表格') + btn('divider', 'fa-minus', '分隔线') +
+        '</span>' +
+        '<span class="of-grp-row">' +
+          btn('openTpl', 'fa-layer-group', '从模板新建') + btn('find', 'fa-magnifying-glass', '查找内容', false, 'FIND') +
+        '</span>') +
+      grp('页面',
+        '<span class="of-grp-row">' +
+          btn('page', 'fa-file-lines', '页面设置：页边距与页码') + btn('pagenum', 'fa-list-ol', '显示 / 隐藏页码', true, '页码') +
+        '</span>') +
+      grp('表格',
+        '<span class="of-grp-row">' +
+          btn('rowadd', 'fa-plus', '在下方插入行', false, 'ROW+') + btn('coladd', 'fa-plus', '在右侧插入列', false, 'COL+') +
+        '</span>' +
+        '<span class="of-grp-row">' +
+          btn('rowdel', 'fa-minus', '删除当前行', false, 'ROW-') + btn('coldel', 'fa-minus', '删除当前列', false, 'COL-') +
+          btn('tabledel', 'fa-trash', '删除表格', false, 'TBL-') +
+        '</span>') +
+      grp('图表',
+        '<span class="of-grp-row">' +
+          btn('chart-bar', 'fa-chart-column', '插入柱状图') + btn('chart-line', 'fa-chart-line', '插入折线图') +
+          btn('chart-pie', 'fa-chart-pie', '插入饼图') +
+        '</span>' +
+        '<span class="of-grp-row">' +
+          btn('refresh', 'fa-arrows-rotate', '重绘全部图表') +
+        '</span>') +
+    '</div>' +
+    '<div class="of-findbar" id="wdFindBar" hidden>' +
+      '<label class="of-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input id="wdFindQ" type="search" placeholder="查找内容" aria-label="查找内容"></label>' +
+      '<label class="of-search"><i class="fa-solid fa-right-left" aria-hidden="true"></i><input id="wdFindR" type="text" placeholder="替换为" aria-label="替换为"></label>' +
+      '<label class="of-chk"><input type="checkbox" id="wdFindCs">区分大小写</label>' +
+      '<span class="of-findcount" id="wdFindCount">0 处</span>' +
+      '<button class="of-btn" data-find="prev" title="上一个 (Shift+Enter)"><i class="fa-solid fa-arrow-up"></i></button>' +
+      '<button class="of-btn" data-find="next" title="下一个 (Enter)"><i class="fa-solid fa-arrow-down"></i></button>' +
+      '<button class="of-btn" data-find="replace" title="替换当前"><i class="fa-solid fa-arrows-rotate"></i>替换</button>' +
+      '<button class="of-btn" data-find="all" title="全部替换">全部替换</button>' +
+      '<span class="of-spacer"></span>' +
+      '<button class="of-btn" data-find="close" title="关闭 (Esc)"><i class="fa-solid fa-xmark"></i></button>' +
+    '</div>' +
+    '<div class="wd-main of-scroll" id="wdScroll">' +
+      '<div class="wd-wrap" id="wdWrap"><div class="wd-page" id="wdPage" contenteditable="true" spellcheck="false" role="textbox" aria-multiline="true" aria-label="文档正文"></div></div>' +
+    '</div>' +
+    '<div class="of-status">' +
+      '<span id="wdWords">0 字</span><span id="wdPages">1 页</span>' +
+      '<span class="of-spacer"></span>' +
+      '<span id="wdCursor">第 1 行</span>' +
+      '<span class="wd-zoom">' +
+        '<button class="of-btn" data-zoom="out" title="缩小"><i class="fa-solid fa-minus"></i></button>' +
+        '<span id="wdZoomLabel">100%</span>' +
+        '<button class="of-btn" data-zoom="in" title="放大"><i class="fa-solid fa-plus"></i></button>' +
+        '<button class="of-btn" data-zoom="fit" title="适应窗口宽度"><i class="fa-solid fa-arrows-left-right"></i></button>' +
+      '</span>' +
+    '</div>';
+
+  page = root.querySelector('#wdPage');
+  wrap = root.querySelector('#wdWrap');
+  scroll = root.querySelector('#wdScroll');
+  words = root.querySelector('#wdWords');
+  pages = root.querySelector('#wdPages');
+  zoomLabel = root.querySelector('#wdZoomLabel');
+
+  root.querySelector('#wdRibbon').addEventListener('mousedown', function (e) {
+    // 点工具栏不丢选区
+    if (e.target.closest('button,select,input')) e.preventDefault();
+  });
+  root.querySelector('#wdRibbon').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-cmd]');
+    if (b) { e.preventDefault(); cmd(b.dataset.cmd); }
+  });
+  root.querySelector('#wdFont').addEventListener('change', function () {
+    if (this.value) wrapSelStyle('fontFamily', this.value);
+    else document.execCommand('removeFormat');
+  });
+  root.querySelector('#wdSize').addEventListener('change', function () { wrapSelStyle('fontSize', this.value + 'px'); });
+  root.querySelector('#wdLine').addEventListener('change', function () {
+    if (this.value) wrapSelStyle('lineHeight', this.value);
+  });
+  var styleSel = root.querySelector('#wdStyle');
+  if (styleSel) styleSel.addEventListener('change', function () { applyStyle(this.value); });
+  root.querySelector('#wdColor').addEventListener('input', function () {
+    ensurePageSel();
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand('foreColor', false, this.value);
+    scheduleSave();
+  });
+  root.querySelector('#wdHighlight').addEventListener('input', function () {
+    ensurePageSel();
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand('backColor', false, this.value);
+    scheduleSave();
+  });
+  root.querySelectorAll('[data-zoom]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var k = b.dataset.zoom;
+      if (k === 'in') zoom = OF.clamp(zoom + .1, .4, 2);
+      else if (k === 'out') zoom = OF.clamp(zoom - .1, .4, 2);
+      else {
+        zoom = OF.clamp((scroll.clientWidth - 76) / 794, .4, 2);
+      }
+      applyZoom();
+    });
+  });
+
+  page.addEventListener('input', function () { updateStatus(); scheduleSave(); });
+  page.addEventListener('keyup', updateCaret);
+  page.addEventListener('click', updateCaret);
+  page.addEventListener('paste', function (e) {
+    // 粘贴为纯文本，避免把外部整页样式带进来
+    var cd = e.clipboardData;
+    if (!cd) return;
+    var files = cd.files && cd.files.length ? cd.files : null;
+    if (files) return;
+    e.preventDefault();
+    var text = cd.getData('text/plain');
+    document.execCommand('insertText', false, text);
+    scheduleSave();
+  });
+  document.addEventListener('keydown', onKey);
+  document.addEventListener('selectionchange', function () {
+    if (!page || styleTick) return;
+    styleTick = requestAnimationFrame(function () {
+      styleTick = 0;
+      var sel = window.getSelection();
+      if (sel && sel.rangeCount && sel.anchorNode && page.contains(sel.anchorNode)) {
+        try { lastRange = sel.getRangeAt(0).cloneRange(); } catch (e) { }
+      }
+      syncStyleSelect();
+    });
+  });
+
+  bindFind(root);
+  applyZoom();
+  syncRibbonState();
+  return root;
+}
+
+function grp(label, inner) {
+  return '<div class="of-grp">' + inner + '<div class="of-grp-label">' + label + '</div></div>';
+}
+function btn(cmd, icon, title, toggle, text) {
+  return '<button class="of-btn" data-cmd="' + cmd + '" title="' + title + '"' + (toggle ? ' aria-pressed="false"' : '') + '>' +
+    (text ? '<span style="font-size:11px;font-weight:700">' + text + '</span>' : '<i class="fa-solid ' + icon + '"></i>') + '</button>';
+}
+
+/* ---------- 页面：页边距 / 分页 / 页码 ---------- */
+function pagePx(v, fb) { v = +v; return isFinite(v) && v >= 0 ? v : fb; }
+
+function pageOf(doc) {
+  var d = doc && doc.page;
+  if (!d || !d.m) return { m: { t: 72, b: 86, l: 78, r: 78 }, num: true };
+  return {
+    m: { t: pagePx(d.m.t, 72), b: pagePx(d.m.b, 86), l: pagePx(d.m.l, 78), r: pagePx(d.m.r, 78) },
+    num: d.num !== false
+  };
+}
+
+function applyPage() {
+  if (!page) return;
+  var ps = pageOf(current);
+  page.style.width = PAGE_W + 'px';
+  page.style.padding = ps.m.t + 'px ' + ps.m.r + 'px ' + ps.m.b + 'px ' + ps.m.l + 'px';
+  if (wrap) wrap.style.width = (PAGE_W * zoom) + 'px';
+  renderFurniture();
+}
+
+function renderFurniture() {
+  if (!page || !wrap) return;
+  var ps = pageOf(current);
+  var old = wrap.querySelector('.wd-furn');
+  if (old) old.remove();
+  page.style.minHeight = PAGE_H + 'px';
+  var contentH = Math.max(PAGE_H, page.scrollHeight);
+  var count = Math.max(1, Math.ceil(contentH / PAGE_H));
+  page.style.minHeight = (count * PAGE_H) + 'px';
+  wrap.style.height = (count * PAGE_H * zoom) + 'px';
+  if (pages) pages.textContent = count + ' 页';
+  if (!ps.num) return;
+  var f = document.createElement('div');
+  f.className = 'wd-furn';
+  f.style.width = PAGE_W + 'px';
+  f.style.height = (count * PAGE_H) + 'px';
+  f.style.transform = 'scale(' + zoom + ')';
+  var right = Math.max(10, Math.round(ps.m.r / 2 - 16));
+  for (var i = 0; i < count; i++) {
+    var s = document.createElement('span');
+    s.textContent = (i + 1) + ' / ' + count;
+    s.style.right = right + 'px';
+    s.style.top = ((i + 1) * PAGE_H - Math.round(ps.m.b / 2) - 7) + 'px';
+    f.appendChild(s);
+  }
+  wrap.appendChild(f);
+}
+
+function openPageSetup() {
+  var ps = pageOf(current);
+  var mm = function (v) { return Math.round(v / MM); };
+  OF.dialog({
+    title: '页面设置', icon: 'fa-file-lines', okText: '应用',
+    body:
+      '<div class="of-field-row">' +
+        '<div class="of-field"><label>上边距（mm）</label><input class="of-input" data-m="t" type="number" min="10" max="60" value="' + mm(ps.m.t) + '"></div>' +
+        '<div class="of-field"><label>下边距（mm）</label><input class="of-input" data-m="b" type="number" min="10" max="60" value="' + mm(ps.m.b) + '"></div>' +
+      '</div>' +
+      '<div class="of-field-row" style="margin-top:8px">' +
+        '<div class="of-field"><label>左边距（mm）</label><input class="of-input" data-m="l" type="number" min="10" max="60" value="' + mm(ps.m.l) + '"></div>' +
+        '<div class="of-field"><label>右边距（mm）</label><input class="of-input" data-m="r" type="number" min="10" max="60" value="' + mm(ps.m.r) + '"></div>' +
+      '</div>' +
+      '<div class="of-field" style="margin-top:8px"><label>页码</label>' +
+        '<select class="of-select" data-num style="max-width:none">' +
+          '<option value="1"' + (ps.num ? ' selected' : '') + '>显示（右侧留白区）</option>' +
+          '<option value="0"' + (!ps.num ? ' selected' : '') + '>隐藏</option>' +
+        '</select></div>' +
+      '<p style="font-size:11px;color:var(--text-3);margin-top:8px">A4 纵向 · 794 × 1123 px，边距按 96dpi 换算；分页随内容高度实时计算。</p>',
+    collect: function (root) {
+      var m = {};
+      ['t', 'b', 'l', 'r'].forEach(function (k) {
+        var v = parseFloat(root.querySelector('[data-m="' + k + '"]').value);
+        if (!isFinite(v)) v = 19;
+        m[k] = Math.round(OF.clamp(v, 10, 60) * MM);
+      });
+      if (!current) return true;
+      current.page = { m: m, num: root.querySelector('[data-num]').value === '1' };
+      applyPage(); syncRibbonState();
+      scheduleSave();
+      OF.toast('页面设置已应用', 'success');
+      return true;
+    }
+  });
+}
+
+function togglePageNum() {
+  if (!current) { OF.toast('先打开一篇文档', 'error'); return; }
+  var ps = pageOf(current);
+  current.page = { m: ps.m, num: !ps.num };
+  applyPage(); syncRibbonState(); scheduleSave();
+  OF.toast(ps.num ? '页码已隐藏' : '页码已显示', 'success');
+}
+
+function syncRibbonState() {
+  var b = document.querySelector('[data-cmd="pagenum"]');
+  if (b) b.setAttribute('aria-pressed', pageOf(current).num ? 'true' : 'false');
+  syncStyleSelect();
+}
+
+/* ---------- 段落样式 ---------- */
+var STYLE_TAG = { normal: 'P', h1: 'H1', h2: 'H2', h3: 'H3', quote: 'BLOCKQUOTE', code: 'PRE', caption: 'P' };
+var STYLE_CLS = { caption: 'wd-st-caption' };
+var OWN_CLS = ['wd-st-h1', 'wd-st-h2', 'wd-st-h3', 'wd-st-quote', 'wd-st-code', 'wd-st-caption'];
+
+function currentBlock() {
+  if (!page) return null;
+  var sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return null;
+  var n = sel.anchorNode;
+  if (!n) return null;
+  if (n.nodeType === 3) n = n.parentNode;
+  if (!n || n.nodeType !== 1) return null;
+  var b = n.closest ? n.closest('h1,h2,h3,p,blockquote,pre,li') : null;
+  return b && page.contains(b) ? b : null;
+}
+
+function applyStyle(key) {
+  if (!page) return;
+  if (!ensurePageSel()) { OF.toast('先把光标放进正文', 'error'); return; }
+  var sel = window.getSelection();
+  if (!sel || !sel.rangeCount) { OF.toast('先把光标放进正文', 'error'); return; }
+  var tag = STYLE_TAG[key] || 'P';
+  document.execCommand('formatBlock', false, tag);
+  var blocks = [];
+  if (sel.rangeCount) {
+    Array.prototype.forEach.call(page.querySelectorAll('h1,h2,h3,p,blockquote,pre,li'), function (b) {
+      if (b.closest('[contenteditable="false"]') || b.classList.contains('wd-chart')) return;
+      if (sel.getRangeAt(0).intersectsNode(b)) blocks.push(b);
+    });
+  }
+  if (!blocks.length) {
+    var cb = currentBlock();
+    if (cb) blocks = [cb];
+  }
+  blocks.forEach(function (b) {
+    OWN_CLS.forEach(function (c) { b.classList.remove(c); });
+    if (STYLE_CLS[key]) b.classList.add(STYLE_CLS[key]);
+    if (!b.className) b.removeAttribute('class');
+  });
+  scheduleSave(); updateStatus(); syncStyleSelect();
+}
+
+function syncStyleSelect() {
+  var s = document.getElementById('wdStyle');
+  if (!s) return;
+  var blk = currentBlock();
+  var key = 'normal';
+  if (blk) {
+    var tn = blk.tagName.toUpperCase();
+    if (tn === 'H1') key = 'h1';
+    else if (tn === 'H2') key = 'h2';
+    else if (tn === 'H3') key = 'h3';
+    else if (tn === 'BLOCKQUOTE' || blk.classList.contains('wd-st-quote')) key = 'quote';
+    else if (tn === 'PRE' || blk.classList.contains('wd-st-code')) key = 'code';
+    else if (blk.classList.contains('wd-st-caption')) key = 'caption';
+  }
+  s.value = key;
+}
+
+/* ---------- 查找 / 替换 ---------- */
+function bindFind(root) {
+  findBar = root.querySelector('#wdFindBar');
+  if (!findBar) return;
+  var q = findBar.querySelector('#wdFindQ');
+  var r = findBar.querySelector('#wdFindR');
+  var cs = findBar.querySelector('#wdFindCs');
+  q.addEventListener('input', function () { findState.idx = -1; refreshFind(); });
+  cs.addEventListener('change', function () { findState.idx = -1; refreshFind(); });
+  q.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); findNext(e.shiftKey ? -1 : 1); }
+    else if (e.key === 'Escape') { e.preventDefault(); closeFind(); }
+  });
+  r.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); replaceCurrent(); }
+    else if (e.key === 'Escape') { e.preventDefault(); closeFind(); }
+  });
+  findBar.addEventListener('mousedown', function (e) {
+    if (e.target.closest('button, input, select, label')) e.stopPropagation();
+  });
+  findBar.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-find]');
+    if (!b) return;
+    var act = b.dataset.find;
+    if (act === 'prev') findNext(-1);
+    else if (act === 'next') findNext(1);
+    else if (act === 'replace') replaceCurrent();
+    else if (act === 'all') replaceAll();
+    else if (act === 'close') closeFind();
+  });
+}
+
+function openFind() {
+  if (!findBar) return;
+  findBar.hidden = false;
+  var sel = window.getSelection();
+  var picked = sel && !sel.isCollapsed && page && page.contains(sel.anchorNode) ? sel.toString() : '';
+  picked = picked.replace(/\s+/g, ' ').trim().slice(0, 60);
+  var q = document.getElementById('wdFindQ');
+  if (picked) q.value = picked;
+  q.focus();
+  q.select();
+  findState.idx = -1;
+  refreshFind();
+}
+
+function closeFind() {
+  if (!findBar) return;
+  findBar.hidden = true;
+  if (window.CSS && CSS.highlights) CSS.highlights.delete('wd-find');
+  findState.q = '';
+  findState.hits = [];
+  findState.idx = -1;
+  if (page) page.focus();
+}
+
+function findRanges(q, cs) {
+  if (!page || !q) return [];
+  var out = [];
+  var needle = cs ? q : q.toLowerCase();
+  var walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT, {
+    acceptNode: function (n) {
+      var p = n.parentNode;
+      while (p && p !== page) {
+        if (p.nodeType === 1 && (p.getAttribute('contenteditable') === 'false' ||
+          p.classList.contains('wd-chart') || p.classList.contains('wd-furn'))) return NodeFilter.FILTER_REJECT;
+        p = p.parentNode;
+      }
+      return n.nodeValue ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }
+  });
+  var node;
+  while ((node = walker.nextNode())) {
+    var hay = cs ? node.nodeValue : node.nodeValue.toLowerCase();
+    var i = hay.indexOf(needle);
+    while (i >= 0) {
+      out.push({ node: node, start: i, end: i + q.length });
+      i = hay.indexOf(needle, i + needle.length);
+    }
+  }
+  return out;
+}
+
+function paintHighlights(hits) {
+  if (!window.CSS || !CSS.highlights) return;
+  CSS.highlights.delete('wd-find');
+  if (!hits.length) return;
+  try {
+    var h = new Highlight();
+    hits.forEach(function (x) {
+      var rg = document.createRange();
+      rg.setStart(x.node, x.start);
+      rg.setEnd(x.node, x.end);
+      h.addRange(rg);
+    });
+    CSS.highlights.set('wd-find', h);
+  } catch (e) { }
+}
+
+function refreshFind(keepIdx) {
+  if (!findBar || findBar.hidden) return;
+  var qEl = document.getElementById('wdFindQ');
+  var csEl = document.getElementById('wdFindCs');
+  findState.q = qEl ? qEl.value : '';
+  findState.cs = !!(csEl && csEl.checked);
+  findState.hits = findState.q ? findRanges(findState.q, findState.cs) : [];
+  if (!keepIdx) findState.idx = -1;
+  paintHighlights(findState.hits);
+  var c = document.getElementById('wdFindCount');
+  if (c) c.textContent = findState.q ? (findState.hits.length + ' 处') : '0 处';
+}
+
+function findNext(dir) {
+  if (!findBar || findBar.hidden) return;
+  refreshFind(true);
+  if (!findState.hits.length) { OF.toast('没有找到「' + findState.q + '」', 'error'); return; }
+  var n = findState.hits.length;
+  findState.idx = (findState.idx + (dir >= 0 ? 1 : -1) + n) % n;
+  gotoHit(findState.hits[findState.idx]);
+}
+
+function gotoHit(hit) {
+  var r = document.createRange();
+  r.setStart(hit.node, hit.start);
+  r.setEnd(hit.node, hit.end);
+  page.focus();
+  var sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(r);
+  var target = r.getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop;
+  scroll.scrollTop = Math.max(0, target - 120);
+  updateCaret();
+}
+
+function replaceCurrent() {
+  if (!findState.q) { OF.toast('先输入要查找的内容', 'error'); return; }
+  refreshFind(true);
+  if (!findState.hits.length) { OF.toast('没有找到「' + findState.q + '」', 'error'); return; }
+  if (findState.idx < 0 || findState.idx >= findState.hits.length) findState.idx = 0;
+  var hit = findState.hits[findState.idx];
+  var rep = document.getElementById('wdFindR').value || '';
+  gotoHit(hit);
+  document.execCommand('insertText', false, rep);
+  findState.idx = -1;
+  refreshFind();
+  scheduleSave(); updateStatus();
+  OF.toast(rep ? '已替换 1 处' : '已删除 1 处', 'success');
+}
+
+function replaceAll() {
+  if (!findState.q) { OF.toast('先输入要查找的内容', 'error'); return; }
+  var q = findState.q;
+  var rep = document.getElementById('wdFindR').value || '';
+  var cs = findState.cs;
+  var count = 0;
+  var nodes = [];
+  var walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT, null);
+  var n;
+  while ((n = walker.nextNode())) nodes.push(n);
+  nodes.forEach(function (node) {
+    var p = node.parentNode;
+    var skip = false;
+    while (p && p !== page) {
+      if (p.nodeType === 1 && (p.getAttribute('contenteditable') === 'false' || p.classList.contains('wd-chart'))) { skip = true; break; }
+      p = p.parentNode;
+    }
+    if (skip || !node.nodeValue) return;
+    var hay = cs ? node.nodeValue : node.nodeValue.toLowerCase();
+    var needle = cs ? q : q.toLowerCase();
+    var i = hay.indexOf(needle);
+    if (i < 0) return;
+    var out = '', last = 0;
+    while (i >= 0) {
+      out += node.nodeValue.slice(last, i) + rep;
+      last = i + q.length;
+      count++;
+      i = hay.indexOf(needle, last);
+    }
+    out += node.nodeValue.slice(last);
+    node.nodeValue = out;
+  });
+  refreshFind();
+  scheduleSave(); updateStatus();
+  if (count) OF.toast('已替换 ' + count + ' 处', 'success');
+  else OF.toast('没有找到可替换的内容', 'error');
+}
+
+/* ---------- 编辑命令 ---------- */
+function focusPage() { try { page.focus(); } catch (e) { } }
+
+function ensurePageSel() {
+  if (!page) return false;
+  focusPage();
+  var sel = window.getSelection();
+  if (sel && sel.rangeCount && sel.anchorNode && page.contains(sel.anchorNode)) return true;
+  if (lastRange && lastRange.startContainer && page.contains(lastRange.startContainer)) {
+    try {
+      sel.removeAllRanges();
+      sel.addRange(lastRange);
+      return true;
+    } catch (e) { }
+  }
+  return !!(sel && sel.rangeCount && page.contains(sel.anchorNode));
+}
+
+function wrapSelStyle(prop, value) {
+  ensurePageSel();
+  var sel = window.getSelection();
+  if (!sel || !sel.rangeCount) { OF.toast('请先选中要设置的文字'); return; }
+  var range = sel.getRangeAt(0);
+  if (range.collapsed) { OF.toast('请先选中要设置的文字'); return; }
+  try {
+    var span = document.createElement('span');
+    span.style[prop] = value;
+    span.appendChild(range.extractContents());
+    range.insertNode(span);
+    var nr = document.createRange();
+    nr.selectNodeContents(span);
+    sel.removeAllRanges();
+    sel.addRange(nr);
+  } catch (e) {
+    document.execCommand('styleWithCSS', false, true);
+    if (prop === 'fontFamily') document.execCommand('fontName', false, value);
+  }
+  scheduleSave();
+  updateStatus();
+}
+
+function activeCell() {
+  var sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return null;
+  var n = sel.anchorNode;
+  if (!n) return null;
+  if (n.nodeType === 3) n = n.parentNode;
+  return n.closest ? n.closest('td,th') : null;
+}
+
+function cmd(c) {
+  focusPage();
+  switch (c) {
+    case 'new': createNew('未命名文档', ''); return;
+    case 'save': flush().then(function (ok) { OF.toast(ok ? '已保存到系统存储' : '保存失败', ok ? 'success' : 'error'); }); return;
+    case 'export': exportHtml(); return;
+    case 'undo': document.execCommand('undo'); break;
+    case 'redo': document.execCommand('redo'); break;
+    case 'bold': document.execCommand('styleWithCSS', false, true); document.execCommand('bold'); break;
+    case 'italic': document.execCommand('styleWithCSS', false, true); document.execCommand('italic'); break;
+    case 'underline': document.execCommand('underline'); break;
+    case 'strike': document.execCommand('strikeThrough'); break;
+    case 'clear': document.execCommand('removeFormat'); break;
+    case 'left': document.execCommand('justifyLeft'); break;
+    case 'center': document.execCommand('justifyCenter'); break;
+    case 'right': document.execCommand('justifyRight'); break;
+    case 'justify': document.execCommand('justifyFull'); break;
+    case 'ul': document.execCommand('insertUnorderedList'); break;
+    case 'ol': document.execCommand('insertOrderedList'); break;
+    case 'indent': document.execCommand('indent'); break;
+    case 'outdent': document.execCommand('outdent'); break;
+    case 'h1': document.execCommand('formatBlock', false, 'H1'); break;
+    case 'h2': document.execCommand('formatBlock', false, 'H2'); break;
+    case 'image': el.file.click(); return;
+    case 'link': insertLink(); return;
+    case 'table': insertTable(); return;
+    case 'divider': document.execCommand('insertHTML', false, '<hr>'); break;
+    case 'openTpl': if (shell) shell.select('templates'); return;
+    case 'find': openFind(); return;
+    case 'page': openPageSetup(); return;
+    case 'pagenum': togglePageNum(); return;
+    case 'rowadd': tableOp('rowadd'); return;
+    case 'rowdel': tableOp('rowdel'); return;
+    case 'coladd': tableOp('coladd'); return;
+    case 'coldel': tableOp('coldel'); return;
+    case 'tabledel': tableOp('tabledel'); return;
+    case 'chart-bar': insertChart('bar'); return;
+    case 'chart-line': insertChart('line'); return;
+    case 'chart-pie': insertChart('pie'); return;
+    case 'refresh': refreshCharts(); return;
+    default: return;
+  }
+  updateStatus();
+  scheduleSave();
+}
+
+function insertLink() {
+  ensurePageSel();
+  var sel = window.getSelection();
+  if (!sel || sel.isCollapsed) { OF.toast('先选中文字，再加链接', 'error'); return; }
+  OF.prompt({ title: '插入链接', label: '链接地址', placeholder: 'https://', value: 'https://' }).then(function (url) {
+    if (!url) return;
+    url = url.trim();
+    if (!/^https?:|^mailto:/i.test(url)) url = 'https://' + url;
+    ensurePageSel();
+    document.execCommand('createLink', false, url);
+    scheduleSave();
+  });
+}
+
+function insertTable() {
+  OF.dialog({
+    title: '插入表格', icon: 'fa-table', okText: '插入',
+    body: '<div class="of-field-row"><div class="of-field"><label>行数</label><input class="of-input" data-rows type="number" min="1" max="30" value="3"></div>' +
+      '<div class="of-field"><label>列数</label><input class="of-input" data-cols type="number" min="1" max="12" value="4"></div></div>' +
+      '<div class="of-field" style="margin-top:8px"><label>首行作为表头</label>' +
+      '<select class="of-select" data-head style="max-width:none"><option value="1">是</option><option value="0">否</option></select></div>',
+    collect: function (root) {
+      var r = parseInt(root.querySelector('[data-rows]').value, 10) || 3;
+      var c = parseInt(root.querySelector('[data-cols]').value, 10) || 4;
+      var head = root.querySelector('[data-head]').value === '1';
+      r = OF.clamp(r, 1, 30); c = OF.clamp(c, 1, 12);
+      var h = '<table><tbody>';
+      for (var i = 0; i < r; i++) {
+        h += '<tr>';
+        for (var j = 0; j < c; j++) {
+          if (i === 0 && head) h += '<th>列 ' + (j + 1) + '</th>';
+          else h += '<td>&nbsp;</td>';
+        }
+        h += '</tr>';
+      }
+      h += '</tbody></table><p><br></p>';
+      ensurePageSel();
+      document.execCommand('insertHTML', false, h);
+      scheduleSave();
+      return true;
+    }
+  });
+}
+
+function tableOp(op) {
+  var cell = activeCell();
+  if (!cell && op !== 'tabledel') { OF.toast('先把光标放进表格单元格'); return; }
+  var table = cell ? cell.closest('table') : null;
+  if (!table) { OF.toast('当前不在表格中'); return; }
+  var row = cell.parentNode;
+  if (op === 'rowadd') {
+    var nr = row.cloneNode(true);
+    Array.prototype.forEach.call(nr.children, function (td) { td.innerHTML = '&nbsp;'; });
+    row.parentNode.insertBefore(nr, row.nextSibling);
+  } else if (op === 'rowdel') {
+    if (table.rows.length <= 1) { table.remove(); scheduleSave(); updateStatus(); return; }
+    row.remove();
+  } else if (op === 'coladd' || op === 'coldel') {
+    var idx = Array.prototype.indexOf.call(row.children, cell);
+    Array.prototype.forEach.call(table.rows, function (tr) {
+      var c = tr.children[idx];
+      if (op === 'coladd') {
+        var nc = document.createElement(tr.parentNode.tagName === 'THEAD' ? 'th' : 'td');
+        nc.innerHTML = '&nbsp;';
+        c.parentNode.insertBefore(nc, c.nextSibling);
+      } else if (tr.children.length > 1) {
+        c.remove();
+      }
+    });
+  } else if (op === 'tabledel') {
+    table.remove();
+  }
+  scheduleSave(); updateStatus();
+}
+
+/* 图表 */
+function chartDialog(type) {
+  var sample = '一月,120\n二月,168\n三月,145\n四月,210\n五月,196\n六月,238';
+  return OF.dialog({
+    title: '插入' + ({ bar: '柱状图', line: '折线图', pie: '饼图' }[type] || '图表'),
+    icon: 'fa-chart-column', okText: '插入图表',
+    body: '<div class="of-field"><label>图表标题</label><input class="of-input" data-title value="季度趋势"></div>' +
+      '<div class="of-field" style="margin-top:8px"><label>数据（每行「标签,数值」）</label>' +
+      '<textarea class="of-textarea" data-data spellcheck="false">' + OF.esc(sample) + '</textarea></div>',
+    collect: function (root) {
+      var title = root.querySelector('[data-title]').value.trim();
+      var raw = root.querySelector('[data-data]').value;
+      var labels = [], values = [];
+      raw.split(/\n/).forEach(function (line) {
+        line = line.trim(); if (!line) return;
+        var p = line.split(/[,，\t]/);
+        labels.push((p[0] || '').trim());
+        values.push(parseFloat((p[1] || '').replace(/[^0-9.\-]/g, '')) || 0);
+      });
+      if (!values.length) return false;
+      var html = chartHTML(type, title, labels, values);
+      ensurePageSel();
+      var node = document.createElement('div');
+      node.innerHTML = html;
+      var chart = node.firstElementChild;
+      var sel = window.getSelection();
+      if (sel && sel.rangeCount) {
+        var range = sel.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(chart);
+        var after = document.createElement('p'); after.innerHTML = '<br>';
+        chart.parentNode.insertBefore(after, chart.nextSibling);
+        var nr = document.createRange(); nr.setStart(after, 0); nr.collapse(true);
+        sel.removeAllRanges(); sel.addRange(nr);
+      } else {
+        page.appendChild(chart);
+      }
+      scheduleSave(); updateStatus();
+      return true;
+    }
+  });
+}
+
+function chartHTML(type, title, labels, values) {
+  var data = { type: type, title: title, labels: labels, values: values };
+  return '<div class="wd-chart" contenteditable="false" data-ofchart="' + OF.esc(JSON.stringify(data)) + '">' +
+    '<div class="wd-chart-head"><i class="fa-solid fa-chart-simple"></i><span>' + OF.esc(title || '图表') + '</span>' +
+    '<span class="of-spacer"></span><span style="font-size:10px;color:var(--text-3)">' + ({ bar: '柱状图', line: '折线图', pie: '饼图' }[type] || '') + '</span></div>' +
+    '<div class="wd-chart-plot">' + OF.svgChart({ type: type, labels: labels, values: values, title: '', dark: OF.isDark() }) + '</div>' +
+    '<div class="wd-chart-tip">双击此处可选中整图后删除</div>' +
+    '</div>';
+}
+
+function insertChart(type) { chartDialog(type); }
+
+function refreshCharts() {
+  if (!page) return;
+  page.querySelectorAll('.wd-chart[data-ofchart]').forEach(function (box) {
+    try {
+      var data = JSON.parse(box.dataset.ofchart);
+      var plot = box.querySelector('.wd-chart-plot');
+      if (plot) plot.innerHTML = OF.svgChart({ type: data.type, labels: data.labels, values: data.values, title: '', dark: OF.isDark() });
+    } catch (e) { }
+  });
+  OF.toast('图表已按当前主题重绘', 'success');
+}
+
+/* ---------- 状态 / 缩放 ---------- */
+function updateStatus() {
+  if (!page || !words) return;
+  var txt = page.textContent || '';
+  var visible = txt.replace(/\s+/g, '');
+  var latin = (txt.match(/[A-Za-z0-9]+/g) || []).length;
+  var selLen = 0;
+  var sel = window.getSelection();
+  if (sel && sel.rangeCount && !sel.isCollapsed && page.contains(sel.anchorNode)) {
+    selLen = (sel.toString() || '').replace(/\s+/g, '').length;
+  }
+  words.textContent = visible.length + ' 字 · ' + latin + ' 词' + (selLen ? ' · 选中 ' + selLen + ' 字' : '');
+  requestAnimationFrame(function () { renderFurniture(); });
+}
+
+function updateCaret() {
+  var caret = document.getElementById('wdCursor');
+  if (!caret) return;
+  var sel = window.getSelection();
+  if (!sel || !sel.rangeCount) { caret.textContent = ''; return; }
+  var n = sel.anchorNode;
+  if (n && n.nodeType === 3) n = n.parentNode;
+  var line = 1;
+  try {
+    var range = document.createRange();
+    range.selectNodeContents(page);
+    range.setEnd(sel.anchorNode, sel.anchorOffset);
+    line = (range.toString().match(/\n/g) || []).length + 1;
+  } catch (e) { }
+  caret.textContent = '第 ' + line + ' 段';
+}
+
+function applyZoom() {
+  if (!page || !wrap) return;
+  page.style.transform = 'scale(' + zoom + ')';
+  wrap.style.width = (PAGE_W * zoom) + 'px';
+  if (zoomLabel) zoomLabel.textContent = Math.round(zoom * 100) + '%';
+  applyPage();
+}
+
+/* ---------- 模板 ---------- */
+var TEMPLATES = [
+  { name: '空白文档', icon: 'fa-file', desc: '一张白纸，自由排版', html: '' },
+  { name: '工作报告', icon: 'fa-chart-line', desc: '摘要、进展、数据表与结论', html: tplReport() },
+  { name: '会议纪要', icon: 'fa-users', desc: '时间、参会人、决议与待办', html: tplMeeting() },
+  { name: '个人简历', icon: 'fa-id-card', desc: '教育、经历、技能三段式', html: tplResume() },
+  { name: '项目立项', icon: 'fa-diagram-project', desc: '背景、目标、里程碑与风险', html: tplProject() }
+];
+
+function buildTemplates() {
+  var root = document.createElement('div');
+  root.className = 'wd-tpl';
+  root.innerHTML = '<div class="wd-tpl-head">从模板新建</div><div class="wd-tpl-sub">选一个骨架，正文和样式都可以继续改。</div><div class="wd-tpl-grid"></div>';
+  var grid = root.querySelector('.wd-tpl-grid');
+  TEMPLATES.forEach(function (t) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'wd-tpl-card';
+    b.innerHTML = '<div class="wd-tpl-prev"><i class="fa-solid ' + t.icon + '"></i></div><b></b><span></span>';
+    b.querySelector('b').textContent = t.name;
+    b.querySelector('span').textContent = t.desc;
+    b.addEventListener('click', function () {
+      createNew(t.name, t.html);
+      OF.toast('已从模板创建「' + t.name + '」', 'success');
+    });
+    grid.appendChild(b);
+  });
+  return root;
+}
+
+/* ---------- 导出 / 打印 / 文件 ---------- */
+function exportHtml() {
+  if (!current) return;
+  flush();
+  var title = current.title || '文档';
+  var html = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>' + OF.esc(title) +
+    '</title><style>body{max-width:820px;margin:40px auto;padding:0 24px;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;font-size:16px;line-height:1.8;color:rgb(28,34,44)}img{max-width:100%}table{border-collapse:collapse;width:100%}th,td{border:1px solid rgb(200,206,216);padding:7px 10px}th{background:rgb(238,242,248)}</style></head><body>' +
+    (page ? page.innerHTML : current.html) + '</body></html>';
+  OF.download(title.replace(/[\\/:*?"<>|]/g, '_') + '.html', html, 'text/html;charset=utf-8');
+  OF.toast('已导出 HTML 文件', 'success');
+}
+
+el.file.addEventListener('change', function () {
+  var f = el.file.files && el.file.files[0];
+  el.file.value = '';
+  if (!f) return;
+  OF.readImage(f, 1200).then(function (img) {
+    ensurePageSel();
+    document.execCommand('insertHTML', false, '<img src="' + img.src + '" alt="' + OF.esc(f.name) + '">');
+    scheduleSave(); updateStatus();
+  }).catch(function (e) { OF.toast('图片插入失败：' + e.message, 'error'); });
+});
+
+/* ---------- 顶部按钮 / 快捷键 ---------- */
+el.title.addEventListener('input', function () { scheduleSave(); renderLibrary(); });
+el.title.addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') { e.preventDefault(); page && page.focus(); }
+});
+document.getElementById('wdSaveBtn').addEventListener('click', function () {
+  flush().then(function (ok) { OF.toast(ok ? '已保存到系统存储' : '保存失败', ok ? 'success' : 'error'); });
+});
+document.getElementById('wdExport').addEventListener('click', exportHtml);
+document.getElementById('wdPrint').addEventListener('click', function () { flush(); setTimeout(function () { window.print(); }, 120); });
+
+function onKey(e) {
+  var mod = e.ctrlKey || e.metaKey;
+  var t = e.target;
+  var inField = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
+  if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); flush().then(function (ok) { OF.toast(ok ? '已保存' : '保存失败', ok ? 'success' : 'error'); }); return; }
+  if (inField) {
+    if (e.key === 'Escape' && findBar && !findBar.hidden) closeFind();
+    return;
+  }
+  if (mod && e.key.toLowerCase() === 'n') { e.preventDefault(); createNew('未命名文档', ''); return; }
+  if (mod && e.key.toLowerCase() === 'e') { e.preventDefault(); exportHtml(); return; }
+  if (mod && e.key.toLowerCase() === 'f') { e.preventDefault(); openFind(); return; }
+  if (e.key === 'Escape') {
+    if (findBar && !findBar.hidden) { closeFind(); return; }
+    if (document.activeElement === page) { window.getSelection().removeAllRanges(); return; }
+  }
+}
+
+/* ---------- 引导 ---------- */
+function boot() {
+  shell = N26UI.createShell(el.shellMount, {
+    defaultId: 'edit',
+    sidebar: [
+      { id: 'library', icon: 'fa-folder-open', label: '文档', render: buildLibrary },
+      { id: 'edit', icon: 'fa-pen-nib', label: '编辑', render: buildEditor },
+      { id: 'templates', icon: 'fa-layer-group', label: '模板', render: buildTemplates }
+    ],
+    onSelect: function (id) {
+      if (id === 'edit' && page) setTimeout(function () { applyZoom(); updateStatus(); }, 0);
+      if (id === 'library') renderLibrary();
+    }
+  });
+
+  load().then(function () {
+    booted = true;
+    openDoc(state.currentId, false);
+    setSaveState('saved');
+    updateStatus();
+    if (OF.isDark()) refreshCharts();
+  }).catch(function (e) {
+    booted = true;
+    createNew('未命名文档', '');
+  });
+}
+
+OF.onTheme(function () {
+  var t = setTimeout(function () {
+    if (page) {
+      page.querySelectorAll('.wd-chart[data-ofchart]').forEach(function (box) {
+        try {
+          var d = JSON.parse(box.dataset.ofchart);
+          var plot = box.querySelector('.wd-chart-plot');
+          if (plot) plot.innerHTML = OF.svgChart({ type: d.type, labels: d.labels, values: d.values, title: '', dark: OF.isDark() });
+        } catch (e) { }
+      });
+    }
+    clearTimeout(t);
+  }, 160);
+});
+
+boot();
+
+/* ================= 模板正文 ================= */
+function tplReport() {
+  return '<h1>季度工作报告</h1><p style="color:var(--text-3);font-size:12.5px">部门：产品设计部　汇报人：________　周期：2026 Q3</p>' +
+    '<h2>一、本季度摘要</h2><p>本季度围绕核心体验重构展开，完成了信息架构梳理与关键流程优化。整体交付符合预期，用户任务完成率提升 18%。</p>' +
+    '<h2>二、关键数据</h2><table><tbody><tr><th>指标</th><th>上季度</th><th>本季度</th><th>变化</th></tr>' +
+    '<tr><td>任务完成率</td><td>72%</td><td>85%</td><td>+13pt</td></tr>' +
+    '<tr><td>平均耗时</td><td>4.2 分钟</td><td>3.1 分钟</td><td>-26%</td></tr>' +
+    '<tr><td>满意度</td><td>4.1</td><td>4.5</td><td>+0.4</td></tr></tbody></table>' +
+    '<h2>三、问题与改进</h2><ul><li>搜索入口层级偏深，下季度前移到顶栏。</li><li>批量操作缺少二次确认，已在 9 月版本修复。</li><li>移动端长表单需要分步引导。</li></ul>' +
+    '<h2>四、下季度计划</h2><p>1. 完成编辑器性能专项；2. 上线协作草稿；3. 建立可用性测试月度机制。</p>';
+}
+function tplMeeting() {
+  return '<h1>会议纪要</h1><p><b>时间：</b>2026 年 11 月 7 日 14:00–15:00　<b>地点：</b>线上会议</p>' +
+    '<p><b>参会人：</b>产品、设计、前端、测试</p><h2>议题</h2><ul><li>版本节奏与范围确认</li><li>关键交互方案评审</li></ul>' +
+    '<h2>结论</h2><ol><li>本期范围锁定为文档、表格、演示三件套。</li><li>相机应用优先走真实取景，权限失败要有兜底提示。</li><li>周五一前完成联调。</li></ol>' +
+    '<h2>待办</h2><table><tbody><tr><th>事项</th><th>负责人</th><th>截止</th><th>状态</th></tr>' +
+    '<tr><td>编辑器存储联调</td><td>前端</td><td>11/08</td><td>进行中</td></tr>' +
+    '<tr><td>浅色对比度复核</td><td>设计</td><td>11/09</td><td>待开始</td></tr></tbody></table>';
+}
+function tplResume() {
+  return '<h1>个人简历</h1><p><b>姓名：</b>________　<b>电话：</b>________　<b>邮箱：</b>________</p>' +
+    '<h2>教育经历</h2><p><b>________ 大学</b> · 计算机科学与技术 · 2022–2026</p><p>主修课程：数据结构、操作系统、人机交互。</p>' +
+    '<h2>项目经历</h2><p><b>Nexus OS 26 · 桌面系统</b></p><ul><li>负责应用壳与玻璃材质规范，统一 12 个应用的交互语言。</li><li>实现本地存储桥接与主题同步，保证深浅色一致。</li></ul>' +
+    '<h2>技能</h2><p>HTML / CSS / JavaScript / React / Rust / 交互设计</p>';
+}
+function tplProject() {
+  return '<h1>项目立项书</h1><p style="color:var(--text-3);font-size:12.5px">项目名称：________　负责人：________　日期：2026-11-07</p>' +
+    '<h2>一、背景</h2><p>现有工具在文档、表格、演示之间缺少统一存储与一致的视觉语言，切换成本高。</p>' +
+    '<h2>二、目标</h2><ul><li>三件套共用本地存储，重开内容不丢。</li><li>工具栏分组清晰，操作真实可用。</li></ul>' +
+    '<h2>三、里程碑</h2><table><tbody><tr><th>阶段</th><th>交付</th><th>时间</th></tr>' +
+    '<tr><td>M1</td><td>文档编辑器可用</td><td>第 1 周</td></tr><tr><td>M2</td><td>表格与演示接入</td><td>第 2 周</td></tr><tr><td>M3</td><td>相机与相册打通</td><td>第 3 周</td></tr></tbody></table>' +
+    '<h2>四、风险</h2><p>存储容量与图片体积是主要风险，需要在保存时压缩图片。</p>';
+}
+
+var WELCOME = '<h1>欢迎使用 Nexus 文档</h1>' +
+  '<p>这是一个真实可编辑的文字处理应用。所有内容会自动保存到系统本地存储，关闭窗口再打开仍然在。</p>' +
+  '<h2>可以试试这些</h2>' +
+  '<ul><li>选中文字，用上方功能区改字体、字号、颜色和对齐。</li>' +
+  '<li>在「插入」分组里插入图片、链接、表格，或直接生成柱状图 / 折线图 / 饼图。</li>' +
+  '<li>用 <b>Ctrl + S</b> 立即保存，<b>Ctrl + N</b> 新建文档，<b>Ctrl + F</b> 查找内容。</li>' +
+  '<li>左侧「文档」里可以重命名、复制、删除文档；「模板」里有一套现成骨架。</li></ul>' +
+  '<h2>示例表格</h2>' +
+  '<table><tbody><tr><th>应用</th><th>能力</th><th>存储位置</th></tr>' +
+  '<tr><td>文档</td><td>排版 / 表格 / 图表</td><td>系统本地存储</td></tr>' +
+  '<tr><td>表格</td><td>公式 / 图表 / 多工作表</td><td>系统本地存储</td></tr>' +
+  '<tr><td>演示</td><td>元素 / 放映 / 备注</td><td>系统本地存储</td></tr></tbody></table>' +
+  '<p style="color:var(--text-3);font-size:12.5px">提示：右侧滚动条、拖拽和触控板都接了系统的精准手势层，滚动是顺的。</p>';
+})();
+</script>
+</body>
+</html>

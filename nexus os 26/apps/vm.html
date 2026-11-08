@@ -17,6 +17,29 @@
     --vm-text: #f1f5f9;
     --sub: rgba(226, 232, 240, 0.62);
   }
+  /* 浅色：跟随宿主 html[data-mode="light"]（此前只有一套深色）。
+     选择系统走浅色；运行中的 .vm-screen 仍为黑底（虚拟机画面，内容区）。 */
+  html[data-mode="light"] {
+    --vm-bg: #eef2f9;
+    --line: rgba(15, 23, 42, 0.12);
+    --vm-text: #111a2e;
+    --sub: rgba(17, 26, 46, 0.62);
+  }
+  html[data-mode="light"] .vm-pick {
+    background:
+      radial-gradient(1100px 560px at 22% -8%, rgba(99, 102, 241, 0.14), transparent 62%),
+      radial-gradient(880px 480px at 100% 108%, rgba(14, 165, 233, 0.10), transparent 60%),
+      linear-gradient(160deg, #f7f9fd, #eef2f9);
+  }
+  html[data-mode="light"] .vm-os-card {
+    background: rgba(255, 255, 255, 0.74);
+    box-shadow: 0 8px 24px rgba(20, 40, 70, 0.10);
+  }
+  html[data-mode="light"] .vm-os-card:hover {
+    box-shadow: 0 18px 44px rgba(20, 40, 70, 0.16), 0 0 0 1px rgba(129, 140, 248, 0.3);
+  }
+  html[data-mode="light"] .vm-os-card .tag { background: rgba(15, 23, 42, 0.08); color: #4338ca; }
+  html[data-mode="light"] .vm-os-card .go { color: #4f46e5; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
   body {
@@ -83,7 +106,8 @@
     padding: 0 14px;
     background: rgba(255,255,255,0.06);
     border-bottom: 1px solid var(--line);
-    backdrop-filter: blur(18px);
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * 0.62))
+      saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1)));
     position: relative; z-index: 20;
   }
   .vm-top .vm-title { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

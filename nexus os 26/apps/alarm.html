@@ -31,10 +31,16 @@
   .alarm-item.disabled { opacity: 0.45; }
   .alarm-item-time { font-size: 18px; font-weight: 500; }
   .alarm-item-label { font-size: 11px; color: rgba(0,0,0,0.5); margin-top: 2px; }
-  .alarm-toggle { position: relative; width: 38px; height: 22px; background: rgba(0,0,0,0.15); border-radius: 11px; cursor: pointer; transition: background var(--dur-fast) var(--ease-out-quart); }
-  .alarm-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: white; border-radius: 50%; transition: left var(--dur-fast) var(--ease-spring); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-  .alarm-toggle.on { background: #22c55e; }
-  .alarm-toggle.on::after { left: 18px; }
+  /* v2.9.68：统一开关（与 fangui/core/liquid.css 的 .fu-switch 同款；本应用不加载 fangui，故内联一份） */
+  .fu-switch.alarm-toggle { position: relative; display: inline-block; width: 40px; height: 22px; padding: 0; box-sizing: border-box; appearance: none; border: none; border-radius: 999px; background-color: #d7d9de; box-shadow: inset 0 1px 2px rgba(0,0,0,0.10); cursor: pointer; outline: none; transition: background-color .18s ease 0s, box-shadow .3s ease; --fu-sw-travel: 16px; --fu-sw-kw: 20px; --fu-sw-kh: 16px; --fu-sw-pad: 2px; --fu-sw-h: 22px; }
+  .fu-switch.alarm-toggle::after { content: ''; position: absolute; top: 3px; left: 2px; width: 20px; height: 16px; border-radius: 999px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.18); transition: transform .26s cubic-bezier(.34,1.4,.64,1); }
+  .fu-switch.alarm-toggle.on { background-color: #34c759; transition-delay: .2s, 0s; }
+  .fu-switch.alarm-toggle.on::after { transform: translateX(16px); }
+  .fu-switch.alarm-toggle:focus-visible { box-shadow: 0 0 0 3px rgba(52,199,89,0.35); }
+  .fu-switch.alarm-toggle.fu-anim::after { opacity: 0; }
+  .fu-switch.alarm-toggle .fu-knob { display: none; }
+  .fu-switch.alarm-toggle.fu-anim .fu-knob { display: block; position: absolute; box-sizing: border-box; top: 3px; left: 2px; width: 20px; height: 16px; border-radius: 999px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.18); transform-origin: 50% 50%; pointer-events: none; z-index: 1; }
+  .fu-switch.alarm-toggle.fu-liquid .fu-knob { background: linear-gradient(160deg, rgba(255,255,255,.92), rgba(255,255,255,.56)); border: 1px solid rgba(255,255,255,.90); backdrop-filter: blur(14px) saturate(1.5); -webkit-backdrop-filter: blur(14px) saturate(1.5); box-shadow: 0 8px 18px rgba(20,40,70,.18), inset 0 1px 0 rgba(255,255,255,.90); }
   .alarm-delete-btn { color: rgba(0,0,0,0.4); cursor: pointer; padding: 4px 6px; margin-left: 8px; transition: color var(--dur-fast) var(--ease-out-quart); }
   .alarm-delete-btn:hover { color: #ef4444; }
   body.dark-mode .alarm-app { background: rgba(20, 22, 30, 0.95); color: white; }
@@ -48,8 +54,8 @@
   body.dark-mode .alarm-item { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); }
   body.dark-mode .alarm-item:hover { background: rgba(255,255,255,0.12); }
   body.dark-mode .alarm-item-label { color: rgba(255,255,255,0.55); }
-  body.dark-mode .alarm-toggle { background: rgba(255,255,255,0.25); }
-  body.dark-mode .alarm-toggle::after { box-shadow: none; }
+  body.dark-mode .fu-switch.alarm-toggle { background-color: rgba(255,255,255,0.20); box-shadow: inset 0 1px 2px rgba(0,0,0,0.28); }
+  body.dark-mode .fu-switch.alarm-toggle.on { background-color: #30d158; }
   body.dark-mode .alarm-delete-btn { color: rgba(255,255,255,0.5); }
   .alarm-trigger-overlay { position: fixed; inset: 0; z-index: 9000; background: rgba(0,0,0,0.6); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); display: none; align-items: center; justify-content: center; }
   .alarm-trigger-overlay.show { display: flex; }
@@ -67,6 +73,7 @@
 <body>
 <div id="app"></div>
 <script src="../ui/motion.js"></script>
+<script src="../ui/n26-switch.js"></script>
 <script src="_bridge.js"></script>
 <script src="_app.js?v=2.9.57"></script>
 <script>
@@ -142,7 +149,7 @@
         '<div><div class="alarm-item-time">' + String(a.hour).padStart(2, '0') + ':' + String(a.minute).padStart(2, '0') + '</div>' +
         '<div class="alarm-item-label">' + (a.label || '闹钟') + '</div></div>' +
         '<div style="display:flex;align-items:center;">' +
-        '<div class="alarm-toggle ' + (a.enabled ? 'on' : '') + '" data-toggle="' + a.id + '"></div>' +
+        '<div class="fu-switch alarm-toggle ' + (a.enabled ? 'on' : '') + '" data-toggle="' + a.id + '"></div>' +
         '<span class="alarm-delete-btn" data-del="' + a.id + '"><i class="fas fa-trash"></i></span>' +
         '</div></div>';
     }).join('');
@@ -214,6 +221,11 @@
     });
   }
   function trigger(a) {
+    // 同一闹钟同一分钟只真正响一次：页面被重载 / 重渲染时不再重复起响
+    var fireKey = 'n26_alarm_fired_' + a.id + '_' + a.hour + ':' + a.minute + '_' + new Date().toDateString();
+    var already = false;
+    try { already = !!sessionStorage.getItem(fireKey); if (!already) sessionStorage.setItem(fireKey, '1'); } catch (e) {}
+    if (already) { showTriggerOverlay(a); return; }
     Nexus.notify('闹钟响了', String(a.hour).padStart(2, '0') + ':' + String(a.minute).padStart(2, '0') + ' ' + a.label, 'warning');
     playSound();
     showTriggerOverlay(a);
@@ -240,6 +252,7 @@
   }
   function playSound() {
     try {
+      if (document.hidden) return;   // 后台 / 最小化不响
       var ctx = getCtx(); if (!ctx) return;
       if (audioNodes) { try { audioNodes.osc.stop(); } catch (e) {} }
       var osc = ctx.createOscillator(), gain = ctx.createGain();
@@ -259,6 +272,13 @@
     } catch (e) {}
   }
   function stopSound() { if (audioNodes) { try { audioNodes.osc.stop(); } catch (e) {} audioNodes = null; } }
+  // 关窗 / 最小化 / 切后台一律停声（宿主会通过 media-pause 通知 iframe）
+  window.addEventListener('message', function (ev) {
+    var d = ev.data || {};
+    if (d && d.__nexusEvt && d.name === 'media-pause') stopSound();
+  });
+  window.addEventListener('pagehide', function () { stopSound(); });
+  document.addEventListener('visibilitychange', function () { if (document.hidden) stopSound(); });
   function showTriggerOverlay(a) {
     var overlay = document.getElementById('alarmTriggerOverlay');
     if (!overlay) { overlay = document.createElement('div'); overlay.className = 'alarm-trigger-overlay'; overlay.id = 'alarmTriggerOverlay'; document.body.appendChild(overlay); }

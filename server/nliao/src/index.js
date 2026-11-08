@@ -102,10 +102,13 @@ const friendKey = (a, b) => [a, b].sort().join(':');
 const chatIdOf = (a, b) => 'friend:' + friendKey(a, b);
 
 async function ensureUser(env, u) {
+  // Nexus 账号可能没有 email：生成稳定的占位邮箱，避免 users.email UNIQUE 冲突
+  const email = (u.email && String(u.email).trim()) || (u.id + '@nliao.local');
+  const displayName = u.displayName || u.id;
   await env.DB.prepare(
     'INSERT INTO users (id, displayName, email, avatar, createdAt) VALUES (?1, ?2, ?3, ?4, ?5) ' +
     'ON CONFLICT(id) DO UPDATE SET displayName=excluded.displayName, email=excluded.email, avatar=excluded.avatar'
-  ).bind(u.id, u.displayName, u.email, u.avatar, Date.now()).run();
+  ).bind(u.id, displayName, email, u.avatar || '', Date.now()).run();
 }
 async function isFriend(env, a, b) {
   const [x, y] = [a, b].sort();
@@ -196,7 +199,8 @@ async function handleFriendDelete(request, env, user, friendId) {
 }
 
 async function handleMessages(request, env, user, url) {
-  const chatId = url.searchParams.get('chatId') || WORLD_CHAT;
+  // 兼容两种字段：chatId（N聊规范） / chat（Nexus 前端旧字段）
+  const chatId = url.searchParams.get('chatId') || url.searchParams.get('chat') || WORLD_CHAT;
   const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
   if (chatId !== WORLD_CHAT) {
     const m = /^friend:(.+):(.+)$/.exec(chatId);
@@ -209,9 +213,50 @@ async function handleMessages(request, env, user, url) {
   const messages = [];
   for (const r of (rows.results || []).reverse()) {
     const info = await getUserName(env, r.senderId);
-    messages.push({ id: r.id, content: r.content, senderId: r.senderId, sender: { displayName: info.displayName }, timestamp: r.timestamp });
+    // 同时给两套字段：senderId/content/timestamp（规范） + from/text/ts（前端旧字段）
+    messages.push({
+      id: r.id, senderId: r.senderId, content: r.content, timestamp: r.timestamp,
+      from: r.senderId, text: r.content, ts: r.timestamp,
+      sender: { displayName: info.displayName },
+    });
   }
   return json({ ok: true, chatId, messages }, 200, env);
+}
+
+/** POST /api/messages：REST 发送（兼容 chat/chatId、text/content；senderId 一律取认证用户） */
+async function handlePostMessage(request, env, user) {
+  let b;
+  try { b = await request.json(); } catch (e) { throw new HttpError(400, '请求体不是 JSON'); }
+  b = b || {};
+  const chatId = String(b.chatId || b.chat || WORLD_CHAT).trim() || WORLD_CHAT;
+  const content = String(b.content != null ? b.content : (b.text || '')).trim().slice(0, 4000);
+  if (!content) throw new HttpError(400, '消息内容不能为空');
+
+  if (chatId !== WORLD_CHAT) {
+    const m = /^friend:(.+):(.+)$/.exec(chatId);
+    if (!m || !m.includes(user.id)) throw new HttpError(403, '无权发送到该聊天');
+    if (!(await isFriend(env, m[1], m[2]))) throw new HttpError(403, '仅好友之间可私聊');
+  }
+
+  const msg = { id: uuid(), chatId, senderId: user.id, content, timestamp: Date.now() };
+  await env.DB.prepare(
+    'INSERT INTO messages (id, chatId, senderId, content, timestamp) VALUES (?1, ?2, ?3, ?4, ?5)'
+  ).bind(msg.id, msg.chatId, msg.senderId, msg.content, msg.timestamp).run();
+
+  const payload = {
+    type: 'message',
+    data: {
+      id: msg.id, chatId, senderId: msg.senderId, content: msg.content, timestamp: msg.timestamp,
+      from: msg.senderId, text: msg.content, ts: msg.timestamp,
+      sender: { displayName: user.displayName },
+    },
+  };
+  try {
+    const stub = env.ROOM.get(env.ROOM.idFromName('chat:' + chatId));
+    await stub.fetch('https://room/broadcast', { method: 'POST', body: JSON.stringify(payload) });
+  } catch (e) { /* 无人在线则忽略 */ }
+
+  return json({ ok: true, chatId, message: payload.data }, 200, env);
 }
 
 async function handleChats(request, env, user) {
@@ -403,6 +448,7 @@ export default {
       const mDel = /^\/api\/friends\/([^/]+)$/.exec(url.pathname);
       if (mDel && request.method === 'DELETE') return await handleFriendDelete(request, env, user, mDel[1]);
       if (url.pathname === '/api/messages' && request.method === 'GET') return await handleMessages(request, env, user, url);
+      if (url.pathname === '/api/messages' && request.method === 'POST') return await handlePostMessage(request, env, user);
       if (url.pathname === '/api/chats' && request.method === 'GET') return await handleChats(request, env, user);
       if (url.pathname === '/api/users/search' && request.method === 'GET') return await handleUserSearch(request, env, user, url);
 

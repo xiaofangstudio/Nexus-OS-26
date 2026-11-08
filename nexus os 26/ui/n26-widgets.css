@@ -1,0 +1,2196 @@
+/* =====================================================================
+   n26-widgets.css · 小组件尺寸体系 / 连续曲率圆角 / 中性玻璃材质
+   参考 macOS 桌面小组件：同一套圆角比例、外圆角 − 内边距 = 内圆角、
+   中性玻璃 + 细边 + 柔和中性阴影。本文件加载在 n26-shell.css 之后，
+   用于覆盖旧的「身份实色卡」与 S/M/L 硬拉伸实现。
+   ===================================================================== */
+
+/* 覆盖旧 wsize 档位的内边距（内边距统一交给 .widget-inner） */
+body .desktop-widget-card.wsize-m,
+body .desktop-widget-card.wsize-l { padding: 0; }
+
+/* 普通模式绝不出现缩放手柄（旧规则 hover 时会显形，这里强制收掉） */
+body:not(.widget-edit-mode) .desktop-widget-card .widget-resize-handle { opacity: 0 !important; }
+body:not(.widget-edit-mode) .desktop-widget-card .widget-remove-btn { display: none !important; }
+body:not(.widget-edit-mode) .desktop-widget-card .widget-fixed-hint { display: none !important; }
+
+/* 面板打开时隐藏编辑提示条，避免压住面板 */
+body.widget-panel-open #widgetEditBar { display: none; }
+
+/* 便签等按类型写死的身份色底 → 统一回到中性玻璃（保留极轻的纸纹） */
+body .desktop-widget-card[data-wtype="note"] {
+    background:
+        repeating-linear-gradient(0deg, transparent 0 26px, var(--w-hair) 26px 27px),
+        var(--w-mat-bg) !important;
+    border-color: var(--w-mat-border) !important;
+}
+body.dark-mode .desktop-widget-card[data-wtype="note"] {
+    background:
+        repeating-linear-gradient(0deg, transparent 0 26px, rgba(255, 255, 255, .05) 26px 27px),
+        var(--w-mat-bg) !important;
+}
+body .desktop-widget-card[data-wtype="note"] textarea {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--w-text-strong) !important;
+    text-shadow: none !important;
+}
+body .desktop-widget-card[data-wtype="note"] textarea::placeholder {
+    color: var(--w-text-faint) !important;
+    text-shadow: none !important;
+}
+/* 旧色相蓝/绿文字与图标：保持中性墨色，只留极小面积强调 */
+body .desktop-widget-card .widget-cal-day { color: var(--w-text) !important; }
+body .desktop-widget-card .widget-todo-empty { color: var(--w-text-soft) !important; text-shadow: none !important; }
+body .desktop-widget-card .w-ql-ic { color: var(--w-text-strong) !important; filter: none !important; }
+body .desktop-widget-card .w-ql-btn { background: var(--w-well) !important; border: 1px solid var(--w-hair) !important; }
+body .desktop-widget-card .w-ql-nm { color: var(--w-text-soft) !important; }
+body .desktop-widget-card .widget-todo-list::-webkit-scrollbar-thumb { background: var(--w-hair) !important; }
+
+/* 日历：6 行日期按可用高度均分（1fr），任何档位都不裁切内容 */
+body .desktop-widget-card .widget-cal-grid {
+    grid-auto-rows: minmax(0, 1fr);
+    min-height: 0;
+    align-items: center;
+}
+body .desktop-widget-card .widget-cal-day {
+    width: auto;
+    height: 100%;
+    min-height: 0;
+    max-height: 22px;
+    max-width: 22px;
+    aspect-ratio: 1;
+    font-size: 9px;
+}
+body .desktop-widget-card.wsize-l .widget-cal-day { font-size: 10.5px; max-height: 24px; max-width: 24px; }
+
+/* 天气组件自身曾是绝对定位 + 独立渐变底，这里回到内层容器并共享材质 */
+body .desktop-widget-card .widget-weather {
+    position: relative;
+    inset: auto;
+    height: 100%;
+    padding: 0;
+    border-radius: var(--w-inner-radius) !important;
+    color: var(--w-text) !important;
+    /* 旧规则给天气单独加了 backdrop-filter，会在卡片里再糊出一块圆角面板（圆角套圆角），这里收掉 */
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+}
+body .desktop-widget-card .widget-weather::before {
+    background: none !important;
+}
+
+/* 全类型统一中性玻璃：压掉旧的「一个组件一个色相」身份实色（含 !important） */
+body .desktop-widget-card,
+body .desktop-widget-card[data-wtype] {
+    background: var(--w-mat-bg) !important;
+    border: 1px solid var(--w-mat-border) !important;
+    box-shadow: var(--w-mat-shadow) !important;
+    color: var(--w-text) !important;
+    border-radius: var(--w-radius) !important;
+}
+body.dark-mode .desktop-widget-card,
+body.dark-mode .desktop-widget-card[data-wtype] {
+    background: var(--w-mat-bg) !important;
+    border-color: var(--w-mat-border) !important;
+    box-shadow: var(--w-mat-shadow) !important;
+    color: var(--w-text) !important;
+    border-radius: var(--w-radius) !important;
+}
+/* ui/n26-tour.css 在文件末尾才加载，且给 clock/date/calendar 写了 body.dark-mode + 类型选择器
+   （特异度 0,3,1）。这里用双属性选择器（0,3,2）确保深色模式下所有类型都回到中性玻璃 */
+body.dark-mode .desktop-widget-card[data-wtype][data-type] {
+    background: var(--w-mat-bg) !important;
+    border-color: var(--w-mat-border) !important;
+    box-shadow: var(--w-mat-shadow) !important;
+    color: var(--w-text) !important;
+}
+body.dark-mode .desktop-widget-card[data-wtype][data-type]::after {
+    background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, 0) 46%) !important;
+}
+body .desktop-widget-card[data-wtype]:hover {
+    background: var(--w-mat-bg) !important;
+    box-shadow: 0 18px 42px rgba(15, 23, 42, .17), 0 3px 8px rgba(15, 23, 42, .08), inset 0 1px 0 rgba(255, 255, 255, .74) !important;
+}
+body.dark-mode .desktop-widget-card[data-wtype]:hover {
+    box-shadow: 0 22px 50px rgba(0, 0, 0, .58), 0 3px 10px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .16) !important;
+}
+/* 旧的"身份结构线"（白线/折角）改成中性细线 */
+body .desktop-widget-card[data-wtype="clock"]::before,
+body .desktop-widget-card[data-wtype="date"]::before,
+body .desktop-widget-card[data-wtype="todo"]::before,
+body .desktop-widget-card[data-wtype="system"]::before {
+    background: var(--w-hair) !important;
+}
+body .desktop-widget-card[data-wtype="note"]::before {
+    background: linear-gradient(135deg, rgba(255,255,255,.5) 0 50%, var(--w-hair) 50%) !important;
+}
+/* 高特异度压掉 date/calendar 的写死深色字（避免深色模式下黑字压黑玻璃） */
+body .desktop-widget-card[data-wtype] .widget-date-md,
+body .desktop-widget-card[data-wtype] .widget-cal-day,
+body .desktop-widget-card[data-wtype] .widget-cal-title {
+    color: var(--w-text-strong) !important;
+    text-shadow: none !important;
+}
+
+/* 类型选择器（[data-wtype]）读旧规则的特异性更高，这里用同等前缀压住，
+   保证所有内容文字都走明暗两套中性墨色 */
+body .desktop-widget-card[data-wtype] .widget-clock-time,
+body .desktop-widget-card[data-wtype] .widget-clock-date,
+body .desktop-widget-card[data-wtype] .widget-cal-header,
+body .desktop-widget-card[data-wtype] .widget-cal-header i,
+body .desktop-widget-card[data-wtype] .widget-date-md,
+body .desktop-widget-card[data-wtype] .widget-alarm-next,
+body .desktop-widget-card[data-wtype] .widget-system-row-val,
+body .desktop-widget-card[data-wtype] .widget-minigame-title,
+body .desktop-widget-card[data-wtype] .widget-minigame-name,
+body .desktop-widget-card[data-wtype] .widget-sleep-time,
+body .desktop-widget-card[data-wtype] .widget-focus-time,
+body .desktop-widget-card[data-wtype] .widget-todo-title,
+body .desktop-widget-card[data-wtype] .widget-todo-text,
+body .desktop-widget-card[data-wtype] .widget-music-title,
+body .desktop-widget-card[data-wtype] .widget-music-song,
+body .desktop-widget-card[data-wtype] .widget-browser-title,
+body .desktop-widget-card[data-wtype] .widget-browser-bookmark-name,
+body .desktop-widget-card[data-wtype] .widget-weather-temp {
+    color: var(--w-text-strong) !important;
+    text-shadow: none !important;
+    -webkit-text-fill-color: currentColor;
+}
+body .desktop-widget-card[data-wtype] .widget-clock-week,
+body .desktop-widget-card[data-wtype] .widget-date-lunar,
+body .desktop-widget-card[data-wtype] .widget-alarm-label,
+body .desktop-widget-card[data-wtype] .widget-system-row-head,
+body .desktop-widget-card[data-wtype] .widget-sleep-label,
+body .desktop-widget-card[data-wtype] .widget-focus-label,
+body .desktop-widget-card[data-wtype] .widget-todo-count,
+body .desktop-widget-card[data-wtype] .widget-music-artist,
+body .desktop-widget-card[data-wtype] .widget-browser-bookmark-url,
+body .desktop-widget-card[data-wtype] .widget-cal-weekdays,
+body .desktop-widget-card[data-wtype] .widget-weather-city,
+body .desktop-widget-card[data-wtype] .widget-weather-desc {
+    color: var(--w-text-soft) !important;
+    text-shadow: none !important;
+}
+/* 天气现象：浅色卡片上曾继承天空卡的白字，和深色温度/城市不同步而看不见 */
+body .desktop-widget-card[data-wtype] .widget-weather-status {
+    color: var(--w-text-strong) !important;
+    text-shadow: none !important;
+    opacity: .88 !important;
+}
+
+/* ---------- 1. 尺寸与曲率令牌（1:1 对齐 FluentOS） ---------- */
+/* 几何全部来自 FluentOS js/ui/widgets.js 的 GRID 与 _cellToPx/_collides：
+   cell=76、gap=16、marginX/marginTop=28、pitch=cell+gap、卡片圆角固定 20px、
+   内容层 border-radius:inherit（内外同一个圆角值）。像素尺寸由 JS 写入 --w-pw/--w-ph。 */
+.desktop-widget-card {
+    --cell: 76px;
+    --gap: 16px;
+    --w-pad: 14px;
+    /* FluentOS .fluent-widget { border-radius: 20px } */
+    --w-radius: 20px;
+    /* FluentOS .fluent-widget-body { border-radius: inherit } → 内外圆角一致 */
+    --w-inner-radius: 20px;
+
+    --w-text: #1b2430;
+    --w-text-strong: #10161f;
+    --w-text-soft: rgba(22, 32, 45, .62);
+    --w-text-faint: rgba(22, 32, 45, .40);
+    --w-hair: rgba(15, 23, 42, .10);
+    --w-well: rgba(15, 23, 42, .055);
+    --w-accent: #3b82f6;
+
+    --w-mat-bg: linear-gradient(158deg, rgba(255, 255, 255, .86) 0%, rgba(247, 248, 250, .74) 100%);
+    --w-mat-border: rgba(255, 255, 255, .78);
+    --w-mat-shadow:
+        0 12px 30px rgba(15, 23, 42, .13),
+        0 2px 6px rgba(15, 23, 42, .07),
+        inset 0 1px 0 rgba(255, 255, 255, .70);
+
+    width: var(--w-pw, calc(var(--widget-cols) * var(--cell) - var(--gap)));
+    height: var(--w-ph, calc(var(--widget-rows) * var(--cell) - var(--gap)));
+    border-radius: var(--w-radius);
+    /* 普通圆角：FluentOS 没有 corner-shape，之前 superellipse(4) 视觉上近乎直角 */
+    corner-shape: round;
+    padding: 0;
+    border: 1px solid var(--w-mat-border);
+    background: var(--w-mat-bg);
+    -webkit-backdrop-filter: blur(22px) saturate(165%);
+    backdrop-filter: blur(22px) saturate(165%);
+    box-shadow: var(--w-mat-shadow);
+    color: var(--w-text);
+    isolation: isolate;
+    overflow: hidden;
+}
+
+/* ui/n26-tour.css 末尾把 .desktop-widget-card 的 padding 设成 15px 16px !important，
+   会叠到 .widget-inner 的 14px 内边距上，导致内容被挤扁；这里用更高特异度收回到 0 */
+body .desktop-widget-card { padding: 0 !important; }
+/* 胶囊（4×1）：FluentOS .fluent-widget.capsule { border-radius: 999px } */
+body .desktop-widget-card[data-rows="1"] { border-radius: 999px !important; }
+body .desktop-widget-card[data-rows="1"] .widget-inner { border-radius: 999px !important; }
+
+body.dark-mode .desktop-widget-card {
+    --w-text: #f3f5f9;
+    --w-text-strong: #ffffff;
+    --w-text-soft: rgba(255, 255, 255, .64);
+    --w-text-faint: rgba(255, 255, 255, .38);
+    --w-hair: rgba(255, 255, 255, .14);
+    --w-well: rgba(255, 255, 255, .07);
+    --w-accent: #7cb2ff;
+
+    --w-mat-bg: linear-gradient(158deg, rgba(40, 42, 48, .68) 0%, rgba(22, 24, 28, .60) 100%);
+    --w-mat-border: rgba(255, 255, 255, .16);
+    --w-mat-shadow:
+        0 16px 38px rgba(0, 0, 0, .52),
+        0 2px 8px rgba(0, 0, 0, .34),
+        inset 0 1px 0 rgba(255, 255, 255, .13);
+    background: var(--w-mat-bg);
+    border-color: var(--w-mat-border);
+    box-shadow: var(--w-mat-shadow);
+}
+
+/* 内容容器：圆角直接用 inherit（FluentOS 同款），内外一致 */
+.widget-inner {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    padding: var(--w-pad);
+    border-radius: inherit !important;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+    z-index: 1;
+}
+
+/* 旧的斜向高光改成极轻的上沿受光，不做彩色渐变 */
+.desktop-widget-card::after {
+    background: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, 0) 44%);
+    border-radius: inherit;
+    corner-shape: round;
+}
+body.dark-mode .desktop-widget-card::after {
+    background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, 0) 46%);
+}
+
+/* hover / 拖动：仍然只有中性浮起，不再透出高饱和色相 */
+.desktop-widget-card:hover {
+    transform: translateY(-2px);
+    background: var(--w-mat-bg);
+    -webkit-backdrop-filter: blur(26px) saturate(170%);
+    backdrop-filter: blur(26px) saturate(170%);
+    box-shadow:
+        0 18px 42px rgba(15, 23, 42, .17),
+        0 3px 8px rgba(15, 23, 42, .08),
+        inset 0 1px 0 rgba(255, 255, 255, .74);
+    cursor: default;
+}
+body.dark-mode .desktop-widget-card:hover {
+    box-shadow:
+        0 22px 50px rgba(0, 0, 0, .58),
+        0 3px 10px rgba(0, 0, 0, .38),
+        inset 0 1px 0 rgba(255, 255, 255, .16);
+}
+.desktop-widget-card.dragging {
+    transform: scale(1.035);
+    background: var(--w-mat-bg);
+    -webkit-backdrop-filter: blur(28px) saturate(175%);
+    backdrop-filter: blur(28px) saturate(175%);
+    box-shadow:
+        0 26px 64px rgba(15, 23, 42, .28),
+        0 0 0 1px rgba(15, 23, 42, .06);
+    cursor: grabbing;
+    z-index: 9999;
+}
+body.dark-mode .desktop-widget-card.dragging {
+    box-shadow:
+        0 28px 70px rgba(0, 0, 0, .66),
+        0 0 0 1px rgba(255, 255, 255, .12);
+}
+
+/* ---------- 2. 文字：按明暗换成中性墨色（覆盖旧的强制白字） ---------- */
+body .desktop-widget-card .desktop-widget-title,
+body .desktop-widget-card .widget-title,
+body .desktop-widget-card .desktop-widget-note,
+body .desktop-widget-card .widget-note,
+body .desktop-widget-card .widget-clock-week,
+body .desktop-widget-card .widget-date-lunar,
+body .desktop-widget-card .widget-alarm-label,
+body .desktop-widget-card .widget-system-row-head,
+body .desktop-widget-card .widget-sleep-label,
+body .desktop-widget-card .widget-focus-label,
+body .desktop-widget-card .widget-todo-count,
+body .desktop-widget-card .widget-music-artist,
+body .desktop-widget-card .widget-browser-bookmark-url,
+body .desktop-widget-card .widget-cal-weekdays {
+    color: var(--w-text-soft) !important;
+    text-shadow: none !important;
+}
+body .desktop-widget-card .desktop-widget-value,
+body .desktop-widget-card .widget-value,
+body .desktop-widget-card .widget-clock-time,
+body .desktop-widget-card .widget-date-md,
+body .desktop-widget-card .widget-alarm-next,
+body .desktop-widget-card .widget-system-row-val,
+body .desktop-widget-card .widget-minigame-title,
+body .desktop-widget-card .widget-minigame-name,
+body .desktop-widget-card .widget-sleep-time,
+body .desktop-widget-card .widget-focus-time,
+body .desktop-widget-card .widget-todo-title,
+body .desktop-widget-card .widget-todo-text,
+body .desktop-widget-card .widget-music-title,
+body .desktop-widget-card .widget-music-song,
+body .desktop-widget-card .widget-browser-title,
+body .desktop-widget-card .widget-browser-bookmark-name,
+body .desktop-widget-card .widget-clock-date {
+    color: var(--w-text-strong) !important;
+    text-shadow: none !important;
+}
+body .desktop-widget-card .widget-todo-item.done .widget-todo-text {
+    color: var(--w-text-faint) !important;
+}
+body .desktop-widget-card .widget-cal-day.other {
+    color: var(--w-text-faint) !important;
+}
+body .desktop-widget-card .widget-system-bar {
+    background: var(--w-well) !important;
+}
+body .desktop-widget-card .widget-todo-check {
+    border-color: var(--w-hair) !important;
+}
+body .desktop-widget-card textarea,
+body .desktop-widget-card input {
+    background: var(--w-well) !important;
+    border: 1px solid var(--w-hair) !important;
+    color: var(--w-text-strong) !important;
+    border-radius: var(--w-inner-radius) !important;
+}
+body .desktop-widget-card textarea::placeholder,
+body .desktop-widget-card input::placeholder {
+    color: var(--w-text-faint) !important;
+}
+/* 旧的色相文字与发光全部收掉 */
+body.style-skeuomorphic .desktop-widget-card .widget-clock-time,
+body.style-skeuomorphic .desktop-widget-card .widget-clock-date,
+body.style-skeuomorphic .desktop-widget-card .widget-clock-week {
+    color: var(--w-text-strong) !important;
+    text-shadow: none !important;
+}
+body .desktop-widget-card .widget-todo-text::before {
+    background: linear-gradient(90deg, var(--w-accent), transparent) !important;
+    opacity: .35;
+}
+body .desktop-widget-card .widget-system-bar > span {
+    background: var(--w-accent) !important;
+    opacity: .55;
+}
+/* 内容里的实色字块统一走中性色 */
+body .desktop-widget-card .widget-cal-day.today,
+body .desktop-widget-card .widget-cal-today {
+    background: var(--w-accent) !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+
+/* 内嵌控件（按钮 / 小胶囊）回到中性玻璃 */
+body .desktop-widget-card button,
+body .desktop-widget-card .widget-sleep-btn,
+body .desktop-widget-card .widget-focus-btn,
+body .desktop-widget-card .widget-music-btn,
+body .desktop-widget-card .widget-todo-add {
+    background: var(--w-well) !important;
+    border: 1px solid var(--w-hair) !important;
+    color: var(--w-text-strong) !important;
+    box-shadow: none !important;
+}
+
+/* ---------- 3. 固定尺寸组件 ---------- */
+.desktop-widget-card.is-fixed {
+    /* 固定组件只保留核心信息，不再出现"塞满"用的次要行 */
+    cursor: default;
+}
+/* 时钟卡底部旧结构线在 Mac 风格里是一道杂线，收掉（其余卡片的细线保留） */
+body .desktop-widget-card[data-wtype="clock"]::before { display: none !important; }
+.desktop-widget-card.is-fixed .widget-weather-extra { display: none; }
+.desktop-widget-card.is-fixed .widget-resize-handle { display: none; }
+/* 编辑模式下固定组件右下角显示锁形提示（不可拉伸） */
+.widget-fixed-hint {
+    position: absolute;
+    right: 8px;
+    bottom: 7px;
+    display: none;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: var(--w-well);
+    font-size: 9.5px;
+    letter-spacing: .2px;
+    color: var(--w-text-soft);
+    pointer-events: none;
+    z-index: 7;
+}
+.widget-fixed-hint i { font-size: 9px; }
+.widget-edit-mode .desktop-widget-card.is-fixed .widget-fixed-hint { display: inline-flex; }
+
+/* ---------- 4. 编辑模式 ---------- */
+/* 拉伸手柄：只在编辑模式出现，固定组件由 JS 直接不创建 */
+.desktop-widget-card .widget-resize-handle {
+    right: 4px;
+    bottom: 4px;
+    width: 18px;
+    height: 18px;
+    border-radius: calc(var(--w-radius) * .4);
+    opacity: 0;
+    background: linear-gradient(135deg, var(--w-text-faint) 0 40%, transparent 40% 60%, var(--w-text-faint) 60% 100%);
+    transition: opacity .18s ease;
+}
+.widget-edit-mode .desktop-widget-card:not(.is-fixed) .widget-resize-handle { opacity: .55; }
+.widget-edit-mode .desktop-widget-card:not(.is-fixed):hover .widget-resize-handle,
+.desktop-widget-card.widget-resizing .widget-resize-handle { opacity: 1; }
+
+/* 移除按钮：编辑模式才出现 */
+.widget-remove-btn {
+    position: absolute;
+    left: 8px;
+    top: 8px;
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, .55);
+    color: #fff;
+    font-size: 10px;
+    cursor: pointer;
+    z-index: 8;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    transition: background .18s ease, transform .18s ease;
+}
+body.dark-mode .widget-remove-btn { background: rgba(255, 255, 255, .18); }
+.widget-edit-mode .desktop-widget-card .widget-remove-btn { display: flex; }
+.widget-remove-btn:hover { background: #ef4444; transform: scale(1.08); }
+.widget-remove-btn.fixed-remove { left: auto; right: 8px; top: 8px; }
+
+/* 编辑态的轮廓：虚线中性，不抢内容 */
+.widget-edit-mode .desktop-widget-card {
+    box-shadow:
+        0 12px 30px rgba(15, 23, 42, .10),
+        0 0 0 1px rgba(59, 130, 246, .22);
+}
+body.dark-mode.widget-edit-mode .desktop-widget-card {
+    box-shadow:
+        0 16px 38px rgba(0, 0, 0, .46),
+        0 0 0 1px rgba(124, 178, 255, .28);
+}
+.widget-edit-mode .desktop-widget-card:hover { transform: none; }
+
+/* 编辑模式提示条 */
+#widgetEditBar {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-12px);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .68);
+    border: 1px solid rgba(255, 255, 255, .8);
+    box-shadow: 0 10px 30px rgba(15, 23, 42, .16);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(160%);
+    font-size: 12px;
+    color: #25344c;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .24s ease, transform .24s ease;
+    z-index: 10020;
+}
+body.dark-mode #widgetEditBar {
+    background: rgba(32, 34, 40, .72);
+    border-color: rgba(255, 255, 255, .16);
+    color: #e6ebf3;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, .5);
+}
+.widget-edit-mode #widgetEditBar { opacity: 1; transform: translateX(-50%) translateY(0); }
+#widgetEditBar .web-hint { color: inherit; opacity: .62; }
+#widgetEditBar button {
+    border: 1px solid rgba(255, 255, 255, .18);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: rgba(22, 32, 45, .88);
+    color: #fff;
+    box-shadow: none;
+}
+#widgetEditBar button:hover { background: rgba(22, 32, 45, .72); }
+body.dark-mode #widgetEditBar button {
+    background: rgba(255, 255, 255, .14);
+    border-color: rgba(255, 255, 255, .22);
+}
+body.dark-mode #widgetEditBar button:hover { background: rgba(255, 255, 255, .22); }
+
+/* 尺寸气泡 */
+.widget-size-badge {
+    background: rgba(15, 23, 42, .62) !important;
+    border-radius: calc(var(--w-radius) * .35) !important;
+    font-variant-numeric: tabular-nums;
+    z-index: 9;
+}
+body.dark-mode .widget-size-badge { background: rgba(0, 0, 0, .58) !important; }
+
+/* 拖动时的网格辅助线：中性细线 */
+#widgetGridGuide canvas { opacity: .65; }
+
+/* ---------- 5. 选择面板：FluentOS 流程（分类 / 搜索 / 真实预览 / 尺寸 / 已添加） ---------- */
+.widget-panel {
+    width: min(1340px, 94vw);
+    max-height: 88vh;
+    border-radius: 26px;
+    corner-shape: squircle;
+    background: linear-gradient(160deg, rgba(255, 255, 255, .82), rgba(246, 247, 249, .70));
+    border: 1px solid rgba(255, 255, 255, .75);
+    box-shadow: 0 30px 80px rgba(15, 23, 42, .28), inset 0 1px 0 rgba(255, 255, 255, .7);
+    -webkit-backdrop-filter: blur(30px) saturate(170%);
+    backdrop-filter: blur(30px) saturate(170%);
+    padding: 20px 22px 18px;
+}
+body.dark-mode .widget-panel {
+    background: linear-gradient(160deg, rgba(38, 40, 47, .82), rgba(22, 24, 29, .76));
+    border-color: rgba(255, 255, 255, .14);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .10);
+}
+.widget-panel-header { gap: 12px; }
+.widget-panel-title { color: var(--w-text-strong, #10161f); font-size: 17px; }
+body.dark-mode .widget-panel-title { color: #f4f6fa; }
+.widget-panel-title i { filter: none; color: #64748b; }
+.widget-panel-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.widget-panel-search {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    height: 30px;
+    padding: 0 11px;
+    border-radius: 10px;
+    background: rgba(15, 23, 42, .055);
+    border: 1px solid rgba(15, 23, 42, .08);
+    color: #25344c;
+    width: 190px;
+}
+body.dark-mode .widget-panel-search {
+    background: rgba(255, 255, 255, .07);
+    border-color: rgba(255, 255, 255, .12);
+    color: #e6ebf3;
+}
+.widget-panel-search i { font-size: 11px; opacity: .55; }
+.widget-panel-search input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 12px;
+    color: inherit;
+}
+.widget-panel-search input::placeholder { color: currentColor; opacity: .45; }
+.widget-panel-done {
+    height: 30px;
+    padding: 0 15px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, .18);
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #fff;
+    background: rgba(22, 32, 45, .88);
+    transition: background .18s ease;
+}
+.widget-panel-done:hover { background: rgba(22, 32, 45, .74); }
+body.dark-mode .widget-panel-done {
+    background: rgba(255, 255, 255, .14);
+    border-color: rgba(255, 255, 255, .22);
+}
+body.dark-mode .widget-panel-done:hover { background: rgba(255, 255, 255, .22); }
+.widget-panel-close { width: 30px; height: 30px; }
+
+.widget-panel-desc { color: rgba(22, 32, 45, .55); margin-bottom: 14px; }
+body.dark-mode .widget-panel-desc { color: rgba(255, 255, 255, .55); }
+
+/* 侧栏宽度：定死像素，不随分类 / 卡片数 / 滚动条变化 */
+.widget-panel-sidebar {
+    width: 132px;
+    min-width: 132px;
+    max-width: 132px;
+    flex: 0 0 132px;
+    box-sizing: border-box;
+    scrollbar-gutter: stable;
+    overscroll-behavior: contain;
+}
+.wp-cat-btn {
+    border-radius: 10px;
+    font-size: 12px;
+    padding: 8px 10px;
+    color: #25344c;
+    transition: background-color 160ms var(--ease-out-expo, cubic-bezier(.16, 1, .3, 1)),
+                color 160ms var(--ease-out-expo, cubic-bezier(.16, 1, .3, 1)),
+                box-shadow 160ms var(--ease-out-expo, cubic-bezier(.16, 1, .3, 1));
+}
+.wp-cat-btn i {
+    transition: color 160ms var(--ease-out-expo, cubic-bezier(.16, 1, .3, 1));
+}
+.wp-cat-btn:active { transform: none; }
+.wp-cat-btn.active { background: rgba(148, 163, 184, .26); }
+body.dark-mode .wp-cat-btn { color: #dfe7f3; }
+body.dark-mode .wp-cat-btn.active { background: rgba(255, 255, 255, .12); }
+
+/* 面板宽度同样锁死，内容多少不改变外框；87vw≈94vw/1.08，抵消 #desktop 的 1.08 缩放，避免窄屏溢出 */
+.widget-panel {
+    width: min(1340px, 87vw);
+    min-width: min(1340px, 87vw);
+    max-width: min(1340px, 87vw);
+    box-sizing: border-box;
+}
+/* 入场：160ms 一下到底，不回弹 */
+.widget-panel-overlay {
+    transition: opacity 160ms var(--ease-out-expo, cubic-bezier(.16, 1, .3, 1));
+}
+.widget-panel {
+    transform: scale(.985) translateY(8px);
+    transition: transform 160ms var(--ease-out-expo, cubic-bezier(.16, 1, .3, 1)),
+                opacity 160ms var(--ease-out-expo, cubic-bezier(.16, 1, .3, 1)) !important;
+}
+html body .widget-panel-overlay.show .widget-panel {
+    transform: none !important;
+    opacity: 1;
+}
+/* 切分类：卡片 160ms 淡入，只动 transform/opacity */
+.widget-panel-card { animation: n26WpCardIn 160ms var(--ease-out-expo, cubic-bezier(.16, 1, .3, 1)) both; }
+@keyframes n26WpCardIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .widget-panel-overlay,
+    .widget-panel,
+    .wp-cat-btn,
+    .wp-cat-btn i,
+    .widget-panel-card {
+        transition-duration: 1ms !important;
+        animation: none !important;
+    }
+}
+
+.widget-panel-grid {
+    grid-template-columns: repeat(auto-fill, minmax(146px, 1fr));
+    grid-auto-rows: 190px;
+    gap: 12px;
+    padding: 2px 4px 10px;
+    scrollbar-gutter: stable;
+}
+.widget-panel-card {
+    border-radius: 18px;
+    corner-shape: round;
+    background: rgba(255, 255, 255, .34);
+    border: 1px solid rgba(15, 23, 42, .06);
+    box-shadow: 0 3px 12px rgba(15, 23, 42, .06);
+    padding: 9px 9px 8px;
+    justify-content: flex-start;
+    transition: transform .22s ease, box-shadow .22s ease, background .22s ease;
+}
+.widget-panel-card::before { display: none; }
+.widget-panel-card:hover,
+.widget-panel-card:focus-visible {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, .62);
+    box-shadow: 0 10px 26px rgba(15, 23, 42, .12);
+    outline: none;
+}
+body.dark-mode .widget-panel-card {
+    background: rgba(255, 255, 255, .05);
+    border-color: rgba(255, 255, 255, .10);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, .28);
+}
+body.dark-mode .widget-panel-card:hover,
+body.dark-mode .widget-panel-card:focus-visible { background: rgba(255, 255, 255, .09); }
+
+.widget-panel-card-preview {
+    position: relative;
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+}
+/* 预览里的真实卡片：脱离绝对定位，不响应鼠标（点击穿透到面板卡片） */
+body .widget-preview-card {
+    position: relative !important;
+    margin: 0 !important;
+    flex: 0 0 auto !important;
+    pointer-events: none !important;
+    cursor: default !important;
+    transition: none !important;
+}
+.widget-panel-card-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #16202b;
+    margin-top: 2px;
+    padding: 0 2px;
+    text-align: left;
+    flex: 0 0 auto;
+}
+body.dark-mode .widget-panel-card-name { color: #eef2f8; }
+.widget-panel-card-badge { top: 8px; right: 8px; background: rgba(148, 163, 184, .22); color: #475569; }
+body.dark-mode .widget-panel-card-badge { background: rgba(255, 255, 255, .12); color: #cbd5e1; }
+.widget-panel-card-badge.app { background: rgba(59, 130, 246, .14); color: #3b82f6; }
+
+.widget-panel-card-sizes {
+    position: static;
+    bottom: auto;
+    justify-content: flex-start;
+    gap: 5px;
+    flex-wrap: nowrap;
+    padding: 0 2px;
+    min-height: 18px;
+}
+.wp-size-chip {
+    background: rgba(255, 255, 255, .72);
+    border: 1px solid rgba(15, 23, 42, .12);
+    color: #25344c;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 7px;
+    font-size: 10px;
+}
+.wp-size-chip b { font-weight: 500; opacity: .5; }
+.wp-size-chip.selected { background: #3b82f6; color: #fff; border-color: transparent; }
+.wp-size-chip.selected b { opacity: .8; }
+.wp-size-chip.fixed {
+    cursor: default;
+    background: rgba(148, 163, 184, .18);
+    border-style: dashed;
+    color: #475569;
+}
+.wp-size-chip.fixed:hover { background: rgba(148, 163, 184, .18); color: #475569; transform: none; }
+body.dark-mode .wp-size-chip {
+    background: rgba(30, 36, 50, .8);
+    color: #dfe7f3;
+    border-color: rgba(255, 255, 255, .14);
+}
+body.dark-mode .wp-size-chip.fixed { background: rgba(255, 255, 255, .08); color: #aeb9c9; }
+body.dark-mode .wp-size-chip.selected { background: #3b82f6; color: #fff; }
+
+/* 已添加状态：文字徽标，不能重复添加 */
+.wp-installed-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 9px;
+    background: rgba(255, 255, 255, .94);
+    color: #15803d;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, .18);
+    z-index: 3;
+}
+.wp-installed-badge i { font-size: 9px; line-height: 1; }
+body.dark-mode .wp-installed-badge { background: rgba(0, 0, 0, .46); color: #86efac; box-shadow: 0 2px 6px rgba(0, 0, 0, .4); }
+.widget-panel-card.installed::after { content: none; }
+
+.widget-panel-empty {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 220px;
+    color: rgba(22, 32, 45, .55);
+    font-size: 13px;
+    text-align: center;
+}
+.widget-panel-empty i { font-size: 26px; opacity: .35; }
+.widget-panel-empty small { font-size: 11.5px; opacity: .7; }
+body.dark-mode .widget-panel-empty { color: rgba(255, 255, 255, .55); }
+
+/* 拖出到桌面的幽灵：中性玻璃，不再用组件色相 */
+.widget-drag-ghost { border-radius: var(--w-radius, 22px); corner-shape: round; }
+.widget-drag-ghost-inner {
+    border-radius: var(--w-radius, 22px);
+    background: linear-gradient(158deg, rgba(255, 255, 255, .82), rgba(246, 247, 249, .68));
+    border: 1px solid rgba(255, 255, 255, .72);
+    color: #16202b;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6);
+}
+.widget-drag-ghost-inner i { color: #64748b; filter: none; }
+.widget-drag-ghost-inner .ghost-size { color: rgba(22, 32, 45, .55); }
+body.dark-mode .widget-drag-ghost-inner {
+    background: linear-gradient(158deg, rgba(40, 42, 48, .78), rgba(22, 24, 28, .7));
+    border-color: rgba(255, 255, 255, .16);
+    color: #eef2f8;
+}
+body.dark-mode .widget-drag-ghost-inner i { color: rgba(255, 255, 255, .6); }
+body.dark-mode .widget-drag-ghost-inner .ghost-size { color: rgba(255, 255, 255, .5); }
+
+/* ============ 内部容器收口：把各组件自带的「身份底色/白字」统一到中性墨色 ============ */
+/* 待办空态：旧规则在浅色玻璃上写死白字，完全不可读 */
+html body .desktop-widget-card[data-wtype] .widget-todo-empty,
+html body .desktop-widget-card[data-wtype] .widget-todo-empty i {
+    color: var(--w-text-soft) !important;
+    text-shadow: none !important;
+    opacity: 1;
+}
+html body .desktop-widget-card[data-wtype] .widget-todo-add {
+    background: var(--w-well) !important;
+    border: 1px solid var(--w-hair) !important;
+    color: var(--w-text) !important;
+}
+
+/* 好友：整块此前没有任何样式（裸 span），补最小结构 */
+html body .desktop-widget-card[data-wtype] .w-fr {
+    display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0;
+}
+html body .desktop-widget-card[data-wtype] .w-fr-hd {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 700; color: var(--w-text) !important; flex: none;
+}
+html body .desktop-widget-card[data-wtype] .w-fr-hd i { color: var(--w-text-soft); font-size: 11px; }
+html body .desktop-widget-card[data-wtype] .w-fr-hd small {
+    margin-left: auto; font-size: 10px; font-weight: 500; color: var(--w-text-soft);
+}
+html body .desktop-widget-card[data-wtype] .w-fr-list {
+    display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow: hidden;
+}
+html body .desktop-widget-card[data-wtype] .w-fr-i {
+    display: flex; align-items: center; gap: 8px; padding: 5px 7px;
+    border-radius: 11px; background: var(--w-well);
+}
+html body .desktop-widget-card[data-wtype] .w-fr-av {
+    width: 22px; height: 22px; flex: 0 0 auto; border-radius: 50%;
+    display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 700;
+}
+html body .desktop-widget-card[data-wtype] .w-fr-n {
+    font-size: 11.5px; font-weight: 600; color: var(--w-text) !important;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+html body .desktop-widget-card[data-wtype] .w-fr-s {
+    margin-left: auto; font-size: 10px; color: var(--w-text-soft) !important; white-space: nowrap;
+}
+
+/* 相册：内层 14px 圆角和 20px 外圆角不一致；图片缺失时给中性底而不是灰块 */
+html body .desktop-widget-card[data-wtype] .w-ph {
+    border-radius: inherit !important;
+    background-color: var(--w-well);
+    background-size: cover; background-position: center;
+}
+html body .desktop-widget-card[data-wtype] .w-ph-mask {
+    background: linear-gradient(0deg, rgba(15, 23, 42, .06), transparent 55%) !important;
+    color: var(--w-text) !important;
+}
+html body .desktop-widget-card[data-wtype] .w-ph-mask span,
+html body .desktop-widget-card[data-wtype] .w-ph-mask small {
+    color: var(--w-text) !important; text-shadow: none !important;
+}
+body.dark-mode .desktop-widget-card[data-wtype] .w-ph-mask {
+    background: linear-gradient(0deg, rgba(0, 0, 0, .32), transparent 55%) !important;
+}
+body.dark-mode .desktop-widget-card[data-wtype] .w-ph-mask span,
+body.dark-mode .desktop-widget-card[data-wtype] .w-ph-mask small { color: #fff !important; }
+
+/* 智能设备：旧白玻璃块在深色下变成黑砖，统一到 well/hair 令牌 */
+html body .desktop-widget-card[data-wtype] .w-sd-hd,
+html body .desktop-widget-card[data-wtype] .w-sd-hd small,
+html body .desktop-widget-card[data-wtype] .w-dev-nm { color: var(--w-text) !important; }
+html body .desktop-widget-card[data-wtype] .w-dev-rm,
+html body .desktop-widget-card[data-wtype] .w-dev-st { color: var(--w-text-soft) !important; opacity: 1; }
+html body .desktop-widget-card[data-wtype] .w-dev {
+    background: var(--w-well) !important;
+    border: 1px solid var(--w-hair) !important;
+    box-shadow: none !important;
+    color: var(--w-text) !important;
+}
+html body .desktop-widget-card[data-wtype] .w-dev.on {
+    background: rgba(59, 130, 246, .14) !important;
+    border-color: rgba(59, 130, 246, .30) !important;
+}
+html body .desktop-widget-card[data-wtype] .w-dev.on .w-dev-ic { text-shadow: none !important; }
+
+/* =====================================================================
+   v3 · macOS 色块体系（对齐 FluentOS css/widgets.css 的 w-* 主题底）
+   — 每张卡是一整块主色（纯色 / 同色系 160° 渐变），内容压在色块上
+   — 不再有白底细框、分割线堆结构；圆角仍固定 20px（图标才用超椭圆）
+   — 浅色 = FluentOS 的原值；深色 = FluentOS 的 .dark-mode 对应值（加深加饱和，不发灰）
+   ===================================================================== */
+
+/* 默认：所有类型先回到「一块主色」，具体色值由下面的 [data-wtype] 覆盖 */
+html body .desktop-widget-card,
+html body .desktop-widget-card[data-wtype] {
+    background: linear-gradient(160deg, var(--w-tint-a, #2f6fd0) 0%, var(--w-tint-b, #1e4f9e) 100%) !important;
+    border: 0 !important;
+    border-radius: var(--w-radius, 20px) !important;
+    box-shadow: 0 14px 30px rgba(10, 20, 35, .20), 0 2px 6px rgba(10, 20, 35, .10) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    color: var(--w-fg, #fff) !important;
+
+    --w-fg: #fff;
+    --w-fg-soft: rgba(255, 255, 255, .74);
+    --w-fg-faint: rgba(255, 255, 255, .52);
+    --w-text: #fff;
+    --w-text-strong: #fff;
+    --w-text-soft: rgba(255, 255, 255, .74);
+    --w-text-faint: rgba(255, 255, 255, .52);
+    --w-hair: rgba(255, 255, 255, .22);
+    --w-well: rgba(255, 255, 255, .16);
+    --w-accent: rgba(255, 255, 255, .92);
+}
+/* 斜向柔光只做极轻的一层上沿受光，保留 macOS 色块的平涂感 */
+html body .desktop-widget-card[data-wtype]::after {
+    background: linear-gradient(180deg, rgba(255, 255, 255, .13), rgba(255, 255, 255, 0) 42%) !important;
+}
+html body .desktop-widget-card[data-wtype]:hover,
+html body .desktop-widget-card[data-wtype].dragging {
+    background: linear-gradient(160deg, var(--w-tint-a, #2f6fd0) 0%, var(--w-tint-b, #1e4f9e) 100%) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+html body .desktop-widget-card[data-wtype]:hover {
+    box-shadow: 0 20px 44px rgba(10, 20, 35, .28), 0 3px 8px rgba(10, 20, 35, .12) !important;
+}
+html body .desktop-widget-card[data-wtype].dragging {
+    box-shadow: 0 26px 64px rgba(4, 8, 16, .44) !important;
+}
+
+/* ---------- 深色：色块加深加饱和（FluentOS 的 dark 值），文字保持白 ---------- */
+html body.dark-mode .desktop-widget-card[data-wtype][data-type],
+html body.dark-mode .desktop-widget-card[data-wtype] {
+    background: linear-gradient(160deg, var(--w-tint-da, #14304f) 0%, var(--w-tint-db, #0b1728) 100%) !important;
+    border: 0 !important;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, .52), 0 2px 8px rgba(0, 0, 0, .30) !important;
+    color: var(--w-fg-d, #fff) !important;
+}
+html body.dark-mode .desktop-widget-card[data-wtype]::after {
+    background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, 0) 40%) !important;
+}
+
+/* ---------- 浅色卡（日历 / 日程 / 待办 / 便签 / 收藏 / 开关）—— 墨色字 ---------- */
+html body .desktop-widget-card[data-wtype="calendar"],
+html body .desktop-widget-card[data-wtype="date"],
+html body .desktop-widget-card[data-wtype="todo"],
+html body .desktop-widget-card[data-wtype="schedule"],
+html body .desktop-widget-card[data-wtype="note"],
+html body .desktop-widget-card[data-wtype="favorites"],
+html body .desktop-widget-card[data-wtype="toggles"],
+html body .desktop-widget-card[data-wtype="volume"],
+html body .desktop-widget-card[data-wtype="searchbar"] {
+    --w-fg: #101923;
+    --w-fg-soft: rgba(16, 25, 35, .62);
+    --w-fg-faint: rgba(16, 25, 35, .40);
+    --w-text: #101923;
+    --w-text-strong: #050b12;
+    --w-text-soft: rgba(16, 25, 35, .62);
+    --w-text-faint: rgba(16, 25, 35, .40);
+    --w-hair: rgba(16, 25, 35, .10);
+    --w-well: rgba(16, 25, 35, .06);
+    --w-accent: #2f6fd0;
+}
+html body.dark-mode .desktop-widget-card[data-wtype="calendar"],
+html body.dark-mode .desktop-widget-card[data-wtype="date"],
+html body.dark-mode .desktop-widget-card[data-wtype="todo"],
+html body.dark-mode .desktop-widget-card[data-wtype="schedule"],
+html body.dark-mode .desktop-widget-card[data-wtype="note"],
+html body.dark-mode .desktop-widget-card[data-wtype="favorites"],
+html body.dark-mode .desktop-widget-card[data-wtype="toggles"],
+html body.dark-mode .desktop-widget-card[data-wtype="volume"],
+html body.dark-mode .desktop-widget-card[data-wtype="searchbar"] {
+    --w-fg: #f5f7fb;
+    --w-fg-soft: rgba(245, 247, 251, .66);
+    --w-fg-faint: rgba(245, 247, 251, .42);
+    --w-text: #f5f7fb;
+    --w-text-strong: #ffffff;
+    --w-text-soft: rgba(245, 247, 251, .66);
+    --w-text-faint: rgba(245, 247, 251, .42);
+    --w-hair: rgba(255, 255, 255, .14);
+    --w-well: rgba(255, 255, 255, .08);
+    --w-accent: #7cb2ff;
+    --w-fg-d: #f5f7fb;
+}
+
+/* ---------- 逐类型主色（浅色值 ← FluentOS；深色值 ← FluentOS .dark-mode） ---------- */
+html body .desktop-widget-card[data-wtype="weather"] {
+    --w-tint-a: #1c64c4; --w-tint-b: #52a8ff;
+    --w-tint-da: #075b83; --w-tint-db: #06101a;
+}
+html body .desktop-widget-card[data-wtype="clock"],
+html body .desktop-widget-card[data-wtype="time"],
+html body .desktop-widget-card[data-wtype="dualtime"] {
+    --w-tint-a: #222a3e; --w-tint-b: #3f476a;
+    --w-tint-da: #10131f; --w-tint-db: #242a3c;
+}
+html body .desktop-widget-card[data-wtype="calendar"],
+html body .desktop-widget-card[data-wtype="date"] {
+    --w-tint-a: #ffffff; --w-tint-b: #f4f6f9;
+    --w-tint-da: #1a1b1f; --w-tint-db: #111114;
+}
+html body .desktop-widget-card[data-wtype="calendar-events"],
+html body .desktop-widget-card[data-wtype="todo"],
+html body .desktop-widget-card[data-wtype="schedule"] {
+    --w-tint-a: #ffffff; --w-tint-b: #f3f5f8;
+    --w-tint-da: #1b1c20; --w-tint-db: #121316;
+}
+html body .desktop-widget-card[data-wtype="note"] {
+    --w-tint-a: #fff8bf; --w-tint-b: #e7f4ff;
+    --w-tint-da: #5c4a12; --w-tint-db: #163a52;
+}
+html body .desktop-widget-card[data-wtype="system"] {
+    --w-tint-a: #1b2431; --w-tint-b: #0d131d;
+    --w-tint-da: #161d28; --w-tint-db: #0a0e15;
+}
+html body .desktop-widget-card[data-wtype="music"],
+html body .desktop-widget-card[data-wtype="photos"] {
+    --w-tint-a: #5856d6; --w-tint-b: #b06ee8;
+    --w-tint-da: #3a3690; --w-tint-db: #6d3f96;
+}
+html body .desktop-widget-card[data-wtype="news"] {
+    --w-tint-a: #a83656; --w-tint-b: #ef7056;
+    --w-tint-da: #5a1830; --w-tint-db: #782f26;
+}
+html body .desktop-widget-card[data-wtype="lunar"] {
+    --w-tint-a: #9b2c2c; --w-tint-b: #d06246;
+    --w-tint-da: #561717; --w-tint-db: #703026;
+}
+html body .desktop-widget-card[data-wtype="alarm"] {
+    --w-tint-a: #e0503f; --w-tint-b: #b8321f;
+    --w-tint-da: #6e2118; --w-tint-db: #46120d;
+}
+html body .desktop-widget-card[data-wtype="pomodoro"],
+html body .desktop-widget-card[data-wtype="focus"] {
+    --w-tint-a: #ef4444; --w-tint-b: #b91c1c;
+    --w-tint-da: #6b1a1a; --w-tint-db: #3f0f0f;
+}
+html body .desktop-widget-card[data-wtype="countdown"] {
+    --w-tint-a: #6d6cf5; --w-tint-b: #4338ca;
+    --w-tint-da: #2e2f63; --w-tint-db: #17173a;
+}
+html body .desktop-widget-card[data-wtype="health"] {
+    --w-tint-a: #f43f5e; --w-tint-b: #b31e3c;
+    --w-tint-da: #6b1226; --w-tint-db: #3d0a15;
+}
+html body .desktop-widget-card[data-wtype="stocks"] {
+    --w-tint-a: #ef4444; --w-tint-b: #991b1b;
+    --w-tint-da: #5c1212; --w-tint-db: #360b0b;
+}
+html body .desktop-widget-card[data-wtype="battery"] {
+    --w-tint-a: #22c55e; --w-tint-b: #12873f;
+    --w-tint-da: #11502c; --w-tint-db: #0a341d;
+}
+html body .desktop-widget-card[data-wtype="network"] {
+    --w-tint-a: #06b6d4; --w-tint-b: #0e7490;
+    --w-tint-da: #0a4a5c; --w-tint-db: #062f3b;
+}
+html body .desktop-widget-card[data-wtype="cleaner"] {
+    --w-tint-a: #0ea5b7; --w-tint-b: #0b6d7d;
+    --w-tint-da: #08414b; --w-tint-db: #052a30;
+}
+html body .desktop-widget-card[data-wtype="clipboard"] {
+    --w-tint-a: #14b8a6; --w-tint-b: #0f766e;
+    --w-tint-da: #0a4a45; --w-tint-db: #062c29;
+}
+html body .desktop-widget-card[data-wtype="recentfiles"] {
+    --w-tint-a: #f59e0b; --w-tint-b: #b45309;
+    --w-tint-da: #6b3d06; --w-tint-db: #3d2306;
+}
+html body .desktop-widget-card[data-wtype="calculator"] {
+    --w-tint-a: #ff9500; --w-tint-b: #e06a00;
+    --w-tint-da: #7a4200; --w-tint-db: #4a2800;
+}
+html body .desktop-widget-card[data-wtype="quicklaunch"],
+html body .desktop-widget-card[data-wtype="browser"] {
+    --w-tint-a: #3b82f6; --w-tint-b: #1d4ed8;
+    --w-tint-da: #19407f; --w-tint-db: #0f2a5c;
+}
+html body .desktop-widget-card[data-wtype="friends"] {
+    --w-tint-a: #0ea5e9; --w-tint-b: #0369a1;
+    --w-tint-da: #08455f; --w-tint-db: #052d40;
+}
+html body .desktop-widget-card[data-wtype="sleep"] {
+    --w-tint-a: #1e3a8a; --w-tint-b: #0b1f4d;
+    --w-tint-da: #0f2242; --w-tint-db: #071229;
+}
+html body .desktop-widget-card[data-wtype="minigame"] {
+    --w-tint-a: #f97316; --w-tint-b: #c2410c;
+    --w-tint-da: #6a2c08; --w-tint-db: #3f1905;
+}
+html body .desktop-widget-card[data-wtype="stopwatch"] {
+    --w-tint-a: #10b981; --w-tint-b: #047857;
+    --w-tint-da: #0a5a42; --w-tint-db: #06382a;
+}
+html body .desktop-widget-card[data-wtype="toggles"] {
+    --w-tint-a: rgba(248, 250, 252, .92); --w-tint-b: rgba(236, 240, 247, .92);
+    --w-tint-da: #1c1f27; --w-tint-db: #15171d;
+}
+html body .desktop-widget-card[data-wtype="volume"],
+html body .desktop-widget-card[data-wtype="searchbar"] {
+    --w-tint-a: rgba(248, 250, 252, .92); --w-tint-b: rgba(232, 237, 245, .92);
+    --w-tint-da: #1c1f27; --w-tint-db: #15171d;
+}
+html body .desktop-widget-card[data-wtype="wallpaperpick"],
+html body .desktop-widget-card[data-wtype="smartdevice"] {
+    --w-tint-a: #1b2029; --w-tint-b: #2a3240;
+    --w-tint-da: #14171d; --w-tint-db: #0e1014;
+}
+/* 胶囊类（4×1）保持玻璃白/深，读作「一条搜索框」而不是色块 */
+html body .desktop-widget-card[data-wtype="searchbar"] {
+    --w-tint-a: rgba(255, 255, 255, .92); --w-tint-b: rgba(240, 244, 250, .88);
+    --w-tint-da: rgba(28, 31, 39, .92); --w-tint-db: rgba(20, 23, 29, .92);
+}
+
+/* ---------- 字号层级：主数字要大、标签要小要淡 ---------- */
+html body .desktop-widget-card[data-wtype] .widget-clock-time {
+    font-size: 46px !important;
+    font-weight: 600 !important;
+    letter-spacing: -.02em !important;
+    line-height: .95 !important;
+}
+html body .desktop-widget-card[data-wtype].wsize-s .widget-clock-time { font-size: 34px !important; }
+html body .desktop-widget-card[data-wtype].wsize-l .widget-clock-time { font-size: 62px !important; }
+
+html body .desktop-widget-card[data-wtype] .widget-weather-temp {
+    font-size: 64px !important;
+    font-weight: 300 !important;
+    letter-spacing: -.038em !important;
+    line-height: .86 !important;
+}
+html body .desktop-widget-card[data-wtype].wsize-s .widget-weather-temp { font-size: 44px !important; }
+html body .desktop-widget-card[data-wtype].wsize-l .widget-weather-temp { font-size: 64px !important; }
+
+/* 天气 4×2：左列城市/温度，右列高低温与风，收掉中段与右侧的空白 */
+html body .desktop-widget-card[data-wtype="weather"] .widget-weather {
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    grid-template-rows: auto 1fr !important;
+    column-gap: 12px !important;
+    height: 100% !important;
+}
+html body .desktop-widget-card[data-wtype="weather"] .widget-weather-city {
+    font-size: 12.5px !important;
+    letter-spacing: .06em !important;
+    opacity: .9 !important;
+}
+html body .desktop-widget-card[data-wtype="weather"] .widget-weather-status {
+    font-size: 12px !important;
+    opacity: .9 !important;
+}
+html body .desktop-widget-card[data-wtype="weather"] .widget-weather-icon {
+    font-size: 36px !important;
+    opacity: .95 !important;
+}
+html body .desktop-widget-card[data-wtype="weather"] .widget-weather-header {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+}
+html body .desktop-widget-card[data-wtype="weather"] .widget-weather > div:nth-child(2) {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+}
+html body .desktop-widget-card[data-wtype="weather"] .widget-weather-extra {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    border: 0 !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    opacity: .94 !important;
+    white-space: nowrap !important;
+}
+html body .desktop-widget-card[data-wtype="weather"] .widget-weather-meta { display: none !important; }
+html body .desktop-widget-card[data-wtype="weather"] .widget-weather-extra i { margin-right: 4px; }
+
+/* 标签统一压小压淡，衬托主数字 */
+html body .desktop-widget-card[data-wtype] .widget-title,
+html body .desktop-widget-card[data-wtype] .widget-clock-week,
+html body .desktop-widget-card[data-wtype] .widget-clock-date,
+html body .desktop-widget-card[data-wtype] .widget-weather-city,
+html body .desktop-widget-card[data-wtype] .widget-weather-desc,
+html body .desktop-widget-card[data-wtype] .widget-system-row-head,
+html body .desktop-widget-card[data-wtype] .widget-todo-count,
+html body .desktop-widget-card[data-wtype] .widget-cal-weekdays,
+html body .desktop-widget-card[data-wtype] .widget-music-artist,
+html body .desktop-widget-card[data-wtype] .w-wp-cap {
+    opacity: .72 !important;
+    font-weight: 600 !important;
+    text-shadow: none !important;
+}
+/* 色块上不再保留旧的分割线/白边 */
+html body .desktop-widget-card[data-wtype] .widget-weather-extra,
+html body .desktop-widget-card[data-wtype] .widget-system,
+html body .desktop-widget-card[data-wtype] .widget-todo-list,
+html body .desktop-widget-card[data-wtype] .w-sd-hd,
+html body .desktop-widget-card[data-wtype] .w-dev {
+    border-color: rgba(255, 255, 255, .18) !important;
+}
+html body .desktop-widget-card[data-wtype="calendar"] .widget-cal-header,
+html body .desktop-widget-card[data-wtype="todo"] .widget-todo-item,
+html body .desktop-widget-card[data-wtype="schedule"] .w-sch-row {
+    border-color: rgba(16, 25, 35, .10) !important;
+}
+html body.dark-mode .desktop-widget-card[data-wtype="calendar"] .widget-cal-header,
+html body.dark-mode .desktop-widget-card[data-wtype="todo"] .widget-todo-item,
+html body.dark-mode .desktop-widget-card[data-wtype="schedule"] .w-sch-row {
+    border-color: rgba(255, 255, 255, .12) !important;
+}
+/* 提醒/日程：彩色圆点（FluentOS calendar-events 同款） */
+html body .desktop-widget-card[data-wtype] .widget-todo-check,
+html body .desktop-widget-card[data-wtype] .w-sch-dot {
+    border-radius: 50% !important;
+}
+
+/* ---------- 系统监控：数字大、标签小（FluentOS 深色块 + 条形） ---------- */
+html body .desktop-widget-card[data-wtype="system"] .widget-system-row-val {
+    font-size: 22px !important;
+    font-weight: 700 !important;
+    line-height: 1.02 !important;
+    letter-spacing: -.02em !important;
+}
+html body .desktop-widget-card[data-wtype="system"] .widget-system-row-head {
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    letter-spacing: .02em !important;
+}
+html body .desktop-widget-card[data-wtype="system"] .widget-system-bar {
+    height: 4px !important;
+    border-radius: 2px !important;
+    background: rgba(255, 255, 255, .16) !important;
+    overflow: hidden;
+}
+html body .desktop-widget-card[data-wtype="system"] .widget-system-bar-fill {
+    border-radius: 2px !important;
+    background: rgba(255, 255, 255, .92) !important;
+}
+
+/* ---------- 待办空态：一块安静的浅色卡，不要文档图标 + 大空白 ---------- */
+html body .desktop-widget-card[data-wtype="todo"] .widget-todo-empty {
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 10px 6px;
+    color: var(--w-text-soft) !important;
+    font-size: 12px !important;
+}
+html body .desktop-widget-card[data-wtype="todo"] .widget-todo-empty i {
+    font-size: 26px !important;
+    opacity: .9 !important;
+    color: #2f6fd0 !important;
+}
+html body.dark-mode .desktop-widget-card[data-wtype="todo"] .widget-todo-empty i { color: #7cb2ff !important; }
+/* 「+」按钮：提高可见度（实心主色，白图标） */
+html body .desktop-widget-card[data-wtype="todo"] .widget-todo-add {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: #2f6fd0 !important;
+    color: #fff !important;
+    border: 0 !important;
+    box-shadow: 0 4px 10px rgba(47, 111, 208, .30) !important;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+html body .desktop-widget-card[data-wtype="todo"] .widget-todo-add i { color: #fff !important; opacity: 1 !important; font-size: 12px !important; }
+html body.dark-mode .desktop-widget-card[data-wtype="todo"] .widget-todo-add {
+    background: #7cb2ff !important;
+    color: #0b1220 !important;
+}
+html body.dark-mode .desktop-widget-card[data-wtype="todo"] .widget-todo-add i { color: #0b1220 !important; }
+html body .desktop-widget-card[data-wtype="todo"] .widget-todo-empty span { font-size: 12px !important; font-weight: 700 !important; }
+html body .desktop-widget-card[data-wtype="todo"] .widget-todo-empty small { font-size: 10.5px !important; opacity: .62 !important; }
+
+/* ---------- 相册 / 壁纸：图为主，图没加载时也是有色块不是灰砖 ---------- */
+html body .desktop-widget-card[data-wtype="photos"] .w-ph,
+html body .desktop-widget-card[data-wtype="wallpaperpick"] .w-wp-item {
+    border-radius: 12px !important;
+    background-color: var(--w-well) !important;
+}
+/* 浅色下略提饱和，避免相册大图发灰 */
+html body .desktop-widget-card[data-wtype="photos"] .w-ph {
+    filter: saturate(1.12) contrast(1.05);
+}
+/* 深色下照片压暗，避免整块发白 */
+body.dark-mode .desktop-widget-card[data-wtype="photos"] .w-ph {
+    filter: brightness(.78) saturate(.92);
+}
+body.dark-mode .desktop-widget-card[data-wtype="photos"] .w-ph-mask {
+    background: linear-gradient(0deg, rgba(0, 0, 0, .72) 0%, rgba(0, 0, 0, .18) 60%, rgba(0, 0, 0, 0) 100%) !important;
+}
+/* 相片满铺到卡片边缘，不留下紫色内边距 */
+html body .desktop-widget-card[data-wtype="photos"] .widget-inner { padding: 0 !important; }
+html body .desktop-widget-card[data-wtype="photos"] .w-ph {
+    border-radius: inherit !important;
+    height: 100% !important;
+    background-position: center 66% !important;
+}
+/* 相册底部压一层暗角，任何照片下文字都读得清 */
+html body .desktop-widget-card[data-wtype="photos"] .w-ph-mask {
+    background: linear-gradient(0deg, rgba(0, 0, 0, .55) 0%, rgba(0, 0, 0, .12) 52%, rgba(0, 0, 0, 0) 100%) !important;
+    border-radius: inherit !important;
+}
+/* 深色覆盖：放在浅色之后，保证深色生效 */
+body.dark-mode .desktop-widget-card[data-wtype="photos"] .w-ph-mask {
+    background: linear-gradient(0deg, rgba(0, 0, 0, .72) 0%, rgba(0, 0, 0, .20) 58%, rgba(0, 0, 0, 0) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="wallpaperpick"] .w-wp-item {
+    border: 1px solid rgba(255, 255, 255, .10) !important;
+}
+/* 相册空态：不是灰砖，而是一块有照片感的紫块 + 说明 */
+html body .desktop-widget-card[data-wtype="photos"] .w-ph-empty {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    text-align: center !important;
+    color: #fff !important;
+    background:
+        radial-gradient(circle at 28% 16%, rgba(255, 255, 255, .26), transparent 62%),
+        linear-gradient(160deg, #6f6cf0 0%, #8b5cf6 62%, #5b3ec9 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="photos"] .w-ph-empty i { font-size: 30px; opacity: .92; }
+html body .desktop-widget-card[data-wtype="photos"] .w-ph-empty span { font-size: 13px; font-weight: 700; }
+html body .desktop-widget-card[data-wtype="photos"] .w-ph-empty small { font-size: 10.5px; opacity: .72; }
+
+/* =====================================================================
+   v3.1 · 溢出收敛 + 缺图标补回 + 行情箭头（需压过后加载的 n26-tour.css）
+   ===================================================================== */
+
+/* 系统监控：n26-tour.css 曾把行图标 display:none，这里用更高特异度恢复 */
+html body .desktop-widget-card[data-wtype="system"] .widget-system-row-head i {
+    display: inline-block !important;
+    font-size: 11px !important;
+    margin-right: 5px !important;
+    opacity: .68 !important;
+    color: rgba(255, 255, 255, .86) !important;
+}
+/* 2 行高的卡（2×2 / 4×2）把三行压进内容区，条不贴底、字不被裁 */
+html body .desktop-widget-card.wrows-2 .widget-system {
+    justify-content: space-between !important;
+    gap: 5px !important;
+    overflow: hidden !important;
+}
+html body .desktop-widget-card.wrows-2 .widget-system-row { gap: 3px !important; }
+html body .desktop-widget-card.wrows-2 .widget-system-row-head { font-size: 9.5px !important; line-height: 1.1 !important; }
+html body .desktop-widget-card.wrows-2 .widget-system-row-head i { font-size: 9px !important; margin-right: 4px !important; }
+html body .desktop-widget-card.wrows-2 .widget-system-row-val { font-size: 17px !important; line-height: 1 !important; }
+html body .desktop-widget-card.wrows-2 .widget-system-bar { height: 3px !important; }
+
+/* 日历 4×2：只画 5 周，第 6 周整行裁掉（不再从卡片底边漏出来） */
+html body .desktop-widget-card.wrows-2[data-wtype="calendar"] .widget-cal-header { padding-bottom: 3px !important; }
+html body .desktop-widget-card.wrows-2[data-wtype="calendar"] .widget-cal-grid { flex: 1 !important; min-height: 0 !important; }
+html body .desktop-widget-card.wrows-2[data-wtype="calendar"] .widget-cal-grid > .widget-cal-day:nth-child(n+36) { display: none !important; }
+html body .desktop-widget-card.wrows-2[data-wtype="calendar"] .widget-cal-day {
+    max-height: 18px !important; max-width: 18px !important;
+    font-size: 9.5px !important; line-height: 18px !important;
+}
+
+/* 智能设备 4×3：三排设备压进卡片，最后一排不再被底边裁掉 */
+html body .desktop-widget-card.wrows-3[data-wtype="smartdevice"] .w-sd-grid { gap: 5px !important; align-content: start !important; }
+html body .desktop-widget-card.wrows-3[data-wtype="smartdevice"] .w-dev {
+    padding: 6px 5px !important;
+    border-radius: 11px !important;
+}
+html body .desktop-widget-card.wrows-3[data-wtype="smartdevice"] .w-dev-ic { font-size: 17px !important; margin-bottom: 2px !important; }
+html body .desktop-widget-card.wrows-3[data-wtype="smartdevice"] .w-dev-nm { font-size: 10px !important; line-height: 1.2 !important; }
+html body .desktop-widget-card.wrows-3[data-wtype="smartdevice"] .w-dev-rm,
+html body .desktop-widget-card.wrows-3[data-wtype="smartdevice"] .w-dev-st { font-size: 8px !important; line-height: 1.25 !important; margin-top: 0 !important; }
+
+/* 行情：每行补涨跌箭头；列宽收紧，右侧百分比不再顶到卡片边 */
+html body .desktop-widget-card[data-wtype="stocks"] .w-st-i {
+    grid-template-columns: 14px minmax(0, 1fr) auto auto !important;
+    gap: 6px !important;
+    padding: 5px 8px !important;
+}
+html body .desktop-widget-card[data-wtype="stocks"] .w-st-ic { font-size: 10px !important; opacity: .92 !important; }
+html body .desktop-widget-card[data-wtype="stocks"] .w-st-ic.up { color: #fecaca !important; }
+html body .desktop-widget-card[data-wtype="stocks"] .w-st-ic.down { color: #bbf7d0 !important; }
+html body .desktop-widget-card[data-wtype="stocks"] .w-st-p { font-size: 11px !important; }
+html body .desktop-widget-card[data-wtype="stocks"] .w-st-c { min-width: 38px !important; font-size: 9.5px !important; }
+
+/* 资讯：标题在行内收缩省略，不再贴右边切字 */
+html body .desktop-widget-card[data-wtype="news"] .w-nw-i span { min-width: 0 !important; }
+
+/* 天气：网格子项允许收缩，右侧不再有 58px 的隐性横向滚动 */
+html body .desktop-widget-card[data-wtype="weather"] .widget-weather { overflow: hidden !important; }
+html body .desktop-widget-card[data-wtype="weather"] .widget-weather > div { min-width: 0 !important; }
+
+/* 去掉系统/待办卡左侧遗留的 2px 装饰竖线（与行图标打架，像图标缺位） */
+html body .desktop-widget-card[data-wtype="system"]::before,
+html body .desktop-widget-card[data-wtype="todo"]::before { display: none !important; }
+
+/* =====================================================================
+   v3.2 · 尺寸滑块（连续拖动 + 档位吸附） / 侧栏磨砂玻璃 + 超椭圆
+   ===================================================================== */
+html body #widgetPanel .widget-panel-sidebar {
+    width: 132px !important; min-width: 132px !important; max-width: 132px !important;
+    flex: 0 0 132px !important; box-sizing: border-box !important;
+    background: rgba(255, 255, 255, 0.30) !important;
+    border: 1px solid rgba(255, 255, 255, 0.48) !important;
+    border-radius: 16px !important;
+    corner-shape: squircle;
+    padding: 8px 6px 8px 8px !important;
+    -webkit-backdrop-filter: blur(20px) saturate(165%);
+    backdrop-filter: blur(20px) saturate(165%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 6px 22px rgba(10, 20, 40, 0.06);
+    scrollbar-gutter: stable !important;
+}
+html body.dark-mode #widgetPanel .widget-panel-sidebar,
+html body .dark-mode #widgetPanel .widget-panel-sidebar {
+    background: rgba(28, 30, 38, 0.46) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 26px rgba(0, 0, 0, 0.35);
+}
+
+/* 卡片尺寸行：滑块 + 读数 */
+html body #widgetPanel .widget-panel-card-sizes {
+    position: static !important;
+    flex: 0 0 auto !important;
+    display: flex !important; align-items: center !important; gap: 7px !important;
+    height: 18px !important; min-height: 18px !important;
+    margin: 0 !important; padding: 0 2px !important;
+    background: none !important; border: none !important; z-index: 2;
+}
+html body #widgetPanel .wp-size-slider {
+    position: relative; flex: 1 1 auto; height: 18px; cursor: pointer;
+    touch-action: none; outline: none; user-select: none;
+}
+html body #widgetPanel .wp-size-slider::before,
+html body #widgetPanel .wp-size-slider .wp-size-track {
+    content: ''; position: absolute; left: 0; top: 50%; height: 3px; margin-top: -1.5px;
+    border-radius: 2px; pointer-events: none;
+}
+html body #widgetPanel .wp-size-slider .wp-size-track { right: 0; width: auto; background: rgba(24, 40, 66, 0.16); }
+html body #widgetPanel .wp-size-slider::before {
+    width: var(--wp-p, 0%); background: var(--primary, #4A9BF5);
+    opacity: .75; transition: width 160ms cubic-bezier(.16, 1, .3, 1);
+}
+html body #widgetPanel .wp-size-slider.dragging::before { transition: none; }
+html body #widgetPanel .wp-size-tick {
+    position: absolute; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px;
+    border-radius: 50%; background: rgba(24, 40, 66, 0.30);
+    transition: background 140ms ease, transform 140ms cubic-bezier(.16, 1, .3, 1);
+}
+html body #widgetPanel .wp-size-tick.on { background: var(--primary, #4A9BF5); transform: scale(1.5); }
+html body #widgetPanel .wp-size-thumb {
+    position: absolute; top: 50%; left: var(--wp-p, 0%);
+    width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px; border-radius: 50%;
+    background: #fff; pointer-events: none;
+    box-shadow: 0 1px 4px rgba(12, 24, 44, .34), 0 0 0 1px rgba(12, 24, 44, .10);
+    transition: left 160ms cubic-bezier(.16, 1, .3, 1);
+}
+html body #widgetPanel .wp-size-slider.dragging .wp-size-thumb { transition: none; }
+html body #widgetPanel .wp-size-readout {
+    flex: 0 0 auto; font-size: 9.5px; font-weight: 700; letter-spacing: .2px;
+    color: #25344c; opacity: .82; white-space: nowrap; min-width: 36px; text-align: right;
+}
+html body #widgetPanel .wp-size-readout b { font-weight: 500; opacity: .52; margin-left: 3px; }
+html body.dark-mode #widgetPanel .wp-size-track,
+html body .dark-mode #widgetPanel .wp-size-track { background: rgba(255, 255, 255, 0.18) !important; }
+html body.dark-mode #widgetPanel .wp-size-tick,
+html body .dark-mode #widgetPanel .wp-size-tick { background: rgba(255, 255, 255, 0.30); }
+html body.dark-mode #widgetPanel .wp-size-readout,
+html body .dark-mode #widgetPanel .wp-size-readout { color: #e6edf8; }
+html body.dark-mode #widgetPanel .wp-size-thumb,
+html body .dark-mode #widgetPanel .wp-size-thumb { background: rgba(245, 249, 255, .96); }
+html body #widgetPanel .wp-size-fixed {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 600;
+    color: rgba(37, 52, 76, .55); white-space: nowrap;
+}
+html body #widgetPanel .wp-size-fixed i { font-size: 9px; opacity: .6; }
+html body.dark-mode #widgetPanel .wp-size-fixed,
+html body .dark-mode #widgetPanel .wp-size-fixed { color: rgba(230, 237, 248, .55); }
+@media (prefers-reduced-motion: reduce) {
+    html body #widgetPanel .wp-size-thumb,
+    html body #widgetPanel .wp-size-slider::before,
+    html body #widgetPanel .wp-size-tick { transition: none !important; }
+}
+
+/* ===== v4 小组件画廊：尺寸分组 + 3D 悬停 + 长条档 ===== */
+
+/* 开合动画：160–180ms，一下到底，无 spring 回弹 */
+html body .widget-panel-overlay {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 160ms cubic-bezier(.16, 1, .3, 1) !important;
+}
+html body .widget-panel-overlay.show { opacity: 1; pointer-events: auto; }
+html body .widget-panel-overlay .widget-panel {
+    opacity: 0;
+    transform: translateY(10px) scale(.985) !important;
+    transition: transform 180ms cubic-bezier(.16, 1, .3, 1), opacity 160ms cubic-bezier(.16, 1, .3, 1) !important;
+}
+html body .widget-panel-overlay.show .widget-panel { opacity: 1; transform: none !important; }
+
+/* 尺寸滑轨（五档分组） */
+html body #widgetPanel .widget-panel-sizerail {
+    display: flex; align-items: center; gap: 12px;
+    padding: 2px 2px 14px; flex: 0 0 auto;
+}
+html body #widgetPanel .wp-rail-title {
+    font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+    color: rgba(37, 52, 76, .45); flex: 0 0 auto;
+}
+html body #widgetPanel .wp-rail {
+    position: relative; display: flex; gap: 2px; padding: 3px;
+    border-radius: 11px; background: rgba(15, 23, 42, .06);
+    border: 1px solid rgba(15, 23, 42, .05);
+}
+html body #widgetPanel .wp-rail-pill {
+    position: absolute; top: 3px; bottom: 3px; left: 0; width: 0;
+    border-radius: 8px; background: #fff;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, .14), 0 0 0 1px rgba(15, 23, 42, .03) inset;
+    transition: left 180ms cubic-bezier(.16, 1, .3, 1), width 180ms cubic-bezier(.16, 1, .3, 1);
+}
+html body #widgetPanel .wp-rail-item {
+    position: relative; z-index: 1; appearance: none; border: 0; background: transparent;
+    padding: 6px 13px; border-radius: 8px; cursor: pointer;
+    font: 600 11.5px/1 -apple-system, "Segoe UI", system-ui, sans-serif;
+    color: rgba(37, 52, 76, .62); transition: color 140ms ease;
+    white-space: nowrap;
+}
+html body #widgetPanel .wp-rail-item[aria-checked="true"] { color: #16233a; }
+html body #widgetPanel .wp-rail-item:focus-visible { outline: 2px solid rgba(64, 122, 255, .5); outline-offset: 1px; }
+html body #widgetPanel .wp-rail-hint {
+    font-size: 10.5px; color: rgba(37, 52, 76, .42); margin-left: auto;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+html body.dark-mode #widgetPanel .wp-rail { background: rgba(255, 255, 255, .07); border-color: rgba(255, 255, 255, .08); }
+html body.dark-mode #widgetPanel .wp-rail-pill { background: rgba(255, 255, 255, .14); box-shadow: 0 1px 4px rgba(0, 0, 0, .4); }
+html body.dark-mode #widgetPanel .wp-rail-item { color: rgba(224, 233, 247, .6); }
+html body.dark-mode #widgetPanel .wp-rail-item[aria-checked="true"] { color: #f2f7ff; }
+html body.dark-mode #widgetPanel .wp-rail-title,
+html body.dark-mode #widgetPanel .wp-rail-hint { color: rgba(224, 233, 247, .42); }
+
+/* 画廊：更大的预览、等宽列、长条跨两列 */
+html body #widgetPanel .widget-panel-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(164px, 1fr)) !important;
+    gap: 14px !important;
+    align-content: start !important;
+    padding: 2px 4px 18px 2px !important;
+    overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+html body #widgetPanel .widget-panel-card {
+    padding: 10px 10px 8px !important;
+    border-radius: 16px !important;
+    display: flex; flex-direction: column; gap: 8px;
+}
+html body #widgetPanel .widget-panel-card-preview {
+    height: 138px !important; border-radius: 13px !important;
+    transform-style: preserve-3d;
+    transform: perspective(760px) rotateX(var(--gx, 0deg)) rotateY(var(--gy, 0deg)) translateY(var(--gt, 0px));
+    transition: transform 180ms cubic-bezier(.16, 1, .3, 1);
+    will-change: transform;
+}
+html body #widgetPanel .widget-panel-grid[data-group="bar"] .widget-panel-card { grid-column: span 2; }
+html body #widgetPanel .widget-panel-grid[data-group="bar"] .widget-panel-card-preview { height: 78px !important; }
+
+/* 卡片内的尺寸控件退化成一行只读标注（尺寸选择交给顶部滑轨） */
+html body #widgetPanel .widget-panel-card-sizes {
+    position: static !important;
+    height: 15px !important; margin: 0 !important;
+    display: flex; align-items: center; justify-content: flex-start;
+}
+html body #widgetPanel .wp-size-slider { display: none !important; }
+html body #widgetPanel .wp-size-readout {
+    font-size: 10px !important; letter-spacing: .02em;
+    color: rgba(37, 52, 76, .42) !important;
+}
+html body.dark-mode #widgetPanel .wp-size-readout { color: rgba(224, 233, 247, .45) !important; }
+
+/* 放置飞入：从画廊位置到桌面槽位的落位轻回弹 */
+@keyframes n26DropIn {
+    0%   { transform: scale(.94); opacity: .55; }
+    62%  { transform: scale(1.015); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+html body #desktopWidgets .desktop-widget-card.n26-drop-in {
+    animation: n26DropIn 220ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html body .widget-panel-overlay,
+    html body .widget-panel-overlay .widget-panel,
+    html body #widgetPanel .wp-rail-pill,
+    html body #widgetPanel .widget-panel-card-preview { transition: none !important; }
+    html body #desktopWidgets .desktop-widget-card.n26-drop-in { animation: none !important; }
+}
+
+/* ===== v4.1 主题一致性 =====
+   1) 浅色模式下不再有深蓝/近黑底盘：原先写死的深色主色改成浅色系，文字同步转墨色
+   2) 只要 html[data-mode="dark"] 成立（即使 body 还没挂 dark-mode），也走深色盘 */
+
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="clock"],
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="time"],
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="dualtime"] {
+    --w-tint-a: #f4f6fa; --w-tint-b: #dfe6f1;
+    --w-fg: #16202e; --w-fg-soft: rgba(22, 32, 46, .72); --w-fg-faint: rgba(22, 32, 46, .48);
+    --w-text: #16202e; --w-text-strong: #16202e;
+    --w-text-soft: rgba(22, 32, 46, .72); --w-text-faint: rgba(22, 32, 46, .48);
+    --w-hair: rgba(22, 32, 46, .16); --w-well: rgba(22, 32, 46, .07);
+    --w-accent: #2b4a7a;
+}
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="system"] {
+    --w-tint-a: #f5f7fb; --w-tint-b: #e3e9f2;
+    --w-fg: #17222f; --w-fg-soft: rgba(23, 34, 47, .7); --w-fg-faint: rgba(23, 34, 47, .46);
+    --w-text: #17222f; --w-text-strong: #17222f;
+    --w-text-soft: rgba(23, 34, 47, .7); --w-text-faint: rgba(23, 34, 47, .46);
+    --w-hair: rgba(23, 34, 47, .15); --w-well: rgba(23, 34, 47, .07);
+    --w-accent: #2b4a7a;
+}
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="wallpaperpick"] {
+    --w-tint-a: #f2f4f8; --w-tint-b: #dfe5ef;
+    --w-fg: #18222f; --w-fg-soft: rgba(24, 34, 47, .7); --w-fg-faint: rgba(24, 34, 47, .46);
+    --w-text: #18222f; --w-text-strong: #18222f;
+    --w-text-soft: rgba(24, 34, 47, .7); --w-text-faint: rgba(24, 34, 47, .46);
+    --w-hair: rgba(24, 34, 47, .15); --w-well: rgba(24, 34, 47, .07);
+}
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="sleep"] {
+    --w-tint-a: #eef1fb; --w-tint-b: #d5def5;
+    --w-fg: #1a2440; --w-fg-soft: rgba(26, 36, 64, .7); --w-fg-faint: rgba(26, 36, 64, .46);
+    --w-text: #1a2440; --w-text-strong: #1a2440;
+    --w-text-soft: rgba(26, 36, 64, .7); --w-text-faint: rgba(26, 36, 64, .46);
+    --w-hair: rgba(26, 36, 64, .14); --w-well: rgba(26, 36, 64, .07);
+}
+/* html[data-mode="dark"] 单独成立时也走深色盘 */
+html[data-mode="dark"] body:not(.dark-mode) .desktop-widget-card[data-wtype] {
+    background: linear-gradient(160deg, var(--w-tint-da, #14304f) 0%, var(--w-tint-db, #0b1728) 100%) !important;
+    color: var(--w-fg-d, #fff) !important;
+}
+
+/* 图片兜底：资源加载失败时不留空白/灰块，换成字形 */
+html body #desktopWidgets .n26-img-fallback,
+html body #widgetPanel .n26-img-fallback {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; min-height: 18px; color: var(--w-fg, #fff); opacity: .62;
+}
+html body #widgetPanel .n26-img-fallback { color: rgba(120, 138, 160, .9); }
+
+/* 浅色模式：天空照片层只服务深色主题；浅色回落到浅色卡面，文字转墨色（对比度 ≥4.5） */
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-sky="1"] > .n26-sky-layer {
+    display: none !important;
+}
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-sky="1"] .widget-clock-time,
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-sky="1"] .widget-clock-date,
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-sky="1"] .widget-clock-week,
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-sky="1"] .n26-sky-sun {
+    color: var(--w-fg, #16202e) !important;
+    text-shadow: none !important;
+}
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-sky="1"] .n26-sky-sun,
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-sky="1"] .n26-sky-sun .s-phase {
+    color: var(--w-fg, #16202e) !important;
+}
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-sky="1"].wsize-m::before,
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-sky="1"].wsize-l::before {
+    background: rgba(22, 32, 45, .12) !important;
+}
+
+/* 天气横向长条（6×1）：单行横排，一条线读完，不叠层不裁切 */
+html body .desktop-widget-card[data-wtype="weather"] .widget-weather.is-bar {
+    display: flex !important;
+    grid-template-columns: none !important;
+    grid-template-rows: none !important;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 0 18px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+html body .desktop-widget-card .widget-weather.is-bar .widget-weather-icon {
+    font-size: 19px;
+    flex: 0 0 auto;
+    order: 0;
+}
+html body .desktop-widget-card .widget-weather.is-bar .widget-weather-city {
+    font-size: 12.5px;
+    font-weight: 600;
+    opacity: .9;
+    flex: 0 0 auto;
+}
+html body .desktop-widget-card .widget-weather.is-bar .widget-weather-temp {
+    font-size: 26px !important;
+    line-height: 1;
+    letter-spacing: -1px !important;
+    margin: 0 !important;
+    flex: 0 0 auto;
+}
+html body .desktop-widget-card .widget-weather.is-bar .widget-weather-status {
+    font-size: 12px;
+    margin: 0 4px 0 0;
+    opacity: .82;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+html body .desktop-widget-card .widget-weather.is-bar .widget-weather-bar-meta {
+    font-size: 11.5px;
+    opacity: .82;
+    font-variant-numeric: tabular-nums;
+    flex: 0 0 auto;
+}
+html body .desktop-widget-card .widget-weather.is-bar .widget-weather-status + .widget-weather-bar-meta {
+    margin-left: auto;
+}
+html body .desktop-widget-card .widget-weather.is-bar .widget-weather-bar-meta i { margin-right: 3px; opacity: .8; }
+
+/* 相册：照片背景上必须有压暗层，否则浅色照片会把白字吞掉（对比度 ≥4.5） */
+html body .desktop-widget-card[data-wtype="photos"] .w-ph-mask,
+html body .desktop-widget-card[data-wtype="photos"] .w-ph::after {
+    background: linear-gradient(180deg, rgba(10, 14, 22, .38) 0%, rgba(10, 14, 22, .62) 52%, rgba(10, 14, 22, .80) 100%) !important;
+}
+html body .desktop-widget-card[data-wtype="photos"] .w-ph-mask span,
+html body .desktop-widget-card[data-wtype="photos"] .w-ph-mask small {
+    color: #fff !important;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .55), 0 0 12px rgba(0, 0, 0, .35);
+}
+
+/* ===== v5 两级流程 · 尺寸滚轮 =====
+   一级：组件列表（每个组件只出现一次）
+   二级：选中后进入尺寸滚轮，中间实时预览，滚轮/拖拽/方向键连续过全部尺寸
+   点中间尺寸或「放到桌面」即放置，选择页自动退场 */
+
+/* 一级卡片：名称单行完整显示，不被卡片裁切；间距与内边距统一 */
+html body #widgetPanel .widget-panel-card { overflow: visible !important; }
+html body #widgetPanel .widget-panel-card-name {
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 16px;
+    font-size: 12.5px;
+    margin: 0 !important;
+    padding: 0 2px !important;
+}
+
+/* 组件选择面板：两个层级共用同一高度，避免进二级时面板突然变大变小 */
+html body #widgetPanel .widget-panel {
+    height: min(820px, 88vh);
+    min-height: min(820px, 88vh);
+}
+
+/* 进入二级：header / 描述 / 尺寸滑轨 / 列表全部让位给滚轮 */
+html body #widgetPanel .widget-panel.n26-detail > .widget-panel-header,
+html body #widgetPanel .widget-panel.n26-detail > .widget-panel-desc,
+html body #widgetPanel .widget-panel.n26-detail > .widget-panel-sizerail,
+html body #widgetPanel .widget-panel.n26-detail > .widget-panel-body {
+    display: none !important;
+}
+
+html body #n26SizeWheel {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* —— 二级头部 —— */
+html body .n26-wheel-head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+html body .n26-wheel-back {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px 0 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(15, 23, 42, .09);
+    background: rgba(15, 23, 42, .055);
+    color: #25344c;
+    font: 600 12px/1 -apple-system, "Segoe UI", system-ui, sans-serif;
+    cursor: pointer;
+    transition: background-color 160ms cubic-bezier(.16, 1, .3, 1);
+}
+html body .n26-wheel-back i { font-size: 10px; opacity: .65; }
+html body .n26-wheel-back:hover { background: rgba(15, 23, 42, .10); }
+html body .n26-wheel-back:focus-visible { outline: 2px solid rgba(64, 122, 255, .5); outline-offset: 1px; }
+
+html body .n26-wheel-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    font: 650 16px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif;
+    color: #16202b;
+    letter-spacing: .1px;
+    white-space: nowrap;
+}
+html body .n26-wheel-title i { font-size: 13px; color: #6b7b90; }
+html body .n26-wheel-count {
+    margin-left: auto;
+    font: 500 11.5px/1 -apple-system, "Segoe UI", system-ui, sans-serif;
+    color: rgba(22, 32, 45, .62);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+html body .n26-wheel-close {
+    appearance: none;
+    width: 30px; height: 30px;
+    flex: 0 0 auto;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: none; border-radius: 50%;
+    background: rgba(15, 23, 42, .06);
+    color: #25344c;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 160ms cubic-bezier(.16, 1, .3, 1), color 160ms ease;
+}
+html body .n26-wheel-close:hover { background: rgba(239, 68, 68, .16); color: #dc2626; }
+
+/* —— 二级：尺寸滚轮 —— */
+html body .n26-wheel-track {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    gap: 36px;
+    padding: 0 calc(50% - 290px);
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    cursor: grab;
+    touch-action: pan-y;
+}
+html body .n26-wheel-track::-webkit-scrollbar { display: none; }
+html body .n26-wheel-track:active { cursor: grabbing; }
+html body .n26-wheel-track:focus-visible { outline: 2px solid rgba(64, 122, 255, .42); outline-offset: -3px; border-radius: 20px; }
+
+html body .n26-w-item {
+    flex: 0 0 300px;
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    transition: flex-basis 240ms cubic-bezier(.16, 1, .3, 1), width 240ms cubic-bezier(.16, 1, .3, 1), opacity 180ms ease;
+}
+html body .n26-w-item.on { flex: 0 0 580px; width: 580px; }
+html body .n26-w-stage {
+    width: 300px;
+    height: 236px;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 18px;
+    background: rgba(15, 23, 42, .035);
+    opacity: .55;
+    transition: opacity 200ms ease, width 240ms cubic-bezier(.16, 1, .3, 1), height 240ms cubic-bezier(.16, 1, .3, 1);
+    will-change: width, height;
+}
+html body .n26-w-item.on .n26-w-stage {
+    width: 580px;
+    height: 300px;
+    opacity: 1;
+    background: rgba(15, 23, 42, .045);
+}
+/* 框体尺寸由 JS 按当前组件比例贴合（580×300 内等比），卡片缩放同步过渡，切换时不会露边或裁切 */
+html body .n26-w-stage .widget-preview-card {
+    transition: transform 240ms cubic-bezier(.16, 1, .3, 1);
+}
+html body .n26-w-dim {
+    font: 600 12px/1 -apple-system, "Segoe UI", system-ui, sans-serif;
+    color: rgba(22, 32, 45, .78);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .02em;
+    transition: color 180ms ease;
+}
+html body .n26-w-item.on .n26-w-dim { color: #16202b; }
+
+/* —— 二级底部：当前尺寸说明 + 放置 —— */
+html body .n26-wheel-foot {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding-top: 2px;
+    min-width: 0;
+}
+html body .n26-wheel-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+    white-space: nowrap;
+}
+html body .n26-wheel-dim {
+    font: 700 15px/1 -apple-system, "Segoe UI", system-ui, sans-serif;
+    color: #16202b;
+    font-variant-numeric: tabular-nums;
+}
+html body .n26-wheel-dens {
+    font: 500 12px/1 -apple-system, "Segoe UI", system-ui, sans-serif;
+    color: rgba(22, 32, 45, .62);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+html body .n26-wheel-hint {
+    margin-left: auto;
+    font: 500 11.5px/1 -apple-system, "Segoe UI", system-ui, sans-serif;
+    color: rgba(22, 32, 45, .74);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+html body .n26-wheel-place {
+    appearance: none;
+    flex: 0 0 auto;
+    height: 42px;
+    padding: 0 22px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font: 600 13.5px/1 -apple-system, "Segoe UI", system-ui, sans-serif;
+    color: #fff;
+    background: linear-gradient(180deg, #5aa9ff, #3b82f6);
+    box-shadow: 0 8px 20px rgba(59, 130, 246, .28), inset 0 1px 0 rgba(255, 255, 255, .30);
+    transition: transform 160ms cubic-bezier(.16, 1, .3, 1), filter 160ms ease, box-shadow 160ms ease;
+}
+html body .n26-wheel-place:hover { filter: brightness(1.04); transform: translateY(-1px); }
+html body .n26-wheel-place:active { transform: translateY(0) scale(.985); }
+html body .n26-wheel-place:focus-visible { outline: 2px solid rgba(64, 122, 255, .55); outline-offset: 2px; }
+
+/* —— 二级深色 —— */
+html body.dark-mode .n26-wheel-back {
+    background: rgba(255, 255, 255, .08);
+    border-color: rgba(255, 255, 255, .12);
+    color: #e6edf7;
+}
+html body.dark-mode .n26-wheel-back:hover { background: rgba(255, 255, 255, .14); }
+html body.dark-mode .n26-wheel-title { color: #f3f7fd; }
+html body.dark-mode .n26-wheel-title i { color: #9db0c7; }
+html body.dark-mode .n26-wheel-count,
+html body.dark-mode .n26-wheel-dens { color: rgba(231, 240, 252, .72); }
+html body.dark-mode .n26-wheel-close { background: rgba(255, 255, 255, .09); color: #e6edf7; }
+html body.dark-mode .n26-wheel-close:hover { background: rgba(239, 68, 68, .24); color: #fca5a5; }
+html body.dark-mode .n26-w-stage { background: rgba(255, 255, 255, .05); }
+html body.dark-mode .n26-w-item.on .n26-w-stage { background: rgba(255, 255, 255, .075); }
+html body.dark-mode .n26-w-item:not(.on) .n26-w-stage { opacity: .7 !important; }
+html body.dark-mode .n26-w-dim { color: rgba(231, 240, 252, .58); }
+html body.dark-mode .n26-w-item.on .n26-w-dim { color: #f3f7fd !important; }
+html body.dark-mode .n26-wheel-dim { color: #f3f7fd; }
+html body.dark-mode .n26-wheel-hint { color: rgba(231, 240, 252, .58); }
+html body.dark-mode .n26-wheel-place {
+    background: linear-gradient(180deg, #589bf0, #2f6ae0);
+    box-shadow: 0 8px 22px rgba(15, 40, 92, .55), inset 0 1px 0 rgba(255, 255, 255, .18);
+}
+/* html[data-mode="dark"] 但 body 还没挂 dark-mode 时同样生效 */
+html[data-mode="dark"] body:not(.dark-mode) .n26-wheel-title,
+html[data-mode="dark"] body:not(.dark-mode) .n26-wheel-dim { color: #f3f7fd; }
+html[data-mode="dark"] body:not(.dark-mode) .n26-wheel-back,
+html[data-mode="dark"] body:not(.dark-mode) .n26-wheel-close {
+    background: rgba(255, 255, 255, .08);
+    color: #e6edf7;
+}
+
+/* —— 二级：窄屏 / 矮屏降一档，但保持信息完整 —— */
+@media (max-width: 1350px), (max-height: 780px) {
+    html body .n26-w-item { flex: 0 0 240px; width: 240px; }
+    html body .n26-w-item.on { flex: 0 0 360px; width: 360px; }
+    html body .n26-w-stage { width: 240px; height: 196px; }
+    html body .n26-w-item.on .n26-w-stage { width: 340px; height: 210px; }
+    html body .n26-wheel-track { padding: 0 calc(50% - 180px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html body .n26-w-stage { transition: none !important; transform: none !important; opacity: 1 !important; }
+    html body .n26-w-stage .widget-preview-card { transition: none !important; }
+    html body .n26-wheel-place,
+    html body .n26-wheel-back,
+    html body .n26-wheel-close,
+    html body .n26-w-dim { transition: none !important; }
+    html body .n26-w-item:not(.on) .n26-w-stage { opacity: .5 !important; }
+}
+
+/* =====================================================================
+   v6 · 配色收敛
+   整块高饱和的组件统一回中性玻璃底，颜色只保留一处小面积强调；
+   天气 / 日历 / 时钟这类靠内容撑版面的保持原样。
+   ===================================================================== */
+html body .desktop-widget-card[data-wtype="focus"],
+html body .desktop-widget-card[data-wtype="pomodoro"],
+html body .desktop-widget-card[data-wtype="minigame"],
+html body .desktop-widget-card[data-wtype="quicklaunch"],
+html body .desktop-widget-card[data-wtype="clipboard"],
+html body .desktop-widget-card[data-wtype="battery"],
+html body .desktop-widget-card[data-wtype="network"],
+html body .desktop-widget-card[data-wtype="stopwatch"],
+html body .desktop-widget-card[data-wtype="countdown"] {
+    --w-tint-a: rgba(255, 255, 255, .93);
+    --w-tint-b: rgba(243, 246, 250, .86);
+    --w-tint-da: rgba(40, 44, 52, .94);
+    --w-tint-db: rgba(26, 29, 35, .92);
+}
+
+/* 浅色：墨色字，与日历/待办同一套文字层级 */
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="focus"],
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="pomodoro"],
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="minigame"],
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="quicklaunch"],
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="clipboard"],
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="battery"],
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="network"],
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="stopwatch"],
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="countdown"] {
+    --w-fg: #101923;
+    --w-fg-soft: rgba(16, 25, 35, .64);
+    --w-fg-faint: rgba(16, 25, 35, .42);
+    --w-text: #101923;
+    --w-text-strong: #050b12;
+    --w-text-soft: rgba(16, 25, 35, .64);
+    --w-text-faint: rgba(16, 25, 35, .42);
+    --w-hair: rgba(16, 25, 35, .10);
+    --w-well: rgba(16, 25, 35, .06);
+    --w-accent: #2f6fd0;
+    color: #101923 !important;
+}
+/* 深色：保持白字，底子是同族中性石墨 */
+html body.dark-mode .desktop-widget-card[data-wtype="focus"],
+html body.dark-mode .desktop-widget-card[data-wtype="pomodoro"],
+html body.dark-mode .desktop-widget-card[data-wtype="minigame"],
+html body.dark-mode .desktop-widget-card[data-wtype="quicklaunch"],
+html body.dark-mode .desktop-widget-card[data-wtype="clipboard"],
+html body.dark-mode .desktop-widget-card[data-wtype="battery"],
+html body.dark-mode .desktop-widget-card[data-wtype="network"],
+html body.dark-mode .desktop-widget-card[data-wtype="stopwatch"],
+html body.dark-mode .desktop-widget-card[data-wtype="countdown"] {
+    --w-fg: #f5f7fb;
+    --w-fg-soft: rgba(245, 247, 251, .66);
+    --w-fg-faint: rgba(245, 247, 251, .42);
+    --w-text: #f5f7fb;
+    --w-text-strong: #ffffff;
+    --w-text-soft: rgba(245, 247, 251, .66);
+    --w-text-faint: rgba(245, 247, 251, .42);
+    --w-hair: rgba(255, 255, 255, .14);
+    --w-well: rgba(255, 255, 255, .08);
+    --w-accent: #7cb2ff;
+    --w-fg-d: #f5f7fb;
+    color: #f5f7fb !important;
+}
+
+/* 浅色下这些类被旧「色块白字」规则写死，必须压回墨色 */
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="focus"] .widget-focus-time,
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="focus"] .widget-focus-label,
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="minigame"] .widget-minigame-title,
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="minigame"] .widget-minigame-name,
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="battery"] .widget-system-row-val,
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="network"] .widget-system-row-val,
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="battery"] .widget-system-row-head,
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="network"] .widget-system-row-head,
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="quicklaunch"] .w-ql-nm,
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="clipboard"] .w-cb-hd {
+    color: #101923 !important;
+    text-shadow: none !important;
+}
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="clipboard"] .w-empty { color: rgba(16, 25, 35, .62) !important; }
+
+/* 每个组件只留一处强调色 */
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="minigame"] .widget-minigame-title i { color: #ea580c !important; }
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="quicklaunch"] .w-ql-ic { color: #2f6fd0 !important; filter: none !important; }
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="clipboard"] .w-cb-hd > i { color: #0f766e !important; }
+html body .desktop-widget-card[data-wtype="focus"] .widget-focus-ring svg circle + circle { stroke: var(--w-accent) !important; }
+
+/* 浅色卡片上的「白色 pill」换成中性压暗，避免白上白 */
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="quicklaunch"] .w-ql-btn { background: rgba(16, 25, 35, .055) !important; }
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="clipboard"] .w-cb-item:hover { background: rgba(16, 25, 35, .07) !important; }
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="stopwatch"] .w-sw-mode,
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="stopwatch"] .w-sw-b { background: rgba(16, 25, 35, .07) !important; }
+
+/* 天气同属内容型卡片：底子回中性玻璃，颜色只在图标上留一点强调 */
+html body .desktop-widget-card[data-wtype="weather"] {
+    --w-tint-a: rgba(255, 255, 255, .93);
+    --w-tint-b: rgba(243, 246, 250, .86);
+    --w-tint-da: rgba(40, 44, 52, .94);
+    --w-tint-db: rgba(26, 29, 35, .92);
+}
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="weather"] {
+    --w-text: #101923;
+    --w-text-strong: #050b12;
+    --w-text-soft: rgba(16, 25, 35, .64);
+    --w-text-faint: rgba(16, 25, 35, .42);
+    color: #101923 !important;
+}
+html body.dark-mode .desktop-widget-card[data-wtype="weather"] {
+    --w-text: #f5f7fb;
+    --w-text-strong: #ffffff;
+    --w-text-soft: rgba(245, 247, 251, .66);
+    --w-text-faint: rgba(245, 247, 251, .42);
+    color: #f5f7fb !important;
+}
+html:not([data-mode="dark"]) body:not(.dark-mode) .desktop-widget-card[data-wtype="weather"] .widget-weather-icon { color: #2f6fd0 !important; }
+html body.dark-mode .desktop-widget-card[data-wtype="weather"] .widget-weather-icon { color: #8db9ff !important; }
+
+/* 4 列宽度：右列给固定可用宽度，别把湿度/风速挤成一条竖缝 */
+html body .desktop-widget-card[data-wtype="weather"].wcols-4 .widget-weather:not(.is-bar) {
+    grid-template-columns: 1fr 96px !important;
+}
+
+/* 2×2：单列，不再留一条 23px 宽的空右列 */
+html body .desktop-widget-card[data-wtype="weather"].wsize-s .widget-weather:not(.is-bar) {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto 1fr !important;
+}
+html body .desktop-widget-card[data-wtype="weather"].wsize-s .widget-weather-extra {
+    grid-column: 1 !important;
+    grid-row: 3 !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    font-size: 10.5px !important;
+}
+
+
+

@@ -15,30 +15,48 @@
   --ease-anticipate: cubic-bezier(0.68, -0.55, 0.27, 1.55);
   --ease-smooth:     cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* ---- 动效：时长 ---- */
-  --dur-instant: 90ms;
-  --dur-fast:    160ms;
-  --dur-base:    260ms;
-  --dur-slow:    400ms;
-  --dur-slower:  560ms;
+  /* ---- 动效：时长收敛为四档，主壳统一消费 ----
+     t1 90–180ms  微反馈（hover / press）
+     t2 180–260ms 小面板淡入淡出
+     t3 280–460ms 窗口开合 / 最大化 / 弹层
+     t4 500–700ms 场景级（启动台 / 锁屏） */
+  --dur-t1: 120ms;
+  --dur-t2: 220ms;
+  --dur-t3: 400ms;
+  --dur-t4: 600ms;
+  --dur-instant: var(--dur-t1);
+  --dur-fast:    var(--dur-t2);
+  --dur-base:    260ms;            /* 落在 t2 档上沿 */
+  --dur-slow:    var(--dur-t3);
+  --dur-slower:  var(--dur-t4);
 
-  /* ---- 玻璃材质：L1 结构面（强磨砂） ---- */
-  --glass-blur:       30px;
-  --glass-blur-strong:40px;
-  --glass-saturate:   180%;
-  --glass-brightness: 1.06;
-  --glass-tint:       rgba(255, 255, 255, 0.55);
-  --glass-tint-2:     rgba(255, 255, 255, 0.34);
-  --glass-border:     rgba(255, 255, 255, 0.5);
-  --glass-border-2:   rgba(255, 255, 255, 0.28);
-  --glass-specular:   rgba(255, 255, 255, 0.85);   /* 高光边 */
-  --glass-shadow:     0 8px 32px rgba(15, 23, 42, 0.18), 0 2px 8px rgba(15, 23, 42, 0.10);
-  --glass-shadow-lift:0 18px 48px rgba(15, 23, 42, 0.26), 0 4px 14px rgba(15, 23, 42, 0.14);
-  --glass-inner:      inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.05);
+  /* ---- 玻璃材质：L1 结构面（同一套配方，按层级分档） ----
+     规则：饱和度不超过 150%、一律不做 brightness 增亮、
+           描边用黑色发丝边、高光只留顶部一条。
+     分档只靠「模糊半径 + tint 透明度 + 阴影」区分，不再靠提亮。
+     模糊只保留三档（1× / 0.5× / 0.35×），不再散落一堆系数。 */
+  --glass-blur-1:      34px;   /* 1×    全屏弹层：启动台 / 开始菜单 / 锁屏 */
+  --glass-blur-2:      17px;   /* 0.5×  窗口 / Dock / 侧栏面板 */
+  --glass-blur-3:      12px;   /* 0.35× 卡片 / 右键菜单 / 小浮层 */
+  --glass-blur-window: var(--glass-blur-2);
+  --glass-blur-panel:  var(--glass-blur-2);
+  --glass-blur-dock:   var(--glass-blur-2);
+  --glass-blur:        var(--glass-blur-2);
+  --glass-blur-strong: var(--glass-blur-2);
+  --glass-saturate:    148%;
+  --glass-brightness:  1;      /* 显式归零：不要再增亮 */
+  --glass-tint:        rgba(255, 255, 255, 0.55);
+  --glass-tint-2:      rgba(255, 255, 255, 0.34);
+  --glass-border:      rgba(0, 0, 0, 0.10);      /* 黑色发丝边，亮壁纸上才勾得出形状 */
+  --glass-border-2:    rgba(0, 0, 0, 0.06);
+  --glass-specular:    rgba(255, 255, 255, 0.35); /* 只留顶部一条，不再四边高光 */
+  --glass-shadow:      0 16px 48px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.08);
+  --glass-shadow-lift: 0 20px 56px rgba(0, 0, 0, 0.18), 0 6px 16px rgba(0, 0, 0, 0.10);
+  --glass-inner:       inset 0 1px 0 rgba(255,255,255,0.35);
 
   /* ---- 玻璃材质：L0 英雄面（位移折射 + 流体） ---- */
-  --glass-hero-blur: 22px;
-  --glass-hero-saturate: 190%;
+  --glass-hero-blur: var(--glass-blur-2);
+  --glass-hero-saturate: 145%;
 
   /* ---- 圆角 ---- */
   --r-xs: 6px;  --r-sm: 10px;  --r-md: 14px;  --r-lg: 20px;
@@ -54,10 +72,16 @@
   --fs-11: 11px; --fs-12: 12px; --fs-13: 13px; --fs-14: 14px;
   --fs-16: 16px; --fs-18: 18px; --fs-22: 22px; --fs-28: 28px; --fs-34: 34px;
 
-  /* ---- 阴影 ---- */
-  --shadow-1: 0 1px 2px rgba(15,23,42,0.08), 0 1px 3px rgba(15,23,42,0.06);
-  --shadow-2: 0 4px 12px rgba(15,23,42,0.12), 0 2px 4px rgba(15,23,42,0.08);
-  --shadow-3: 0 12px 32px rgba(15,23,42,0.18), 0 4px 12px rgba(15,23,42,0.10);
+  /* ---- 阴影：4 档，中性黑，不带冷蓝倾向 ----
+     卡片 / 浮层 / 窗口 / Dock。窗口永远用窗口档，不再与小控件混用。 */
+  --sh-card:   0 1px 2px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.05);
+  --sh-pop:    0 4px 16px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06);
+  --sh-window: 0 16px 48px rgba(0,0,0,0.16), 0 4px 12px rgba(0,0,0,0.08);
+  --sh-dock:   0 10px 28px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-1: var(--sh-card);
+  --shadow-2: var(--sh-pop);
+  --shadow-3: var(--sh-window);
+  --shadow-4: var(--sh-dock);
 
   /* ---- 主色 ---- */
   --primary: #3b82f6;
@@ -81,18 +105,19 @@
 body.dark-mode {
   --glass-tint:      rgba(20, 24, 34, 0.55);
   --glass-tint-2:    rgba(16, 20, 30, 0.36);
-  --glass-border:    rgba(255, 255, 255, 0.16);
-  --glass-border-2:  rgba(255, 255, 255, 0.10);
-  --glass-specular:  rgba(255, 255, 255, 0.30);
-  --glass-shadow:    0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.30);
-  --glass-shadow-lift:0 18px 48px rgba(0,0,0,0.55), 0 4px 14px rgba(0,0,0,0.35);
-  --glass-inner:     inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -1px 0 rgba(0,0,0,0.30);
+  --glass-border:    rgba(255, 255, 255, 0.14);   /* 深色下用浅发丝边 */
+  --glass-border-2:  rgba(255, 255, 255, 0.08);
+  --glass-specular:  rgba(255, 255, 255, 0.16);
+  --glass-shadow:    0 16px 48px rgba(0,0,0,0.50), 0 4px 12px rgba(0,0,0,0.32);
+  --glass-shadow-lift:0 20px 56px rgba(0,0,0,0.56), 0 6px 16px rgba(0,0,0,0.36);
+  --glass-inner:     inset 0 1px 0 rgba(255,255,255,0.10);
   --text-1: rgba(240, 244, 252, 0.96);
   --text-2: rgba(226, 232, 240, 0.70);
   --text-3: rgba(203, 213, 225, 0.48);
-  --shadow-1: 0 1px 2px rgba(0,0,0,0.4);
-  --shadow-2: 0 4px 12px rgba(0,0,0,0.45);
-  --shadow-3: 0 12px 32px rgba(0,0,0,0.55);
+  --sh-card:   0 1px 2px rgba(0,0,0,0.30), 0 2px 8px rgba(0,0,0,0.24);
+  --sh-pop:    0 4px 16px rgba(0,0,0,0.38), 0 2px 6px rgba(0,0,0,0.28);
+  --sh-window: 0 16px 48px rgba(0,0,0,0.50), 0 4px 12px rgba(0,0,0,0.32);
+  --sh-dock:   0 10px 28px rgba(0,0,0,0.42), 0 2px 8px rgba(0,0,0,0.26);
 }
 
 /* ---- 减少动效：统一降级 ---- */

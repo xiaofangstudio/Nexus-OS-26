@@ -38,9 +38,15 @@ const STREAM_HOSTS = [
   /(^|\.)mzstatic\.com$/i,
   /(^|\.)itunes\.apple\.com$/i,
   /(^|\.)apple\.com$/i,
+  /(^|\.)injahow\.cn$/i,
 ];
 
 const BOARDS = { hot: '3778678', new: '3779629', up: '19723756' };
+
+// 免 key 的网易云镜像（Cloudflare 出口直连 music.163.com 搜索会 -462，用它对网易云取数）
+const GD = 'https://music-api.gdstudio.xyz/api.php';
+const VK = 'https://api.vkeys.cn/v2/music/netease';
+const MT = 'https://api.injahow.cn/meting/';
 
 /* ---------------- 工具 ---------------- */
 
@@ -139,40 +145,76 @@ function neTrack(s) {
 }
 
 async function neSearch(env, q, limit) {
-  const key = 'music:q:ne:' + q + ':' + limit;
-  const r1 = await neGet(env, '/api/search/get/web?s=' + encodeURIComponent(q) + '&type=1&limit=' + limit + '&offset=0', key, 600);
-  const songs = (r1.result && r1.result.songs) || [];
-  if (!songs.length) return [];
-  // 批量详情补封面 / fee / 规范时长（search/get/web 不带 picUrl）
-  const ids = songs.slice(0, limit).map(s => ({ id: s.id }));
-  let det = {};
+  const key = 'music:q2:ne:' + q + ':' + limit;
+  const hit = await kvGetJSON(env, key);
+  if (Array.isArray(hit) && hit.length) return hit;
+  let lastErr = null;
+
+  // ① 网易云官方（境内 IP 可用；CF 出口常 -462）
   try {
-    const r2 = await neGet(env, '/api/v3/song/detail?c=' + encodeURIComponent(JSON.stringify(ids)), null, 0);
-    (r2.songs || []).forEach(s => { det[s.id] = s; });
-  } catch (e) { /* 详情挂了也能出列表，只是没封面 */ }
-  return songs.map(s => neTrack(det[s.id] || s));
+    const r1 = await neGet(env, '/api/search/get/web?s=' + encodeURIComponent(q) + '&type=1&limit=' + limit + '&offset=0', null, 0);
+    const songs = (r1.result && r1.result.songs) || [];
+    if (songs.length) {
+      const ids = songs.slice(0, limit).map(s => ({ id: s.id }));
+      let det = {};
+      try {
+        const r2 = await neGet(env, '/api/v3/song/detail?c=' + encodeURIComponent(JSON.stringify(ids)), null, 0);
+        (r2.songs || []).forEach(s => { det[s.id] = s; });
+      } catch (e) { /* 无封面也能出列表 */ }
+      const out = songs.map(s => Object.assign(neTrack(det[s.id] || s), { playable: null, via: 'netease' }));
+      await kvPutJSON(env, key, out, 600);
+      return out;
+    }
+    lastErr = 'netease empty';
+  } catch (e) { lastErr = 'netease ' + (e && e.message); }
+
+  // ② VKeys（免 key，返回网易云曲库 + 封面）
+  try {
+    const out = await vkSearch(env, q, limit);
+    if (out.length) { await kvPutJSON(env, key, out, 600); return out; }
+    lastErr = 'vkeys empty';
+  } catch (e) { lastErr = 'vkeys ' + (e && e.message); }
+
+  // ③ GD Studio 镜像
+  const tracks = await gdSearch(env, q, limit);
+  if (tracks.length) { await kvPutJSON(env, key, tracks, 600); return tracks; }
+  throw new Error(lastErr || 'netease unavailable');
 }
 
 async function neUrl(env, id, br) {
   const key = 'music:url:ne:' + id + ':' + br;
   const hit = await kvGetJSON(env, key);
   if (hit) return hit;
-  const j = await neGet(env, '/api/song/enhance/player/url?ids=' + encodeURIComponent('[' + id + ']') + '&br=' + br, null, 0);
-  const d = (j.data || [])[0] || {};
-  if (!d.url) return { ok: false, reason: 'vip' };           // code 404 / url null = 无版权或 VIP
-  const out = { ok: true, url: d.url, br: d.br || br, type: d.type || 'mp3' };
-  await kvPutJSON(env, key, out, 600);                        // 网易 URL 签名约 20 分钟，缓存 10 分钟
-  return out;
+  try {
+    const j = await neGet(env, '/api/song/enhance/player/url?ids=' + encodeURIComponent('[' + id + ']') + '&br=' + br, null, 0);
+    const d = (j.data || [])[0] || {};
+    if (d.url) {
+      const out = { ok: true, url: d.url, br: d.br || br, type: d.type || 'mp3', via: 'netease' };
+      await kvPutJSON(env, key, out, 600);                      // 网易 URL 签名约 20 分钟，缓存 10 分钟
+      return out;
+    }
+  } catch (e) { /* 风控/超时 → 镜像兜底 */ }
+  const mt = await mtUrl(env, id);
+  if (mt && mt.ok) { await kvPutJSON(env, key, mt, 600); return mt; }
+  const gd = await gdUrl(env, id, br);
+  if (gd && gd.ok) { await kvPutJSON(env, key, gd, 600); return gd; }
+  return { ok: false, reason: 'vip', playable: false };
 }
 
 async function neLrc(env, id) {
   const key = 'music:lrc:ne:' + id;
   const hit = await kvGetJSON(env, key);
   if (hit) return hit;
-  const j = await neGet(env, '/api/song/lyric?id=' + id + '&lv=1&kv=1&tv=-1', null, 0);
-  const out = { ok: true, lrc: (j.lrc && j.lrc.lyric) || '' };
-  await kvPutJSON(env, key, out, 24 * 3600);
-  return out;
+  try {
+    const j = await neGet(env, '/api/song/lyric?id=' + id + '&lv=1&kv=1&tv=-1', null, 0);
+    const out = { ok: true, lrc: (j.lrc && j.lrc.lyric) || '', via: 'netease' };
+    if (out.lrc) { await kvPutJSON(env, key, out, 24 * 3600); return out; }
+  } catch (e) { /* 走镜像 */ }
+  const mt = await mtLrc(env, id);
+  if (mt && mt.ok) { await kvPutJSON(env, key, mt, 24 * 3600); return mt; }
+  const gd = await gdLrc(env, id);
+  if (gd.ok) { await kvPutJSON(env, key, gd, 24 * 3600); return gd; }
+  return { ok: true, lrc: '', via: 'none' };
 }
 
 async function neTop(env, board) {
@@ -263,6 +305,128 @@ async function dzUrl(env, id) {
   return out;
 }
 
+/* ---------------- VKeys / Meting 免 key 兜底 ---------------- */
+
+async function vkSearch(env, q, limit) {
+  const res = await upFetch(VK + '?word=' + encodeURIComponent(q) + '&num=' + limit, {
+    'User-Agent': NE_HEADERS['User-Agent'],
+    'Accept': 'application/json',
+  });
+  if (!res.ok) throw new Error('vkeys http ' + res.status);
+  const j = await res.json();
+  const arr = (j && j.data) || [];
+  if (!Array.isArray(arr)) return [];
+  return arr.map((t) => ({
+    id: String(t.id),
+    src: 'netease',
+    name: t.song || '',
+    artist: t.singer || '未知歌手',
+    album: t.album || '',
+    cover: (t.cover || '').replace(/^http:/, 'https:'),
+    picId: '',
+    dur: 0,
+    fee: null,
+    vip: null,
+    playable: null,
+    preview: false,
+    via: 'vkeys',
+  })).filter((t) => t.name);
+}
+
+/** Meting url：上游 302 → 取 Location（网易云真实音频直链） */
+async function mtUrl(env, id) {
+  try {
+    const res = await upFetch(MT + '?server=netease&type=url&id=' + encodeURIComponent(id), {
+      'User-Agent': NE_HEADERS['User-Agent'],
+      'Referer': 'https://music.163.com/',
+      'Accept': '*/*',
+    });
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get('Location') || '';
+      if (loc) return { ok: true, url: loc, br: 0, type: 'mp3', via: 'meting', size: 0 };
+    }
+    if (res.ok && /audio|octet-stream/.test(res.headers.get('Content-Type') || '')) {
+      return { ok: true, url: MT + '?server=netease&type=url&id=' + encodeURIComponent(id), br: 0, type: 'mp3', via: 'meting', size: 0 };
+    }
+  } catch (e) { /* 落到 vip */ }
+  return { ok: false, reason: 'vip', playable: false };
+}
+
+async function mtLrc(env, id) {
+  try {
+    const res = await upFetch(MT + '?server=netease&type=lrc&id=' + encodeURIComponent(id), {
+      'User-Agent': NE_HEADERS['User-Agent'], 'Accept': 'text/plain',
+    });
+    if (res.ok) {
+      const t = await res.text();
+      if (t && !/<html/i.test(t)) return { ok: true, lrc: t, via: 'meting' };
+    }
+  } catch (e) { /* ignore */ }
+  return { ok: false };
+}
+
+/* ---------------- 免 key 网易云镜像（Cloudflare 出口可用） ---------------- */
+
+async function gdGet(env, params) {
+  const u = new URL(GD);
+  Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, String(v)));
+  const res = await upFetch(u.toString(), { 'User-Agent': NE_HEADERS['User-Agent'] });
+  if (!res.ok) throw new Error('gd http ' + res.status);
+  const text = await res.text();
+  try { return JSON.parse(text); } catch (e) { throw new Error('gd non-json'); }
+}
+
+async function gdSearch(env, q, limit) {
+  const key = 'music:q:gd:' + q + ':' + limit;
+  const hit = await kvGetJSON(env, key);
+  if (hit) return hit;
+  const arr = await gdGet(env, { types: 'search', source: 'netease', name: q, count: limit });
+  if (!Array.isArray(arr)) return [];
+  const tracks = arr.map((t) => ({
+    id: String(t.id),
+    src: 'netease',
+    name: t.name || '',
+    artist: Array.isArray(t.artist) ? t.artist.filter(Boolean).join('/') : (t.artist || '未知歌手'),
+    album: t.album || '',
+    cover: '',
+    picId: t.pic_id || '',
+    dur: 0,
+    fee: null,
+    vip: null,
+    playable: null,
+    preview: false,
+    via: 'gdstudio',
+  })).filter((t) => t.name);
+  await kvPutJSON(env, key, tracks, 600);
+  return tracks;
+}
+
+async function gdUrl(env, id, br) {
+  try {
+    const j = await gdGet(env, { types: 'url', source: 'netease', id, br: br || 320 });
+    if (j && j.url) return { ok: true, url: j.url, br: j.br || br || 0, type: 'mp3', via: 'gdstudio', size: j.size || 0 };
+  } catch (e) { /* 落到 vip */ }
+  return { ok: false, reason: 'vip', playable: false };
+}
+
+async function gdLrc(env, id) {
+  try {
+    const j = await gdGet(env, { types: 'lyric', source: 'netease', id });
+    const lrc = (j && (j.lyric || j.lrc)) || '';
+    return { ok: true, lrc, via: lrc ? 'gdstudio' : 'none' };
+  } catch (e) { return { ok: true, lrc: '', via: 'none' }; }
+}
+
+async function gdCover(env, picId) {
+  const key = 'music:pic:' + picId;
+  const hit = await kvGetJSON(env, key);
+  if (hit && hit.url) return hit.url;
+  const j = await gdGet(env, { types: 'pic', source: 'netease', id: picId, size: 300 });
+  const u = (j && j.url) || '';
+  if (u) await kvPutJSON(env, key, { url: u }, 7 * 24 * 3600);
+  return u;
+}
+
 /* ---------------- 路由 ---------------- */
 
 export async function handleMusic(request, env, url) {
@@ -277,11 +441,20 @@ export async function handleMusic(request, env, url) {
 
   try {
     /* ---- 搜索 ---- */
+    if (route === '/health' || route === '/') {
+      return json({
+        ok: true,
+        src: 'netease',
+        chain: ['netease-direct', 'vkeys', 'meting', 'gdstudio'],
+        health: await healthGet(env),
+      }, 200, env);
+    }
+
     if (route === '/search') {
-      const qs = (q.get('q') || '').trim();
+      const qs = (q.get('q') || q.get('keyword') || '').trim();
       const limit = Math.min(50, Math.max(5, parseInt(q.get('limit') || '20', 10) || 20));
       let want = q.get('src') || 'auto';
-      if (!qs) return json({ ok: false, error: '缺少关键词 q' }, 400, env);
+      if (!qs) return json({ ok: false, error: '缺少关键词 q（或 keyword）' }, 400, env);
 
       const chain = want === 'auto' ? ['netease', 'itunes', 'deezer'] : [want];
       const health = await healthGet(env);
@@ -294,8 +467,14 @@ export async function handleMusic(request, env, url) {
             : src === 'deezer' ? await dzSearch(env, qs, limit)
             : null;
           if (!tracks) return json({ ok: false, error: '未知曲源 ' + src }, 400, env);
+          if (!Array.isArray(tracks) || !tracks.length) { lastErr = src + ': 空结果'; continue; }
           await healthMark(env, src, true);
-          return json({ ok: true, src, tracks });
+          const origin = url.origin;
+          const items = tracks.map((t) => {
+            if (!t.cover && t.picId) return Object.assign({}, t, { cover: origin + '/api/music/cover?id=' + t.picId });
+            return t;
+          });
+          return json({ ok: true, src, tracks: items }, 200, env);
         } catch (e) { lastErr = src + ': ' + (e && e.message); await healthMark(env, src, false); }
       }
       return json({ ok: false, error: '全部曲源不可用' + (lastErr ? '（' + lastErr + '）' : '') }, 502, env);
@@ -304,9 +483,9 @@ export async function handleMusic(request, env, url) {
     /* ---- 播放地址 ---- */
     if (route === '/url') {
       const src = q.get('src') || 'netease';
-      const id = (q.get('id') || '').trim();
+      const id = (q.get('id') || q.get('songId') || '').trim();
       if (!id) return json({ ok: false, error: '缺少 id' }, 400, env);
-      const br = src === 'netease' ? (parseInt(q.get('br') || '128000', 10) || 128000) : 0;
+      const br = src === 'netease' ? (parseInt(q.get('br') || '320', 10) || 320) : 0;
       let r;
       try {
         r = src === 'netease' ? await neUrl(env, id, br)
@@ -318,18 +497,19 @@ export async function handleMusic(request, env, url) {
         await healthMark(env, src, false);
         return json({ ok: false, error: '取播放地址失败（' + src + '）' }, 502, env);
       }
-      if (!r.ok) return json(r, 200, env);                        // vip 等业务态用 200 + ok:false
+      // 不可播放：明确业务态，前端据此置灰（不伪造可播）
+      if (!r.ok) return json({ ok: false, playable: false, reason: r.reason || 'vip', id, src }, 200, env);
       // 统一回同源代理地址：前端直接 audio.src = BASE + play（解决 http 混合内容 + CORS）
       const b64 = btoa(r.url).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-      return json({ ok: true, play: '/api/music/stream?u=' + b64, br: r.br || 0, preview: !!r.preview }, 200, env);
+      return json({ ok: true, playable: true, play: '/api/music/stream?u=' + b64, br: r.br || 0, type: r.type || 'mp3', via: r.via || src, preview: !!r.preview }, 200, env);
     }
 
     /* ---- 歌词 ---- */
     if (route === '/lrc') {
       const src = q.get('src') || 'netease';
-      const id = (q.get('id') || '').trim();
+      const id = (q.get('id') || q.get('songId') || '').trim();
       if (!id) return json({ ok: false, error: '缺少 id' }, 400, env);
-      if (src !== 'netease') return json({ ok: true, lrc: '' });   // 国际源暂无歌词
+      if (src !== 'netease') return json({ ok: true, lrc: '' }, 200, env);   // 国际源暂无歌词
       try { return json(await neLrc(env, id), 200, env); }
       catch (e) { await healthMark(env, 'netease', false); return json({ ok: true, lrc: '' }, 200, env); }
     }
@@ -343,6 +523,24 @@ export async function handleMusic(request, env, url) {
 
     /* ---- 封面代理 ---- */
     if (route === '/cover') {
+      // 网易云镜像封面：?id=<pic_id> → 302 到网易云图床（浏览器缓存 7 天，不占 Worker 流量）
+      const picId = q.get('id');
+      if (picId) {
+        try {
+          const u2 = await gdCover(env, picId);
+          if (u2) {
+            return new Response(null, {
+              status: 302,
+              headers: {
+                'Location': u2,
+                'Cache-Control': 'public, max-age=604800',
+                'Access-Control-Allow-Origin': (env && env.ALLOW_ORIGIN) || '*',
+              },
+            });
+          }
+        } catch (e) { /* 落到 404 */ }
+        return json({ ok: false, error: 'cover not found' }, 404, env);
+      }
       const target = b64urlDecode(q.get('u'));
       if (!/^https?:\/\//i.test(target) || !STREAM_HOSTS.some(rx => rx.test((new URL(target)).hostname))) {
         return json({ ok: false, error: 'host not allowed' }, 403, env);

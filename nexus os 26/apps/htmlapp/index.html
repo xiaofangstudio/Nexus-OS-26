@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus · HTML 应用运行时</title>
+<style>
+  :root{
+    --r: 14px;
+    --blur: var(--n26-blur, 18px);
+    --sat: var(--n26-glass-sat, 148%);
+    --line: rgba(0,0,0,.10);
+    --line-soft: rgba(0,0,0,.06);
+    --text: #1b2433;
+    --sub: rgba(27,36,51,.66);
+    --glass: rgba(255,255,255, calc(var(--n26-glass-alpha, .64) * var(--n26-alpha-k, 1)));
+    --surface: rgba(255,255,255,.72);
+    --primary: #4a9bf5;
+    --ok: #15803d;
+    --ok-soft: rgba(22,163,74,.12);
+    --ok-line: rgba(22,163,74,.28);
+    --bad: #dc2626;
+    --sh: 0 2px 10px rgba(0,0,0,.08);
+    --frame: #f2f5fa;
+  }
+  body.dark-mode{
+    --line: rgba(255,255,255,.14);
+    --line-soft: rgba(255,255,255,.08);
+    --text: rgba(240,244,252,.96);
+    --sub: rgba(226,232,240,.68);
+    --glass: rgba(24,28,37, calc(var(--n26-glass-alpha, .66) * var(--n26-alpha-k, 1)));
+    --surface: rgba(255,255,255,.07);
+    --primary: #5b9dff;
+    --ok: #86efac;
+    --ok-soft: rgba(34,197,94,.14);
+    --ok-line: rgba(134,239,172,.3);
+    --bad: #fca5a5;
+    --sh: 0 2px 12px rgba(0,0,0,.32);
+    --frame: #0f131a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
+    font-size:13px;color:var(--text);
+    background:#e9eef6;
+    display:flex;flex-direction:column;overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;z-index:-1;
+    background:
+      radial-gradient(900px 600px at 8% 0%, rgba(126,178,255,.4), transparent 62%),
+      radial-gradient(760px 520px at 94% 8%, rgba(150,216,232,.34), transparent 60%),
+      linear-gradient(158deg,#f2f6fc,#e8eef7 60%,#e6ecf5);
+  }
+  body.dark-mode{background:#141821}
+  body.dark-mode::before{
+    background:
+      radial-gradient(860px 600px at 8% 0%, rgba(70,120,200,.18), transparent 62%),
+      radial-gradient(720px 520px at 94% 8%, rgba(60,130,150,.14), transparent 60%),
+      linear-gradient(158deg,#19202b,#12161d 60%,#11151b);
+  }
+
+  .ha-bar{
+    flex:none;height:44px;display:flex;align-items:center;gap:9px;
+    margin:10px 10px 0;padding:0 12px;
+    border:1px solid var(--line);border-radius:12px;
+    background:var(--glass);
+    -webkit-backdrop-filter:blur(var(--blur)) saturate(var(--sat));
+    backdrop-filter:blur(var(--blur)) saturate(var(--sat));
+    box-shadow:var(--sh), inset 0 1px 0 rgba(255,255,255,.3);
+  }
+  body.dark-mode .ha-bar{box-shadow:var(--sh), inset 0 1px 0 rgba(255,255,255,.08)}
+  .ha-logo{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:rgba(255,255,255,.55);border:1px solid var(--line-soft);flex:none}
+  /* 超椭圆：与主壳 #n26Squircle 同源（apps/_squircle.js 注入定义） */
+  html.n26-squircle-ready .ha-logo,html.n26-squircle-ready .mark{border-radius:0;-webkit-clip-path:url(#n26Squircle);clip-path:url(#n26Squircle)}
+  body.dark-mode .ha-logo{background:rgba(255,255,255,.08)}
+  .ha-logo img{width:20px;height:20px;object-fit:contain;display:block}
+  .shield{
+    display:inline-flex;align-items:center;gap:5px;
+    font-size:11.5px;font-weight:700;color:var(--ok);
+    background:var(--ok-soft);border:1px solid var(--ok-line);
+    padding:3px 9px;border-radius:999px;white-space:nowrap;
+  }
+  .shield svg{width:12px;height:12px}
+  .name{font-size:13px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .meta{margin-left:auto;font-size:11.5px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ha-bar button,.ha-bar a{
+    border:1px solid var(--line-soft);background:var(--surface);color:var(--text);
+    border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;flex:none;
+    text-decoration:none;font-family:inherit;transition:background .18s,border-color .18s;
+  }
+  .ha-bar button:hover,.ha-bar a:hover{background:rgba(255,255,255,.9);border-color:var(--line);text-decoration:none}
+  body.dark-mode .ha-bar button:hover,body.dark-mode .ha-bar a:hover{background:rgba(255,255,255,.14)}
+
+  .ha-frame{
+    flex:1 1 0;min-height:0;position:relative;margin:10px;
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;
+    background:var(--frame);box-shadow:var(--sh);
+  }
+  .ha-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:none;display:block;background:var(--frame)}
+
+  .ha-panel{
+    flex:1 1 0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    gap:12px;padding:34px;text-align:center;
+  }
+  .ha-panel.on{display:flex}
+  .ha-panel h1{font-size:17px;font-weight:750;letter-spacing:-.2px}
+  .ha-panel p{font-size:13px;line-height:1.75;color:var(--sub);max-width:640px}
+  .ha-panel .code{
+    font-family:"SF Mono","Cascadia Code",Consolas,monospace;font-size:12px;
+    background:var(--surface);border:1px solid var(--line);border-radius:10px;
+    padding:11px 14px;color:var(--text);max-width:92vw;overflow:auto;text-align:left;
+    white-space:pre-wrap;box-shadow:var(--sh);
+  }
+  .ha-panel .cta{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .ha-panel .cta a,.ha-panel .cta button{
+    display:inline-flex;align-items:center;gap:6px;
+    border:1px solid var(--line);background:var(--surface);color:var(--text);
+    border-radius:10px;padding:8px 15px;font-size:12.5px;cursor:pointer;text-decoration:none;
+    transition:background .18s,border-color .18s;
+  }
+  .ha-panel .cta a:hover,.ha-panel .cta button:hover{background:rgba(255,255,255,.88);border-color:var(--line-soft);text-decoration:none}
+  body.dark-mode .ha-panel .cta a:hover,body.dark-mode .ha-panel .cta button:hover{background:rgba(255,255,255,.14)}
+  .mark{
+    width:64px;height:64px;border-radius:16px;display:grid;place-items:center;
+    background:rgba(255,255,255,.6);border:1px solid var(--line-soft);box-shadow:var(--sh);
+  }
+  body.dark-mode .mark{background:rgba(255,255,255,.08)}
+  .mark img{width:46px;height:46px;object-fit:contain;display:block}
+  .mark.bad{border-color:rgba(220,38,38,.32);background:rgba(220,38,38,.08)}
+  .mark.bad img{opacity:.72}
+  .dim{color:var(--sub)}
+</style>
+</head>
+<body>
+  <div class="ha-bar">
+    <span class="ha-logo"><img src="../../../Desktop icon/Nexus OS 26.png" alt="Nexus OS"></span>
+    <span class="shield"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.2-2.9 7.4-7 9-4.1-1.6-7-4.8-7-9V6z"/><path d="M9.2 12l1.9 1.9 3.7-3.7"/></svg>HTML 运行时 · 沙箱</span>
+    <span class="name" id="haName">加载中…</span>
+    <span class="meta" id="haMeta"></span>
+    <button id="haReload">重新加载</button>
+    <a href="../devstudio.html" target="_blank" rel="noopener">开发者工坊</a>
+  </div>
+
+  <div class="ha-frame" id="haFrame" style="display:none">
+    <iframe id="haApp" sandbox="allow-scripts allow-forms allow-modals" referrerpolicy="no-referrer" title="HTML 应用"></iframe>
+  </div>
+
+  <div class="ha-panel on" id="haPanel">
+    <div class="mark" id="haMark"><img src="../../../Desktop icon/Nexus OS 26.png" alt="Nexus OS"></div>
+    <h1 id="haTitle">HTML 应用运行时</h1>
+    <p id="haText">正在解析应用包…</p>
+    <div class="code" id="haCode" style="display:none"></div>
+    <div class="cta" id="haCta" style="display:none">
+      <a href="../devstudio.html">打开开发者工坊</a>
+      <button id="haRetry">重试</button>
+    </div>
+  </div>
+
+<script src="../../ui/devstudio-preview.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* 主题：沿用 Nexus 的 body.dark-mode 与 nexus_theme */
+  function applyTheme(dark) { document.body.classList.toggle('dark-mode', !!dark); }
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('nexus_theme') || localStorage.getItem('theme'); } catch (e) { }
+    applyTheme(t === 'dark');
+  })();
+  window.addEventListener('message', function (e) {
+    var d = e.data;
+    if (d && d.__nexusEvt && d.name === 'theme' && d.data) applyTheme(!!d.data.dark);
+  });
+
+  var q = new URLSearchParams(location.search);
+  var rawId = String(q.get('id') || q.get('pkg') || q.get('draft') || '').trim();
+  var isDraft = q.has('draft');
+  var id = rawId.replace(/^sp_/, '');
+
+  var $ = function (n) { return document.getElementById(n); };
+  var current = null;
+
+  function readList(keys) {
+    for (var i = 0; i < keys.length; i++) {
+      try {
+        var v = JSON.parse(localStorage.getItem(keys[i]));
+        if (Array.isArray(v)) return v;
+      } catch (e) { }
+    }
+    return [];
+  }
+  function selfPubList() {
+    return readList(['nexus_n26SelfPub', 'n26SelfPub', 'n26_store_selfpub']);
+  }
+  function findEntry(key) {
+    if (!key) return null;
+    var list = selfPubList();
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i];
+      if (!p) continue;
+      if (p.id === key || p.appId === key || p.pkgKey === key || p.spId === key) return p;
+    }
+    return null;
+  }
+
+  var DB_NAME = 'n26-devstudio', DB_VER = 1, STORE = 'packages';
+  function idbGet(key) {
+    return new Promise(function (resolve) {
+      if (!key || !window.indexedDB) { resolve(null); return; }
+      var req;
+      try { req = indexedDB.open(DB_NAME, DB_VER); } catch (e) { resolve(null); return; }
+      req.onupgradeneeded = function () {
+        var db = req.result;
+        if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'pkgKey' });
+      };
+      req.onerror = function () { resolve(null); };
+      req.onsuccess = function () {
+        var db = req.result;
+        try {
+          var tx = db.transaction(STORE, 'readonly');
+          var g = tx.objectStore(STORE).get(key);
+          g.onsuccess = function () { resolve(g.result || null); };
+          g.onerror = function () { resolve(null); };
+        } catch (e) { resolve(null); }
+      };
+    });
+  }
+
+  function fail(title, text, code) {
+    $('haFrame').style.display = 'none';
+    $('haPanel').classList.add('on');
+    $('haMark').classList.add('bad');
+    $('haTitle').textContent = title;
+    $('haText').textContent = text;
+    if (code) {
+      $('haCode').style.display = 'block';
+      $('haCode').textContent = code;
+    }
+    $('haCta').style.display = 'flex';
+    $('haName').textContent = 'HTML 运行时';
+    $('haMeta').textContent = '';
+  }
+
+  function setHead(name, meta) {
+    $('haName').textContent = name || 'HTML 应用';
+    $('haMeta').textContent = meta || '';
+    document.title = (name || 'HTML 应用') + ' · Nexus';
+  }
+
+  function run(files, entryPath, entryRecord) {
+    if (!files || !Object.keys(files).length) throw new Error('应用包为空');
+    var path = entryPath && files[entryPath] ? entryPath : '';
+    if (!path) {
+      var idx = Object.keys(files).filter(function (p) { return /(^|\/)index\.html?$/i.test(p); })[0] ||
+        Object.keys(files).filter(function (p) { return /\.html?$/i.test(p); })[0];
+      path = idx || Object.keys(files)[0];
+    }
+    if (!window.N26DSPreview) throw new Error('预览模块未加载（ui/devstudio-preview.js）');
+    N26DSPreview.render($('haApp'), files, path, {});
+    $('haPanel').classList.remove('on');
+    $('haMark').classList.remove('bad');
+    $('haFrame').style.display = 'block';
+    var count = Object.keys(files).length;
+    var bytes = 0;
+    Object.keys(files).forEach(function (p) {
+      var v = files[p];
+      bytes += typeof v === 'string' ? v.length : ((v && v.size) || 0);
+    });
+    var src = entryRecord && entryRecord.__src ? entryRecord.__src : '';
+    setHead(
+      (entryRecord && entryRecord.name) || 'HTML 应用',
+      'v' + ((entryRecord && entryRecord.version) || '1.0.0') + ' · ' + count + ' 文件 · ' +
+      (bytes < 1024 ? bytes + ' B' : bytes < 1048576 ? (bytes / 1024).toFixed(1) + ' KB' : (bytes / 1048576).toFixed(2) + ' MB') +
+      (src ? ' · ' + src : '') + ' · 入口 ' + path
+    );
+    return path;
+  }
+
+  function boot() {
+    if (!rawId) {
+      fail('HTML 应用运行时', '用 ?id=sp_<应用ID> 打开已上架应用；用 ?draft=<草稿ID> 直接验证 IndexedDB 草稿。', null);
+      $('haCode').style.display = 'block';
+      $('haCode').textContent =
+        'apps/htmlapp/index.html?id=sp_app_xxx\n' +
+        'apps/htmlapp/index.html?draft=app_xxx\n' +
+        'apps/htmlapp/index.html?pkg=app_xxx';
+      $('haCta').style.display = 'flex';
+      $('haMark').classList.remove('bad');
+      $('haName').textContent = 'HTML 应用运行时';
+      $('haMeta').textContent = '?id= / ?draft= / ?pkg=';
+      return;
+    }
+
+    $('haTitle').textContent = '正在加载应用包…';
+    $('haText').textContent = 'ID：' + rawId;
+
+    var entry = isDraft ? null : findEntry(id);
+    var key = isDraft ? id : (entry ? (entry.pkgKey || entry.appId || entry.id) : id);
+
+    Promise.all([idbGet(key), idbGet(id)]).then(function (res) {
+      var rec = res[0] || res[1] || null;
+      var files = (rec && rec.files) || (entry && entry.sources) || null;
+      if (!files && entry) {
+        throw new Error('包体不在本机：可能已清除 IndexedDB 或换浏览器打开');
+      }
+      if (!files) {
+        throw new Error(isDraft ? '找不到这个草稿（IndexedDB 无记录）' : '找不到这个应用包（n26SelfPub 无记录）');
+      }
+      var record = Object.assign({}, entry || {}, rec || {});
+      record.__src = rec && rec.files ? 'IndexedDB' : 'localStorage';
+      var path = run(files, (rec && rec.entry) || (entry && entry.entry) || '', record);
+      current = { files: files, entry: path, record: record };
+    }).catch(function (e) {
+      fail('无法运行', e.message || '未知错误', 'ID：' + rawId + '\n入口：' + ((entry && entry.entry) || '—'));
+    });
+  }
+
+  $('haReload').addEventListener('click', function () {
+    if (current) {
+      N26DSPreview.render($('haApp'), current.files, current.entry, {});
+    } else {
+      boot();
+    }
+  });
+  $('haRetry').addEventListener('click', boot);
+
+  boot();
+})();
+</script>
+
+<script src="../_bridge.js"></script>
+<script src="../_app.js"></script>
+<script src="../_squircle.js"></script>
+</body>
+</html>

@@ -31,11 +31,18 @@ body.mat-solid :is(#n26a #n26b #n26c, *)::after {
 }
 
 /* ────────────────────────────────────────────────────────────────
-   2. 磨砂玻璃：只保留「主要面板」的模糊，次级面（卡片/菜单/
-      气泡/胶囊/按钮/桌面小组件）改为实心半透明
-      保留名单之外的一律去模糊。
+   2. 磨砂玻璃：主面板保 0.6 倍，次级面（卡片/菜单/气泡/胶囊/按钮/
+      桌面小组件）降一档到 0.35 倍。
+      v3.0：这里不再写死 none，改成「降倍率」——否则个性化里的
+      模糊/饱和滑块在这些面上完全无效，又回到「拖了没反应」。
+      纯装饰伪元素仍然彻底关掉，省绘制。
    ──────────────────────────────────────────────────────────────── */
-body.mat-frost :is(#n26a #n26b #n26c, *):not(.window):not(#dock):not(#control-center):not(#notification-sidebar):not(#settingsPanel):not(#finder-bar):not(.widget-panel-overlay):not(.widget-todo-modal-overlay):not(.nex-modal-overlay):not(.account-modal-overlay):not(.nexus-confirm-overlay):not(#n26LeftDock):not(#n26RightDock):not(#dockBar) {
+/* v3.1：删掉「几乎所有元素批量加模糊」的通配规则。
+   实测磨砂模式下这一条会命中 1064 个节点（正文、按钮、列表行全糊一层），
+   正是「不该磨砂的糊了一层」。磨砂模式的模糊只交给
+   ui/n26-glass-system.css 的材质白名单，不再外溢。 */
+body.mat-frost :is(#n26a #n26b #n26c, *)::before,
+body.mat-frost :is(#n26a #n26b #n26c, *)::after {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
 }
@@ -117,28 +124,30 @@ body.mat-liquid.style-glass .n26-frost-1 { --frost-blur: var(--n26-blur, 26px); 
 body.mat-liquid.style-glass .n26-frost-2 { --frost-blur: calc(var(--n26-blur, 26px) * 1.7); }
 body.mat-liquid.style-glass .n26-frost-3 { --frost-blur: calc(var(--n26-blur, 26px) * 2.15); }
 
-/* —— 磨砂玻璃：Dock 也要降级（以前它在保留名单里，所以纹丝不动） —— */
+/* —— 磨砂玻璃：Dock 也要降级（以前它在保留名单里，所以纹丝不动） ——
+   v3.0：这里不再写死 saturate 与 !important，统一交给 n26-polish.css 的
+   var(--n26-blur) / var(--n26-glass-sat) * 材质系数，滑块才能真的生效 */
 body.mat-frost #dock {
     /* 和左右胶囊同一个倍率，保证三段看起来是同一种材质 */
-    backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(120%) !important;
-    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(120%) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(calc(var(--n26-glass-sat, 148%) * 0.82));
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(calc(var(--n26-glass-sat, 148%) * 0.82));
 }
 body.mat-frost .window,
 body.mat-frost .password-panel {
-    backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.55)) saturate(115%) !important;
-    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.55)) saturate(115%) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(calc(var(--n26-glass-sat, 148%) * 0.78));
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(calc(var(--n26-glass-sat, 148%) * 0.78));
 }
 body.mat-frost #finder-bar,
 body.mat-frost #notification-sidebar,
 body.mat-frost #control-center {
-    backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(115%) !important;
-    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(115%) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(calc(var(--n26-glass-sat, 148%) * 0.78));
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(calc(var(--n26-glass-sat, 148%) * 0.78));
 }
 body.mat-frost #n26LeftDock,
 body.mat-frost #n26RightDock,
 body.mat-frost #dockBar {
-    backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(115%) !important;
-    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(115%) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(calc(var(--n26-glass-sat, 148%) * 0.78));
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 26px) * 0.6)) saturate(calc(var(--n26-glass-sat, 148%) * 0.78));
 }
 body.mat-frost.style-glass .n26-frost,
 body.mat-frost.style-glass .n26-frost-1,
@@ -278,3 +287,173 @@ body.mat-solid #dockBar { background: rgba(250, 251, 253, 0.97) !important; }
 body.dark-mode .n26-mat-range::-webkit-slider-runnable-track { background: rgba(255, 255, 255, 0.24); }
 body.dark-mode .n26-mat-range::-moz-range-track { background: rgba(255, 255, 255, 0.24); }
 body.dark-mode .n26-mat-range::-webkit-slider-thumb { border-color: rgba(0, 0, 0, 0.35); }
+
+/* ══════════════════════════════════════════════════════════════════
+   7. 外观三项（v2.9.60）
+   ------------------------------------------------------------------
+   ① 顶栏 #finder-bar：彻底去掉底色 / 模糊 / 描边 / 阴影，
+      只留图标与时间浮在壁纸上；它仍是导航条，不是窗口把手。
+   ② 窗口标题栏（红绿灯 + 应用名那一行）：磨砂玻璃。
+   ③ 主壳内嵌侧栏（文件 / 设置）：磨砂玻璃。
+   ②③ 全部只读个性化滑块写进 :root 的同一组变量：
+      --n26-glass-alpha(0.2~0.9) / --n26-blur(0~40px) /
+      --n26-glass-sat(100~200%) / --n26-glass-hi(0~1)，
+      再乘材质系数 --n26-k / --n26-sat-k / --n26-alpha-k。
+      所以改滑杆时这三处一起无级联动，关闭液态玻璃时自动回落普通磨砂。
+   特异性说明：用 html body[class] 抬到 (0,1,1,2)，
+   压过主壳 body.style-glass / body.mat-* 系列（多为 (0,1,1,1)），
+   并且对外层 !important 一律再补 !important，避免被后续皮肤层盖回去。
+   ══════════════════════════════════════════════════════════════════ */
+
+/* —— ① 顶栏：无背景 —— */
+html body[class] #finder-bar {
+    background: transparent !important;
+    background-image: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    border: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+    /* 导航条本体接管指针：空档点击落在条上，不会再穿透到下面的窗口标题条 */
+    pointer-events: auto !important;
+    cursor: default !important;
+}
+/* v3.2：深色主题的顶栏必须是一块「深底」——壁纸在浅/深两套主题下亮度完全一致，
+   若顶栏在深色下仍强制透明，白字就压在同一条亮壁纸上（典型的反向元素）。
+   这里只给顶栏自身叠一层向下淡出的局部蒙版（不动整张壁纸、不影响桌面亮度），
+   读者看到的仍是同一张图，只是顶栏那条 32px 有了承载浅色文字的表面。
+   浅色主题维持透明 + 深色字 + 浅色描边，不受此规则影响。 */
+html body.dark-mode #finder-bar {
+    background: linear-gradient(180deg, rgba(12,16,26,0.66) 0%, rgba(12,16,26,0.44) 68%, rgba(12,16,26,0) 100%) !important;
+    background-image: linear-gradient(180deg, rgba(12,16,26,0.66) 0%, rgba(12,16,26,0.44) 68%, rgba(12,16,26,0) 100%) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(150%) !important;
+    backdrop-filter: blur(18px) saturate(150%) !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+html body[class] #finder-bar::before,
+html body[class] #finder-bar::after {
+    background: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+/* —— ② 窗口标题栏：磨砂玻璃（浅色） —— */
+html body[class] .window > .window-titlebar {
+    background-color: rgba(255, 255, 255,
+        calc(var(--n26-glass-alpha, 0.55) * var(--n26-alpha-k, 1) * 0.86)) !important;
+    background-image: linear-gradient(180deg,
+        rgba(255, 255, 255, calc(var(--n26-glass-hi, 0.35) * 0.45)) 0%,
+        rgba(255, 255, 255, 0) 74%) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * 0.38))
+        saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * 0.38))
+        saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255,
+        calc(var(--n26-glass-hi, 0.35) * 0.8)) !important;
+}
+
+/* 深色：底色换成冷灰，高光收一档，避免一整条发白 */
+html body.dark-mode[class] .window > .window-titlebar {
+    background-color: rgba(24, 27, 35,
+        calc(var(--n26-glass-alpha, 0.55) * var(--n26-alpha-k, 1) * 0.95)) !important;
+    background-image: linear-gradient(180deg,
+        rgba(255, 255, 255, calc(var(--n26-glass-hi, 0.35) * 0.18)) 0%,
+        rgba(255, 255, 255, 0) 74%) !important;
+    border-bottom-color: rgba(255, 255, 255, 0.10) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255,
+        calc(var(--n26-glass-hi, 0.35) * 0.25)) !important;
+}
+
+/* —— ③ 系统设置 / Nexus Extra：与文件管理同一套双区结构 ——
+   - 窗口内容与 .settings-container 不铺任何底色
+   - 侧栏自己 = 磨砂玻璃（读系统玻璃变量，跟着个性化滑杆变）
+   - 内容面 .settings-panel 是独立的浅面（压过 frost 的 --frost-tint）
+   - 交界只有一条 1px 发丝线 */
+html body[class] .window[data-app-id="settings"] > .window-content {
+    background-color: transparent !important;
+    background-image: none !important;
+}
+html body[class] #desktop .window .settings-container {
+    background-color: transparent !important;
+    background-image: none !important;
+}
+html body[class] #desktop .window .settings-sidebar {
+    background-color: rgba(228, 233, 241,
+        calc(var(--n26-glass-alpha, 0.55) * var(--n26-alpha-k, 1) * 0.80)) !important;
+    background-image: none !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * 0.55))
+        saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * 0.55))
+        saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) !important;
+    border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255,
+        calc(var(--n26-glass-hi, 0.35) * 0.7)) !important;
+}
+html body.dark-mode[class] #desktop .window .settings-sidebar {
+    background-color: rgba(255, 255, 255,
+        calc(var(--n26-glass-alpha, 0.55) * var(--n26-alpha-k, 1) * 0.12)) !important;
+    border-right-color: rgba(255, 255, 255, 0.12) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255,
+        calc(var(--n26-glass-hi, 0.35) * 0.28)) !important;
+}
+html body[class] #desktop .window .settings-panel {
+    background-color: rgba(250, 251, 253, 0.34) !important;
+    background-image: none !important;
+}
+html body.dark-mode[class] #desktop .window .settings-panel {
+    background-color: rgba(22, 24, 34, 0.34) !important;
+}
+
+/* 文件管理器：应用级只允许一块玻璃，而且这块玻璃属于侧栏。
+   - .fm-container 不再铺任何底色（否则会垫在侧栏下面变成第二层）
+   - files 窗口的内容卡片也置透明，让侧栏的 backdrop-filter 直接读窗口磨砂
+   - 侧栏自己 = 半透明底 + backdrop-filter，全部走系统玻璃变量，跟着滑杆变
+   - 内容区 .fm-main 是另起一块的浅面，不与侧栏重叠；交界只留 1px 发丝线 */
+html body[class] .fm-container {
+    background-color: transparent !important;
+    background-image: none !important;
+}
+html body.dark-mode[class] .fm-container {
+    background-color: transparent !important;
+}
+html body[class] .window[data-app-id="files"] > .window-content {
+    background-color: transparent !important;
+    background-image: none !important;
+}
+html body[class] .fm-main {
+    background-color: rgba(250, 251, 253, 0.34) !important;
+}
+html body.dark-mode[class] .fm-main {
+    background-color: rgba(22, 24, 34, 0.34) !important;
+}
+html body[class] #desktop .window[data-app-id="files"] .fm-sidebar[data-n26dock] {
+    background-color: rgba(228, 233, 241,
+        calc(var(--n26-glass-alpha, 0.55) * var(--n26-alpha-k, 1) * 0.80)) !important;
+    background-image: none !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * 0.55))
+        saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * 0.55))
+        saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) !important;
+    border: 0 !important;
+    border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-radius: 16px !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255,
+        calc(var(--n26-glass-hi, 0.35) * 0.7)) !important;
+}
+html body.dark-mode[class] #desktop .window[data-app-id="files"] .fm-sidebar[data-n26dock] {
+    background-color: rgba(255, 255, 255,
+        calc(var(--n26-glass-alpha, 0.55) * var(--n26-alpha-k, 1) * 0.12)) !important;
+    border-right-color: rgba(255, 255, 255, 0.12) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255,
+        calc(var(--n26-glass-hi, 0.35) * 0.28)) !important;
+}
+
+/* 性能模式：新增的采样层全部关掉，只留底色 */
+html body.perf-mode .window > .window-titlebar,
+html body.perf-mode .fm-sidebar,
+html body.perf-mode .settings-sidebar {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}

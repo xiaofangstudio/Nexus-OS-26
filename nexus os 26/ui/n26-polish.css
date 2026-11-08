@@ -107,16 +107,20 @@ body.dark-mode .n26-topbar-weather:active {
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
 }
 .desktop-icon:active .desktop-icon-name {
+    color: #16202e;
+}
+body.dark-mode .desktop-icon:active .desktop-icon-name {
     color: #ffffff;
 }
 
-/* ── ⑦ Dock 提示气泡：从「一块黑方片」变成玻璃小胶囊 ────
+/* ── ⑦ Dock 提示气泡：浅色=浅玻璃+深字，深色=深玻璃+浅字（不再写死深色底） ────
    只动背景/边框/阴影与 translate，横向居中仍由原 transform 负责。 */
 .dock-tooltip {
-    background: rgba(28, 30, 38, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28),
-        inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.86);
+    color: #16202e;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
     -webkit-backdrop-filter: blur(14px) saturate(170%);
     backdrop-filter: blur(14px) saturate(170%);
     border-radius: 8px;
@@ -127,6 +131,13 @@ body.dark-mode .n26-topbar-weather:active {
     translate: 0 3px;
     transition: opacity 0.16s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
         translate 0.16s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+body.dark-mode .dock-tooltip {
+    background: rgba(14, 16, 24, 0.82);
+    color: #f2f6fc;
+    border-color: rgba(255, 255, 255, 0.16);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.40),
+        inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 .dock-item:hover .dock-tooltip {
     translate: 0 0;
@@ -200,3 +211,695 @@ body.perf-mode :where(.glass-btn, .n26-topbar-icon, .n26-topbar-weather,
         scale: 1;
     }
 }
+
+/* ============================================================
+   ④ 材质收敛（Phase 1 · 玻璃 + 阴影）
+   ------------------------------------------------------------
+   只改「材质参数」，不改颜色、壁纸、布局、尺寸、圆角。
+   配方取自 FluentOS 的约束思路（MIT），数值按 Nexus 的浅色壁纸重调：
+     · 模糊 16–18px，饱和封顶 150%，一律不做 brightness 增亮
+     · 描边改黑色发丝边（深色模式自动换浅边）
+     · 高光只留顶部一条 inset，不再四边反光
+     · 阴影收敛 4 档：卡片 / 浮层 / 窗口 / Dock，中性黑
+   本文件在主壳 inline <style> 之后加载，用 !important 压掉后加载的
+   n26-material / n26-shell 等模块里的旧值（含 JS 注入到 #dock 的
+   液态位移滤镜——它在浅壁纸下会聚光成白斑）。
+   如需回退：删掉本块即可，其余文件不受影响。
+   ============================================================ */
+
+:root {
+    /* v3.0：真实参数由 JS 写到 --n26-blur / --n26-glass-sat / --n26-glass-alpha /
+       --n26-glass-hi / --n26-refr / --n26-noise；这里只做分档派生 */
+    --n26aes-blur-win:   var(--n26-blur, 18px);
+    --n26aes-blur-panel: calc(var(--n26-blur, 18px) * 0.9);
+    --n26aes-blur-dock:  var(--n26-blur, 18px);
+    --n26aes-sat:        var(--n26-glass-sat, 148%);
+    --n26aes-border:     rgba(0, 0, 0, 0.10);
+    --n26aes-border-soft:rgba(0, 0, 0, 0.06);
+    --n26aes-inner:      inset 0 1px 0 rgba(255, 255, 255, var(--n26-glass-hi, 0.35));
+    --n26aes-sh-card:    0 1px 2px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.05);
+    --n26aes-sh-pop:     0 4px 16px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06);
+    --n26aes-sh-win:     0 16px 48px rgba(0,0,0,0.16), 0 4px 12px rgba(0,0,0,0.08);
+    --n26aes-sh-dock:    0 10px 28px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+    /* 材质系数：液态 1 / 磨砂 .6 / 云母 .5 / 纯色 0 */
+    --n26-k: 1;
+    --n26-sat-k: 1;
+    --n26-alpha-k: 1;
+    /* 颗粒滤镜占位：非液态时用 opacity(1) 这种「合法的空操作」，
+       不能留空——空值会让整条 backdrop-filter 的 var() 解析失败变 none */
+    --n26-grain-fn: opacity(1);
+}
+body.mat-frost { --n26-k: .6;  --n26-sat-k: .78; --n26-alpha-k: 1.05; }
+body.mat-mica  { --n26-k: .5;  --n26-sat-k: .86; --n26-alpha-k: 1.35; }
+body.mat-solid { --n26-k: 0;   --n26-sat-k: 1;   --n26-alpha-k: 1.7; }
+
+/* 首屏早期恢复：body 还没解析出来时，用 html 上的引导标记提供同一组系数，
+   n26ApplyGlass() 第一次运行就会摘掉这个属性 */
+html[data-n26-boot-mat="frost"] body { --n26-k: .6;  --n26-sat-k: .78; --n26-alpha-k: 1.05; }
+html[data-n26-boot-mat="mica"]  body { --n26-k: .5;  --n26-sat-k: .86; --n26-alpha-k: 1.35; }
+html[data-n26-boot-mat="solid"] body { --n26-k: 0;   --n26-sat-k: 1;   --n26-alpha-k: 1.7; }
+
+body.dark-mode {
+    --n26aes-border:     rgba(255, 255, 255, 0.14);
+    --n26aes-border-soft:rgba(255, 255, 255, 0.08);
+    --n26aes-inner:      inset 0 1px 0 rgba(255, 255, 255, calc(var(--n26-glass-hi, 0.35) * 0.3));
+    --n26aes-sh-card:    0 1px 2px rgba(0,0,0,0.30), 0 2px 8px rgba(0,0,0,0.24);
+    --n26aes-sh-pop:     0 4px 16px rgba(0,0,0,0.38), 0 2px 6px rgba(0,0,0,0.28);
+    --n26aes-sh-win:     0 16px 48px rgba(0,0,0,0.50), 0 4px 12px rgba(0,0,0,0.32);
+    --n26aes-sh-dock:    0 10px 28px rgba(0,0,0,0.42), 0 2px 8px rgba(0,0,0,0.26);
+}
+
+/* ── 窗口：模糊 / 饱和 / 透明度 / 高光全部读参数 ── */
+html body .window,
+html body.style-glass .window,
+html body:not(.os-win) .window:not(.maximized),
+html body .password-panel {
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) var(--n26-grain-fn) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) var(--n26-grain-fn) !important;
+    background-color: rgba(255, 255, 255, calc(var(--n26-glass-alpha, 0.55) * var(--n26-alpha-k))) !important;
+    border-color: var(--n26aes-border) !important;
+    box-shadow: var(--n26aes-sh-win), var(--n26aes-inner) !important;
+}
+
+/* 深色：底色换成冷灰，其余仍由同一组参数驱动 */
+html body.dark-mode .window,
+html body.dark-mode:not(.os-win) .window:not(.maximized),
+html body.dark-mode .password-panel {
+    background-color: rgba(18, 20, 26, calc(var(--n26-glass-alpha, 0.55) * var(--n26-alpha-k) * 0.9)) !important;
+    box-shadow: var(--n26aes-sh-win), var(--n26aes-inner) !important;
+}
+
+/* 纯色：不采样背景，直接实底 */
+body.mat-solid .window,
+body.mat-solid .password-panel,
+body.mat-solid #startMenu,
+body.mat-solid #dock,
+body.mat-solid #n26LeftDock,
+body.mat-solid #n26RightDock,
+body.mat-solid #dockBar,
+body.mat-solid .context-menu,
+body.mat-solid #control-center {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+
+/* 标题栏只留一条分隔细线，去掉整条白边 */
+html body .window-titlebar,
+html body .window-header {
+    border-color: var(--n26aes-border-soft) !important;
+    text-shadow: none !important;
+}
+
+/* ── 开始菜单 / 浮层 / 右键菜单 ── */
+html body #startMenu,
+html body.style-glass #startMenu,
+html body .n26-frost,
+html body .n26-frost-1,
+html body .n26-frost-2,
+html body .n26-frost-3,
+html body #control-center,
+html body #notification-sidebar,
+html body #lockNotifCenter,
+html body .context-menu,
+html body #appleMenu,
+html body #startPowerMenu,
+html body #startMenuPowerBtn {
+    --frost-blur: var(--n26aes-blur-panel) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k) * 0.9)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) var(--n26-grain-fn) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k) * 0.9)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) var(--n26-grain-fn) !important;
+    border-color: var(--n26aes-border) !important;
+    box-shadow: var(--n26aes-sh-pop), var(--n26aes-inner) !important;
+}
+
+/* ── Dock 三段：读参数；液态时用 JS 写入的位移滤镜（含折射 scale） ── */
+html body #dock,
+html body #dockBar,
+html body #n26LeftDock,
+html body #n26RightDock,
+html body.style-glass #dock {
+    -webkit-backdrop-filter: var(--n26-lg-filter, blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k)))) !important;
+    backdrop-filter: var(--n26-lg-filter, blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k)))) !important;
+    border-color: var(--n26aes-border) !important;
+    box-shadow: var(--n26aes-sh-dock), var(--n26aes-inner) !important;
+}
+
+/* 液态：任何注入了位移滤镜的表面都要消费它（写在后面，同特异性覆盖上面的分组） */
+html body #startMenu.n26-liquid-on,
+html body #dock.n26-liquid-on,
+html body #dockBar.n26-liquid-on,
+html body #n26LeftDock.n26-liquid-on,
+html body #n26RightDock.n26-liquid-on {
+    -webkit-backdrop-filter: var(--n26-lg-filter, blur(18px) saturate(148%)) !important;
+    backdrop-filter: var(--n26-lg-filter, blur(18px) saturate(148%)) !important;
+}
+
+/* ── AI 小方的迷你条：同样是液体目标，读同一组参数 ── */
+html body #covi-hud-bar {
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) var(--n26-grain-fn) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) var(--n26-grain-fn) !important;
+}
+html body #covi-hud-bar.n26-liquid-on {
+    -webkit-backdrop-filter: var(--n26-lg-filter) !important;
+    backdrop-filter: var(--n26-lg-filter) !important;
+}
+
+/* ── 卡片（设置面板内的分区卡）：最低一档阴影，冷蓝换成中性黑 ── */
+html body .settings-panel .settings-section {
+    border-color: var(--n26aes-border-soft) !important;
+    box-shadow: var(--n26aes-sh-card), var(--n26aes-inner) !important;
+}
+
+/* ── 顶栏：比面板再轻一档，避免和 Dock 抢重量 ── */
+html body #finder-bar {
+    -webkit-backdrop-filter: blur(14px) saturate(140%) !important;
+    backdrop-filter: blur(14px) saturate(140%) !important;
+    border-color: var(--n26aes-border-soft) !important;
+}
+
+/* ============================================================
+   ⑤ 字号收敛（Phase 1 · 第二步）
+   ------------------------------------------------------------
+   只给「明显偏小的通用正文与控件」设下限，不逐条重写 101 种取值：
+     · 正文基准 14px、窗口/设置正文 13.5px
+     · 通用正文与控件下限 12px
+     · 极小的说明/徽标 11px（它们不是正文，只是chrome）
+   ============================================================ */
+
+:root {
+    --n26aes-fs-body:    14px;
+    --n26aes-fs-text:    13.5px;
+    --n26aes-fs-min:     12px;
+    --n26aes-fs-caption: 11px;
+}
+
+/* 正文基准 */
+html body .window-content { font-size: var(--n26aes-fs-body); }
+html body .settings-panel .settings-row > span { font-size: var(--n26aes-fs-text) !important; }
+html body .settings-panel .settings-section h4 { font-size: var(--n26aes-fs-text); }
+
+/* 说明文字：原来 10.4 / 11px → 12px */
+html body .settings-panel .settings-row small,
+html body .settings-panel .settings-section h4 small,
+html body .window-content small { font-size: var(--n26aes-fs-min) !important; }
+html body .settings-user-role { font-size: var(--n26aes-fs-min) !important; }
+
+/* 桌面栏 / Dock / 开始菜单 */
+html body #n26TopbarDate,
+html body .n26-shelf-tip,
+html body .rdock-sub,
+html body .smt-foot-hint,
+html body .dock-tooltip { font-size: var(--n26aes-fs-min) !important; }
+html body .smt-tile-name { font-size: 13px !important; }
+html body #n26ProcessCount { font-size: var(--n26aes-fs-caption) !important; }
+
+/* 文件管理：侧栏 10.5 / 列表 11 / 状态栏 11 / tiny 9–9.5 */
+html body .fm-side-txt,
+html body .fm-item-name,
+html body #fmStatusBar { font-size: var(--n26aes-fs-min) !important; }
+html body .fm-side-label,
+html body #fmBridgeList a { font-size: var(--n26aes-fs-caption) !important; }
+
+/* ============================================================
+   ⑥ 个性化二级页 / 实时演示 / 参数滑块（v3.0）
+   ------------------------------------------------------------
+   颜色只用系统强调色与中性灰，不引入黑紫；
+   演示区与真实窗口消费同一组变量，所以“看到的就是生效的”。
+   ============================================================ */
+
+#settingsPanel.n26-pz-panel { position: relative; overflow-x: hidden; }
+#settingsPanel.n26-pz-panel[data-pz-cat]:not([data-pz-cat="root"]) > h3:not(.n26-pz-h3) { display: none; }
+
+@keyframes n26pzIn { from { opacity: .3; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+@keyframes n26pzOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(18px); } }
+#settingsPanel.n26-pz-in { animation: n26pzIn .24s cubic-bezier(.22,.8,.28,1); }
+#settingsPanel.n26-pz-out { animation: n26pzOut .2s ease-in forwards; }
+
+/* 面包屑导航 */
+.n26-pz-nav { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+.n26-pz-back {
+    width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--n26aes-border-soft);
+    background: rgba(255,255,255,.45); color: rgba(15,23,42,.72);
+    display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: background .16s ease, transform .16s ease;
+}
+.n26-pz-back:hover { background: rgba(255,255,255,.72); transform: translateX(-2px); }
+.n26-pz-back:focus-visible { outline: 2px solid var(--n26-accent, #3b82f6); outline-offset: 2px; }
+.n26-pz-crumb { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: rgba(15,23,42,.55); }
+.n26-pz-crumb .fa-chevron-right { font-size: 9px; opacity: .5; }
+.n26-pz-crumb b { color: rgba(15,23,42,.9); font-weight: 600; }
+body.dark-mode .n26-pz-back { background: rgba(255,255,255,.08); color: rgba(255,255,255,.82); border-color: var(--n26aes-border-soft); }
+body.dark-mode .n26-pz-back:hover { background: rgba(255,255,255,.16); }
+body.dark-mode .n26-pz-crumb { color: rgba(255,255,255,.55); }
+body.dark-mode .n26-pz-crumb b { color: rgba(255,255,255,.92); }
+
+/* 一级目录 */
+.n26-pz-cat-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 4px; }
+.n26-pz-cat {
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    padding: 12px 14px; border-radius: 12px; cursor: pointer;
+    border: 1px solid rgba(0,0,0,.06); background: rgba(255,255,255,.55);
+    transition: background .16s ease, border-color .16s ease, transform .16s ease;
+}
+.n26-pz-cat:hover { background: rgba(255,255,255,.78); border-color: rgba(0,0,0,.10); transform: translateY(-1px); }
+.n26-pz-cat:focus-visible { outline: 2px solid var(--n26-accent, #3b82f6); outline-offset: 2px; }
+.n26-pz-cat-ico {
+    width: 32px; height: 32px; border-radius: 9px; flex: 0 0 auto;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: rgba(59,130,246,.10); color: rgba(37,99,235,.95); font-size: 14px;
+}
+.n26-pz-cat-txt { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.n26-pz-cat-txt b { font-size: 14px; color: rgba(15,23,42,.92); }
+.n26-pz-cat-txt small { font-size: 12px; color: rgba(15,23,42,.52); }
+.n26-pz-cat-arrow { font-size: 11px; color: rgba(15,23,42,.35); }
+.n26-pz-cat-note { margin-top: 12px; font-size: 12px; color: rgba(15,23,42,.45); }
+body.dark-mode .n26-pz-cat { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.10); }
+body.dark-mode .n26-pz-cat:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.18); }
+body.dark-mode .n26-pz-cat-ico { background: rgba(96,165,250,.18); color: rgba(191,219,254,.95); }
+body.dark-mode .n26-pz-cat-txt b { color: rgba(255,255,255,.92); }
+body.dark-mode .n26-pz-cat-txt small, body.dark-mode .n26-pz-cat-note { color: rgba(255,255,255,.5); }
+body.dark-mode .n26-pz-cat-arrow { color: rgba(255,255,255,.4); }
+
+/* 二级页标题 */
+.n26-pz-h3 { font-size: 19px; font-weight: 600; margin: 2px 0 12px; color: rgba(15,23,42,.92); }
+body.dark-mode .n26-pz-h3 { color: rgba(255,255,255,.94); }
+
+/* 实时演示：壁纸 + 迷你窗口，全部读同一组变量 */
+/* 材质页四张卡改成 2×2，一眼看全四种，不会第四张被窗口下沿切掉 */
+#settingsPanel[data-pz-cat="material"] .mat-row { grid-template-columns: repeat(2, 1fr); }
+
+.n26-pz-demo {
+    position: relative; height: 190px; border-radius: 14px; overflow: hidden;
+    border: 1px solid var(--n26aes-border-soft); margin-bottom: 8px; background: #0b1020;
+}
+.n26-pz-demo-bg { position: absolute; inset: 0; background-size: cover; background-position: center; }
+/* 壁纸往往是纯渐变，看不出模糊；叠一层有边缘的色块和细纹，
+   模糊/饱和度/折射才有对比物，仍然只是「壁纸底」的一部分 */
+.n26-pz-demo-bg::before {
+    content: ''; position: absolute; inset: 0;
+    background:
+        radial-gradient(110px 82px at 16% 26%, rgba(59,130,246,.55), transparent 72%),
+        radial-gradient(96px 78px at 80% 20%, rgba(244,164,96,.52), transparent 74%),
+        radial-gradient(130px 96px at 62% 86%, rgba(45,196,182,.50), transparent 72%),
+        repeating-linear-gradient(115deg, rgba(255,255,255,.09) 0 7px, rgba(255,255,255,0) 7px 20px);
+}
+.n26-pz-demo-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.06), rgba(0,0,0,.22)); }
+body.dark-mode .n26-pz-demo-bg::after { background: linear-gradient(180deg, rgba(8,10,14,.42), rgba(8,10,14,.62)); }
+.n26-pz-demo-win {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 262px; border-radius: 13px; overflow: hidden;
+    border: 1px solid var(--n26aes-border);
+    box-shadow: 0 16px 44px rgba(0,0,0,.30), 0 4px 12px rgba(0,0,0,.16),
+                inset 0 1px 0 rgba(255,255,255, var(--n26-glass-hi, .35));
+    background: rgba(255,255,255,calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k)));
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) var(--n26-grain-fn);
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k))) var(--n26-grain-fn);
+    transition: background .2s ease;
+}
+/* 液态：演示窗口也消费 JS 注入的位移贴图（折射强度实时改 scale） */
+.n26-pz-demo-win.n26-liquid-on {
+    -webkit-backdrop-filter: var(--n26-lg-filter) !important;
+    backdrop-filter: var(--n26-lg-filter) !important;
+}
+body.mat-solid .n26-pz-demo-win { background: rgba(250,250,252,.95); backdrop-filter: none; -webkit-backdrop-filter: none; }
+body.dark-mode .n26-pz-demo-win { background: rgba(18,20,26, calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k) * .9)); }
+.n26-pz-demo-bar {
+    height: 27px; display: flex; align-items: center; gap: 8px; padding: 0 10px;
+    border-bottom: 1px solid var(--n26aes-border-soft);
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k)));
+}
+.n26-pz-demo-dots { display: inline-flex; gap: 4px; }
+.n26-pz-demo-dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(15,23,42,.28); }
+.n26-pz-demo-title { font-size: 11.5px; color: rgba(15,23,42,.62); }
+.n26-pz-demo-body { padding: 12px 12px 14px; }
+.n26pz-ar-line { height: 7px; border-radius: 4px; background: rgba(15,23,42,.26); margin: 0 0 8px; }
+.n26-pz-demo-chip {
+    margin-top: 10px; display: inline-block; padding: 4px 9px; border-radius: 7px;
+    font-size: 11px; color: rgba(15,23,42,.8);
+    background: rgba(255,255,255,.42); border: 1px solid var(--n26aes-border-soft);
+}
+body.dark-mode .n26-pz-demo-dots i { background: rgba(255,255,255,.32); }
+body.dark-mode .n26-pz-demo-title { color: rgba(255,255,255,.62); }
+body.dark-mode .n26pz-ar-line { background: rgba(255,255,255,.18); }
+body.dark-mode .n26-pz-demo-chip { color: rgba(255,255,255,.82); background: rgba(255,255,255,.10); }
+.n26-pz-demo-badge {
+    position: absolute; right: 9px; bottom: 8px; padding: 3px 8px; border-radius: 6px;
+    font-size: 10.5px; color: rgba(255,255,255,.86); background: rgba(0,0,0,.32);
+    backdrop-filter: blur(6px);
+}
+.n26-pz-demo-tip { font-size: 12px; color: rgba(15,23,42,.48); margin: 0 0 14px; }
+body.dark-mode .n26-pz-demo-tip { color: rgba(255,255,255,.5); }
+
+/* 材质缩略图：云母是新增的第四档 */
+.mat-thumb-mica {
+    background:
+        radial-gradient(120% 90% at 20% 10%, rgba(255,255,255,.85), rgba(255,255,255,0) 60%),
+        linear-gradient(135deg, #eef1f6 0%, #dfe5ee 55%, #cfd7e3 100%) !important;
+}
+body.dark-mode .mat-thumb-mica {
+    background: linear-gradient(135deg, #3a4150 0%, #2b3140 55%, #232835 100%) !important;
+}
+
+/* 参数分组与滑块 */
+/* 材质页的卡片不再跑 n26-shell.css 的逐个淡入：那条动画 fill-mode:both
+   会把 opacity:1 焊死，is-off 的淡出根本赢不了 */
+#settingsPanel[data-pz-cat="material"] .settings-section { animation: none; }
+.n26-pz-sec { margin-bottom: 12px; }
+.n26-pz-liquid-sec { transition: opacity .2s ease; }
+.n26-pz-liquid-sec.is-off { opacity: .62; }
+.n26pz-field { padding: 9px 0 4px; transition: opacity .2s ease; }
+.n26pz-field.is-off { opacity: .45; }
+.n26pz-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
+.n26pz-name { font-size: 13px; color: rgba(15,23,42,.86); }
+.n26pz-val { font-size: 12.5px; font-weight: 600; color: rgba(37,99,235,.95); font-variant-numeric: tabular-nums; }
+body.dark-mode .n26pz-name { color: rgba(255,255,255,.85); }
+body.dark-mode .n26pz-val { color: rgba(147,197,253,.95); }
+
+.n26pz-range {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 22px; background: transparent; cursor: pointer; margin: 0;
+}
+.n26pz-range::-webkit-slider-runnable-track {
+    height: 6px; border-radius: 999px;
+    background: linear-gradient(90deg,
+        var(--n26-accent, #3b82f6) 0%,
+        var(--n26-accent, #3b82f6) var(--pzfill, 50%),
+        rgba(120,130,150,.24) var(--pzfill, 50%),
+        rgba(120,130,150,.24) 100%);
+}
+.n26pz-range::-moz-range-track { height: 6px; border-radius: 999px; background: rgba(120,130,150,.24); }
+.n26pz-range::-moz-range-progress { height: 6px; border-radius: 999px; background: var(--n26-accent, #3b82f6); }
+.n26pz-range::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; margin-top: -5px; border-radius: 50%;
+    background: #fff; border: 1px solid rgba(0,0,0,.16);
+    box-shadow: 0 1px 4px rgba(0,0,0,.22);
+    transition: transform .12s ease, box-shadow .12s ease;
+}
+.n26pz-range::-moz-range-thumb {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; border: 1px solid rgba(0,0,0,.16); box-shadow: 0 1px 4px rgba(0,0,0,.22);
+}
+.n26pz-range:hover::-webkit-slider-thumb { transform: scale(1.08); }
+.n26pz-range:active::-webkit-slider-thumb { transform: scale(1.14); }
+.n26pz-range:focus-visible { outline: none; }
+.n26pz-range:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 3px rgba(59,130,246,.32), 0 1px 4px rgba(0,0,0,.22);
+}
+.n26pz-range:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px rgba(59,130,246,.32); }
+.n26pz-range:disabled { cursor: not-allowed; }
+body.dark-mode .n26pz-range::-webkit-slider-runnable-track {
+    background: linear-gradient(90deg,
+        var(--n26-accent, #60a5fa) 0%,
+        var(--n26-accent, #60a5fa) var(--pzfill, 50%),
+        rgba(255,255,255,.16) var(--pzfill, 50%),
+        rgba(255,255,255,.16) 100%);
+}
+body.dark-mode .n26pz-range::-webkit-slider-thumb { background: #e8ecf4; border-color: rgba(255,255,255,.5); }
+.n26pz-hint { font-size: 11.5px; color: rgba(15,23,42,.42); line-height: 1.5; margin-top: 2px; }
+.n26pz-why { display: block; color: rgba(180,83,9,.9); }
+.n26pz-why:empty { display: none; }
+/* 置灰时只留「为什么不能调」，不再和常驻说明重复两行 */
+.n26pz-field.is-off .n26pz-hint { display: none; }
+body.dark-mode .n26pz-hint { color: rgba(255,255,255,.42); }
+body.dark-mode .n26pz-why { color: rgba(253,186,116,.9); }
+
+.n26-pz-actions { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 10px; }
+.n26-pz-reset { align-self: flex-start; }
+.n26-pz-actions-tip { font-size: 11.5px; color: rgba(15,23,42,.4); }
+body.dark-mode .n26-pz-actions-tip { color: rgba(255,255,255,.4); }
+
+/* 分类筛选：非当前分类的分区直接不显示 */
+#settingsPanel.n26-pz-panel[data-pz-cat="appearance"] .settings-section:not([data-cat="appearance"]),
+#settingsPanel.n26-pz-panel[data-pz-cat="wallpaper"]  .settings-section:not([data-cat="wallpaper"]),
+#settingsPanel.n26-pz-panel[data-pz-cat="color"]      .settings-section:not([data-cat="color"]),
+#settingsPanel.n26-pz-panel[data-pz-cat="lock"]       .settings-section:not([data-cat="lock"]),
+#settingsPanel.n26-pz-panel[data-pz-cat="dock"]       .settings-section:not([data-cat="dock"]) {
+    display: none !important;
+}
+
+/* ============================================================
+   v3.1 壁纸组三级页（个性化 → 壁纸 → 组内详情）
+   ============================================================ */
+.n26-wg-head { margin: 2px 0 14px; }
+.n26-wg-title { font-size: 19px; font-weight: 600; letter-spacing: .2px; color: rgba(15, 23, 42, .92); }
+.n26-wg-meta { margin-top: 4px; font-size: 12.5px; color: rgba(15, 23, 42, .55); }
+.n26-wg-playing { color: var(--primary, #4A9BF5); font-weight: 600; }
+.n26-wg-hint { margin-top: 6px; font-size: 11.5px; line-height: 1.7; color: rgba(15, 23, 42, .42); }
+
+.n26-wg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.n26-wg-thumb {
+    position: relative; display: block; width: 100%; padding: 0;
+    aspect-ratio: 16 / 9; overflow: hidden; cursor: pointer;
+    border: 2px solid transparent; border-radius: 10px;
+    background: #e9edf3;
+    transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+.n26-wg-thumb::before {   /* 加载骨架微光（灰底，不用白底盖图） */
+    content: ''; position: absolute; inset: 0; z-index: 1;
+    background: linear-gradient(100deg, rgba(15,23,42,.05) 20%, rgba(15,23,42,.11) 40%, rgba(15,23,42,.05) 60%);
+    background-size: 220% 100%;
+    animation: n26wgShimmer 1.15s ease-in-out infinite;
+}
+.n26-wg-thumb.is-loaded::before { display: none; }
+.n26-wg-thumb img {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; opacity: 0;
+    transition: opacity .28s ease, transform .3s ease;
+}
+.n26-wg-thumb.is-loaded img { opacity: 1; }
+.n26-wg-thumb:hover { transform: translateY(-1px); }
+.n26-wg-thumb:hover img { transform: scale(1.045); }
+.n26-wg-thumb:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(74,155,245,.28); }
+.n26-wg-thumb.is-active { border-color: var(--primary, #4A9BF5); box-shadow: 0 0 0 3px rgba(74,155,245,.16); }
+.n26-wg-thumb.is-sel { border-color: var(--primary, #4A9BF5); }
+.n26-wg-thumb.is-sel::after {
+    content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+    background: rgba(74, 155, 245, .18);
+}
+.n26-wg-check {
+    position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; z-index: 3;
+    display: none; align-items: center; justify-content: center;
+    border-radius: 50%; background: var(--primary, #4A9BF5); color: #fff;
+    font-size: 10px; box-shadow: 0 2px 6px rgba(20, 40, 80, .28);
+}
+.n26-wg-thumb.is-sel .n26-wg-check,
+.n26-wg-thumb.is-active .n26-wg-check { display: flex; }
+.n26-wg-num {
+    position: absolute; left: 6px; bottom: 6px; z-index: 3;
+    padding: 1px 6px; border-radius: 5px; font-size: 10px; color: #fff;
+    background: rgba(0, 0, 0, .38); backdrop-filter: blur(4px);
+}
+
+/* 加载失败：可见的失败态，不静默留白 */
+.n26-wg-err {
+    position: absolute; inset: 0; z-index: 3; display: none;
+    flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    padding: 0 8px; text-align: center; font-size: 10px; color: rgba(15, 23, 42, .5);
+    background: #eef1f6;
+}
+.n26-wg-err i { font-size: 15px; opacity: .55; }
+.n26-wg-err b { font-size: 11px; font-weight: 600; color: rgba(15, 23, 42, .68); }
+.n26-wg-err small { font-size: 9px; line-height: 1.3; word-break: break-all; opacity: .75; }
+.n26-wg-thumb.is-error::before { display: none; }
+.n26-wg-thumb.is-error img { display: none; }
+.n26-wg-thumb.is-error .n26-wg-err { display: flex; }
+
+.n26-wg-slide {
+    margin-top: 16px; padding: 12px 14px;
+    border: 1px solid rgba(0, 0, 0, .06); border-radius: 12px;
+    background: rgba(255, 255, 255, .55);
+}
+.n26-wg-slide-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: rgba(15, 23, 42, .86); }
+.n26-wg-badge { padding: 2px 8px; border-radius: 999px; font-size: 11.5px; background: rgba(15, 23, 42, .08); color: rgba(15, 23, 42, .55); }
+.n26-wg-badge.is-on { background: rgba(74, 155, 245, .14); color: rgba(30, 95, 180, .95); }
+.n26-wg-slide-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.n26-wg-slide-count { font-size: 12px; color: rgba(15, 23, 42, .6); }
+.n26-wg-slide-int { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: rgba(15, 23, 42, .6); }
+.n26-wg-slide-int select {
+    padding: 4px 8px; border-radius: 8px; font-size: 12px; color: inherit;
+    border: 1px solid rgba(0, 0, 0, .12); background: rgba(255, 255, 255, .8);
+}
+.n26-wg-slide-hint { margin-top: 8px; font-size: 11.5px; color: rgba(15, 23, 42, .45); }
+.n26-wg-slide .glass-btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+body.dark-mode .n26-wg-title { color: rgba(255, 255, 255, .94); }
+body.dark-mode .n26-wg-meta,
+body.dark-mode .n26-wg-slide-count,
+body.dark-mode .n26-wg-slide-int { color: rgba(255, 255, 255, .6); }
+body.dark-mode .n26-wg-hint,
+body.dark-mode .n26-wg-slide-hint { color: rgba(255, 255, 255, .45); }
+body.dark-mode .n26-wg-thumb { background: rgba(255, 255, 255, .08); }
+body.dark-mode .n26-wg-slide { border-color: rgba(255, 255, 255, .10); background: rgba(255, 255, 255, .06); }
+body.dark-mode .n26-wg-slide-head { color: rgba(255, 255, 255, .88); }
+body.dark-mode .n26-wg-badge { background: rgba(255, 255, 255, .10); color: rgba(255, 255, 255, .6); }
+body.dark-mode .n26-wg-badge.is-on { background: rgba(96, 165, 250, .20); color: rgba(191, 219, 254, .95); }
+body.dark-mode .n26-wg-slide-int select { border-color: rgba(255, 255, 255, .18); background: rgba(255, 255, 255, .12); color: #eef2f8; }
+body.dark-mode .n26-wg-slide-int select option { background: #1a2130; color: #eef2f8; }
+
+@keyframes n26wgShimmer { 0% { background-position: 120% 0; } 100% { background-position: -120% 0; } }
+
+/* ============================================================
+   设置二级 / 三级目录（v2.9.77）
+   侧栏 = 一级；目录卡 = 二级；分区内容 = 三级
+   ============================================================ */
+.n26-set-deep-root .n26-set-cards { display: none !important; }
+/* 三级详情页只有当前分区一张卡，单列铺满，右侧不留半屏空白 */
+.settings-panel.n26-set-deep-detail .n26-set-cards { grid-template-columns: 1fr !important; }
+/* 2 列时若分区数是奇数，最后一张铺满整行，右下角不留空洞 */
+.settings-panel.n26-set-two .n26-set-cards > .n26-set-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.n26-set-deep-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 10px; margin: 2px 0 14px;
+}
+.n26-set-deep-card {
+    display: flex; align-items: center; gap: 12px; width: 100%;
+    padding: 14px 15px; text-align: left; cursor: pointer;
+    border: 1px solid rgba(15, 23, 42, .09); border-radius: 14px;
+    background: rgba(255, 255, 255, .62);
+    transition: background .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+    font-family: inherit; color: inherit;
+}
+.n26-set-deep-card:hover {
+    background: rgba(255, 255, 255, .82); border-color: rgba(15, 23, 42, .16);
+    transform: translateY(-1px); box-shadow: 0 6px 18px rgba(20, 40, 70, .08);
+}
+.n26-set-deep-card:focus-visible { outline: 2px solid var(--n26-accent, #3b82f6); outline-offset: 2px; }
+.n26-set-deep-ico {
+    flex: none; width: 38px; height: 38px; display: grid; place-items: center;
+    border-radius: 11px; font-size: 15px;
+    background: rgba(47, 124, 246, .10); color: var(--n26dock-accent, #2f7cf6);
+}
+.n26-set-deep-txt { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.n26-set-deep-txt b { font-size: 14px; font-weight: 600; color: rgba(15, 23, 42, .92); }
+.n26-set-deep-txt small { font-size: 12px; color: rgba(15, 23, 42, .5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.n26-set-deep-meta { flex: none; font-size: 11px; color: rgba(15, 23, 42, .38); }
+.n26-set-deep-arrow { flex: none; font-size: 11px; color: rgba(15, 23, 42, .32); }
+.n26-set-deep-note { margin: -4px 2px 12px; font-size: 12px; color: rgba(15, 23, 42, .45); }
+
+.n26-set-deep-detail .n26-set-head { display: none; }
+.n26-set-navbar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin: 0 0 14px; padding: 9px 11px;
+    border: 1px solid rgba(15, 23, 42, .08); border-radius: 12px;
+    background: rgba(255, 255, 255, .55);
+}
+.n26-set-back {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 11px; border-radius: 9px; cursor: pointer;
+    border: 1px solid rgba(15, 23, 42, .12); background: rgba(255, 255, 255, .7);
+    font-family: inherit; font-size: 12.5px; color: inherit;
+    transition: background .15s ease, transform .15s ease;
+}
+.n26-set-back:hover { background: rgba(255, 255, 255, .95); transform: translateX(-1px); }
+.n26-set-back:focus-visible { outline: 2px solid var(--n26-accent, #3b82f6); outline-offset: 2px; }
+.n26-set-crumb { display: flex; align-items: center; gap: 7px; font-size: 12px; color: rgba(15, 23, 42, .5); min-width: 0; }
+.n26-set-crumb i { font-size: 8px; opacity: .45; }
+.n26-set-crumb b { color: rgba(15, 23, 42, .9); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.n26-set-rel { margin: 14px 0 2px; }
+.n26-set-rel-title { font-size: 12px; color: rgba(15, 23, 42, .45); margin-bottom: 7px; }
+.n26-set-rel-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.n26-set-rel-chip {
+    padding: 5px 11px; border-radius: 999px; cursor: pointer;
+    border: 1px solid rgba(15, 23, 42, .10); background: rgba(255, 255, 255, .55);
+    font-family: inherit; font-size: 12px; color: rgba(15, 23, 42, .7);
+    transition: background .15s ease, border-color .15s ease;
+}
+.n26-set-rel-chip:hover { background: rgba(255, 255, 255, .9); border-color: rgba(15, 23, 42, .18); }
+.n26-set-rel-chip.is-cur { border-color: rgba(47, 124, 246, .45); color: var(--n26dock-accent, #2f7cf6); }
+
+body.dark-mode .n26-set-deep-card { background: rgba(255, 255, 255, .055); border-color: rgba(255, 255, 255, .10); }
+body.dark-mode .n26-set-deep-card:hover { background: rgba(255, 255, 255, .10); border-color: rgba(255, 255, 255, .18); }
+body.dark-mode .n26-set-deep-ico { background: rgba(96, 165, 250, .16); color: #9fc4ff; }
+body.dark-mode .n26-set-deep-txt b { color: rgba(255, 255, 255, .92); }
+body.dark-mode .n26-set-deep-txt small,
+body.dark-mode .n26-set-deep-meta,
+body.dark-mode .n26-set-deep-note { color: rgba(255, 255, 255, .46); }
+body.dark-mode .n26-set-deep-arrow { color: rgba(255, 255, 255, .35); }
+body.dark-mode .n26-set-navbar { background: rgba(255, 255, 255, .055); border-color: rgba(255, 255, 255, .10); }
+body.dark-mode .n26-set-back { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .16); color: #eef2f8; }
+body.dark-mode .n26-set-back:hover { background: rgba(255, 255, 255, .15); }
+body.dark-mode .n26-set-crumb { color: rgba(255, 255, 255, .5); }
+body.dark-mode .n26-set-crumb b { color: rgba(255, 255, 255, .9); }
+body.dark-mode .n26-set-rel-title { color: rgba(255, 255, 255, .45); }
+body.dark-mode .n26-set-rel-chip { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .12); color: rgba(255, 255, 255, .7); }
+body.dark-mode .n26-set-rel-chip:hover { background: rgba(255, 255, 255, .12); }
+body.dark-mode .n26-set-rel-chip.is-cur { border-color: rgba(127, 176, 255, .45); color: #9fc4ff; }
+
+/* 设置 → 个性化 → 材质：圆角滑块是真变量，预览区与真实窗口同步 */
+body.mat-liquid:not(.style-flat) .window:not(.maximized),
+body.mat-frost:not(.style-flat) .window:not(.maximized),
+body.mat-mica:not(.style-flat) .window:not(.maximized) {
+    border-radius: var(--n26-ui-radius, 14px) !important;
+}
+.n26-pz-demo-win { border-radius: var(--n26-ui-radius, 14px) !important; }
+body.mat-liquid .n26-pz-sec,
+body.mat-frost .n26-pz-sec,
+body.mat-liquid .appstore-card,
+body.mat-frost .appstore-card {
+    border-radius: calc(var(--n26-ui-radius, 14px) + 2px);
+}
+
+/* 关闭液态玻璃：相关滑块整段隐藏，不留「禁用但还在」的假控件 */
+.n26-pz-liquid-sec.is-off { display: none !important; }
+.n26pz-field.is-off[data-pz-key="blur"] { display: none !important; }
+
+/* 省电模式：真降 GPU（去掉大面积模糊与装饰动画） */
+body.n26-battery-saver .window,
+body.n26-battery-saver .as-rail,
+body.n26-battery-saver .settings-sidebar {
+    -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+body.n26-battery-saver .appstore-banner-track,
+body.n26-battery-saver .notification,
+body.n26-battery-saver .n26-dng.travel { animation: none !important; transition: none !important; }
+
+/* 设置页 · 连接 / 通知 / 电源 / 触控板 */
+.n26-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.n26-info-cell {
+    padding: 10px 12px; border-radius: 11px;
+    border: 1px solid rgba(15, 23, 42, .07); background: rgba(255, 255, 255, .5);
+}
+.n26-info-cell small { display: block; font-size: 11px; color: rgba(15, 23, 42, .45); margin-bottom: 3px; }
+.n26-info-cell b { font-size: 15px; color: rgba(15, 23, 42, .9); font-weight: 600; font-variant-numeric: tabular-nums; }
+.n26-info-cell.is-warn b { color: #b45309; }
+.n26-info-cell.is-bad b { color: #dc2626; }
+body.dark-mode .n26-info-cell { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .10); }
+body.dark-mode .n26-info-cell small { color: rgba(255, 255, 255, .46); }
+body.dark-mode .n26-info-cell b { color: rgba(255, 255, 255, .9); }
+.n26-set-note { font-size: 12px; line-height: 1.65; color: rgba(15, 23, 42, .5); margin-top: 8px; }
+body.dark-mode .n26-set-note { color: rgba(255, 255, 255, .48); }
+
+/* 新增设置页的控件：下拉、连续滑杆（触控板速度 / 捏合灵敏度） */
+.n26-set-select {
+    font-family: inherit; font-size: 12px; color: inherit;
+    padding: 5px 9px; border-radius: 9px; cursor: pointer;
+    border: 1px solid rgba(15, 23, 42, .12);
+    background: rgba(255, 255, 255, .72);
+}
+.n26-set-select:focus-visible { outline: 2px solid var(--n26-accent, #3b82f6); outline-offset: 2px; }
+body.dark-mode .n26-set-select { background: rgba(255, 255, 255, .1); border-color: rgba(255, 255, 255, .16); color: rgba(255, 255, 255, .9); }
+body.dark-mode .n26-set-select option { background: #1c2531; color: #eef3fa; }
+.n26-set-slider-wrap { display: inline-flex; align-items: center; gap: 9px; }
+.n26-set-slider {
+    -webkit-appearance: none; appearance: none; width: 132px; height: 4px; margin: 0;
+    border-radius: 999px; cursor: pointer;
+    background: rgba(15, 23, 42, .14);
+}
+.n26-set-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--n26dock-accent, #2f7cf6); border: 2px solid rgba(255, 255, 255, .92);
+    box-shadow: 0 1px 3px rgba(20, 40, 70, .24);
+}
+.n26-set-slider::-moz-range-thumb {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--n26dock-accent, #2f7cf6); border: 2px solid rgba(255, 255, 255, .92);
+}
+.n26-set-slider:focus-visible { outline: 2px solid var(--n26-accent, #3b82f6); outline-offset: 3px; }
+.n26-set-slider-wrap b { font-size: 11.5px; font-weight: 600; min-width: 38px; text-align: right; font-variant-numeric: tabular-nums; color: rgba(15, 23, 42, .62); }
+body.dark-mode .n26-set-slider { background: rgba(255, 255, 255, .18); }
+body.dark-mode .n26-set-slider-wrap b { color: rgba(255, 255, 255, .66); }
+.n26-set-btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.n26-range-inline { display: flex; align-items: center; gap: 10px; min-width: 190px; }
+.n26-range-inline input[type="range"] { flex: 1 1 auto; }
+.n26-range-inline output { font-size: 12px; font-weight: 600; color: var(--n26dock-accent, #2f7cf6); min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
+

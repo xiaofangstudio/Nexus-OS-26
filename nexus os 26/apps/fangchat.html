@@ -1,0 +1,2211 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-mode="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>方聊</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<link rel="stylesheet" href="../vendor/fontawesome/all.min.css">
+<style>
+/* ============================================================
+   方聊 · 独立 iframe 应用（apps/fangchat.html）
+   微信基本盘：会话列表 / 聊天 / 通讯录（拼音索引）/ 我的 / 设置
+   强调色取自方聊图标（#33ED00 荧光绿），按钮与文字取可读的深绿档，
+   荧光绿只用于选中条、指示点、开关轨道等「色块」。
+   ============================================================ */
+:root{
+  --fc-accent:#0B8A00;
+  --fc-accent-ink:#0A6E00;
+  --fc-brand:#33ED00;
+  --fc-accent-soft:rgba(51,237,0,.13);
+  --fc-accent-line:rgba(51,237,0,.50);
+  --fc-send-a:#26C600;
+  --fc-send-b:#0A6E00;
+  --fc-bub-out:#0C7D00;
+  --fc-bub-out-fg:#FFFFFF;
+  --fc-bub-in:rgba(255,255,255,.86);
+  --fc-panel-rail:rgba(255,255,255,.46);
+  --fc-panel-side:rgba(255,255,255,.40);
+  --fc-panel-main:rgba(255,255,255,.30);
+  --fc-border:rgba(255,255,255,.62);
+  --fc-border-2:rgba(15,23,42,.07);
+  --fc-inner:inset 0 1px 0 rgba(255,255,255,.70);
+  --fc-line:rgba(15,23,42,.075);
+  --fc-hover:rgba(15,23,42,.045);
+  --fc-chip:rgba(15,23,42,.055);
+  --fc-text-sub:rgba(15,23,42,.55);
+  --fc-text-meta:rgba(15,23,42,.40);
+  --fc-shadow:0 6px 20px rgba(20,40,70,.09);
+  --fc-danger:#DC2626;
+  --fc-danger-soft:rgba(239,68,68,.12);
+  --fc-overlay:rgba(15,23,42,.30);
+  --fc-modal:rgba(252,252,254,.97);
+}
+body.dark-mode{
+  --fc-accent:#8CFF6E;
+  --fc-accent-ink:#DCFFD2;
+  --fc-brand:#56FF2E;
+  --fc-accent-soft:rgba(51,237,0,.17);
+  --fc-accent-line:rgba(86,255,46,.55);
+  --fc-send-a:#2FD800;
+  --fc-send-b:#0A6E00;
+  --fc-bub-out:#0F6B10;
+  --fc-bub-out-fg:#F4FFF2;
+  --fc-bub-in:rgba(255,255,255,.10);
+  --fc-panel-rail:rgba(255,255,255,.055);
+  --fc-panel-side:rgba(255,255,255,.045);
+  --fc-panel-main:rgba(255,255,255,.030);
+  --fc-border:rgba(255,255,255,.12);
+  --fc-border-2:rgba(255,255,255,.09);
+  --fc-inner:inset 0 1px 0 rgba(255,255,255,.12);
+  --fc-line:rgba(255,255,255,.10);
+  --fc-hover:rgba(255,255,255,.07);
+  --fc-chip:rgba(255,255,255,.08);
+  --fc-text-sub:rgba(226,232,240,.62);
+  --fc-text-meta:rgba(203,213,225,.42);
+  --fc-shadow:0 8px 26px rgba(0,0,0,.36);
+  --fc-danger:#FF9A9D;
+  --fc-danger-soft:rgba(239,68,68,.18);
+  --fc-overlay:rgba(5,8,16,.46);
+  --fc-modal:rgba(32,36,48,.97);
+}
+*{box-sizing:border-box;}
+html,body{height:100%;margin:0;font-family:var(--font-sans);}
+body{background:transparent;overflow:hidden;color:var(--text-1);font-size:13px;-webkit-font-smoothing:antialiased;}
+#app{height:100%;}
+body.fc-solo{background:radial-gradient(130% 120% at 8% 0%,#e7eef9 0%,#d3deef 42%,#b9c8dd 100%);}
+body.fc-solo.dark-mode{background:radial-gradient(130% 120% at 8% 0%,#1a2130 0%,#111724 45%,#080b13 100%);}
+
+.fc-root{height:100%;display:flex;gap:8px;padding:8px;min-width:0;}
+.fc-rail,.fc-side,.fc-main{
+  background:var(--fc-panel-side);
+  border:1px solid var(--fc-border);
+  border-radius:16px;
+  box-shadow:var(--fc-inner),var(--fc-shadow);
+  min-height:0;
+}
+.fc-rail{flex:0 0 62px;width:62px;background:var(--fc-panel-rail);display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 5px;}
+.fc-side{flex:0 0 240px;width:240px;display:flex;flex-direction:column;overflow:hidden;}
+.fc-main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;overflow:hidden;background:var(--fc-panel-main);}
+
+/* ---------- 左侧竖栏 ---------- */
+.fc-myav{width:100%;padding:0;border:0;background:transparent;display:flex;justify-content:center;cursor:pointer;border-radius:14px;margin-bottom:6px;}
+.fc-myav .fc-av{box-shadow:0 0 0 2px transparent;transition:box-shadow .18s var(--ease-out);}
+.fc-myav.active .fc-av{box-shadow:0 0 0 2px var(--fc-brand);}
+.fc-myav:hover .fc-av{box-shadow:0 0 0 2px var(--fc-accent-line);}
+.fc-tab{position:relative;width:100%;padding:7px 0 6px;border:0;border-radius:11px;background:transparent;color:var(--text-2);font:inherit;font-size:10.5px;font-weight:500;line-height:1.1;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;transition:background-color .15s var(--ease-out),color .15s var(--ease-out);}
+.fc-tab i{font-size:16px;transition:color .2s var(--ease-out);}
+.fc-tab:hover{background:var(--fc-hover);color:var(--text-1);}
+.fc-tab.active{background:var(--fc-accent-soft);color:var(--fc-accent-ink);font-weight:600;}
+.fc-tab.active i{color:var(--fc-accent);}
+.fc-tabdirt{position:absolute;top:5px;right:11px;width:7px;height:7px;border-radius:50%;background:var(--fc-danger);box-shadow:0 0 0 2px rgba(255,255,255,.35);}
+body.dark-mode .fc-tabdirt{box-shadow:0 0 0 2px rgba(0,0,0,.35);}
+.fc-rail-grow{flex:1 1 auto;}
+.fc-cloudbtn{width:30px;height:30px;border:1px solid var(--fc-border-2);border-radius:10px;background:var(--fc-chip);color:var(--fc-text-sub);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;position:relative;transition:background-color .16s var(--ease-out);}
+.fc-cloudbtn:hover{background:var(--fc-hover);}
+.fc-cloudbtn.ok{color:#0A8A00;}
+body.dark-mode .fc-cloudbtn.ok{color:#8CFF6E;}
+.fc-cloudbtn.fail{color:var(--fc-danger);}
+.fc-cloudbtn.checking{color:#B7791F;}
+.fc-cloudbtn .dot{position:absolute;right:5px;bottom:5px;width:5px;height:5px;border-radius:50%;background:var(--fc-text-meta);}
+.fc-cloudbtn.ok .dot{background:#22C55E;}
+.fc-cloudbtn.fail .dot{background:#EF4444;}
+.fc-cloudbtn.checking .dot{background:#F59E0B;animation:fcPulse 1.1s var(--ease-out) infinite;}
+@keyframes fcPulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* ---------- 侧栏头部 / 搜索 ---------- */
+.fc-side-head{flex:none;display:flex;align-items:center;gap:8px;padding:14px 12px 10px;}
+.fc-side-title{flex:1;min-width:0;font-size:15px;font-weight:700;letter-spacing:.2px;margin:0;}
+.fc-icbtn{width:28px;height:28px;flex:none;border:0;border-radius:9px;background:var(--fc-chip);color:var(--fc-text-sub);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:background-color .16s var(--ease-out),color .16s var(--ease-out),transform .12s var(--ease-out);}
+.fc-icbtn:hover{background:var(--fc-hover);color:var(--text-1);}
+.fc-icbtn:active{transform:scale(.94);}
+.fc-icbtn.danger:hover{background:var(--fc-danger-soft);color:var(--fc-danger);}
+.fc-search{flex:none;display:flex;align-items:center;gap:7px;margin:0 10px 8px;padding:0 9px;height:30px;border-radius:10px;background:var(--fc-chip);border:1px solid transparent;transition:border-color .16s var(--ease-out),background-color .16s var(--ease-out);}
+.fc-search:focus-within{border-color:var(--fc-accent-line);background:var(--fc-panel-side);}
+.fc-search i{font-size:11px;color:var(--fc-text-meta);flex:none;}
+.fc-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-family:inherit;font-size:12px;color:inherit;}
+.fc-search input::placeholder{color:var(--fc-text-meta);}
+.fc-search .fc-clear{width:18px;height:18px;border:0;border-radius:50%;background:var(--fc-chip);color:var(--fc-text-sub);cursor:pointer;font-size:9px;display:none;align-items:center;justify-content:center;}
+.fc-search.has .fc-clear{display:flex;}
+
+/* ---------- 会话列表 ---------- */
+.fc-side-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 6px 10px;position:relative;}
+.fc-thread{position:relative;display:flex;align-items:center;gap:10px;padding:9px 8px 9px 10px;border-radius:12px;cursor:pointer;transition:background-color .14s var(--ease-out);}
+.fc-thread:hover{background:var(--fc-hover);}
+.fc-thread.active{background:var(--fc-accent-soft);}
+.fc-thread.active::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:3px;background:var(--fc-brand);}
+.fc-thread-main{flex:1;min-width:0;}
+.fc-trow{display:flex;align-items:center;gap:6px;min-width:0;}
+.fc-tname{flex:0 1 auto;min-width:18px;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.1px;}
+.fc-thread.active .fc-tname{color:var(--fc-accent-ink);}
+.fc-ttime{flex:none;margin-left:auto;font-size:10px;color:var(--fc-text-meta);font-variant-numeric:tabular-nums;}
+.fc-tprev{flex:1;min-width:0;font-size:11.5px;color:var(--fc-text-sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;}
+.fc-tflag{flex:none;font-size:9.5px;color:var(--fc-accent);}
+.fc-tflag.mute{color:var(--fc-text-meta);}
+.fc-badge{flex:none;min-width:16px;height:16px;padding:0 5px;border-radius:99px;background:var(--fc-danger);color:#fff;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;}
+.fc-muted-dot{flex:none;width:7px;height:7px;border-radius:50%;background:var(--fc-text-meta);margin-right:3px;}
+.fc-empty-list{padding:30px 14px;text-align:center;color:var(--fc-text-meta);}
+.fc-empty-list i{font-size:26px;margin-bottom:10px;display:block;opacity:.6;}
+.fc-empty-list p{font-size:11.5px;line-height:1.8;margin:0;}
+.fc-empty-list button{margin-top:10px;height:26px;padding:0 11px;border:0;border-radius:8px;background:var(--fc-accent-soft);color:var(--fc-accent-ink);font:inherit;font-size:11.5px;font-weight:600;cursor:pointer;}
+
+/* ---------- 通讯录 ---------- */
+.fc-contact-wrap{padding-right:18px;}
+.fc-letter-head{display:flex;align-items:center;gap:8px;padding:6px 6px 4px;margin-top:4px;}
+.fc-letter-head span{font-size:10.5px;font-weight:700;color:var(--fc-text-meta);}
+.fc-letter-head::after{content:"";flex:1;height:1px;background:var(--fc-line);}
+.fc-contact{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:11px;cursor:pointer;transition:background-color .14s var(--ease-out);}
+.fc-contact:hover{background:var(--fc-hover);}
+.fc-contact.active{background:var(--fc-accent-soft);}
+.fc-cname{flex:0 1 auto;min-width:16px;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fc-cname-row{display:flex;align-items:center;gap:4px;min-width:0;}
+.fc-cnote{flex:1;min-width:0;font-size:11px;color:var(--fc-text-meta);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px;}
+.fc-cchev{flex:none;font-size:9px;color:var(--fc-text-meta);}
+.fc-idx{position:sticky;top:0;float:right;width:16px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 0;z-index:2;}
+.fc-idx button{width:14px;height:14px;border:0;border-radius:5px;background:transparent;color:var(--fc-text-meta);font:inherit;font-size:9.5px;line-height:1;cursor:pointer;padding:0;}
+.fc-idx button:hover{background:var(--fc-chip);color:var(--fc-accent-ink);}
+
+/* ---------- 我 ---------- */
+.fc-menu{padding:2px 4px;}
+.fc-menu-item{width:100%;display:flex;align-items:center;gap:10px;padding:10px 9px;border:0;border-radius:11px;background:transparent;color:var(--text-1);font:inherit;font-size:12.5px;font-weight:500;text-align:left;cursor:pointer;transition:background-color .14s var(--ease-out);}
+.fc-menu-item i:first-child{width:20px;text-align:center;color:var(--fc-text-sub);font-size:13px;}
+.fc-menu-item:hover{background:var(--fc-hover);}
+.fc-menu-item.active{background:var(--fc-accent-soft);color:var(--fc-accent-ink);font-weight:600;}
+.fc-menu-item.active i:first-child{color:var(--fc-accent);}
+.fc-menu-item .chev{margin-left:auto;font-size:9px;color:var(--fc-text-meta);}
+.fc-cloud-mini{margin:12px 6px 4px;padding:10px;border-radius:12px;background:var(--fc-chip);font-size:10.5px;line-height:1.7;color:var(--fc-text-sub);}
+.fc-cloud-mini b{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-1);margin-bottom:2px;}
+.fc-cloud-mini .st-dot{width:6px;height:6px;border-radius:50%;background:var(--fc-text-meta);}
+.fc-cloud-mini.ok .st-dot{background:#22C55E;}
+.fc-cloud-mini.fail .st-dot{background:#EF4444;}
+.fc-cloud-mini.checking .st-dot{background:#F59E0B;}
+
+/* ---------- 头像 ---------- */
+.fc-av{flex:none;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;letter-spacing:.5px;position:relative;}
+.fc-av img{width:100%;height:100%;object-fit:cover;display:block;}
+.fc-av.brand{background:linear-gradient(145deg,#33ED00 0%,#0E9B00 100%);color:#062B00;}
+.fc-av.self{background:linear-gradient(145deg,#33ED00 0%,#0E9B00 100%);color:#062B00;}
+.fc-av .fc-dot-pos{position:absolute;right:-2px;bottom:-2px;}
+
+/* ---------- 聊天区 ---------- */
+.fc-chat-head{flex:none;display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--fc-line);}
+.fc-chat-av .fc-av{width:36px;height:36px;}
+.fc-chat-txt{flex:1;min-width:0;}
+.fc-chat-name{display:flex;align-items:center;gap:5px;min-width:0;font-size:15px;font-weight:700;letter-spacing:.2px;}
+.fc-chat-name > .fc-name{min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fc-chat-sub{font-size:10.5px;color:var(--fc-text-sub);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fc-chat-acts{display:flex;align-items:center;gap:2px;flex:none;}
+.fc-hbtn{width:28px;height:28px;border:0;border-radius:9px;background:transparent;color:var(--fc-text-meta);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:background-color .14s var(--ease-out),color .14s var(--ease-out);}
+.fc-hbtn:hover{background:var(--fc-hover);color:var(--text-1);}
+.fc-hbtn.on{background:var(--fc-accent-soft);color:var(--fc-accent);}
+.fc-hbtn.danger:hover{background:var(--fc-danger-soft);color:var(--fc-danger);}
+
+.fc-banner{flex:none;display:flex;align-items:center;gap:8px;padding:7px 14px;background:var(--fc-danger-soft);color:var(--fc-danger);font-size:11px;border-bottom:1px solid var(--fc-line);}
+.fc-banner i{font-size:11px;}
+.fc-banner span{flex:1;min-width:0;}
+.fc-banner button{flex:none;height:22px;padding:0 9px;border:1px solid currentColor;border-radius:7px;background:transparent;color:inherit;font:inherit;font-size:10.5px;cursor:pointer;}
+
+.fc-msgs{flex:1 1 auto;min-height:0;overflow-y:auto;padding:16px 18px 10px;display:flex;flex-direction:column;}
+.fc-day{display:flex;justify-content:center;margin:10px 0 12px;}
+.fc-day span{font-size:9.5px;color:var(--fc-text-meta);background:var(--fc-chip);padding:2px 9px;border-radius:99px;font-variant-numeric:tabular-nums;}
+.fc-row{display:flex;align-items:flex-start;gap:7px;margin-bottom:10px;animation:fcMsgIn .2s var(--ease-out) both;}
+.fc-row.out{flex-direction:row-reverse;}
+.fc-row.run{margin-top:-4px;}
+@keyframes fcMsgIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.fc-row{animation:none}}
+body.perf-mode .fc-row{animation:none}
+.fc-row .fc-av{width:28px;height:28px;margin-top:1px;}
+.fc-row.run .fc-av{visibility:hidden;}
+.fc-col{display:flex;flex-direction:column;min-width:0;max-width:66%;}
+.fc-row.out .fc-col{align-items:flex-end;}
+.fc-who{font-size:9.5px;color:var(--fc-text-meta);margin:0 3px 3px;}
+.fc-bub{padding:8px 11px;border-radius:13px;font-size:13px;line-height:1.55;white-space:pre-wrap;word-break:break-word;background:var(--fc-bub-in);border:1px solid var(--fc-border-2);}
+.fc-bub.out{background:var(--fc-bub-out);color:var(--fc-bub-out-fg);border-color:transparent;box-shadow:0 2px 10px rgba(10,110,0,.20);}
+.fc-bub.img{padding:3px;background:var(--fc-bub-in);}
+.fc-bub.out.img{background:var(--fc-bub-out);}
+.fc-bub.file{padding:0;overflow:hidden;background:var(--fc-bub-in);}
+.fc-bub.out.file{background:var(--fc-bub-out);}
+.fc-meta{display:flex;align-items:center;gap:6px;font-size:9.5px;color:var(--fc-text-meta);margin:3px 4px 0;font-variant-numeric:tabular-nums;}
+.fc-meta button{border:0;background:transparent;color:var(--fc-danger);font:inherit;font-size:9.5px;cursor:pointer;padding:0;}
+.fc-imgbtn{display:block;border:0;padding:0;background:transparent;cursor:zoom-in;border-radius:10px;overflow:hidden;}
+.fc-imgbtn img{display:block;max-width:230px;max-height:270px;width:auto;height:auto;object-fit:cover;border-radius:10px;}
+.fc-filebtn{display:flex;align-items:center;gap:10px;width:228px;max-width:100%;padding:10px 11px;border:0;background:transparent;cursor:pointer;color:inherit;text-align:left;font:inherit;}
+.fc-fileic{width:36px;height:36px;flex:none;border-radius:9px;background:var(--fc-chip);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--fc-accent);}
+.fc-bub.out .fc-fileic{background:rgba(255,255,255,.16);color:#fff;}
+.fc-filetxt{flex:1;min-width:0;}
+.fc-filename{font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fc-filesize{font-size:10px;color:var(--fc-text-meta);margin-top:2px;}
+.fc-bub.out .fc-filesize{color:rgba(255,255,255,.72);}
+.fc-system{display:flex;justify-content:center;margin:8px 0;}
+.fc-system span{font-size:10px;color:var(--fc-text-meta);max-width:80%;text-align:center;line-height:1.6;padding:3px 10px;border-radius:9px;background:var(--fc-chip);}
+
+.fc-chat-empty,.fc-main-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;color:var(--fc-text-sub);}
+.fc-main-empty .art{width:88px;height:88px;border-radius:24px;background:var(--fc-accent-soft);display:flex;align-items:center;justify-content:center;margin-bottom:16px;}
+.fc-main-empty .art i{font-size:34px;color:var(--fc-accent);}
+.fc-main-empty h3{font-size:14px;font-weight:700;color:var(--text-1);margin:0 0 4px;}
+.fc-main-empty p{font-size:11.5px;line-height:1.8;margin:0;max-width:240px;}
+.fc-main-empty button{margin-top:14px;height:30px;padding:0 14px;border:0;border-radius:9px;background:var(--fc-send-b);color:#fff;font:inherit;font-size:12px;font-weight:600;cursor:pointer;}
+
+/* ---------- 输入区 ---------- */
+.fc-composer{flex:none;padding:8px 12px 12px;position:relative;}
+.fc-inputcard{background:var(--fc-panel-side);border:1px solid var(--fc-border-2);border-radius:14px;box-shadow:var(--fc-inner);transition:border-color .16s var(--ease-out);}
+.fc-inputcard:focus-within{border-color:var(--fc-accent-line);}
+.fc-composer textarea{display:block;width:100%;resize:none;border:0;outline:0;background:transparent;padding:10px 12px 2px;font-family:inherit;font-size:13px;line-height:1.55;color:inherit;height:44px;max-height:112px;overflow-y:auto;}
+.fc-composer textarea::placeholder{color:var(--fc-text-meta);}
+.fc-inputbar{display:flex;align-items:center;gap:4px;padding:4px 6px 5px 7px;}
+.fc-toolbtn{width:28px;height:28px;border:0;border-radius:8px;background:transparent;color:var(--fc-text-sub);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:background-color .14s var(--ease-out),color .14s var(--ease-out);}
+.fc-toolbtn:hover{background:var(--fc-hover);color:var(--text-1);}
+.fc-toolbtn.disabled{opacity:.38;cursor:not-allowed;}
+.fc-inputhint{flex:1;min-width:0;font-size:9.5px;color:var(--fc-text-meta);text-align:right;padding-right:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fc-send{width:32px;height:32px;flex:none;border:0;border-radius:10px;background:linear-gradient(135deg,var(--fc-send-a),var(--fc-send-b));color:#fff;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 9px rgba(10,110,0,.26);transition:filter .16s var(--ease-out),opacity .16s var(--ease-out),transform .1s var(--ease-out);}
+.fc-send:hover:not(:disabled){filter:brightness(1.07);}
+.fc-send:active:not(:disabled){transform:scale(.94);}
+.fc-send:disabled{opacity:.38;cursor:not-allowed;box-shadow:none;}
+
+/* ---------- 弹层 ---------- */
+.fc-pop{position:absolute;bottom:calc(100% - 2px);left:12px;z-index:14;background:var(--fc-modal);border:1px solid var(--fc-border-2);border-radius:14px;box-shadow:0 14px 36px rgba(0,0,0,.20);padding:8px;animation:fcPop .16s var(--ease-out) both;}
+@keyframes fcPop{from{opacity:0;transform:translateY(5px) scale(.98)}to{opacity:1;transform:none}}
+.fc-emoji{width:318px;max-width:calc(100vw - 40px);}
+.fc-emoji-cat{font-size:9.5px;color:var(--fc-text-meta);padding:3px 5px 5px;font-weight:600;letter-spacing:.4px;}
+.fc-emoji-grid{display:grid;grid-template-columns:repeat(9,1fr);gap:1px;}
+.fc-emoji-grid button{border:0;background:transparent;border-radius:7px;font-size:17px;line-height:1;height:30px;cursor:pointer;padding:0;transition:background-color .12s var(--ease-out);}
+.fc-emoji-grid button:hover{background:var(--fc-hover);}
+.fc-attach{width:150px;padding:6px;}
+.fc-attach button{width:100%;display:flex;align-items:center;gap:9px;padding:9px 10px;border:0;border-radius:9px;background:transparent;color:var(--text-1);font:inherit;font-size:12px;cursor:pointer;}
+.fc-attach button:hover{background:var(--fc-hover);}
+.fc-attach button i{width:16px;text-align:center;color:var(--fc-accent);font-size:12px;}
+
+/* ---------- 详情页 / 我的页 ---------- */
+.fc-page{flex:1;overflow-y:auto;padding:26px 28px 30px;}
+.fc-page h1{font-size:18px;font-weight:750;margin:0 0 3px;letter-spacing:.2px;}
+.fc-page .lead{font-size:11.5px;color:var(--fc-text-sub);margin:0 0 20px;line-height:1.7;}
+.fc-profile-row{display:flex;align-items:center;gap:16px;padding:16px;border-radius:14px;background:var(--fc-chip);margin-bottom:14px;}
+.fc-profile-row .fc-av{width:64px;height:64px;border-radius:16px;font-size:26px;}
+.fc-profile-info{flex:1;min-width:0;}
+.fc-label{font-size:10.5px;color:var(--fc-text-meta);margin-bottom:4px;letter-spacing:.2px;}
+.fc-input{width:100%;height:32px;padding:0 10px;border:1px solid var(--fc-border-2);border-radius:9px;background:var(--fc-panel-side);color:inherit;font:inherit;font-size:12.5px;outline:0;transition:border-color .16s var(--ease-out);}
+.fc-input:focus{border-color:var(--fc-accent-line);}
+.fc-btn{height:30px;padding:0 14px;border:1px solid var(--fc-border-2);border-radius:9px;background:var(--fc-chip);color:inherit;font:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:background-color .16s var(--ease-out),transform .1s var(--ease-out);}
+.fc-btn:hover{background:var(--fc-hover);}
+.fc-btn:active{transform:scale(.97);}
+.fc-btn.primary{background:linear-gradient(135deg,var(--fc-send-a),var(--fc-send-b));border-color:transparent;color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(10,110,0,.22);}
+.fc-btn.soft{background:var(--fc-accent-soft);border-color:transparent;color:var(--fc-accent-ink);font-weight:600;}
+.fc-btn.danger{background:var(--fc-danger-soft);border-color:transparent;color:var(--fc-danger);font-weight:600;}
+.fc-sec{margin-top:20px;}
+.fc-sec h3{font-size:12px;font-weight:700;margin:0 0 8px;color:var(--fc-text-sub);letter-spacing:.3px;}
+.fc-card{padding:14px;border-radius:14px;background:var(--fc-chip);}
+.fc-row-line{display:flex;align-items:center;gap:10px;padding:8px 0;}
+.fc-row-line + .fc-row-line{border-top:1px solid var(--fc-line);}
+.fc-row-line .t{flex:1;min-width:0;}
+.fc-row-line .t b{display:block;font-size:12px;font-weight:600;margin-bottom:2px;}
+.fc-row-line .t small{display:block;font-size:10.5px;color:var(--fc-text-sub);line-height:1.6;}
+.fc-switch{width:38px;height:22px;flex:none;border:0;border-radius:99px;background:var(--fc-chip);position:relative;cursor:pointer;transition:background-color .2s var(--ease-out);}
+.fc-switch.on{background:linear-gradient(135deg,var(--fc-send-a),var(--fc-send-b));}
+.fc-switch::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.22);transition:transform .22s var(--ease-spring);}
+.fc-switch.on::after{transform:translateX(16px);}
+.fc-chip-status{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:99px;font-size:10.5px;font-weight:600;background:var(--fc-chip);color:var(--fc-text-sub);flex:none;}
+.fc-chip-status .st-dot{width:6px;height:6px;border-radius:50%;background:var(--fc-text-meta);}
+.fc-chip-status.ok{background:rgba(34,197,94,.14);color:#0A7A38;}
+body.dark-mode .fc-chip-status.ok{color:#7CFFA8;}
+.fc-chip-status.ok .st-dot{background:#22C55E;}
+.fc-chip-status.fail{background:var(--fc-danger-soft);color:var(--fc-danger);}
+.fc-chip-status.fail .st-dot{background:#EF4444;}
+.fc-chip-status.checking{background:rgba(245,158,11,.14);color:#8A5A00;}
+body.dark-mode .fc-chip-status.checking{color:#FFC966;}
+.fc-chip-status.checking .st-dot{background:#F59E0B;}
+.fc-cloud-row{display:flex;gap:8px;margin-top:10px;}
+.fc-cloud-row .fc-input{flex:1;}
+.fc-hint{font-size:10.5px;color:var(--fc-text-meta);line-height:1.75;margin:9px 0 0;}
+.fc-limit{font-size:10.5px;color:var(--fc-text-sub);line-height:1.9;padding-left:16px;margin:0;}
+.fc-limit li{margin-bottom:2px;}
+.fc-about-brand{display:flex;align-items:center;gap:12px;margin:6px 0 18px;}
+.fc-about-brand .logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(145deg,#33ED00,#0A8A00);display:flex;align-items:center;justify-content:center;color:#062B00;font-size:24px;box-shadow:0 6px 18px rgba(20,150,0,.25);}
+.fc-about-brand b{font-size:16px;display:block;}
+.fc-about-brand small{font-size:10.5px;color:var(--fc-text-meta);}
+.fc-detail-wrap{flex:1;overflow-y:auto;padding:30px 28px;display:flex;flex-direction:column;align-items:center;text-align:center;}
+.fc-detail-wrap .fc-av{width:86px;height:86px;border-radius:22px;font-size:34px;margin-bottom:14px;}
+.fc-detail-name{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;max-width:100%;margin:0 0 4px;}
+.fc-detail-name h2{font-size:18px;margin:0;font-weight:750;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fc-detail-wrap .note{font-size:11.5px;color:var(--fc-text-sub);margin:0 0 8px;}
+.fc-detail-wrap .meta{font-size:10.5px;color:var(--fc-text-meta);}
+.fc-detail-acts{display:flex;gap:8px;margin:22px 0 26px;flex-wrap:wrap;justify-content:center;}
+.fc-detail-card{width:100%;max-width:380px;text-align:left;padding:14px;border-radius:14px;background:var(--fc-chip);}
+.fc-detail-card .r{display:flex;justify-content:space-between;gap:12px;font-size:11.5px;padding:7px 0;color:var(--fc-text-sub);}
+.fc-detail-card .r + .r{border-top:1px solid var(--fc-line);}
+.fc-detail-card .r b{color:var(--text-1);font-weight:600;max-width:72%;overflow-wrap:anywhere;text-align:right;}
+
+/* ---------- 账号身份标记：头衔金标 / 蓝 V ----------
+   字段为空时整块不渲染；金标在浅色用暖金底 + 深棕字，
+   深色换暗金底 + 浅金字，避免荧光感；长头衔按上下文截断。 */
+.fc-id{display:inline-flex;align-items:center;gap:3px;flex:0 0 auto;min-width:0;line-height:1;vertical-align:middle;}
+.fc-v{flex:none;width:14px;height:14px;border-radius:4px;background:linear-gradient(160deg,#2C8BFF,#0A5FD0);color:#fff;font:800 9px/14px var(--font-sans);text-align:center;letter-spacing:-.2px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22);}
+body.dark-mode .fc-v{background:linear-gradient(160deg,#3E93FF,#0B5ECC);box-shadow:inset 0 0 0 1px rgba(255,255,255,.30);}
+.fc-honor{flex:0 1 auto;min-width:0;max-width:100%;height:15px;padding:0 5px;border-radius:5px;font-size:9.5px;font-weight:700;line-height:15px;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#4A3200;background:linear-gradient(135deg,#FFF6D2 0%,#FFE190 52%,#EEC14A 100%);border:1px solid rgba(146,100,0,.26);box-shadow:inset 0 1px 0 rgba(255,255,255,.85);}
+body.dark-mode .fc-honor{color:#FFDD9E;background:linear-gradient(135deg,#5A4310 0%,#483409 55%,#382806 100%);border-color:rgba(255,206,110,.30);box-shadow:inset 0 1px 0 rgba(255,224,150,.10);}
+.fc-id-list .fc-honor{max-width:52px;}
+.fc-id-list .fc-v{width:13px;height:13px;font-size:8.5px;line-height:13px;}
+.fc-id-head .fc-honor{max-width:150px;height:16px;line-height:16px;font-size:10px;}
+.fc-id-contact .fc-honor{max-width:58px;}
+.fc-id-contact .fc-v{width:13px;height:13px;font-size:8.5px;line-height:13px;}
+.fc-id-detail .fc-honor{max-width:210px;height:17px;line-height:17px;font-size:10px;}
+.fc-id-detail .fc-v{width:15px;height:15px;font-size:9.5px;line-height:15px;}
+.fc-id-profile .fc-honor{max-width:150px;}
+.fc-profile-nrow{display:flex;align-items:center;gap:5px;min-width:0;margin-bottom:8px;}
+.fc-profile-nrow b{min-width:0;font-size:15px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fc-detail-name h2{flex:0 1 auto;}
+
+/* ---------- 浮层 / 弹窗 ---------- */
+.fc-veil{position:absolute;inset:0;z-index:30;background:var(--fc-overlay);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;animation:fcVeil .16s var(--ease-out) both;}
+@keyframes fcVeil{from{opacity:0}to{opacity:1}}
+.fc-modal{width:360px;max-width:86%;max-height:86%;overflow-y:auto;padding:18px;border-radius:18px;background:var(--fc-modal);box-shadow:0 24px 60px rgba(0,0,0,.28);border:1px solid var(--fc-border-2);animation:fcModal .22s var(--ease-spring) both;}
+@keyframes fcModal{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+.fc-modal h4{font-size:14px;margin:0 0 6px;font-weight:750;}
+.fc-modal p{font-size:11.5px;color:var(--fc-text-sub);line-height:1.75;margin:0 0 12px;}
+.fc-modal .fc-field{margin-top:10px;}
+.fc-modal .fc-field label{display:block;font-size:10.5px;color:var(--fc-text-meta);margin-bottom:5px;}
+.fc-modal .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
+.fc-viewer{max-width:92%;max-height:88%;display:flex;flex-direction:column;align-items:center;gap:10px;}
+.fc-viewer img{max-width:100%;max-height:70vh;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.3);}
+.fc-viewer .vc{display:flex;gap:8px;align-items:center;}
+
+/* ---------- 轻提示 ---------- */
+.fc-toast{position:absolute;left:50%;bottom:26px;transform:translate(-50%,10px);z-index:50;max-width:76%;padding:9px 14px;border-radius:11px;background:var(--fc-modal);border:1px solid var(--fc-border-2);box-shadow:0 10px 30px rgba(0,0,0,.24);font-size:11.5px;line-height:1.6;color:var(--text-1);opacity:0;pointer-events:none;transition:opacity .2s var(--ease-out),transform .24s var(--ease-out);}
+.fc-toast.on{opacity:1;transform:translate(-50%,0);}
+.fc-toast.err{color:var(--fc-danger);}
+
+/* ---------- 窄窗 ---------- */
+@media (max-width: 660px){
+  .fc-rail{flex-basis:54px;width:54px;padding:8px 4px;}
+  .fc-tab{font-size:0;padding:8px 0;}
+  .fc-tab i{font-size:17px;}
+  .fc-side{flex-basis:196px;width:196px;}
+  .fc-page{padding:20px 18px 24px;}
+  .fc-msgs{padding:12px 12px 8px;}
+  .fc-col{max-width:72%;}
+  .fc-inputhint{display:none;}
+}
+/* ---------- 消息元信息里的更多按钮（触控板无需右键） ---------- */
+.fc-more-in{display:inline-flex;align-items:center;justify-content:center;width:18px;height:16px;margin-left:4px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--fc-text-meta);cursor:pointer;opacity:.55;font-size:10px;vertical-align:middle;}
+.fc-more-in:hover,.fc-more-in:focus-visible{opacity:1;background:var(--fc-hover);color:var(--text-1);}
+
+/* ---------- 系统磨砂变量（与主壳 --n26-blur / --n26-glass-alpha / --n26-glass-sat 并接） ---------- */
+.fc-rail,.fc-side,.fc-chat-head{
+  -webkit-backdrop-filter:blur(var(--n26-blur,18px)) saturate(var(--n26-glass-sat,148%));
+  backdrop-filter:blur(var(--n26-blur,18px)) saturate(var(--n26-glass-sat,148%));
+}
+.fc-side{background:color-mix(in srgb, var(--fc-panel-side) calc(var(--n26-glass-alpha, .55) * 100% + 45%), transparent);}
+.fc-rail{background:color-mix(in srgb, var(--fc-panel-rail) calc(var(--n26-glass-alpha, .55) * 100% + 45%), transparent);}
+
+/* ---------- 引用（回复） ---------- */
+.fc-quotebar{display:flex;align-items:flex-start;gap:8px;margin:0 0 6px;padding:8px 10px;border-radius:10px;background:var(--fc-accent-soft);border-left:3px solid var(--fc-accent-line);}
+.fc-quotebar .qt{flex:1;min-width:0;font-size:10.5px;line-height:1.6;color:var(--fc-text-sub);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.fc-quotebar .qt b{color:var(--fc-accent-ink);font-weight:650;}
+.fc-quotebar button{flex:none;width:20px;height:20px;border:0;border-radius:6px;background:transparent;color:var(--fc-text-meta);cursor:pointer;font-size:10px;}
+.fc-quotebar button:hover{background:var(--fc-hover);color:var(--text-1);}
+.fc-bub .fc-quote{display:block;margin:-1px 0 6px;padding:6px 8px;border-radius:8px;background:rgba(15,23,42,.05);border-left:2px solid var(--fc-accent-line);font-size:11px;line-height:1.55;color:var(--fc-text-sub);cursor:pointer;}
+.fc-bub .fc-quote b{color:var(--fc-accent-ink);font-weight:600;}
+.fc-bub.out .fc-quote{background:rgba(255,255,255,.14);border-left-color:rgba(255,255,255,.55);color:rgba(255,255,255,.86);}
+.fc-bub.out .fc-quote b{color:#fff;}
+.fc-bub.quote-hit{outline:2px solid var(--fc-accent-line);outline-offset:2px;}
+
+/* ---------- 消息右键菜单 ---------- */
+.fc-ctx{position:fixed;z-index:42;min-width:132px;padding:5px;border-radius:11px;background:var(--fc-modal);border:1px solid var(--fc-border-2);box-shadow:0 14px 36px rgba(0,0,0,.22);animation:fcPop .14s var(--ease-out) both;}
+.fc-ctx button{width:100%;display:flex;align-items:center;gap:9px;padding:7px 9px;border:0;border-radius:8px;background:transparent;color:var(--text-1);font:inherit;font-size:11.5px;text-align:left;cursor:pointer;}
+.fc-ctx button:hover{background:var(--fc-hover);}
+.fc-ctx button i{width:15px;text-align:center;font-size:11px;color:var(--fc-text-sub);}
+.fc-ctx button.danger{color:var(--fc-danger);}
+.fc-ctx button.danger i{color:var(--fc-danger);}
+.fc-ctx .sep{height:1px;margin:4px 6px;background:var(--fc-line);}
+
+/* ---------- 群资料面板 ---------- */
+.fc-group-panel{flex:0 0 236px;width:236px;background:var(--fc-panel-side);border:1px solid var(--fc-border);border-radius:16px;box-shadow:var(--fc-inner),var(--fc-shadow);display:flex;flex-direction:column;overflow:hidden;animation:fcPanelIn .18s var(--ease-out) both;}
+@keyframes fcPanelIn{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
+.fc-gp-head{flex:none;display:flex;align-items:center;gap:8px;padding:11px 12px;border-bottom:1px solid var(--fc-line);font-size:12.5px;font-weight:650;}
+.fc-gp-head span{flex:1;}
+.fc-gp-body{flex:1;min-height:0;overflow-y:auto;padding:10px 12px 14px;}
+.fc-gp-ann{margin-bottom:12px;padding:10px;border-radius:11px;background:var(--fc-chip);}
+.fc-gp-ann .lbl{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--fc-text-meta);margin-bottom:4px;}
+.fc-gp-ann .txt{font-size:11.5px;line-height:1.7;color:var(--text-1);white-space:pre-wrap;word-break:break-word;}
+.fc-gp-ann .txt.empty{color:var(--fc-text-meta);}
+.fc-gp-ann button{margin-top:7px;height:25px;padding:0 9px;border:1px solid var(--fc-border-2);border-radius:8px;background:transparent;color:var(--fc-text-sub);font:inherit;font-size:10.5px;cursor:pointer;}
+.fc-gp-ann button:hover{background:var(--fc-hover);color:var(--text-1);}
+.fc-gp-sub{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--fc-text-meta);margin:0 0 6px;}
+.fc-gp-sub b{color:var(--text-1);font-weight:600;font-size:11px;}
+.fc-gp-member{display:flex;align-items:center;gap:9px;padding:6px 3px;border-radius:9px;}
+.fc-gp-member:hover{background:var(--fc-hover);}
+.fc-gp-member .nm{flex:1;min-width:0;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fc-gp-member .tag{flex:none;font-size:9px;padding:1px 6px;border-radius:99px;background:var(--fc-accent-soft);color:var(--fc-accent-ink);}
+.fc-gp-note{font-size:10px;line-height:1.7;color:var(--fc-text-meta);padding:8px 2px 0;}
+
+@media (max-width: 860px){
+  .fc-group-panel{position:absolute;right:10px;top:10px;bottom:10px;z-index:20;box-shadow:0 20px 50px rgba(0,0,0,.26);}
+}
+
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="fcToast" class="fc-toast"></div>
+<input type="file" id="fcFileImage" accept="image/*" hidden>
+<input type="file" id="fcFileAny" hidden>
+
+<script src="../ui/motion.js"></script>
+<script src="_bridge.js"></script>
+<script src="_app.js?v=2.9.57"></script>
+<script>
+(function () {
+'use strict';
+
+var KEY = 'fangchat.v3';
+var DEFAULT_WORKER = 'https://fangliao.fanggame.company';
+var ANN_TAG = '[[ANN]]';
+var S = {
+  started: false, ctx: null, db: null,
+  tab: 'chats', thread: null, contact: null, me: 'profile',
+  search: '', csearch: '', drafts: {},
+  pop: null, dialog: null, view: null, ctx: null, quote: null, groupPanel: false,
+  demo: false, solo: false,
+  cloud: { status: 'off', kv: null, error: '', at: 0, fails: 0 },
+  timer: null,
+  toastT: 0
+};
+
+/* ================= 基础工具 ================= */
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function uid() { return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function pad(n) { return String(n).padStart(2, '0'); }
+function fmtTime(ts) { var d = new Date(ts); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+function dayKey(ts) { var d = new Date(ts); return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); }
+function dayLabel(ts) {
+  var now = new Date(), d = new Date(ts);
+  var t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  var t1 = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  var diff = Math.round((t0 - t1) / 86400000);
+  if (diff === 0) return '今天';
+  if (diff === 1) return '昨天';
+  if (diff === 2) return '前天';
+  if (diff > 2 && diff < 7) return '星期' + '日一二三四五六'.charAt(d.getDay());
+  if (diff < 0) return '今天';
+  if (d.getFullYear() !== now.getFullYear()) return d.getFullYear() + ' 年 ' + (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日';
+  return (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日';
+}
+function listTime(ts) {
+  if (!ts) return '';
+  var now = new Date(), d = new Date(ts);
+  var t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  var t1 = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  var diff = Math.round((t0 - t1) / 86400000);
+  if (diff === 0) return fmtTime(ts);
+  if (diff === 1) return '昨天';
+  if (diff > 1 && diff < 7) return '星期' + '日一二三四五六'.charAt(d.getDay());
+  if (d.getFullYear() !== now.getFullYear()) return d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate();
+  return (d.getMonth() + 1) + '/' + d.getDate();
+}
+function sizeText(n) {
+  n = Number(n) || 0;
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n / 1024).toFixed(n < 10240 ? 1 : 0) + ' KB';
+  return (n / 1048576).toFixed(1) + ' MB';
+}
+function hueGrad(seed) {
+  var h = 0;
+  String(seed || '?').split('').forEach(function (c) { h = (h * 31 + c.charCodeAt(0)) % 360; });
+  return 'linear-gradient(145deg,hsl(' + h + ' 66% 58%),hsl(' + h + ' 64% 39%))';
+}
+function initial(name) {
+  var s = String(name || '?').trim();
+  return s ? s.charAt(0).toUpperCase() : '?';
+}
+function avatarHtml(name, avatar, size, cls) {
+  var st = 'width:' + size + 'px;height:' + size + 'px;';
+  var c = 'fc-av' + (cls ? ' ' + cls : '');
+  if (avatar) return '<div class="' + c + '" style="' + st + '"><img src="' + esc(avatar) + '" alt=""></div>';
+  return '<div class="' + c + '" style="' + st + 'background:' + hueGrad(name) + '">' +
+    '<span style="font-size:' + Math.round(size * 0.42) + 'px">' + esc(initial(name)) + '</span></div>';
+}
+function threadAvatar(t, size) {
+  if (!t) return '';
+  if (t.avatar) return avatarHtml(t.name, t.avatar, size);
+  if (t.type === 'self') return '<div class="fc-av brand" style="width:' + size + 'px;height:' + size + 'px"><i class="fas fa-paper-plane" style="font-size:' + Math.round(size * 0.38) + 'px"></i></div>';
+  if (t.type === 'group') return '<div class="fc-av brand" style="width:' + size + 'px;height:' + size + 'px"><i class="fas fa-users" style="font-size:' + Math.round(size * 0.36) + 'px"></i></div>';
+  return avatarHtml(t.name, t.avatar, size);
+}
+function myName() {
+  if (S.db && S.db.profile && S.db.profile.name) return S.db.profile.name;
+  return (S.ctx && S.ctx.user && S.ctx.user.name) || '本地用户';
+}
+function myAvatar() {
+  if (S.db && S.db.profile && S.db.profile.avatar) return S.db.profile.avatar;
+  return (S.ctx && S.ctx.user && S.ctx.user.avatar) || null;
+}
+/* ================= 账号身份（头衔 / 蓝 V）=================
+   账号资料接口就绪后，把字段注入 ctx.user（或 ctx.user.profile / identity）即可。
+   兼容 title / honorTitle / honor / titleText 与 verified / blueV / blue_v / isVerified。
+   两个字段都没有时，渲染层不输出任何标记。 */
+function identityOf(src) {
+  var out = { title: '', verified: false };
+  if (!src || typeof src !== 'object') return out;
+  var nodes = [src, src.identity, src.profile, src.account, src.user, src.badge, src.auth];
+  nodes.forEach(function (o) {
+    if (!o || typeof o !== 'object') return;
+    if (!out.title) {
+      var t = o.title;
+      if (t == null) t = o.honorTitle;
+      if (t == null) t = o.honor;
+      if (t == null) t = o.titleText;
+      if (t == null) t = o.nameplate;
+      if (typeof t === 'string' || typeof t === 'number') out.title = String(t).trim();
+    }
+    if (!out.verified) {
+      var v = o.verified;
+      if (v == null) v = o.blueV;
+      if (v == null) v = o.blue_v;
+      if (v == null) v = o.isVerified;
+      out.verified = v === true || v === 1 || v === 'true' || v === '1';
+    }
+  });
+  if (out.title.length > 40) out.title = out.title.slice(0, 40);
+  return out;
+}
+function selfIdentity() {
+  if (S.demo) return { title: '产品设计', verified: true };
+  var id = identityOf(S.ctx && S.ctx.user);
+  if (!id.title && !id.verified && S.db && S.db.profile) id = identityOf(S.db.profile);
+  return id;
+}
+function contactIdentity(c) {
+  if (!c) return { title: '', verified: false };
+  var id = identityOf(c);
+  if (!id.title && !id.verified && c.threadId) {
+    var t = S.db && S.db.threads.find(function (x) { return x.id === c.threadId; });
+    if (t) id = identityOf(t);
+  }
+  return id;
+}
+function threadIdentity(t) {
+  if (!t || t.type === 'self') return { title: '', verified: false };
+  var id = identityOf(t);
+  if (!id.title && !id.verified && t.contactId && S.db) {
+    var c = S.db.contacts.find(function (x) { return x.id === t.contactId; });
+    if (c) id = contactIdentity(c);
+  }
+  return id;
+}
+function badgesHtml(id, scope) {
+  if (!id || (!id.title && !id.verified)) return '';
+  var h = '<span class="fc-id' + (scope ? ' fc-id-' + scope : '') + '">';
+  if (id.verified) h += '<span class="fc-v" title="已认证" aria-label="已认证">V</span>';
+  if (id.title) h += '<span class="fc-honor" title="' + esc(id.title) + '">' + esc(id.title) + '</span>';
+  return h + '</span>';
+}
+function myScope() { return (S.ctx && S.ctx.user && S.ctx.user.name) || '本地用户'; }
+function toast(msg, kind) {
+  var el = document.getElementById('fcToast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'fc-toast on' + (kind === 'err' ? ' err' : '');
+  clearTimeout(S.toastT);
+  S.toastT = setTimeout(function () { el.className = 'fc-toast' + (kind === 'err' ? ' err' : ''); }, 2600);
+}
+
+/* ================= 拼音索引 ================= */
+var ANCHORS = [['a','阿'],['b','八'],['c','擦'],['d','搭'],['e','蛾'],['f','发'],['g','噶'],['h','哈'],['j','击'],['k','喀'],['l','垃'],['m','妈'],['n','拿'],['o','哦'],['p','啪'],['q','期'],['r','然'],['s','撒'],['t','塌'],['w','挖'],['x','昔'],['y','压'],['z','匝']];
+var _coll = null;
+function coll() {
+  if (_coll === null) {
+    try { _coll = new Intl.Collator('zh-Hans-CN', { usage: 'sort' }); } catch (e) { _coll = false; }
+  }
+  return _coll || null;
+}
+function letterOf(name) {
+  var m = String(name || '').match(/[A-Za-z\u4e00-\u9fff]/);
+  if (!m) return '#';
+  var ch = m[0];
+  if (/[A-Za-z]/.test(ch)) return ch.toUpperCase();
+  var c = coll();
+  if (!c) return '#';
+  var letter = '#';
+  for (var i = 0; i < ANCHORS.length; i++) {
+    if (c.compare(ch, ANCHORS[i][1]) >= 0) letter = ANCHORS[i][0];
+    else break;
+  }
+  return letter.toUpperCase();
+}
+function sortLetter(a, b) { return a < b ? -1 : a > b ? 1 : 0; }
+function sortContacts(a, b) {
+  var c = coll();
+  if (c) return c.compare(a.name, b.name);
+  return String(a.name).localeCompare(String(b.name));
+}
+
+/* ================= 数据 ================= */
+function defaultDb() {
+  return {
+    v: 3,
+    profile: { name: '', avatar: null },
+    threads: [],
+    contacts: [],
+    settings: { notify: true, autoCloud: true, cloudOn: true, worker: DEFAULT_WORKER },
+    created: Date.now()
+  };
+}
+function normalize(db) {
+  if (!db || typeof db !== 'object') db = defaultDb();
+  db.v = 3;
+  db.profile = db.profile || {};
+  db.settings = Object.assign({ notify: true, autoCloud: true, cloudOn: true, worker: DEFAULT_WORKER }, db.settings || {});
+  if (!db.settings.worker) db.settings.worker = DEFAULT_WORKER;
+  db.threads = Array.isArray(db.threads) ? db.threads.filter(function (t) { return t && t.id; }) : [];
+  db.threads.forEach(function (t) {
+    t.messages = Array.isArray(t.messages) ? t.messages : [];
+    t.messages.forEach(function (m) {
+      if (!m.id) m.id = uid();
+      m.ts = Number(m.ts) || Date.now();
+      if (!m.dir) m.dir = 'in';
+      if (!m.kind) m.kind = 'text';
+      if (!m.status) m.status = 'sent';
+    });
+    t.unread = Number(t.unread) || 0;
+    t.pinned = !!t.pinned;
+    t.muted = !!t.muted;
+    t.delivery = t.delivery || (t.cloudChat ? 'cloud' : 'local');
+    if (!t.updatedAt) {
+      var last = t.messages[t.messages.length - 1];
+      t.updatedAt = last ? last.ts : 0;
+    }
+  });
+  db.contacts = Array.isArray(db.contacts) ? db.contacts.filter(function (c) { return c && c.id; }) : [];
+  return db;
+}
+function readLocal(key) {
+  var full = 'user_' + myScope() + '_' + key;
+  try { return JSON.parse(localStorage.getItem(full) || 'null'); } catch (e) { return null; }
+}
+function migrateOld(old) {
+  var db = defaultDb();
+  (old || []).forEach(function (o) {
+    if (!o || o.id === 'all' || !o.name) return;
+    var t = {
+      id: 'th' + uid(), type: 'user', name: o.name, avatar: null,
+      delivery: 'local', cloudChat: null, pinned: false, muted: false,
+      unread: Number(o.unread) || 0, updatedAt: 0, messages: []
+    };
+    (o.messages || []).forEach(function (m) {
+      t.messages.push({
+        id: m.id || uid(), dir: m.mine ? 'out' : 'in', from: m.from || o.name,
+        ts: Number(m.ts) || Date.now(), kind: 'text', text: String(m.text || ''), status: 'sent'
+      });
+    });
+    if (t.messages.length) t.updatedAt = t.messages[t.messages.length - 1].ts;
+    var c = { id: 'ct' + uid(), name: o.name, note: '', avatar: null, createdAt: Date.now() };
+    t.contactId = c.id;
+    db.contacts.push(c);
+    db.threads.push(t);
+  });
+  return db.threads.length ? db : null;
+}
+function loadDb() {
+  if (S.demo) return Promise.resolve(demoDb());
+  var bridge = window.Nexus && Nexus.context && Nexus.context();
+  if (bridge) {
+    return Promise.all([Nexus.getUserLS(KEY), Nexus.getUserLS('fangliao')])
+      .then(function (r) {
+        var db = r[0] ? normalize(r[0]) : null;
+        if (!db) {
+          var old = migrateOld(r[1]);
+          if (old) return normalize(old);
+        }
+        return db || normalize(defaultDb());
+      })
+      .catch(function () { return normalize(readLocal(KEY) || defaultDb()); });
+  }
+  var stored = readLocal(KEY);
+  if (stored && stored.threads) return Promise.resolve(normalize(stored));
+  var old = readLocal('fangliao');
+  var migrated = migrateOld(old);
+  if (migrated) return Promise.resolve(normalize(migrated));
+  return Promise.resolve(normalize(defaultDb()));
+}
+function save() {
+  if (S.demo) return true;
+  var bridge = window.Nexus && Nexus.context && Nexus.context();
+  if (bridge) {
+    try {
+      Nexus.setUserLS(KEY, S.db).catch(function () { toast('本机存储空间不足，本次修改可能未保存', 'err'); });
+      return true;
+    } catch (e) { return false; }
+  }
+  try {
+    localStorage.setItem('user_' + myScope() + '_' + KEY, JSON.stringify(S.db));
+    return true;
+  } catch (e) {
+    toast('本机存储空间不足，请清理聊天记录后再试', 'err');
+    return false;
+  }
+}
+function ensureBasics() {
+  if (!S.db.threads.length) {
+    S.db.threads.push({
+      id: 'filehelper', type: 'self', name: '文件传输助手', avatar: null,
+      delivery: 'local', pinned: false, muted: false, unread: 0, updatedAt: 0, messages: []
+    });
+  }
+  ensureCloudGroup();
+  if (S.thread && !S.db.threads.find(function (t) { return t.id === S.thread; })) S.thread = null;
+  if (!S.thread && S.db.threads.length) S.thread = sortedThreads()[0].id;
+  if (S.contact && !S.db.contacts.find(function (c) { return c.id === S.contact; })) S.contact = S.db.contacts[0] ? S.db.contacts[0].id : null;
+}
+function sortedThreads() {
+  return S.db.threads.slice().sort(function (a, b) {
+    if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+    return (b.updatedAt || 0) - (a.updatedAt || 0);
+  });
+}
+function activeThread() {
+  return S.db.threads.find(function (t) { return t.id === S.thread; }) || null;
+}
+function activeContact() {
+  return S.db.contacts.find(function (c) { return c.id === S.contact; }) || null;
+}
+function findMsg(id) {
+  for (var i = 0; i < S.db.threads.length; i++) {
+    var t = S.db.threads[i];
+    for (var j = 0; j < t.messages.length; j++) if (t.messages[j].id === id) return { t: t, m: t.messages[j] };
+  }
+  return null;
+}
+function totalUnread() {
+  return S.db.threads.reduce(function (n, t) { return n + (t.unread || 0); }, 0);
+}
+function previewOf(m) {
+  if (!m) return '还没有消息';
+  if (m.revoked) return '[已撤回]';
+  if (m.kind === 'image') return '[图片]';
+  if (m.kind === 'file') return '[文件] ' + ((m.file && m.file.name) || '');
+  return String(m.text || '');
+}
+
+/* ================= 云后端 ================= */
+function workerUrl() { return String((S.db && S.db.settings && S.db.settings.worker) || '').replace(/\/+$/, ''); }
+function cloudWanted() { return !!(S.db && S.db.settings.cloudOn !== false && workerUrl()); }
+function cloudClass() {
+  if (S.demo) return '';
+  if (!cloudWanted()) return '';
+  return S.cloud.status === 'ok' ? 'ok' : S.cloud.status === 'fail' ? 'fail' : 'checking';
+}
+function cloudTitle() {
+  if (S.demo) return '演示模式';
+  if (!workerUrl()) return '未配置云后端 · 点此设置';
+  if (S.cloud.status === 'ok') return '云端已连接' + (S.cloud.kv ? '（KV 持久化）' : '（Worker 内存）');
+  if (S.cloud.status === 'fail') return '云端连接失败 · 点此重试：' + (S.cloud.error || '');
+  if (S.cloud.status === 'checking') return '正在检测云端…';
+  return '本地模式 · 点此配置云端';
+}
+function ensureCloudGroup() {
+  if (S.db.threads.some(function (t) { return t.cloudChat === 'all'; })) return false;
+  S.db.threads.push({
+    id: 'group-all', type: 'group', name: '全体群', avatar: null,
+    delivery: 'cloud', cloudChat: 'all', pinned: false, muted: false,
+    unread: 0, updatedAt: 0, messages: []
+  });
+  save();
+  return true;
+}
+function cloudCheck(silent) {
+  if (S.demo) return;
+  if (!cloudWanted()) {
+    S.cloud = { status: 'off', kv: null, error: '', at: 0, fails: 0 };
+    stopPolling();
+    softRender();
+    return;
+  }
+  S.cloud.status = 'checking';
+  S.cloud.error = '';
+  softRender();
+  var url = workerUrl();
+  var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+  var to = setTimeout(function () { if (ctrl) ctrl.abort(); }, 7000);
+  fetch(url + '/?t=' + Date.now(), { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      clearTimeout(to);
+      if (!j || !j.ok) throw new Error('后端返回异常');
+      S.cloud = { status: 'ok', kv: !!j.kv_bound, error: '', at: Date.now(), fails: 0 };
+      ensureCloudGroup();
+      startPolling();
+      softRender();
+    })
+    .catch(function (e) {
+      clearTimeout(to);
+      S.cloud = { status: 'fail', kv: null, error: String(e && e.message || e), at: Date.now(), fails: 0 };
+      stopPolling();
+      softRender();
+      if (!silent) toast('云端连接失败：' + S.cloud.error, 'err');
+    });
+}
+function startPolling() {
+  stopPolling();
+  if (!cloudWanted()) return;
+  S.timer = setInterval(function () {
+    if (document.hidden || S.cloud.status !== 'ok') return;
+    S.db.threads.forEach(function (t) { if (t.cloudChat) pollThread(t); });
+  }, 8000);
+  if (!document.hidden) S.db.threads.forEach(function (t) { if (t.cloudChat) pollThread(t); });
+}
+function stopPolling() { if (S.timer) { clearInterval(S.timer); S.timer = null; } }
+function pollThread(t) {
+  var url = workerUrl();
+  if (!url) return;
+  fetch(url + '/api/messages?chat=' + encodeURIComponent(t.cloudChat) + '&limit=100', { cache: 'no-store' })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (!j || !j.ok || !Array.isArray(j.messages)) return;
+      S.cloud.fails = 0;
+      var changed = false, incoming = [];
+      j.messages.forEach(function (m) {
+        if (!m || !m.id) return;
+        var local = t.messages.find(function (x) { return x.id === m.id; });
+        if (local) {
+          if (local.dir === 'out' && local.status !== 'sent') { local.status = 'sent'; changed = true; }
+          return;
+        }
+        if (String(m.from || '') === myName()) return;
+        var rawText = String(m.text || '');
+        var ts = Number(m.ts) || Date.now();
+        /* 群公告走频道消息同步：[[ANN]] 前缀只更新公告，不进入聊天气泡 */
+        if (rawText.indexOf(ANN_TAG) === 0) {
+          t.announcement = rawText.slice(ANN_TAG.length);
+          t.announcementAt = ts;
+          t.updatedAt = Math.max(t.updatedAt || 0, ts);
+          changed = true;
+          return;
+        }
+        var msg = {
+          id: String(m.id), dir: 'in', from: String(m.from || '匿名'), ts: ts,
+          kind: 'text', text: rawText, status: 'sent'
+        };
+        t.messages.push(msg);
+        t.updatedAt = Math.max(t.updatedAt || 0, ts);
+        if (t.id !== S.thread || S.tab !== 'chats' || document.hidden) {
+          t.unread = (t.unread || 0) + 1;
+          incoming.push(msg);
+        }
+        changed = true;
+      });
+      if (changed) {
+        save();
+        refreshSideList();
+        if (t.id === S.thread) renderChatBody(true);
+        incoming.forEach(function (msg) {
+          if (S.db.settings.notify && (document.hidden || !document.hasFocus())) {
+            try { Nexus.notify('方聊', (t.type === 'group' ? msg.from + '：' : '') + previewOf(msg), 'info'); } catch (e) {}
+          }
+        });
+      }
+    })
+    .catch(function () {
+      S.cloud.fails = (S.cloud.fails || 0) + 1;
+      if (S.cloud.fails >= 3 && S.cloud.status === 'ok') {
+        S.cloud.status = 'fail';
+        S.cloud.error = '同步中断，请重试连接';
+        stopPolling();
+        softRender();
+      }
+    });
+}
+function pushCloud(t, msg) {
+  var url = workerUrl();
+  if (!url) { msg.status = 'failed'; msg.error = '未配置云端'; return; }
+  fetch(url + '/api/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat: t.cloudChat, from: msg.from, time: fmtTime(msg.ts),
+      text: msg.text, id: msg.id, ts: msg.ts
+    })
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (!j || !j.ok) throw new Error((j && j.error) || '发送失败');
+      msg.status = 'sent';
+    })
+    .catch(function (e) {
+      msg.error = String(e && e.message || e);
+      msg.status = 'failed';
+    })
+    .then(function () {
+      save();
+      if (t.id === S.thread) renderChatBody(true);
+      refreshSideList();
+    });
+}
+
+/* ================= 渲染：外壳 ================= */
+function render() {
+  var root = document.getElementById('app');
+  root.innerHTML =
+    '<div class="fc-root">' + railHtml() + sideHtml() + mainHtml() + groupPanelHtml() + '</div>' +
+    '<div id="fcOverlay"></div>' + ctxHtml();
+  renderOverlay();
+  var ta = document.getElementById('fcComposer');
+  if (ta) { autosize(ta); syncSendState(); }
+  var body = document.getElementById('fcChatBody');
+  if (body) body.scrollTop = body.scrollHeight;
+}
+/* 群资料面板：群公告 + 成员（成员按该会话真实发言人统计，不伪造名单） */
+function groupPanelHtml() {
+  var t = activeThread();
+  if (!t || t.type !== 'group' || !S.groupPanel) return '';
+  var members = groupMembers(t);
+  var ann = String(t.announcement || '').trim();
+  return '<aside class="fc-group-panel" aria-label="群资料">' +
+    '<div class="fc-gp-head"><i class="fas fa-users" style="color:var(--fc-accent)"></i><span>群资料</span>' +
+      '<button class="fc-icbtn" data-act="group-panel-toggle" title="收起"><i class="fas fa-xmark"></i></button></div>' +
+    '<div class="fc-gp-body">' +
+      '<div class="fc-gp-ann"><div class="lbl"><i class="fas fa-bullhorn"></i>群公告</div>' +
+        '<div class="txt' + (ann ? '' : ' empty') + '">' + esc(ann || '还没有群公告') + '</div>' +
+        '<button data-act="announce-edit"><i class="fas fa-pen" style="margin-right:4px"></i>' + (ann ? '编辑公告' : '发布公告') + '</button></div>' +
+      '<div class="fc-gp-sub"><b>成员 ' + members.length + '</b><span>按本会话发言人统计</span></div>' +
+      members.map(function (m) {
+        return '<div class="fc-gp-member">' + avatarHtml(m, null, 26) +
+          '<span class="nm">' + esc(m) + '</span>' + (m === myName() ? '<span class="tag">我</span>' : '') + '</div>';
+      }).join('') +
+      '<p class="fc-gp-note">' + esc(t.delivery === 'cloud'
+        ? '公开频道没有账号体系，成员由实际发言人汇总；公告会以频道消息同步给所有人。'
+        : '本机会话，成员来自本机消息记录。') + '</p>' +
+    '</div></aside>';
+}
+function groupMembers(t) {
+  var out = [myName()];
+  (t.messages || []).forEach(function (m) {
+    if (!m || m.kind === 'system' || m.revoked || !m.from) return;
+    if (m.from !== myName() && out.indexOf(m.from) < 0) out.push(m.from);
+  });
+  return out;
+}
+/* 消息右键菜单（引用 / 复制 / 撤回） */
+function ctxHtml() {
+  if (!S.ctx) return '';
+  var p = findMsg(S.ctx.id);
+  if (!p) { S.ctx = null; return ''; }
+  var m = p.m, own = m.dir === 'out';
+  var canRecall = own && p.t.delivery !== 'cloud' && Date.now() - (m.ts || 0) <= 120000;
+  var text = m.kind === 'text' ? String(m.text || '') : '';
+  return '<div class="fc-ctx" id="fcCtx" style="left:' + S.ctx.x + 'px;top:' + S.ctx.y + 'px">' +
+    (m.kind === 'text' && !m.revoked ? '<button data-act="ctx-quote" data-id="' + esc(m.id) + '"><i class="fas fa-reply"></i>引用</button>' : '') +
+    (text ? '<button data-act="ctx-copy" data-id="' + esc(m.id) + '"><i class="fas fa-copy"></i>复制</button>' : '') +
+    (own ? '<div class="sep"></div>' : '') +
+    (own && !m.revoked ? '<button class="' + (canRecall ? 'danger' : '') + '" data-act="ctx-recall" data-id="' + esc(m.id) + '"><i class="fas fa-rotate-left"></i>' +
+      (p.t.delivery === 'cloud' ? '撤回（云端不支持）' : canRecall ? '撤回' : '撤回（已超 2 分钟）') + '</button>' : '') +
+    '</div>';
+}
+function softRender() {
+  var ta = document.getElementById('fcComposer');
+  var focused = ta && document.activeElement === ta;
+  var pos = focused ? ta.selectionStart : 0;
+  render();
+  if (focused) {
+    var n = document.getElementById('fcComposer');
+    if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} }
+  }
+}
+function railHtml() {
+  var unread = totalUnread();
+  return '<aside class="fc-rail">' +
+    '<button class="fc-myav' + (S.tab === 'me' ? ' active' : '') + '" data-act="tab" data-tab="me" title="我的">' +
+      avatarHtml(myName(), myAvatar(), 38, 'self') + '</button>' +
+    tabBtn('chats', 'fa-comment-dots', '聊天', unread) +
+    tabBtn('contacts', 'fa-address-book', '通讯录', 0) +
+    '<div class="fc-rail-grow"></div>' +
+    '<button class="fc-cloudbtn ' + cloudClass() + '" data-act="me-settings" title="' + esc(cloudTitle()) + '">' +
+      '<i class="fas ' + (S.cloud.status === 'ok' ? 'fa-cloud' : S.cloud.status === 'fail' ? 'fa-cloud-bolt' : 'fa-plug') + '"></i>' +
+      '<span class="dot"></span></button>' +
+    '</aside>';
+}
+function tabBtn(id, icon, label, unread) {
+  return '<button class="fc-tab' + (S.tab === id ? ' active' : '') + '" data-act="tab" data-tab="' + id + '">' +
+    '<i class="fas ' + icon + '"></i><span>' + label + '</span>' +
+    (unread ? '<span class="fc-tabdirt"></span>' : '') + '</button>';
+}
+function sideHtml() {
+  if (S.tab === 'me') {
+    return '<section class="fc-side">' +
+      '<div class="fc-side-head"><h2 class="fc-side-title">我的</h2></div>' +
+      '<div class="fc-side-body">' + meMenuHtml() + '</div></section>';
+  }
+  var isChats = S.tab === 'chats';
+  var q = isChats ? S.search : S.csearch;
+  return '<section class="fc-side">' +
+    '<div class="fc-side-head"><h2 class="fc-side-title">' + (isChats ? '聊天' : '通讯录') + '</h2>' +
+      '<button class="fc-icbtn" data-act="' + (isChats ? 'new-chat' : 'new-contact') + '" title="' + (isChats ? '新建会话' : '添加联系人') + '">' +
+      '<i class="fas fa-plus"></i></button></div>' +
+    '<div class="fc-search' + (q ? ' has' : '') + '"><i class="fas fa-magnifying-glass"></i>' +
+      '<input id="' + (isChats ? 'fcSearch' : 'fcCSearch') + '" value="' + esc(q) + '" placeholder="' +
+      (isChats ? '搜索会话或消息' : '搜索联系人或备注') + '">' +
+      '<button class="fc-clear" data-act="clear-search" title="清除"><i class="fas fa-xmark"></i></button></div>' +
+    '<div class="fc-side-body" id="fcSideBody">' + (isChats ? chatListHtml() : contactsHtml()) + '</div></section>';
+}
+function mainHtml() {
+  if (S.tab === 'chats') return chatMainHtml();
+  if (S.tab === 'contacts') return contactMainHtml();
+  return meMainHtml();
+}
+
+/* ================= 渲染：会话列表 ================= */
+function chatListHtml() {
+  var q = String(S.search || '').trim().toLowerCase();
+  var list = sortedThreads().filter(function (t) {
+    if (!q) return true;
+    if (String(t.name || '').toLowerCase().indexOf(q) >= 0) return true;
+    return t.messages.some(function (m) { return String(m.text || '').toLowerCase().indexOf(q) >= 0; });
+  });
+  if (!list.length) {
+    return '<div class="fc-empty-list"><i class="fas fa-comment-slash"></i>' +
+      '<p>' + (q ? '没有匹配的会话或消息' : '还没有会话') + '</p>' +
+      (q ? '' : '<button data-act="new-chat">新建会话</button>') + '</div>';
+  }
+  return list.map(function (t) {
+    var last = t.messages.filter(function (m) { return m.kind !== 'system'; }).slice(-1)[0];
+    var prefix = last ? (last.dir === 'out' ? '我：' : (t.type === 'group' ? last.from + '：' : '')) : '';
+    var prev = last ? prefix + previewOf(last) : '还没有消息';
+    var badge = '';
+    if (t.unread) {
+      badge = t.muted ? '<span class="fc-muted-dot" title="免打扰"></span>'
+        : '<span class="fc-badge">' + (t.unread > 99 ? '99+' : t.unread) + '</span>';
+    }
+    return '<div class="fc-thread' + (t.id === S.thread ? ' active' : '') + '" data-act="open-thread" data-id="' + esc(t.id) + '">' +
+      threadAvatar(t, 40) +
+      '<div class="fc-thread-main">' +
+        '<div class="fc-trow"><span class="fc-tname">' + esc(t.name) + '</span>' + badgesHtml(threadIdentity(t), 'list') +
+          '<span class="fc-ttime">' + listTime(last ? last.ts : t.updatedAt) + '</span></div>' +
+        '<div class="fc-trow"><span class="fc-tprev">' + esc(prev) + '</span>' +
+          (t.pinned ? '<i class="fas fa-thumbtack fc-tflag" title="置顶"></i>' : '') +
+          (t.muted ? '<i class="fas fa-bell-slash fc-tflag mute" title="免打扰"></i>' : '') + badge + '</div>' +
+      '</div></div>';
+  }).join('');
+}
+function refreshSideList() {
+  var el = document.getElementById('fcSideBody');
+  if (!el) return;
+  var top = el.scrollTop;
+  el.innerHTML = S.tab === 'chats' ? chatListHtml() : S.tab === 'contacts' ? contactsHtml() : meMenuHtml();
+  el.scrollTop = top;
+}
+function contactsHtml() {
+  var q = String(S.csearch || '').trim().toLowerCase();
+  var list = S.db.contacts.filter(function (c) {
+    if (!q) return true;
+    return String(c.name || '').toLowerCase().indexOf(q) >= 0 ||
+      String(c.note || '').toLowerCase().indexOf(q) >= 0;
+  }).sort(sortContacts);
+  if (!list.length) {
+    return '<div class="fc-empty-list"><i class="fas fa-address-book"></i>' +
+      '<p>' + (q ? '没有匹配的联系人' : '通讯录还是空的<br>联系人只保存在本机') + '</p>' +
+      (q ? '' : '<button data-act="new-contact">添加联系人</button>') + '</div>';
+  }
+  var groups = {}, letters = [];
+  list.forEach(function (c) {
+    var L = letterOf(c.name);
+    if (!groups[L]) { groups[L] = []; letters.push(L); }
+    groups[L].push(c);
+  });
+  letters.sort(function (a, b) {
+    if (a === '#') return 1;
+    if (b === '#') return -1;
+    return sortLetter(a, b);
+  });
+  var idx = '<div class="fc-idx">' + letters.map(function (L) {
+    return '<button data-act="letter" data-letter="' + L + '">' + L + '</button>';
+  }).join('') + '</div>';
+  var body = letters.map(function (L) {
+    return '<div class="fc-letter-head" id="fcg-' + L + '"><span>' + L + '</span></div>' +
+      groups[L].map(function (c) {
+        return '<div class="fc-contact' + (c.id === S.contact ? ' active' : '') + '" data-act="open-contact" data-id="' + esc(c.id) + '">' +
+          avatarHtml(c.name, c.avatar, 34) +
+          '<div class="fc-thread-main"><div class="fc-cname-row"><span class="fc-cname">' + esc(c.name) + '</span>' + badgesHtml(contactIdentity(c), 'contact') + '</div>' +
+          '<div class="fc-cnote">' + esc(c.note || '未设置备注') + '</div></div>' +
+          '<i class="fas fa-chevron-right fc-cchev"></i></div>';
+      }).join('');
+  }).join('');
+  return '<div class="fc-contact-wrap">' + idx + body + '</div>';
+}
+function meMenuHtml() {
+  var items = [
+    ['profile', 'fa-user', '个人资料'],
+    ['settings', 'fa-sliders', '设置与数据'],
+    ['about', 'fa-circle-info', '关于方聊']
+  ];
+  var menu = '<div class="fc-menu">' + items.map(function (it) {
+    return '<button class="fc-menu-item' + (S.me === it[0] ? ' active' : '') + '" data-act="me-panel" data-panel="' + it[0] + '">' +
+      '<i class="fas ' + it[1] + '"></i><span>' + it[2] + '</span><i class="fas fa-chevron-right chev"></i></button>';
+  }).join('') + '</div>';
+  var cloud = !workerUrl() ? '未配置云端，所有消息只在本机。'
+    : S.cloud.status === 'ok' ? '云端已连接' + (S.cloud.kv ? '，消息写入 KV。' : '，Worker 内存模式。')
+    : S.cloud.status === 'fail' ? '云端连接失败：' + (S.cloud.error || '未知错误')
+    : S.cloud.status === 'checking' ? '正在检测云端…' : '当前为本地模式。';
+  return menu + '<div class="fc-cloud-mini ' + (S.cloud.status === 'ok' ? 'ok' : S.cloud.status === 'fail' ? 'fail' : S.cloud.status === 'checking' ? 'checking' : '') + '">' +
+    '<b><span class="st-dot"></span>云端中转</b>' + esc(cloud) + '</div>';
+}
+
+/* ================= 渲染：聊天 ================= */
+function chatMainHtml() {
+  var t = activeThread();
+  if (!t) {
+    return '<main class="fc-main"><div class="fc-main-empty">' +
+      '<div class="art"><i class="fas fa-comment-dots"></i></div>' +
+      '<h3>选择一个会话</h3><p>左侧是会话列表；通讯录里的联系人都只保存在本机。</p>' +
+      '<button data-act="new-chat">新建会话</button></div></main>';
+  }
+  var offline = t.delivery === 'cloud' && S.cloud.status !== 'ok';
+  var sub = t.type === 'self' ? '仅本机 · 文件传输助手'
+    : t.type === 'group' ? '公开频道 · ' + (S.cloud.status === 'ok' ? (S.cloud.kv ? '云端已连接（KV）' : '云端已连接') : '云端未连接')
+    : '仅本机 · 本地会话';
+  return '<main class="fc-main">' +
+    '<header class="fc-chat-head">' +
+      '<div class="fc-chat-av">' + threadAvatar(t, 36) + '</div>' +
+      '<div class="fc-chat-txt"><div class="fc-chat-name"><span class="fc-name">' + esc(t.name) + '</span>' + badgesHtml(threadIdentity(t), 'head') + '</div>' +
+      '<div class="fc-chat-sub" id="fcChatSub">' + esc(sub) + '</div></div>' +
+      '<div class="fc-chat-acts">' +
+        (t.type === 'group' ? '<button class="fc-hbtn' + (S.groupPanel ? ' on' : '') + '" data-act="group-panel-toggle" title="群资料 / 群公告"><i class="fas fa-users"></i></button>' : '') +
+        (t.type === 'user' && t.contactId ? '<button class="fc-hbtn" data-act="open-contact" data-id="' + esc(t.contactId) + '" title="联系人资料"><i class="fas fa-address-card"></i></button>' : '') +
+        '<button class="fc-hbtn' + (t.pinned ? ' on' : '') + '" data-act="pin-thread" title="' + (t.pinned ? '取消置顶' : '置顶会话') + '"><i class="fas fa-thumbtack"></i></button>' +
+        '<button class="fc-hbtn' + (t.muted ? ' on' : '') + '" data-act="mute-thread" title="' + (t.muted ? '关闭免打扰' : '免打扰') + '"><i class="fas fa-' + (t.muted ? 'bell-slash' : 'bell') + '"></i></button>' +
+        (t.type === 'self' ? '' : '<button class="fc-hbtn danger" data-act="delete-thread" title="删除会话"><i class="fas fa-trash-can"></i></button>') +
+      '</div></header>' +
+    (offline ? '<div class="fc-banner" id="fcCloudBanner"><i class="fas fa-circle-exclamation"></i>' +
+      '<span>云端未连接，消息发不出去。</span><button data-act="me-settings">去连接</button></div>' : '') +
+    '<div class="fc-msgs" id="fcChatBody">' + msgsHtml(t) + '</div>' +
+    composerHtml(t) +
+    '</main>';
+}
+function composerHtml(t) {
+  var draft = S.drafts[t.id] || '';
+  var cloudLock = t.delivery === 'cloud';
+  return '<div class="fc-composer">' +
+    '<div class="fc-pop-host" id="fcPopHost">' + popHtml() + '</div>' +
+    '<div class="fc-inputcard">' +
+      (S.quote && S.quote.threadId === t.id ? '<div class="fc-quotebar" id="fcQuoteBar">' +
+        '<div class="qt">引用 <b>' + esc(S.quote.from) + '</b>：' + esc(S.quote.text) + '</div>' +
+        '<button data-act="quote-clear" title="取消引用"><i class="fas fa-xmark"></i></button></div>' : '') +
+      '<textarea id="fcComposer" placeholder="' + (cloudLock ? '发送到公开频道…' : '输入消息…') + '">' + esc(draft) + '</textarea>' +
+      '<div class="fc-inputbar">' +
+        '<button class="fc-toolbtn" data-act="emoji-toggle" title="表情"><i class="fas fa-face-smile"></i></button>' +
+        '<button class="fc-toolbtn' + (cloudLock ? ' disabled' : '') + '" data-act="attach-toggle" title="' + (cloudLock ? '云端仅支持文字消息' : '图片 / 文件') + '"><i class="fas fa-paperclip"></i></button>' +
+        '<span class="fc-inputhint">' + (cloudLock ? '公开频道仅支持文字' : 'Enter 发送 · Shift+Enter 换行') + '</span>' +
+        '<button class="fc-send" id="fcSend" data-act="send" title="发送"><i class="fas fa-paper-plane"></i></button>' +
+      '</div></div></div>';
+}
+function msgsHtml(t) {
+  var msgs = t.messages.slice().sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); });
+  if (!msgs.length) {
+    var hint = t.type === 'self' ? '这里的消息只保存在本机，适合临时存图片和文件。'
+      : t.type === 'group' ? '公开频道的消息走 Worker 中转，所有人可见。' : '这是本地会话，只有这台机器上能看到。';
+    return '<div class="fc-chat-empty"><div class="art" style="width:72px;height:72px;border-radius:20px;background:var(--fc-accent-soft);display:flex;align-items:center;justify-content:center;margin-bottom:14px">' +
+      '<i class="fas fa-comments" style="font-size:28px;color:var(--fc-accent)"></i></div>' +
+      '<h3 style="font-size:14px;margin:0 0 4px;color:var(--text-1)">还没有消息</h3>' +
+      '<p style="font-size:11.5px;line-height:1.8;margin:0;max-width:250px">' + esc(hint) + '</p></div>';
+  }
+  var html = '', lastDay = '';
+  msgs.forEach(function (m, i) {
+    var ts = m.ts || 0;
+    var day = dayKey(ts);
+    if (day && day !== lastDay) { html += '<div class="fc-day"><span>' + dayLabel(ts) + '</span></div>'; lastDay = day; }
+    if (m.revoked) { html += '<div class="fc-system"><span>' + (m.dir === 'out' ? '你' : esc(m.from || '对方')) + '撤回了一条消息</span></div>'; return; }
+    if (m.kind === 'system') { html += '<div class="fc-system"><span>' + esc(m.text) + '</span></div>'; return; }
+    var prev = msgs[i - 1], next = msgs[i + 1];
+    var same = function (a, b) { return a && b && a.dir === b.dir && (a.dir !== 'in' || a.from === b.from); };
+    var run = same(prev, m) && ts && (ts - (prev.ts || 0) < 180000);
+    var runEnd = !same(next, m) || !((next.ts || 0) - ts < 180000);
+    var out = m.dir === 'out';
+    var showWho = t.type === 'group' && !out && !run;
+    var av = out ? avatarHtml(myName(), myAvatar(), 28, 'self') : (t.type === 'group' ? avatarHtml(m.from || '匿名', null, 28) : threadAvatar(t, 28));
+    html += '<div class="fc-row' + (out ? ' out' : '') + (run ? ' run' : '') + '" data-msg="' + esc(m.id) + '">' + av +
+      '<div class="fc-col">' +
+        (showWho ? '<div class="fc-who">' + esc(m.from || '匿名') + '</div>' : '') +
+        bubbleHtml(m) +
+        (runEnd ? '<div class="fc-meta"><span>' + fmtTime(ts) + '</span>' + statusHtml(t, m) +
+          '<button class="fc-more-in" data-act="msg-menu" data-id="' + esc(m.id) + '" title="更多操作"><i class="fas fa-ellipsis"></i></button></div>' : '') +
+      '</div></div>';
+  });
+  return html;
+}
+function bubbleHtml(m) {
+  var quote = (m.quote && m.kind === 'text')
+    ? '<span class="fc-quote" data-act="jump-quote" data-id="' + esc(m.quote.id || '') + '"><b>' + esc(m.quote.from || '') + '</b>：' + esc(m.quote.text || '') + '</span>'
+    : '';
+  if (m.kind === 'image' && m.image && m.image.dataUrl) {
+    return '<div class="fc-bub img' + (m.dir === 'out' ? ' out' : '') + '"><button class="fc-imgbtn" data-act="view-image" data-id="' + esc(m.id) + '">' +
+      '<img src="' + esc(m.image.dataUrl) + '" alt="' + esc(m.image.name || '图片') + '" loading="lazy"></button></div>';
+  }
+  if (m.kind === 'file' && m.file) {
+    var ic = /\.(pdf)$/i.test(m.file.name) ? 'fa-file-pdf' : /\.(zip|rar|7z)$/i.test(m.file.name) ? 'fa-file-zipper' : /\.(png|jpe?g|gif|webp)$/i.test(m.file.name) ? 'fa-file-image' : 'fa-file-lines';
+    return '<div class="fc-bub file' + (m.dir === 'out' ? ' out' : '') + '"><button class="fc-filebtn" data-act="download-msg" data-id="' + esc(m.id) + '">' +
+      '<span class="fc-fileic"><i class="fas ' + ic + '"></i></span>' +
+      '<span class="fc-filetxt"><span class="fc-filename">' + esc(m.file.name) + '</span>' +
+      '<span class="fc-filesize">' + sizeText(m.file.size) + '</span></span>' +
+      '<i class="fas fa-download" style="font-size:11px;opacity:.55"></i></button></div>';
+  }
+  return '<div class="fc-bub' + (m.dir === 'out' ? ' out' : '') + '">' + quote + esc(m.text || '') + '</div>';
+}
+function statusHtml(t, m) {
+  if (m.dir !== 'out') return '';
+  if (m.revoked) return '';
+  if (t.type === 'self') return '<span title="本机会话，已读只在本机记录">已读</span>';
+  if (m.status === 'sending') return '<span>发送中…</span>';
+  if (m.status === 'failed') return '<button data-act="retry" data-id="' + esc(m.id) + '" title="' + esc(m.error || '') + '">未送达 · 重试</button>';
+  if (t.delivery === 'cloud') return '<span title="云端频道接口没有已读回执">已送达</span>';
+  return '<span title="本机会话，已读只在本机记录">已读</span>';
+}
+function renderChatBody(nearBottom) {
+  var t = activeThread();
+  if (!t) return;
+  var el = document.getElementById('fcChatBody');
+  if (!el) return;
+  var atBottom = nearBottom === true || (el.scrollHeight - el.scrollTop - el.clientHeight < 70);
+  var top = el.scrollTop;
+  el.innerHTML = msgsHtml(t);
+  if (atBottom) el.scrollTop = el.scrollHeight; else el.scrollTop = top;
+  var sub = document.getElementById('fcChatSub');
+  if (sub) {
+    var s = t.type === 'self' ? '仅本机 · 文件传输助手'
+      : t.type === 'group' ? '公开频道 · ' + (S.cloud.status === 'ok' ? (S.cloud.kv ? '云端已连接（KV）' : '云端已连接') : '云端未连接')
+      : '仅本机 · 本地会话';
+    sub.textContent = s;
+  }
+  syncSendState();
+}
+function composerValue() {
+  var ta = document.getElementById('fcComposer');
+  return ta ? ta.value : '';
+}
+function syncSendState() {
+  var btn = document.getElementById('fcSend');
+  if (!btn) return;
+  var t = activeThread();
+  var ok = !!composerValue().trim() && !(t && t.delivery === 'cloud' && S.cloud.status !== 'ok');
+  btn.disabled = !ok;
+}
+function autosize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(112, Math.max(44, el.scrollHeight)) + 'px';
+}
+
+/* ================= 渲染：联系人详情 / 我的 ================= */
+function contactMainHtml() {
+  var c = activeContact();
+  if (!c) {
+    return '<main class="fc-main"><div class="fc-main-empty">' +
+      '<div class="art"><i class="fas fa-address-book"></i></div>' +
+      '<h3>通讯录</h3><p>左侧按拼音分组。联系人只保存在本机，不会上传。</p>' +
+      '<button data-act="new-contact">添加联系人</button></div></main>';
+  }
+  var t = S.db.threads.find(function (x) { return x.contactId === c.id; });
+  var n = t ? t.messages.length : 0;
+  var idc = contactIdentity(c);
+  return '<main class="fc-main"><div class="fc-detail-wrap">' +
+    avatarHtml(c.name, c.avatar, 86) +
+    '<div class="fc-detail-name"><h2>' + esc(c.name) + '</h2>' + badgesHtml(idc, 'detail') + '</div>' +
+    '<p class="note">' + esc(c.note || '未设置备注') + '</p>' +
+    '<p class="meta">分组 ' + letterOf(c.name) + ' · 添加于 ' + (new Date(c.createdAt)).getFullYear() + '/' + (new Date(c.createdAt).getMonth() + 1) + '/' + (new Date(c.createdAt).getDate()) + '</p>' +
+    '<div class="fc-detail-acts">' +
+      '<button class="fc-btn primary" data-act="contact-chat">发消息</button>' +
+      '<button class="fc-btn" data-act="contact-note">修改备注</button>' +
+      '<button class="fc-btn danger" data-act="contact-delete">删除联系人</button>' +
+    '</div>' +
+    '<div class="fc-detail-card">' +
+      (idc.title ? '<div class="r"><span>头衔</span><b>' + esc(idc.title) + '</b></div>' : '') +
+      (idc.verified ? '<div class="r"><span>认证</span><b>蓝色 V 认证</b></div>' : '') +
+      '<div class="r"><span>会话</span><b>' + (t ? '已建立' : '未建立') + '</b></div>' +
+      '<div class="r"><span>消息</span><b>' + n + ' 条</b></div>' +
+      '<div class="r"><span>保存位置</span><b>仅本机</b></div>' +
+    '</div></div></main>';
+}
+function meMainHtml() {
+  if (S.me === 'settings') return settingsHtml();
+  if (S.me === 'about') return aboutHtml();
+  return profileHtml();
+}
+function profileHtml() {
+  var name = myName();
+  var accId = (S.ctx && S.ctx.user && S.ctx.user.name) || '本地用户';
+  var idm = selfIdentity();
+  return '<main class="fc-main"><div class="fc-page">' +
+    '<h1>个人资料</h1><p class="lead">昵称和头像只影响方聊里的显示，不会改 Nexus 账户。</p>' +
+    '<div class="fc-profile-row">' +
+      avatarHtml(name, myAvatar(), 64, 'self') +
+      '<div class="fc-profile-info"><div class="fc-profile-nrow"><b>' + esc(name) + '</b>' + badgesHtml(idm, 'profile') + '</div>' +
+      '<div class="fc-label">昵称</div>' +
+      '<input class="fc-input" id="fcProfileName" value="' + esc(name) + '" maxlength="24" placeholder="输入昵称">' +
+      '<div style="margin-top:8px"><button class="fc-btn soft" data-act="avatar-upload"><i class="fas fa-image" style="margin-right:5px"></i>更换头像</button></div></div>' +
+    '</div>' +
+    '<div class="fc-card" style="margin-bottom:14px">' +
+      '<div class="fc-row-line"><div class="t"><b>Nexus ID</b><small>' + esc(accId) + ' · 来自当前 Nexus 账户</small></div>' +
+      '<span class="fc-chip-status">只读</span></div>' +
+      (idm.title ? '<div class="fc-row-line"><div class="t"><b>头衔</b><small>来自账号资料接口 · 只读</small></div><b style="font-size:12px;max-width:50%;overflow-wrap:anywhere;text-align:right">' + esc(idm.title) + '</b></div>' : '') +
+      (idm.verified ? '<div class="fc-row-line"><div class="t"><b>认证</b><small>账号资料接口 · 蓝色 V</small></div>' + badgesHtml({ title: '', verified: true }, 'profile') + '</div>' : '') +
+      '<div class="fc-row-line"><div class="t"><b>头像</b><small>' + (myAvatar() ? '已自定义（保存在本机）' : '未设置，使用昵称首字') + '</small></div>' +
+      (myAvatar() ? '<button class="fc-btn" data-act="avatar-clear">清除</button>' : '') + '</div>' +
+    '</div>' +
+    '<button class="fc-btn primary" data-act="profile-save">保存资料</button>' +
+    '<p class="fc-hint">头像上传会压缩到 256px 并保存在本机账户数据里。</p>' +
+    '</div></main>';
+}
+function cloudChip() {
+  var st = S.cloud.status;
+  var label = st === 'ok' ? (S.cloud.kv ? '已连接 · KV' : '已连接 · 内存') : st === 'fail' ? '连接失败' : st === 'checking' ? '检测中…' : '未连接';
+  var cls = st === 'ok' ? 'ok' : st === 'fail' ? 'fail' : st === 'checking' ? 'checking' : '';
+  return '<span class="fc-chip-status ' + cls + '"><span class="st-dot"></span>' + label + '</span>';
+}
+function settingsHtml() {
+  var st = S.db.settings;
+  var bytes = 0;
+  try { bytes = new Blob([JSON.stringify(S.db)]).size; } catch (e) {}
+  var count = S.db.threads.reduce(function (n, t) { return n + t.messages.length; }, 0);
+  return '<main class="fc-main"><div class="fc-page">' +
+    '<h1>设置与数据</h1><p class="lead">云端只做消息中转；本机会话的“已读”是本机状态，云端只显示“已送达”。</p>' +
+
+    '<div class="fc-sec"><h3>云端中转</h3><div class="fc-card">' +
+      '<div class="fc-row-line"><div class="t"><b>Worker 状态</b><small>' + (S.cloud.status === 'fail' ? esc(S.cloud.error || '连接失败') : '健康检查会真实请求后端，不做假在线状态') + '</small></div>' + cloudChip() + '</div>' +
+      '<div class="fc-row-line" style="display:block"><div class="fc-label">Worker 地址</div>' +
+        '<div class="fc-cloud-row"><input class="fc-input" id="fcWorker" value="' + esc(st.worker || '') + '" placeholder="' + DEFAULT_WORKER + '">' +
+        '<button class="fc-btn primary" data-act="cloud-connect">保存并连接</button></div>' +
+        '<p class="fc-hint">接口：<code>GET/POST /api/messages</code>，按 chat 存文本，单会话上限 200 条。<br>' +
+        '没有账号体系；同一 chat 的所有人可读，勿放隐私内容。</p>' +
+      '</div>' +
+      '<div class="fc-row-line"><div class="t"><b>自动连接</b><small>打开方聊时做一次健康检查</small></div>' +
+        '<button class="fc-switch' + (st.autoCloud !== false ? ' on' : '') + '" data-act="toggle-setting" data-key="autoCloud" role="switch" aria-checked="' + (st.autoCloud !== false) + '"></button></div>' +
+      '<div class="fc-row-line"><div class="t"><b>新消息系统通知</b><small>窗口不在前台时，用 Nexus 通知提醒</small></div>' +
+        '<button class="fc-switch' + (st.notify !== false ? ' on' : '') + '" data-act="toggle-setting" data-key="notify" role="switch" aria-checked="' + (st.notify !== false) + '"></button></div>' +
+      (cloudWanted() ? '<div style="margin-top:10px"><button class="fc-btn" data-act="cloud-off">断开云端</button></div>' : '') +
+    '</div></div>' +
+
+    '<div class="fc-sec"><h3>本机存储</h3><div class="fc-card">' +
+      '<div class="fc-row-line"><div class="t"><b>聊天记录</b><small>' + S.db.threads.length + ' 个会话 · ' + count + ' 条消息</small></div><b>' + sizeText(bytes) + '</b></div>' +
+      '<div class="fc-row-line"><div class="t"><b>保存位置</b><small>' + ((window.Nexus && Nexus.context && Nexus.context()) ? 'Nexus 账户数据（按用户隔离）' : '浏览器 localStorage（独立打开）') + '</small></div></div>' +
+      '<div class="fc-row-line"><div class="t"><b>清空聊天记录</b><small>保留联系人，只删本机会话与消息</small></div>' +
+        '<button class="fc-btn danger" data-act="clear-all">清空</button></div>' +
+    '</div></div>' +
+
+    '<div class="fc-sec"><h3>账户</h3><div class="fc-card">' +
+      '<div class="fc-row-line"><div class="t"><b>' + esc(myName()) + '</b><small>Nexus ID：' + esc((S.ctx && S.ctx.user && S.ctx.user.name) || '本地用户') + '</small></div></div>' +
+    '</div></div>' +
+    '</div></main>';
+}
+function aboutHtml() {
+  return '<main class="fc-main"><div class="fc-page">' +
+    '<div class="fc-about-brand"><div class="logo"><i class="fas fa-comment-dots"></i></div>' +
+      '<div><b>方聊</b><small>v3.0 · 2026-11-07 · 本地优先的聊天</small></div></div>' +
+    '<p class="lead">按微信的基本盘重做：会话、聊天、通讯录、我的。不造假记录、不造假在线状态。</p>' +
+    '<div class="fc-sec"><h3>当前能力</h3><ul class="fc-limit">' +
+      '<li>会话：置顶、免打扰、未读、搜索、最后一条消息与时间。</li>' +
+      '<li>聊天：文字、图片、文件、表情、引用、2 分钟内撤回、日期分隔、发送状态。</li>' +
+      '<li>群聊：群资料面板（成员按真实发言人汇总）、群公告（云端频道同步）、群成员列表。</li>' +
+      '<li>通讯录：拼音首字母分组与索引，联系人仅保存在本机。</li>' +
+      '<li>云端：真实 Worker 健康检查 + 全体群文本中转（8 秒轮询）。</li>' +
+      '<li>身份标记：账号资料的头衔金标与蓝 V，字段为空时整块不显示。</li>' +
+    '</ul></div>' +
+    '<div class="fc-sec"><h3>明确限制</h3><ul class="fc-limit">' +
+      '<li>本机会话的“已读”只代表本机已打开；云端没有已读回执接口，只显示“已送达”。</li>' +
+      '<li>云端消息无法撤回（Worker 没有撤回接口），右键菜单会明确提示而不是假装成功。</li>' +
+      '<li>公开频道只支持文字；图片/文件仅在本地会话可用。</li>' +
+      '<li>单会话云端上限 200 条（Worker 限制）；本机存储受浏览器配额限制。</li>' +
+      '<li>朋友圈/发现：没有后端与内容源，明确不做。</li>' +
+    '</ul></div>' +
+    '</div></main>';
+}
+
+/* ================= 弹层 ================= */
+function popHtml() {
+  if (S.pop === 'emoji') {
+    var emo = {
+      '常用': '😀 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 😉 😍 🥰 😘 😋 😛 😜 🤪 🤨 🧐 🤓 😎 🥳 😏 😒 😞 😔 😟 😕 🙁 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤔 🤭 🤫 🤥 😶 😐 😑 😬 🙄 😯 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 🤕 🤑 🤠 😈 👻 💀 🤖 🎃',
+      '手势': '👍 👎 👌 ✌️ 🤞 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ ✋ 🤚 🖐️ 🖖 👋 🤝 🙏 ✍️ 💪 🦾 🦵 🦶 👂 👃 🧠 🫀 👀 👅 👄',
+      '符号': '❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 ✅ ❌ ⭕ ⚠️ ❗ ❓ 💯 💤 🎉 🎊 🔥 ⭐ 🌟 ✨ ⚡ 💡 📌 🎵 🎶 ☀️ 🌙 ⛅ 🌈 🍀 🌸'
+    };
+    return '<div class="fc-pop fc-emoji">' + Object.keys(emo).map(function (k) {
+      return '<div class="fc-emoji-cat">' + k + '</div><div class="fc-emoji-grid">' +
+        emo[k].split(' ').map(function (e) {
+          return '<button data-act="emoji" data-e="' + e + '" title="' + e + '">' + e + '</button>';
+        }).join('') + '</div>';
+    }).join('') + '</div>';
+  }
+  if (S.pop === 'attach') {
+    return '<div class="fc-pop fc-attach">' +
+      '<button data-act="pick-image"><i class="fas fa-image"></i>图片</button>' +
+      '<button data-act="pick-file"><i class="fas fa-file-lines"></i>文件</button></div>';
+  }
+  return '';
+}
+function renderOverlay() {
+  var host = document.getElementById('fcOverlay');
+  if (!host) return;
+  if (S.view) {
+    host.innerHTML = '<div class="fc-veil" data-act="close-view"><div class="fc-viewer">' +
+      '<img src="' + esc(S.view.src) + '" alt="">' +
+      '<div class="vc"><button class="fc-btn" data-act="close-view">关闭</button>' +
+      '<button class="fc-btn primary" data-act="download-msg" data-id="' + esc(S.view.id) + '"><i class="fas fa-download" style="margin-right:5px"></i>下载</button></div>' +
+      '</div></div>';
+    return;
+  }
+  if (!S.dialog) { host.innerHTML = ''; return; }
+  var d = S.dialog;
+  host.innerHTML = '<div class="fc-veil" data-act="close-dialog"><div class="fc-modal">' +
+    '<h4>' + esc(d.title || '') + '</h4>' +
+    (d.desc ? '<p>' + esc(d.desc) + '</p>' : '') +
+    (d.fields || []).map(function (f, i) {
+      return '<div class="fc-field"><label>' + esc(f.label || '') + '</label>' +
+        '<input class="fc-input" data-fid="' + i + '" value="' + esc(f.value || '') + '" placeholder="' + esc(f.placeholder || '') + '" maxlength="' + (f.max || 40) + '"></div>';
+    }).join('') +
+    '<div class="acts"><button class="fc-btn" data-act="dialog-cancel">' + esc(d.cancelText || '取消') + '</button>' +
+    '<button class="fc-btn ' + (d.danger ? 'danger' : 'primary') + '" data-act="dialog-ok">' + esc(d.okText || '确定') + '</button></div>' +
+    '</div></div>';
+  var first = host.querySelector('[data-fid]');
+  if (first) { try { first.focus(); first.select(); } catch (e) {} }
+}
+function openDialog(opt) { S.dialog = opt || {}; renderOverlay(); }
+function closeDialog() { S.dialog = null; renderOverlay(); }
+function dialogValues() {
+  var host = document.getElementById('fcOverlay');
+  return Array.prototype.map.call(host.querySelectorAll('[data-fid]'), function (i) { return i.value.trim(); });
+}
+function submitDialog() {
+  if (!S.dialog) return;
+  var vals = dialogValues();
+  var keep = S.dialog.onOk ? S.dialog.onOk(vals) : null;
+  if (keep === false) return;
+  closeDialog();
+}
+
+/* ================= 交互 ================= */
+function setTab(tab) { S.tab = tab; S.pop = null; S.ctx = null; render(); }
+function openThread(id) {
+  S.thread = id; S.tab = 'chats'; S.pop = null; S.ctx = null; S.quote = null; S.groupPanel = false;
+  var t = activeThread();
+  if (t && t.unread) { t.unread = 0; save(); }
+  render();
+  var ta = document.getElementById('fcComposer');
+  if (ta) ta.focus();
+}
+function openContact(id) {
+  S.contact = id; S.tab = 'contacts'; S.pop = null; render();
+}
+function togglePop(which) { S.pop = S.pop === which ? null : which; var host = document.getElementById('fcPopHost'); if (host) host.innerHTML = popHtml(); }
+function closePop() {
+  if (!S.pop) return false;
+  S.pop = null;
+  var host = document.getElementById('fcPopHost');
+  if (host) host.innerHTML = '';
+  return true;
+}
+function insertEmoji(e) {
+  var ta = document.getElementById('fcComposer');
+  if (!ta) return;
+  var s = ta.selectionStart || 0, t = ta.selectionEnd || 0;
+  ta.value = ta.value.slice(0, s) + e + ta.value.slice(t);
+  ta.focus();
+  var p = s + e.length;
+  try { ta.setSelectionRange(p, p); } catch (err) {}
+  if (S.thread) S.drafts[S.thread] = ta.value;
+  autosize(ta); syncSendState();
+}
+function sendNow() {
+  var t = activeThread();
+  var ta = document.getElementById('fcComposer');
+  if (!t || !ta) return;
+  var text = ta.value.trim();
+  if (!text) return;
+  if (t.delivery === 'cloud' && S.cloud.status !== 'ok') { toast('云端未连接，先到设置里重试连接', 'err'); return; }
+  var quote = (S.quote && S.quote.threadId === t.id) ? {
+    id: S.quote.id, from: S.quote.from, text: S.quote.text, dir: S.quote.dir
+  } : null;
+  /* 云端接口只收纯文本：引用折成首行文本，保证对方也能看到引用上下文 */
+  if (quote && t.delivery === 'cloud') text = '「引用 ' + quote.from + '：' + quote.text + '」\n' + text;
+  var msg = {
+    id: uid(), dir: 'out', from: myName(), ts: Date.now(),
+    kind: 'text', text: text,
+    status: t.delivery === 'cloud' ? 'sending' : 'sent'
+  };
+  if (quote && t.delivery !== 'cloud') msg.quote = quote;
+  S.quote = null;
+  t.messages.push(msg);
+  t.updatedAt = msg.ts;
+  t.unread = 0;
+  S.drafts[t.id] = '';
+  ta.value = '';
+  autosize(ta); syncSendState();
+  save();
+  renderChatBody(true);
+  refreshSideList();
+  ta.focus();
+  if (t.delivery === 'cloud') pushCloud(t, msg);
+}
+function retryMsg(id) {
+  var pair = findMsg(id);
+  if (!pair || !pair.t.cloudChat || pair.m.kind !== 'text') return;
+  if (S.cloud.status !== 'ok') { toast('云端未连接，先到设置里重试连接', 'err'); return; }
+  pair.m.status = 'sending';
+  pair.m.error = '';
+  renderChatBody(true);
+  pushCloud(pair.t, pair.m);
+}
+function addMessage(t, msg) {
+  t.messages.push(msg);
+  t.updatedAt = msg.ts;
+  t.unread = 0;
+  save();
+  renderChatBody(true);
+  refreshSideList();
+}
+function compressImage(file) {
+  return new Promise(function (resolve, reject) {
+    if (!/^image\//.test(file.type)) { reject(new Error('不是图片')); return; }
+    if (file.size > 8 * 1048576) { reject(new Error('图片超过 8 MB')); return; }
+    if (/image\/(gif|svg\+xml)/.test(file.type)) {
+      readDataUrl(file).then(function (u) {
+        resolve({ dataUrl: u, w: 0, h: 0, name: file.name, size: file.size });
+      }, reject);
+      return;
+    }
+    var obj = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var max = 1400;
+        var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        var k = Math.min(1, max / Math.max(w, h));
+        var cw = Math.max(1, Math.round(w * k)), ch = Math.max(1, Math.round(h * k));
+        var cv = document.createElement('canvas');
+        cv.width = cw; cv.height = ch;
+        var ctx = cv.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cw, ch);
+        ctx.drawImage(img, 0, 0, cw, ch);
+        var url = cv.toDataURL('image/jpeg', 0.72);
+        URL.revokeObjectURL(obj);
+        resolve({ dataUrl: url, w: cw, h: ch, name: file.name.replace(/\.[^.]+$/, '') + '.jpg', size: Math.round(url.length * 0.75) });
+      } catch (e) { URL.revokeObjectURL(obj); reject(e); }
+    };
+    img.onerror = function () { URL.revokeObjectURL(obj); reject(new Error('图片无法读取')); };
+    img.src = obj;
+  });
+}
+function readDataUrl(file) {
+  return new Promise(function (resolve, reject) {
+    var r = new FileReader();
+    r.onload = function () { resolve(String(r.result || '')); };
+    r.onerror = function () { reject(new Error('文件读取失败')); };
+    r.readAsDataURL(file);
+  });
+}
+function attachImage(file) {
+  var t = activeThread();
+  if (!t) return;
+  if (t.delivery === 'cloud') { toast('公开频道只支持文字消息', 'err'); return; }
+  toast('正在处理图片…');
+  compressImage(file).then(function (im) {
+    if (im.dataUrl.length > 1250000) throw new Error('图片压缩后仍过大（>1.2 MB）');
+    addMessage(t, {
+      id: uid(), dir: 'out', from: myName(), ts: Date.now(), kind: 'image',
+      image: { dataUrl: im.dataUrl, w: im.w, h: im.h, name: im.name }, status: 'sent'
+    });
+    toast('已添加到会话');
+  }).catch(function (e) { toast(String(e.message || e), 'err'); });
+}
+function attachFile(file) {
+  var t = activeThread();
+  if (!t) return;
+  if (t.delivery === 'cloud') { toast('公开频道只支持文字消息', 'err'); return; }
+  if (file.size > 1048576) { toast('文件超过 1 MB，本机存储放不下', 'err'); return; }
+  readDataUrl(file).then(function (u) {
+    addMessage(t, {
+      id: uid(), dir: 'out', from: myName(), ts: Date.now(), kind: 'file',
+      file: { name: file.name, size: file.size, mime: file.type || '', dataUrl: u }, status: 'sent'
+    });
+    toast('已添加到会话');
+  }).catch(function (e) { toast(String(e.message || e), 'err'); });
+}
+function downloadMsg(id) {
+  var pair = findMsg(id);
+  if (!pair) return;
+  var m = pair.m;
+  var data = m.kind === 'image' ? (m.image && m.image.dataUrl) : (m.file && m.file.dataUrl);
+  if (!data) { toast('这条消息没有可下载的内容', 'err'); return; }
+  var a = document.createElement('a');
+  a.href = data;
+  a.download = m.kind === 'image' ? ((m.image && m.image.name) || '图片.jpg') : m.file.name;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+function viewImage(id) {
+  var pair = findMsg(id);
+  if (!pair || !pair.m.image) return;
+  S.view = { id: id, src: pair.m.image.dataUrl };
+  renderOverlay();
+}
+function newChatDialog() {
+  openDialog({
+    title: '新建会话', desc: '输入联系人姓名。联系人只保存在本机，不会上传。',
+    fields: [{ label: '姓名', placeholder: '例如：林一舟', max: 24 }],
+    okText: '创建', onOk: function (v) {
+      var name = String(v[0] || '').trim();
+      if (!name) return false;
+      createContactChat(name, '', true);
+    }
+  });
+}
+function newContactDialog() {
+  openDialog({
+    title: '添加联系人', desc: '仅保存在本机；不会同步到云端。',
+    fields: [{ label: '姓名', placeholder: '例如：陈默', max: 24 }, { label: '备注', placeholder: '可选', value: '', max: 40 }],
+    okText: '添加', onOk: function (v) {
+      var name = String(v[0] || '').trim();
+      if (!name) return false;
+      if (S.db.contacts.some(function (c) { return c.name === name; })) { toast('已存在同名联系人', 'err'); return false; }
+      var c = { id: 'ct' + uid(), name: name, note: String(v[1] || '').trim(), avatar: null, createdAt: Date.now() };
+      S.db.contacts.push(c);
+      S.contact = c.id; save(); render();
+      toast('已添加联系人');
+    }
+  });
+}
+function createContactChat(name, note, jump) {
+  var c = S.db.contacts.find(function (x) { return x.name === name; });
+  if (!c) {
+    c = { id: 'ct' + uid(), name: name, note: note || '', avatar: null, createdAt: Date.now() };
+    S.db.contacts.push(c);
+  }
+  var t = S.db.threads.find(function (x) { return x.contactId === c.id; });
+  if (!t) {
+    t = {
+      id: 'th' + uid(), type: 'user', name: c.name, contactId: c.id, avatar: null,
+      delivery: 'local', cloudChat: null, pinned: false, muted: false,
+      unread: 0, updatedAt: 0, messages: []
+    };
+    S.db.threads.push(t);
+  }
+  save();
+  if (jump) openThread(t.id);
+}
+function contactChat() {
+  var c = activeContact();
+  if (!c) return;
+  createContactChat(c.name, c.note, true);
+}
+function deleteThread() {
+  var t = activeThread();
+  if (!t || t.type === 'self') return;
+  openDialog({
+    title: '删除会话', desc: (t.delivery === 'cloud' ? '仅从本机移除会话与本地记录，云端消息不受影响。' : '本机的会话和消息将被删除，无法恢复。'),
+    okText: '删除', danger: true,
+    onOk: function () {
+      S.db.threads = S.db.threads.filter(function (x) { return x.id !== t.id; });
+      S.thread = null; ensureBasics(); save(); render();
+      toast('已删除会话');
+    }
+  });
+}
+function togglePin() {
+  var t = activeThread(); if (!t) return;
+  t.pinned = !t.pinned; save(); render();
+}
+function toggleMute() {
+  var t = activeThread(); if (!t) return;
+  t.muted = !t.muted; save(); render();
+}
+function toggleGroupPanel() { S.groupPanel = !S.groupPanel; S.ctx = null; render(); }
+/* 引用：把目标消息摘要挂到输入区，发送时写进消息体 */
+function quoteMsg(id) {
+  var p = findMsg(id);
+  if (!p || p.m.kind !== 'text') { toast('只能引用文字消息', 'err'); return; }
+  S.ctx = null;
+  S.quote = {
+    threadId: p.t.id, id: p.m.id,
+    from: p.m.dir === 'out' ? '我' : (p.m.from || (p.t.type === 'group' ? '匿名' : p.t.name)),
+    text: String(p.m.text || '').slice(0, 80), dir: p.m.dir
+  };
+  render();
+  var ta = document.getElementById('fcComposer');
+  if (ta) ta.focus();
+}
+function clearQuote() {
+  S.quote = null;
+  var bar = document.getElementById('fcQuoteBar');
+  if (bar) bar.remove();
+  var ta = document.getElementById('fcComposer');
+  if (ta) ta.focus();
+}
+function copyMsg(id) {
+  var p = findMsg(id);
+  if (!p) return;
+  var text = String(p.m.text || '');
+  S.ctx = null;
+  if (!text) { toast('这条消息没有可复制的文字', 'err'); return; }
+  var done = function () { closeCtx(); toast('已复制'); };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+      return;
+    }
+  } catch (e) { }
+  fallbackCopy(text); done();
+}
+function fallbackCopy(text) {
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+  } catch (e) { toast('复制失败', 'err'); }
+}
+/* 撤回：仅本机会话且 2 分钟内；云端接口没有撤回能力，明确拒绝而不是假装撤回 */
+function recallMsg(id) {
+  var p = findMsg(id);
+  if (!p || p.m.dir !== 'out') return;
+  S.ctx = null;
+  var ctxEl = document.getElementById('fcCtx');
+  if (ctxEl) ctxEl.remove();
+  if (p.t.delivery === 'cloud') { toast('云端频道接口不支持撤回，消息已发出', 'err'); return; }
+  if (Date.now() - (p.m.ts || 0) > 120000) { toast('超过 2 分钟，无法撤回', 'err'); render(); return; }
+  p.m.revoked = true;
+  p.m.text = '';
+  p.m.image = null;
+  p.m.file = null;
+  p.m.quote = null;
+  save();
+  renderChatBody(true);
+  refreshSideList();
+  toast('已撤回一条消息');
+}
+function jumpQuote(id) {
+  if (!id) return;
+  var row = document.querySelector('.fc-row[data-msg="' + id + '"]');
+  if (!row) { toast('原消息不在当前会话', 'err'); return; }
+  row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  var bub = row.querySelector('.fc-bub');
+  if (bub) {
+    bub.classList.add('quote-hit');
+    setTimeout(function () { bub.classList.remove('quote-hit'); }, 1200);
+  }
+}
+/* 群公告：云端频道用 [[ANN]] 前缀消息同步给所有人；本机会话只存本机 */
+function editAnnouncement() {
+  var t = activeThread();
+  if (!t || t.type !== 'group') return;
+  openDialog({
+    title: t.announcement ? '编辑群公告' : '发布群公告',
+    desc: t.delivery === 'cloud' ? '公告会作为频道消息同步给所有人，留空则清除。' : '公告保存在本机会话里，留空则清除。',
+    fields: [{ label: '公告内容', value: t.announcement || '', placeholder: '例如：本周五 20:00 一起联机', max: 120 }],
+    okText: '保存',
+    onOk: function (v) {
+      var text = String(v[0] || '').trim();
+      t.announcement = text;
+      t.announcementAt = Date.now();
+      save();
+      if (t.delivery === 'cloud' && S.cloud.status === 'ok') {
+        var msg = { id: uid(), dir: 'out', from: myName(), ts: Date.now(), kind: 'text', text: ANN_TAG + text, status: 'sending' };
+        pushCloud(t, msg);
+        toast(text ? '公告已同步到频道' : '公告已清除');
+      } else {
+        addMessage(t, { id: uid(), dir: 'out', from: myName(), ts: Date.now(), kind: 'system', text: text ? '群公告已更新：' + text : '群公告已清除', status: 'sent' });
+        toast(text ? '公告已更新（仅本机）' : '公告已清除');
+      }
+      render();
+    }
+  });
+}
+function clearSearch() {
+  if (S.tab === 'chats') S.search = ''; else S.csearch = '';
+  var inp = document.getElementById(S.tab === 'chats' ? 'fcSearch' : 'fcCSearch');
+  if (inp) { inp.value = ''; inp.focus(); }
+  refreshSideList();
+}
+function saveProfile() {
+  var inp = document.getElementById('fcProfileName');
+  var name = inp ? inp.value.trim() : '';
+  if (!name) { toast('昵称不能为空', 'err'); return; }
+  S.db.profile.name = name;
+  save(); render(); toast('资料已保存');
+}
+function uploadAvatar() {
+  var inp = document.getElementById('fcFileImage');
+  if (!inp) return;
+  inp.value = '';
+  inp.onchange = function () {
+    var f = inp.files && inp.files[0];
+    if (!f) return;
+    compressImageSquare(f, 256).then(function (url) {
+      if (url.length > 620000) throw new Error('头像图片过大');
+      S.db.profile.avatar = url;
+      save(); render(); toast('头像已更新');
+    }).catch(function (e) { toast(String(e.message || e), 'err'); });
+    inp.onchange = null;
+  };
+  inp.click();
+}
+function compressImageSquare(file, size) {
+  return new Promise(function (resolve, reject) {
+    var obj = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var s = Math.min(img.naturalWidth, img.naturalHeight);
+        var sx = (img.naturalWidth - s) / 2, sy = (img.naturalHeight - s) / 2;
+        var cv = document.createElement('canvas');
+        cv.width = size; cv.height = size;
+        cv.getContext('2d').drawImage(img, sx, sy, s, s, 0, 0, size, size);
+        var url = cv.toDataURL('image/jpeg', 0.8);
+        URL.revokeObjectURL(obj);
+        resolve(url);
+      } catch (e) { URL.revokeObjectURL(obj); reject(e); }
+    };
+    img.onerror = function () { URL.revokeObjectURL(obj); reject(new Error('图片无法读取')); };
+    img.src = obj;
+  });
+}
+function setSetting(key, val) {
+  S.db.settings[key] = val;
+  save();
+}
+function connectCloud() {
+  var inp = document.getElementById('fcWorker');
+  var url = inp ? inp.value.trim().replace(/\/+$/, '') : '';
+  if (!url) { toast('请填写 Worker 地址', 'err'); return false; }
+  if (!/^https?:\/\//i.test(url)) { toast('地址需以 http:// 或 https:// 开头', 'err'); return false; }
+  S.db.settings.worker = url;
+  S.db.settings.cloudOn = true;
+  save();
+  cloudCheck(false);
+  return true;
+}
+function clearAllChats() {
+  openDialog({
+    title: '清空聊天记录', desc: '将删除本机所有会话与消息，联系人保留。云端消息不受影响。',
+    okText: '清空', danger: true,
+    onOk: function () {
+      S.db.threads = [];
+      S.thread = null;
+      ensureBasics();
+      save(); render();
+      toast('本机聊天记录已清空');
+    }
+  });
+}
+function openCtxFor(id, x, y) {
+  if (!id) return;
+  var old = document.getElementById('fcCtx');
+  if (old) old.remove();
+  S.ctx = {
+    id: id,
+    x: Math.max(8, Math.min(x, window.innerWidth - 150)),
+    y: Math.max(8, Math.min(y, window.innerHeight - 170))
+  };
+  var wrap = document.createElement('div');
+  wrap.innerHTML = ctxHtml();
+  if (wrap.firstChild) document.body.appendChild(wrap.firstChild);
+}
+function closeCtx() {
+  S.ctx = null;
+  var el = document.getElementById('fcCtx');
+  if (el) el.remove();
+}
+document.addEventListener('click', function (e) {
+  var actEl = e.target.closest ? e.target.closest('[data-act]') : null;
+  if (!actEl) {
+    if (S.ctx) closeCtx();
+    if (S.pop) closePop();
+    return;
+  }
+  var act = actEl.getAttribute('data-act');
+  var id = actEl.getAttribute('data-id');
+  switch (act) {
+    case 'tab': setTab(actEl.getAttribute('data-tab')); return;
+    case 'me-settings': S.tab = 'me'; S.me = 'settings'; S.pop = null; render(); return;
+    case 'me-panel': S.me = actEl.getAttribute('data-panel'); S.pop = null; render(); return;
+    case 'open-thread': openThread(id); return;
+    case 'open-contact': openContact(id); return;
+    case 'new-chat': newChatDialog(); return;
+    case 'new-contact': newContactDialog(); return;
+    case 'clear-search': clearSearch(); return;
+    case 'letter':
+      var L = actEl.getAttribute('data-letter');
+      var g = document.getElementById('fcg-' + L);
+      var body = document.getElementById('fcSideBody');
+      if (g && body) body.scrollTop = Math.max(0, g.offsetTop - 6);
+      return;
+    case 'send': sendNow(); return;
+    case 'retry': retryMsg(id); return;
+    case 'emoji-toggle': togglePop('emoji'); return;
+    case 'attach-toggle':
+      var ct = activeThread();
+      if (ct && ct.delivery === 'cloud') { toast('公开频道只支持文字消息', 'err'); return; }
+      togglePop('attach'); return;
+    case 'emoji': insertEmoji(actEl.getAttribute('data-e')); return;
+    case 'pick-image':
+      S.pop = null; var h1 = document.getElementById('fcPopHost'); if (h1) h1.innerHTML = '';
+      var fi = document.getElementById('fcFileImage');
+      if (fi) { fi.value = ''; fi.onchange = function () { var f = fi.files && fi.files[0]; if (f) attachImage(f); fi.onchange = null; }; fi.click(); }
+      return;
+    case 'pick-file':
+      S.pop = null; var h2 = document.getElementById('fcPopHost'); if (h2) h2.innerHTML = '';
+      var fa = document.getElementById('fcFileAny');
+      if (fa) { fa.value = ''; fa.onchange = function () { var f = fa.files && fa.files[0]; if (f) attachFile(f); fa.onchange = null; }; fa.click(); }
+      return;
+    case 'pin-thread': togglePin(); return;
+    case 'mute-thread': toggleMute(); return;
+    case 'group-panel-toggle': toggleGroupPanel(); return;
+    case 'announce-edit': editAnnouncement(); return;
+    case 'ctx-quote': quoteMsg(id); return;
+    case 'ctx-copy': copyMsg(id); return;
+    case 'ctx-recall': recallMsg(id); return;
+    case 'quote-clear': clearQuote(); return;
+    case 'msg-menu':
+      var mr = actEl.getBoundingClientRect();
+      openCtxFor(id, (actEl.closest('.fc-row.out') ? mr.left : mr.right - 4), mr.bottom + 4);
+      return;
+    case 'jump-quote': jumpQuote(id); return;
+    case 'delete-thread': deleteThread(); return;
+    case 'contact-chat': contactChat(); return;
+    case 'contact-note':
+      var c = activeContact(); if (!c) return;
+      openDialog({
+        title: '修改备注', fields: [{ label: '备注', value: c.note || '', placeholder: '例如：产品评审对接人', max: 40 }],
+        okText: '保存', onOk: function (v) { c.note = String(v[0] || '').trim(); save(); render(); toast('备注已更新'); }
+      });
+      return;
+    case 'contact-delete':
+      var c2 = activeContact(); if (!c2) return;
+      openDialog({
+        title: '删除联系人', desc: '联系人及其本机会话都会被删除。',
+        okText: '删除', danger: true,
+        onOk: function () {
+          S.db.contacts = S.db.contacts.filter(function (x) { return x.id !== c2.id; });
+          S.db.threads = S.db.threads.filter(function (t) { return t.contactId !== c2.id; });
+          S.contact = S.db.contacts[0] ? S.db.contacts[0].id : null;
+          if (!activeThread()) S.thread = null;
+          ensureBasics(); save(); render(); toast('已删除联系人');
+        }
+      });
+      return;
+    case 'profile-save': saveProfile(); return;
+    case 'avatar-upload': uploadAvatar(); return;
+    case 'avatar-clear': S.db.profile.avatar = null; save(); render(); return;
+    case 'toggle-setting':
+      var key = actEl.getAttribute('data-key');
+      var on = !(S.db.settings[key] !== false);
+      S.db.settings[key] = on; save();
+      actEl.classList.toggle('on', on);
+      actEl.setAttribute('aria-checked', String(on));
+      if (key === 'notify' && on) toast('已开启系统新消息通知');
+      return;
+    case 'cloud-connect': connectCloud(); return;
+    case 'cloud-off':
+      S.db.settings.cloudOn = false; save();
+      S.cloud.status = 'off';
+      stopPolling(); render(); toast('已断开云端，只在本机保存');
+      return;
+    case 'clear-all': clearAllChats(); return;
+    case 'dialog-ok': submitDialog(); return;
+    case 'dialog-cancel': closeDialog(); return;
+    case 'close-dialog': S.dialog = null; renderOverlay(); return;
+    case 'close-view': S.view = null; renderOverlay(); return;
+    case 'view-image': viewImage(id); return;
+    case 'download-msg': downloadMsg(id); return;
+  }
+}, true);
+document.addEventListener('click', function (e) {
+  if (!S.pop) return;
+  if (e.target.closest && (e.target.closest('.fc-pop') || e.target.closest('[data-act="emoji-toggle"]') || e.target.closest('[data-act="attach-toggle"]'))) return;
+  closePop();
+});
+/* 右键消息：引用 / 复制 / 撤回 */
+document.addEventListener('contextmenu', function (e) {
+  var row = e.target.closest ? e.target.closest('.fc-row[data-msg]') : null;
+  if (!row) return;
+  var id = row.getAttribute('data-msg');
+  if (!id) return;
+  e.preventDefault();
+  openCtxFor(id, e.clientX, e.clientY);
+});
+document.addEventListener('scroll', function () { if (S.ctx) closeCtx(); }, true);
+document.addEventListener('input', function (e) {
+  var el = e.target;
+  if (!el || !el.id) return;
+  if (el.id === 'fcSearch') { S.search = el.value; refreshSideList(); return; }
+  if (el.id === 'fcCSearch') { S.csearch = el.value; refreshSideList(); return; }
+  if (el.id === 'fcComposer') {
+    if (S.thread) S.drafts[S.thread] = el.value;
+    autosize(el); syncSendState(); return;
+  }
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    if (S.view) { S.view = null; renderOverlay(); return; }
+    if (S.dialog) { closeDialog(); return; }
+    if (S.pop) { closePop(); return; }
+  }
+  if (e.target && e.target.id === 'fcComposer') {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendNow(); }
+    return;
+  }
+  if (e.target && e.target.id && e.target.id.indexOf('fcDialog') >= 0 && e.key === 'Enter') {
+    e.preventDefault(); submitDialog();
+    return;
+  }
+  if (S.dialog && e.target && e.target.hasAttribute && e.target.hasAttribute('data-fid') && e.key === 'Enter') {
+    e.preventDefault(); submitDialog();
+  }
+});
+document.addEventListener('paste', function (e) {
+  var t = activeThread();
+  if (!t || t.delivery === 'cloud') return;
+  if (!e.target || !e.target.closest || !e.target.closest('.fc-composer')) return;
+  var items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].type && /^image\//.test(items[i].type)) {
+      e.preventDefault();
+      attachImage(items[i].getAsFile());
+      return;
+    }
+  }
+});
+document.addEventListener('visibilitychange', function () {
+  if (!document.hidden && S.cloud.status === 'ok') {
+    S.db.threads.forEach(function (t) { if (t.cloudChat) pollThread(t); });
+  }
+});
+
+/* ================= 演示数据（仅 ?demo=1，不写存储） ================= */
+function demoPhoto() {
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="760" height="520">' +
+    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
+    '<stop offset="0" stop-color="#ff9d6c"/><stop offset="0.5" stop-color="#ff6b8b"/><stop offset="1" stop-color="#5b3b8c"/>' +
+    '</linearGradient></defs><rect width="760" height="520" fill="url(#g)"/>' +
+    '<circle cx="560" cy="150" r="86" fill="#ffd9a0" opacity="0.85"/>' +
+    '<path d="M0 380 Q180 300 360 370 T760 330 V520 H0Z" fill="#3b2450" opacity="0.55"/>' +
+    '<path d="M0 430 Q210 370 420 420 T760 400 V520 H0Z" fill="#241533" opacity="0.65"/></svg>';
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+function demoDb() {
+  var now = Date.now();
+  var t = function (n, msgs, extra) {
+    msgs.forEach(function (m, i) {
+      m.id = m.id || 'd' + n + i + now.toString(36);
+      m.ts = now - (msgs.length - i) * 3600000 * 0.18;
+    });
+    return Object.assign({
+      id: 'demo-' + n, type: 'user', name: n, avatar: null, delivery: 'local', cloudChat: null,
+      pinned: false, muted: false, unread: 0,
+      updatedAt: msgs.length ? msgs[msgs.length - 1].ts : 0,
+      messages: msgs
+    }, extra || {});
+  };
+  var img = demoPhoto();
+  var demoIds = {
+    '林一舟': { title: '设计负责人', verified: true },
+    '陈默': { title: '后端架构 · 基础设施组 · 夜间值班' },
+    '周小满': { verified: true },
+    '张野': { title: '增长运营' }
+  };
+  var fileTxt = '界面走查清单\n1. 会话列表未读角标\n2. 输入框 Enter 发送\n3. 深色模式对比度\n4. 图片与文件消息';
+  var fileUrl = 'data:text/plain;charset=utf-8,' + encodeURIComponent(fileTxt);
+  var threads = [
+    t('林一舟', [
+      { dir: 'in', from: '林一舟', kind: 'text', text: '周五的评审挪到下午三点了，你那边时间还 OK 吗？' },
+      { dir: 'out', from: '我', kind: 'text', text: '可以，我把改好的稿子提前发你。' },
+      { dir: 'in', from: '林一舟', kind: 'text', text: '好。另外导出按钮的位置我做了个标注，你看这张图。' },
+      { dir: 'in', from: '林一舟', kind: 'image', image: { dataUrl: img, w: 760, h: 520, name: '导出按钮标注.jpg' } },
+      { dir: 'in', from: '林一舟', kind: 'text', text: '就按这个位置收一版，晚上我再过一遍。' }
+    ], { pinned: true, unread: 2, title: '设计负责人', verified: true }),
+    t('陈默', [
+      { dir: 'in', from: '陈默', kind: 'text', text: '日志我扫完了，没看到那块报错。' },
+      { dir: 'out', from: '我', kind: 'text', text: '那大概是缓存，我清一下再看看。' },
+      { dir: 'in', from: '陈默', kind: 'file', file: { name: '界面走查清单.txt', size: fileTxt.length, mime: 'text/plain', dataUrl: fileUrl } }
+    ], { muted: true, title: '后端架构 · 基础设施组 · 夜间值班' }),
+    t('周小满', [
+      { dir: 'in', from: '周小满', kind: 'text', text: '晚上那家店我订了七点半。' },
+      { dir: 'out', from: '我', kind: 'text', text: '行，我准时到。' }
+    ], { verified: true }),
+    {
+      id: 'filehelper', type: 'self', name: '文件传输助手', avatar: null,
+      delivery: 'local', pinned: false, muted: false, unread: 0,
+      updatedAt: now - 3600000,
+      messages: [
+        { id: 'dfh1', dir: 'out', from: '我', ts: now - 7200000, kind: 'image', status: 'sent', image: { dataUrl: img, w: 760, h: 520, name: '配色参考.jpg' } },
+        { id: 'dfh2', dir: 'out', from: '我', ts: now - 3600000, kind: 'file', status: 'sent', file: { name: '界面走查清单.txt', size: fileTxt.length, mime: 'text/plain', dataUrl: fileUrl } }
+      ]
+    }
+  ];
+  var names = ['阿岚', '白露', '陈默', '高远', '何夕', '蒋川', '林一舟', '马骁', '沈青', '唐梨', '吴笛', '许野', '杨帆', '张野', '周小满'];
+  var contacts = names.map(function (n, i) {
+    var th = threads.find(function (x) { return x.name === n; });
+    var base = { id: 'dc' + i, name: n, note: i % 3 === 0 ? '设计评审' : i % 3 === 1 ? '开发对接' : '', avatar: null, createdAt: now - i * 86400000, threadId: th ? th.id : null };
+    return Object.assign(base, demoIds[n] || {});
+  });
+  threads.forEach(function (x, i) {
+    var c = contacts.find(function (y) { return y.name === x.name; });
+    if (c) x.contactId = c.id;
+  });
+  return normalize({
+    v: 3,
+    profile: { name: '小方', avatar: null },
+    threads: threads,
+    contacts: contacts,
+    settings: { notify: true, autoCloud: false, cloudOn: false, worker: DEFAULT_WORKER },
+    created: now
+  });
+}
+
+/* ================= 启动 ================= */
+function startWith(ctx) {
+  if (S.started) return;
+  S.started = true;
+  S.ctx = ctx || null;
+  S.demo = /[?&]demo=1/.test(location.search);
+  S.solo = window.parent === window;
+  if (S.solo) document.body.classList.add('fc-solo');
+  if (/[?&]dark=1/.test(location.search)) {
+    document.body.classList.add('dark-mode');
+    document.documentElement.setAttribute('data-mode', 'dark');
+  }
+  loadDb().then(function (db) {
+    S.db = db;
+    ensureBasics();
+    if (S.demo) {
+      S.thread = 'demo-林一舟';
+      S.tab = 'chats';
+    }
+    try {
+      var qp = new URLSearchParams(location.search);
+      var th = qp.get('thread');
+      if (th && S.db.threads.some(function (x) { return x.id === th; })) { S.thread = th; S.tab = 'chats'; }
+    } catch (e) { }
+    if (!S.thread) S.thread = sortedThreads().length ? sortedThreads()[0].id : null;
+    if (!S.contact && S.db.contacts.length) S.contact = null;
+    render();
+    if (S.demo || !S.ctx || S.ctx.offline) return;
+    if (S.db.settings.autoCloud !== false && cloudWanted()) cloudCheck(true);
+    else S.cloud.status = 'off';
+  });
+}
+window.Nexus = window.Nexus || {};
+function previewTheme() {
+  if (!S.solo || !/[?&]dark=1/.test(location.search)) return;
+  document.body.classList.add('dark-mode');
+  document.documentElement.setAttribute('data-mode', 'dark');
+}
+Nexus.ready(function (ctx) {
+  if (S.started) { S.ctx = ctx; previewTheme(); render(); return; }
+  startWith(ctx);
+});
+if (window.parent === window) {
+  setTimeout(function () {
+    if (!S.started) startWith({ offline: true, user: { name: '本地用户' } });
+  }, 40);
+}
+})();
+</script>
+</body>
+</html>

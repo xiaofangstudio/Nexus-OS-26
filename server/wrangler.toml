@@ -11,6 +11,7 @@ name = "nexus-os-ai"
 main = "src/index.js"
 compatibility_date = "2026-01-01"
 
+
 # 自定义域名（绕开 *.workers.dev 的 DNS 污染；Cloudflare 自动建 DNS 记录与证书）
 routes = [
   { pattern = "ai.fanggame.company", custom_domain = true }
@@ -23,12 +24,15 @@ MX_STORE_BASE = "http://api.store.mxos.zlromi.com/api/v1"
 ALLOW_ORIGIN = "*"
 # —— 仅开发用：true 时返回模拟回复、不调上游（默认关）——
 MOCK_AI = "false"
-# —— 账号服务签名密钥（★ 部署前务必换成随机串，否则别人能伪造登录 token）——
-#    生成方法：任意在线 UUID 生成器，或 PowerShell 里 [guid]::NewGuid().ToString('N')
-ACC_SECRET = "change-me-to-a-random-string"
-# —— v2.9.52 市场（应用/插件）管理令牌：审核台请求要带 X-N26-Admin: <这个值> ——
-#    部署脚本会自动生成随机值并回填；不配则市场管理端锁定（只能浏览/下载）。
-STORE_ADMIN = "change-me-to-a-random-string"
+# —— v3.2 和风天气：key 走 secret（不写仓库）——
+#    wrangler secret put QWEATHER_KEY
+#    新版和风若分配了专属 API Host，改下面这个地址即可
+QWEATHER_BASE = "https://devapi.qweather.com"
+# —— v3.2 高德地图：key 走 secret（不写仓库）——
+#    wrangler secret put AMAP_KEY
+# —— v3.0 起 ACC_SECRET / STORE_ADMIN / ACC_ENC_KEY 改为 Worker secrets（不写进仓库）——
+#    wrangler secret put ACC_SECRET / STORE_ADMIN / ACC_ENC_KEY
+#    ACC_ENC_KEY 用于账号密码的可逆副本（AES-GCM），只允许 /api/admin/* 解密，不下发前端。
 
 # ============================================================
 # v2.9.47 · Nexus 账号服务（注册 / 登录 / 资料）
@@ -43,15 +47,22 @@ STORE_ADMIN = "change-me-to-a-random-string"
 #   现已合并到上面同一个 [vars] 里，下面只留 kv_namespaces。
 # ============================================================
 
+# v3.0 · 三个逻辑 KV 统一绑定到现有 XF_KV（前缀隔离：acc: / store: / music:）
+#   不新建 namespace；键前缀互不重叠，和官网统计 stats:* 共存。
 [[kv_namespaces]]
 binding = "ACC_KV"
-id = "REPLACE_WITH_YOUR_KV_ID"
-
-# ============================================================
-# v2.9.52 · 应用/插件市场 KV（上传 → 审核 → 上架 → 下载）
-#   部署脚本会自动创建 nexus-store 并回填 id（或手动 wrangler kv namespace create STORE_KV）
-# ============================================================
+id = "83431e2e0fcc4ce7948e664f39b1ce84"
 
 [[kv_namespaces]]
 binding = "STORE_KV"
-id = "REPLACE_WITH_YOUR_KV_ID"
+id = "83431e2e0fcc4ce7948e664f39b1ce84"
+
+[[kv_namespaces]]
+binding = "MUSIC_KV"
+id = "83431e2e0fcc4ce7948e664f39b1ce84"
+
+# v3.1 · B站代理缓存（feed/search/video/play/related 与 WBI 口令）
+#   复用同一个 XF_KV，键前缀 bili:* 隔离
+[[kv_namespaces]]
+binding = "BILI_KV"
+id = "83431e2e0fcc4ce7948e664f39b1ce84"

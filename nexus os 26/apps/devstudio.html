@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus OS · 开发者工坊</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/n26-docknav.css">
+<link rel="stylesheet" href="../ui/devstudio.css">
+</head>
+<body>
+<div class="app">
+  <aside class="rail fm-sidebar n26-docknav-host" data-n26dock="v">
+    <div class="brand-dock" title="Nexus 开发者工坊"><img src="../../Desktop icon/Nexus OS 26.png" alt="Nexus OS"><span>工坊</span></div>
+    <div class="fm-sidebar-item active" data-view="workbench" role="button" tabindex="0" onclick="N26DSNav('workbench')" title="创建 / 导入"><i class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M12 8v8M8 12h8"/></svg></i><span class="fm-side-txt">导入</span></div>
+    <div class="fm-sidebar-item" data-view="projects" role="button" tabindex="0" onclick="N26DSNav('projects')" title="我的应用"><i class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg></i><span class="fm-side-txt">我的</span></div>
+    <div class="fm-sidebar-item" data-view="review" role="button" tabindex="0" onclick="N26DSNav('review')" title="审核台"><i class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.2-2.9 7.4-7 9-4.1-1.6-7-4.8-7-9V6z"/><path d="M9.2 12l1.9 1.9 3.7-3.7"/></svg></i><span class="fm-side-txt">审核</span><span class="nav-badge" id="pendingBadge" style="display:none"></span></div>
+    <div class="fm-sidebar-item" data-view="market" role="button" tabindex="0" onclick="N26DSNav('market')" title="应用市场"><i class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg></i><span class="fm-side-txt">市场</span></div>
+    <div class="rail-foot-dot" title="本地优先：草稿存 IndexedDB"><i></i></div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <div class="crumb" id="crumb">开发者工坊 / 创建与导入</div>
+        <div class="h1" id="pageTitle">把 HTML 拖进来，剩下的交给工坊</div>
+      </div>
+      <div class="top-actions">
+        <span class="pill">沙箱预览 · 无同源</span>
+        <span class="pill" id="pkgPill">未载入包</span>
+        <a class="pill" href="htmlapp/index.html" target="_blank" rel="noopener">运行时</a>
+      </div>
+    </header>
+
+    <div class="scroll fm-main">
+      <!-- 工作台 -->
+      <section class="view on" id="view-workbench">
+        <div class="card pad" id="dropCard">
+          <div class="drop" id="dropzone">
+            <div class="drop-logo"><img src="../../Desktop icon/Nexus OS 26.png" alt="Nexus OS"></div>
+            <h2>拖入 HTML、ZIP，或整个资源文件夹</h2>
+            <p>自动识别入口、内联样式脚本与图片资源，先在沙箱里跑起来，再提交审核。<br>不会执行安装动作，也不会碰系统文件。</p>
+            <div class="drop-actions">
+              <button class="btn primary" id="pickFileBtn">选择 HTML / ZIP</button>
+              <button class="btn" id="pickDirBtn">选择文件夹</button>
+              <button class="btn ghost" id="sampleBtn">载入示例</button>
+            </div>
+            <div class="formats"><span class="fmt">.html</span><span class="fmt">.htm</span><span class="fmt">.zip</span><span class="fmt">folder/</span><span class="fmt">app.json</span></div>
+            <input type="file" id="fileInput" accept=".html,.htm,.zip,application/zip" multiple hidden>
+            <input type="file" id="dirInput" webkitdirectory directory multiple hidden>
+          </div>
+
+          <div class="progress-panel" id="progressPanel">
+            <div class="progress-head">
+              <div class="progress-logo"><img src="../../Desktop icon/Nexus OS 26.png" alt="Nexus OS"></div>
+              <div class="progress-title" id="progressTitle">正在处理应用包</div>
+              <span class="progress-pct" id="importPct">0%</span>
+            </div>
+            <div class="bar"><i id="importBar"></i></div>
+            <div class="stage-text"><span id="importStage">准备中…</span></div>
+            <div class="stages" id="importStages"></div>
+          </div>
+
+          <div class="import-error" id="importError">
+            <div class="ie-head">
+              <span class="ie-badge" id="ieTitle">格式问题</span>
+              <span class="ie-msg" id="ieMsg"></span>
+            </div>
+            <div class="ie-hint" id="ieHint"></div>
+            <div class="ie-actions">
+              <button class="btn sm" id="ieRetry">重试</button>
+              <button class="btn sm ghost" id="iePick">重新选择文件</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="workspace" id="workspace">
+          <div>
+            <div class="card pad">
+              <div class="pkg-head">
+                <div class="pkg-icon" id="pkgIcon"></div>
+                <div class="grow">
+                  <div class="pkg-name truncate" id="pkgName">未命名</div>
+                  <div class="pkg-sub" id="pkgSub">等待导入</div>
+                </div>
+              </div>
+              <div class="meta-list">
+                <div class="meta-row"><span>入口文件</span><span id="metaEntry">—</span></div>
+                <div class="meta-row"><span>版本</span><span id="metaVersion">—</span></div>
+                <div class="meta-row"><span>文件 / 体积</span><span id="metaSize">—</span></div>
+                <div class="meta-row"><span>清单</span><span id="metaManifest">推断</span></div>
+              </div>
+              <div class="files" id="fileList"></div>
+              <div class="row" style="margin-top:14px">
+                <button class="btn sm ghost" id="reimportBtn">重新导入</button>
+                <span class="tiny muted grow" style="text-align:right">仅收文本与图片/字体</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="preview-wrap">
+              <div class="preview-bar">
+                <div class="url-chip" id="previewUrl">sandbox://preview/index.html</div>
+                <button class="btn sm ghost" id="refreshPreview">刷新</button>
+              </div>
+              <iframe class="preview-frame" id="previewFrame" sandbox="allow-scripts allow-forms allow-modals" referrerpolicy="no-referrer" title="应用预览"></iframe>
+            </div>
+
+            <div class="toolbar">
+              <button class="btn" id="validateBtn">运行校验</button>
+              <button class="btn primary" id="submitBtn" disabled>提交审核</button>
+              <span class="tiny muted" id="readyHint">导入后先跑校验，通过才可提交</span>
+            </div>
+
+            <div class="checks" id="checks"></div>
+            <div class="check-summary" id="checkSummary" style="display:none"></div>
+
+            <div class="timeline">
+              <div class="tl on">导入</div><div class="tl">校验</div><div class="tl">待审核</div><div class="tl">已上架</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 我的应用 -->
+      <section class="view" id="view-projects">
+        <div class="row between">
+          <div class="tiny muted">同一应用可累积多个版本；新版过审前，旧版继续可下载。</div>
+          <button class="btn sm" data-go="workbench">＋ 新建</button>
+        </div>
+        <div class="grid-cards" id="projectGrid"></div>
+      </section>
+
+      <!-- 审核台 -->
+      <section class="view" id="view-review">
+        <div class="card pad">
+          <div class="row between">
+            <div>
+              <div style="font-size:14px;font-weight:750">待审核队列</div>
+              <div class="tiny muted" style="margin-top:4px">状态来自云端 <code>/api/store/v1</code>；通过后写入云端并合并进商店列表。</div>
+            </div>
+            <div class="row" style="gap:10px;align-items:center">
+              <span class="tiny cloud-chip" id="cloudChip">云端：检查中…</span>
+              <button class="btn sm" data-go="review" onclick="window.N26DSRefreshReview && window.N26DSRefreshReview()">刷新</button>
+            </div>
+          </div>
+          <div id="reviewList" style="margin-top:14px"></div>
+        </div>
+      </section>
+
+      <!-- 市场 -->
+      <section class="view" id="view-market">
+        <div class="row between">
+          <div class="tiny muted">只展示已过审的版本；HTML 应用会交给独立运行时壳执行。</div>
+          <button class="btn sm" data-go="workbench">＋ 发布新应用</button>
+        </div>
+        <div class="grid-cards" id="marketGrid"></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="drag-hint"><div class="drag-hint-card"><img src="../../Desktop icon/Nexus OS 26.png" alt="Nexus OS"><b>松手即可导入</b><span>支持 HTML、ZIP、资源文件夹</span></div></div>
+
+<!-- 提交审核 -->
+<div class="modal" id="submitModal">
+  <div class="sheet">
+    <div class="sheet-head"><div class="sheet-title">提交审核</div><button class="btn sm ghost" style="margin-left:auto" data-close="submitModal">关闭</button></div>
+    <div class="sheet-body">
+      <div id="submitForm">
+        <div class="field"><label>应用名称</label><input class="input" id="subName" maxlength="40"></div>
+        <div class="field"><label>版本号</label><input class="input" id="subVersion" placeholder="1.0.0"><div class="hint">语义化版本；同一应用的新版本会保留历史记录。</div></div>
+        <div class="field"><label>分类</label><select class="select" id="subCategory"><option>工具</option><option>娱乐</option><option>创作</option><option>生产力</option><option>游戏</option><option>开发</option></select></div>
+        <div class="field"><label>本次更新说明</label><textarea class="textarea" id="subNotes" placeholder="例如：新增离线缓存、修复窄屏布局"></textarea></div>
+        <div class="field"><label style="display:flex;gap:8px;align-items:flex-start;color:var(--text-1)"><input type="checkbox" id="subAgree" style="margin-top:2px"><span style="font-size:11.5px;line-height:1.6">我确认包内不含恶意代码，且已了解：上架应用运行在无同源权限的沙箱中。</span></label></div>
+      </div>
+      <div class="upload-state" id="uploadState">
+        <div class="bar"><i id="submitBar"></i></div>
+        <div class="stage-text"><span id="submitStage">写入本地审核队列…</span><span id="submitPct">0%</span></div>
+      </div>
+      <div id="submitSuccess" style="display:none">
+        <div class="success-brand">
+          <img src="../../Desktop icon/Nexus OS 26.png" alt="Nexus OS">
+          <span class="success-check">✓</span>
+        </div>
+        <div class="success-title">已提交审核</div>
+        <div class="success-sub" id="submitSuccessText">可在「审核台」过审，过审后自动出现在应用市场。</div>
+      </div>
+    </div>
+    <div class="sheet-foot" id="submitFoot">
+      <button class="btn" data-close="submitModal">取消</button>
+      <button class="btn primary" id="confirmSubmit">提交</button>
+    </div>
+    <div class="sheet-foot" id="submitDoneFoot" style="display:none">
+      <button class="btn" id="doneCreate">继续创建</button>
+      <button class="btn primary" id="doneGo">查看待审</button>
+    </div>
+  </div>
+</div>
+
+<!-- 通用预览弹窗 -->
+<div class="modal" id="previewModal">
+  <div class="sheet wide">
+    <div class="sheet-head"><div class="sheet-title" id="previewTitle">预览</div><button class="btn sm ghost" style="margin-left:auto" data-close="previewModal">关闭</button></div>
+    <div class="sheet-body" style="padding-bottom:20px">
+      <iframe id="modalFrame" class="modal-frame" sandbox="allow-scripts allow-forms allow-modals" referrerpolicy="no-referrer" title="应用预览"></iframe>
+      <div class="tiny muted" style="margin-top:9px">沙箱：allow-scripts，无 allow-same-origin；无法读取本机存储或跨窗口操作。</div>
+    </div>
+  </div>
+</div>
+
+<!-- 版本记录 -->
+<div class="modal" id="versionsModal">
+  <div class="sheet">
+    <div class="sheet-head"><div class="sheet-title" id="versionsTitle">版本记录</div><button class="btn sm ghost" style="margin-left:auto" data-close="versionsModal">关闭</button></div>
+    <div class="sheet-body" id="versionsBody"></div>
+  </div>
+</div>
+
+<!-- 编辑应用信息 -->
+<div class="modal" id="editModal">
+  <div class="sheet">
+    <div class="sheet-head"><div class="sheet-title" id="editTitle">编辑应用信息</div><button class="btn sm ghost" style="margin-left:auto" data-close="editModal">关闭</button></div>
+    <div class="sheet-body">
+      <div class="field">
+        <label>应用简介</label>
+        <textarea class="textarea" id="editDesc" maxlength="120" placeholder="一句话说清它是做什么的"></textarea>
+        <div class="hint">展示在商店卡片上，最多 120 字。</div>
+      </div>
+      <div class="field">
+        <label>图标</label>
+        <div class="edit-row">
+          <div class="edit-icon" id="editIconPreview"></div>
+          <div class="grow">
+            <div class="row">
+              <button class="btn sm" id="editIconUpload">上传图标</button>
+              <span class="tiny muted">PNG / JPG / SVG，≤ 1 MB</span>
+            </div>
+            <div class="pkg-imgs" id="editIconPick"></div>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label>宣传图</label>
+        <div class="promo-list" id="editPromoList"></div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn sm" id="editPromoUpload">添加宣传图</button>
+          <span class="tiny muted" id="editPromoHint">最多 3 张，单张 ≤ 1 MB</span>
+        </div>
+      </div>
+      <input type="file" id="editIconInput" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" hidden>
+      <input type="file" id="editPromoInput" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn" data-close="editModal">取消</button>
+      <button class="btn" id="editSave">保存</button>
+      <button class="btn primary" id="editResubmit">保存并重新提交</button>
+    </div>
+  </div>
+</div>
+
+<!-- 拒绝 -->
+<div class="modal" id="rejectModal">
+  <div class="sheet">
+    <div class="sheet-head"><div class="sheet-title">拒绝原因</div><button class="btn sm ghost" style="margin-left:auto" data-close="rejectModal">关闭</button></div>
+    <div class="sheet-body">
+      <div class="field"><label>会回写给开发者</label><textarea class="textarea" id="rejectReason" placeholder="例如：入口文件缺失，或存在外部跳转"></textarea></div>
+    </div>
+    <div class="sheet-foot"><button class="btn" data-close="rejectModal">取消</button><button class="btn danger" id="confirmReject">确认拒绝</button></div>
+  </div>
+</div>
+
+<!-- 审核通过确认 -->
+<div class="modal" id="approveModal">
+  <div class="sheet">
+    <div class="sheet-head"><div class="sheet-title">通过审核</div><button class="btn sm ghost" style="margin-left:auto" data-close="approveModal">关闭</button></div>
+    <div class="sheet-body">
+      <div class="success-brand" style="width:56px;height:56px;margin-bottom:10px">
+        <img src="../../Desktop icon/Nexus OS 26.png" alt="Nexus OS">
+        <span class="success-check" style="width:22px;height:22px;font-size:11px">✓</span>
+      </div>
+      <div class="success-sub" id="approveText" style="font-size:12.5px;color:var(--text-1)"></div>
+      <div class="hint" style="margin-top:10px;text-align:center">通过后：写入 n26SelfPub；旧版本保留在版本记录里。</div>
+    </div>
+    <div class="sheet-foot"><button class="btn" data-close="approveModal">取消</button><button class="btn ok" id="confirmApprove">确认上架</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="../ui/n26-docknav.js"></script>
+<script src="../ui/devstudio-zip.js"></script>
+<script src="../ui/devstudio-preview.js"></script>
+<script src="../ui/devstudio.js"></script>
+
+<script src="_bridge.js"></script>
+<script src="_app.js"></script>
+<script>
+/* 键盘可达：div[role="button"] 的 Enter / Space 等价于点击 */
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  var t = e.target;
+  if (!t || t.getAttribute('role') !== 'button' || !t.hasAttribute('tabindex')) return;
+  e.preventDefault();
+  t.click();
+});
+</script>
+</body>
+</html>

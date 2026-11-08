@@ -1,0 +1,2771 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-mode="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>地图</title>
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<link rel="stylesheet" href="../ui/n26-ui.css?v=2975">
+<link rel="stylesheet" href="../vendor/fontawesome/all.min.css">
+<script src="../ui/n26-ui.js?v=2977"></script>
+<script src="_bridge.js"></script>
+<script src="_app.js"></script>
+<style>
+/* ============================================================
+   地图 · 应用级品牌色（高德绿蓝）
+   只在本应用内覆盖强调色，系统级界面仍走系统色。
+   ============================================================ */
+html:root {
+  --fu-h: 173;
+  --fu-s: 66%;
+  --fu-l: 40%;
+  --n26dock-accent: hsl(173 70% 30%);
+
+  --map-accent: hsl(173 66% 30%);
+  --map-accent-ink: hsl(0 0% 100%);
+  --map-accent-text: hsl(173 76% 25%);
+  --map-accent-soft: hsl(173 60% 36% / .12);
+  --map-route: hsl(168 74% 34%);
+  --map-route-casing: hsl(0 0% 100% / .92);
+  --map-bg: hsl(210 20% 96%);
+  --map-grid: hsl(210 18% 90%);
+  --map-overlay-ink: hsl(210 30% 12%);
+
+  --map-dur-1: 160ms;
+  --map-dur-2: 260ms;
+  --map-dur-3: 420ms;
+}
+
+body.dark-mode {
+  --fu-h: 172;
+  --fu-s: 58%;
+  --fu-l: 58%;
+  --n26dock-accent: hsl(172 62% 60%);
+  --accent-ink: hsl(200 30% 8%);
+
+  --map-accent: hsl(172 62% 52%);
+  --map-accent-ink: hsl(200 30% 8%);
+  --map-accent-text: hsl(172 70% 66%);
+  --map-accent-soft: hsl(172 60% 55% / .18);
+  --map-route: hsl(170 72% 56%);
+  --map-route-casing: hsl(220 26% 10% / .92);
+  --map-bg: hsl(222 26% 9%);
+  --map-grid: hsl(222 20% 14%);
+  --map-overlay-ink: hsl(210 20% 92%);
+}
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--map-bg);
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif);
+  color: var(--text-1);
+}
+#app { height: 100%; }
+
+/* 地图应用：壳贴边，地图满幅 */
+#app .n26ui-shell { height: 100%; padding: var(--sp-3, 12px); gap: var(--sp-2, 8px); box-sizing: border-box; }
+/* 侧栏里把强调色收束到本应用品牌色（高德绿蓝） */
+#app .n26ui-sidebar { --n26dock-accent: hsl(173 70% 30%); }
+body.dark-mode #app .n26ui-sidebar { --n26dock-accent: hsl(172 62% 60%); }
+
+/* 磨砂玻璃：侧栏与浮层直连宿主材质变量
+   --n26-blur / --n26-glass-alpha / --n26-glass-sat（由 apps/_app.js 注入） */
+#app .n26ui-sidebar {
+  background: rgba(255, 255, 255, calc(var(--n26-glass-alpha, .55) * .9));
+  -webkit-backdrop-filter: blur(var(--n26-blur, 18px)) saturate(var(--n26-glass-sat, 148%));
+  backdrop-filter: blur(var(--n26-blur, 18px)) saturate(var(--n26-glass-sat, 148%));
+}
+body.dark-mode #app .n26ui-sidebar {
+  background: rgba(18, 22, 30, calc(var(--n26-glass-alpha, .55) * 1.05));
+}
+#app .n26ui-content { padding: 0; overflow: hidden; }
+#app .n26ui-panel { height: 100%; outline: none; }
+
+/* ============================== 地图面板 ============================== */
+.map-panel {
+  position: relative;
+  height: 100%;
+  border-radius: var(--r-lg, 16px);
+  overflow: hidden;
+  background: var(--map-bg);
+  border: 1px solid var(--glass-border-2, rgba(15, 23, 42, .10));
+  box-shadow: var(--sh-card);
+  isolation: isolate;
+}
+.map-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  background: var(--map-bg);
+  outline: none;
+}
+.map-stage:active { cursor: grabbing; }
+.map-stage:focus-visible { box-shadow: inset 0 0 0 2px var(--map-accent-text); }
+
+.map-tiles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--map-bg);
+}
+.map-tiles[data-kind="satpayload"] { z-index: 1; }
+.map-tiles[data-kind="satlabel"] { z-index: 2; pointer-events: none; }
+
+.mtile {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 256px;
+  height: 256px;
+  opacity: 0;
+  transition: opacity var(--map-dur-1) var(--ease-out-expo);
+  user-select: none;
+  -webkit-user-drag: none;
+  will-change: transform;
+}
+.mtile.in { opacity: 1; }
+.mtile.bad { opacity: 0; }
+
+/* 深色主题：栅格底图就地转暗，标记/路线/面板不受影响 */
+body.dark-mode .map-tiles[data-kind="std"] {
+  filter: invert(1) hue-rotate(180deg) brightness(.88) contrast(.92) saturate(.62);
+}
+body.dark-mode .map-tiles[data-kind="satpayload"] {
+  filter: brightness(.60) saturate(.78) contrast(1.06);
+}
+body.dark-mode .map-tiles[data-kind="satlabel"] {
+  filter: invert(.92) hue-rotate(180deg) brightness(1.1) saturate(.7);
+}
+
+.map-route-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 3;
+}
+.route-casing {
+  fill: none;
+  stroke: var(--map-route-casing);
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.route-line {
+  fill: none;
+  stroke: var(--map-route);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.map-markers { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.marker { position: absolute; left: 0; top: 0; will-change: transform; }
+.marker .pin {
+  position: absolute;
+  left: -14px;
+  top: -34px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--map-accent);
+  color: var(--map-accent-ink);
+  border: 1px solid var(--map-route-casing);
+  box-shadow: 0 6px 14px hsl(200 40% 10% / .26);
+  font-size: 12px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform var(--map-dur-1) var(--ease-out-expo), box-shadow var(--map-dur-1) var(--ease-out-expo);
+}
+.marker .pin::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 8px solid var(--map-accent);
+  margin-top: -1px;
+}
+.marker .pin i { pointer-events: none; }
+.marker:hover .pin { transform: translateY(-2px); }
+.marker.sel .pin {
+  transform: scale(1.14);
+  box-shadow: 0 0 0 4px var(--map-accent-soft), 0 8px 18px hsl(200 40% 10% / .3);
+}
+.marker .tag {
+  position: absolute;
+  left: 0;
+  top: -62px;
+  transform: translateX(-50%);
+  max-width: 190px;
+  padding: 5px 9px;
+  border-radius: var(--r-sm, 8px);
+  background: var(--glass-tint, rgba(255,255,255,.55));
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  backdrop-filter: blur(14px) saturate(150%);
+  border: 1px solid var(--glass-border, rgba(15,23,42,.12));
+  color: var(--text-1);
+  font-size: var(--fs-11, 11px);
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--map-dur-1) var(--ease-out-expo), transform var(--map-dur-1) var(--ease-out-expo);
+}
+.marker.sel .tag { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+.marker.kind-me .pin { background: var(--map-accent); }
+.marker.kind-me .me-ring {
+  position: absolute;
+  left: -18px;
+  top: -38px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--map-accent);
+  opacity: .45;
+  animation: mePulse 2.4s var(--ease-out-expo) infinite;
+  pointer-events: none;
+}
+@keyframes mePulse {
+  0% { transform: scale(.6); opacity: .55; }
+  70% { transform: scale(1.35); opacity: 0; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+/* ---------- 浮层通用 ---------- */
+.map-card {
+  position: absolute;
+  z-index: 8;
+  border-radius: var(--r-md, 12px);
+  box-shadow: var(--sh-pop), var(--glass-inner);
+  -webkit-backdrop-filter: blur(var(--n26-blur, 18px)) saturate(var(--n26-glass-sat, 148%));
+  backdrop-filter: blur(var(--n26-blur, 18px)) saturate(var(--n26-glass-sat, 148%));
+}
+body.perf-mode .map-card,
+body.perf-mode #app .n26ui-sidebar {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.map-search {
+  top: var(--sp-3, 12px);
+  left: var(--sp-3, 12px);
+  width: 336px;
+  max-width: calc(100% - 24px);
+  overflow: hidden;
+}
+.ms-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2, 8px);
+  padding: 8px 9px 8px 12px;
+}
+.ms-row > i { color: var(--text-3); font-size: 13px; flex: none; }
+.ms-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--text-1);
+  font-size: var(--fs-13, 13px);
+  font-family: inherit;
+  outline: none;
+}
+.ms-input::placeholder { color: var(--text-4, var(--text-3)); }
+.ms-go {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--r-sm, 8px);
+  background: var(--map-accent-soft);
+  color: var(--map-accent-text);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background var(--map-dur-1) var(--ease-out-expo), transform var(--map-dur-1) var(--ease-out-expo);
+}
+.ms-go:hover { background: var(--map-accent); color: var(--map-accent-ink); }
+.ms-go:active { transform: scale(.94); }
+.ms-hint {
+  padding: 7px 12px 8px;
+  border-top: 1px solid var(--glass-border);
+  font-size: var(--fs-11, 11px);
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.4;
+}
+.ms-hint i { color: var(--warn); }
+.ms-hint button {
+  border: 0;
+  background: transparent;
+  color: var(--map-accent-text);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+.ms-note {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1, 4px);
+    padding: 6px 8px;
+    margin: 4px 0;
+    border-radius: var(--r-xs, 6px);
+    background: rgba(16, 185, 129, .10);
+    color: var(--text-2, rgba(15, 23, 42, .62));
+    font-size: var(--fs-11, 11px);
+    line-height: 1.4;
+}
+body.dark-mode .ms-note { background: rgba(16, 185, 129, .14); }
+.ms-results { display: none; border-top: 1px solid var(--glass-border); max-height: min(320px, 46vh); overflow: auto; overscroll-behavior: contain; }
+.map-search.show-results .ms-results { display: block; }
+.ms-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 9px 12px;
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text-1);
+  transition: background var(--map-dur-1) var(--ease-out-expo);
+}
+.ms-item + .ms-item { border-top: 1px solid var(--glass-border); }
+.ms-item:hover { background: var(--map-accent-soft); }
+.ms-item-ico {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-sm, 8px);
+  display: grid;
+  place-items: center;
+  background: var(--map-accent-soft);
+  color: var(--map-accent-text);
+  font-size: 11px;
+  margin-top: 1px;
+}
+.ms-item-main { min-width: 0; flex: 1 1 auto; }
+.ms-item-name { font-size: var(--fs-12, 12px); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-item-sub { font-size: var(--fs-11, 11px); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+.ms-item-dist { font-size: var(--fs-11, 11px); color: var(--text-3); flex: none; margin-top: 2px; font-variant-numeric: tabular-nums; }
+
+.ms-state { padding: 14px 12px 16px; display: flex; flex-direction: column; gap: 6px; }
+.ms-state-title { display: flex; align-items: center; gap: 7px; font-size: var(--fs-12, 12px); font-weight: 600; color: var(--text-1); }
+.ms-state-title i { color: var(--warn); }
+.ms-state-body { font-size: var(--fs-11, 11px); color: var(--text-3); line-height: 1.55; }
+.ms-state-body code {
+  font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Consolas, monospace);
+  font-size: 10.5px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--glass-border);
+  color: var(--text-2);
+}
+.ms-state .ms-act {
+  align-self: flex-start;
+  margin-top: 3px;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--map-accent-text);
+  border-radius: var(--r-sm, 8px);
+  padding: 5px 9px;
+  font-size: var(--fs-11, 11px);
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ms-state .ms-act:hover { background: var(--map-accent-soft); }
+
+.ms-skel { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.ms-skel span {
+  display: block;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--map-grid);
+  animation: skelPulse 1.1s ease-in-out infinite;
+}
+.ms-skel span:nth-child(1) { width: 62%; }
+.ms-skel span:nth-child(2) { width: 88%; animation-delay: .12s; }
+.ms-skel span:nth-child(3) { width: 48%; animation-delay: .24s; }
+@keyframes skelPulse { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+
+/* 图层 */
+.map-layers {
+  top: var(--sp-3, 12px);
+  right: var(--sp-3, 12px);
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+}
+.ml-btn {
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-sm, 8px);
+  background: transparent;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: var(--fs-11, 11px);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: background var(--map-dur-1) var(--ease-out-expo), color var(--map-dur-1) var(--ease-out-expo);
+}
+.ml-btn i { font-size: 11px; }
+.ml-btn:hover { background: var(--map-accent-soft); color: var(--text-1); }
+.ml-btn[aria-pressed="true"] {
+  background: var(--map-accent-soft);
+  color: var(--map-accent-text);
+  font-weight: 600;
+}
+.ml-btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+.ml-btn[aria-disabled="true"]:hover { background: transparent; color: var(--text-2); }
+
+/* 缩放 */
+.map-zoom {
+  right: var(--sp-3, 12px);
+  bottom: var(--sp-3, 12px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px;
+}
+.mz-btn {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: var(--r-sm, 8px);
+  background: transparent;
+  color: var(--text-2);
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--map-dur-1) var(--ease-out-expo), color var(--map-dur-1) var(--ease-out-expo), transform var(--map-dur-1) var(--ease-out-expo);
+}
+.mz-btn:hover { background: var(--map-accent-soft); color: var(--map-accent-text); }
+.mz-btn:active { transform: scale(.93); }
+.mz-btn + .mz-btn { border-top: 1px solid var(--glass-border); border-radius: 0; }
+.mz-btn:last-child { border-radius: 0 0 var(--r-sm, 8px) var(--r-sm, 8px); }
+
+/* 比例尺 / 版权 */
+.map-scale {
+  position: absolute;
+  left: var(--sp-3, 12px);
+  bottom: var(--sp-3, 12px);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  pointer-events: none;
+  color: var(--map-overlay-ink);
+  text-shadow: 0 1px 2px var(--map-route-casing);
+}
+.map-scale-bar {
+  height: 3px;
+  border-left: 1px solid currentColor;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  width: 80px;
+  transition: width var(--map-dur-1) linear;
+}
+.map-scale-txt { font-size: 10px; font-variant-numeric: tabular-nums; }
+.map-attr {
+  position: absolute;
+  right: 58px;
+  bottom: 13px;
+  z-index: 6;
+  font-size: 10px;
+  color: var(--map-overlay-ink);
+  opacity: .78;
+  text-shadow: 0 1px 2px var(--map-route-casing);
+  pointer-events: none;
+  letter-spacing: .2px;
+}
+
+/* 底图加载 / 失败 */
+.map-loadchip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 7;
+  padding: 8px 12px;
+  border-radius: var(--r-full, 999px);
+  background: var(--glass-tint, rgba(255,255,255,.55));
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--glass-border);
+  color: var(--text-2);
+  font-size: var(--fs-11, 11px);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  pointer-events: none;
+  transition: opacity var(--map-dur-2) var(--ease-out-expo);
+}
+.map-loadchip.done { opacity: 0; }
+.map-fail {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9;
+  width: 280px;
+  max-width: calc(100% - 32px);
+  padding: 16px;
+  border-radius: var(--r-md, 12px);
+  background: var(--glass-tint-strong, var(--glass-tint));
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--sh-pop);
+  display: none;
+  text-align: center;
+}
+.map-fail.show { display: block; }
+.map-fail i { font-size: 20px; color: var(--warn); }
+.map-fail h3 { margin: 8px 0 4px; font-size: var(--fs-14, 14px); }
+.map-fail p { margin: 0 0 12px; font-size: var(--fs-11, 11px); color: var(--text-3); line-height: 1.5; }
+
+/* 详情卡 */
+.map-sheet {
+  left: var(--sp-3, 12px);
+  bottom: var(--sp-3, 12px);
+  width: 344px;
+  max-width: calc(100% - 24px);
+  padding: 14px;
+  z-index: 10;
+  transform: translateY(calc(100% + 24px));
+  opacity: 0;
+  pointer-events: none;
+  transition: transform var(--map-dur-2) var(--ease-out-expo), opacity var(--map-dur-1) var(--ease-out-expo);
+}
+.map-sheet.open { transform: none; opacity: 1; pointer-events: auto; }
+.msheet-head { display: flex; align-items: flex-start; gap: 9px; }
+.msheet-ico {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-sm, 8px);
+  display: grid;
+  place-items: center;
+  background: var(--map-accent-soft);
+  color: var(--map-accent-text);
+  font-size: 13px;
+}
+.msheet-main { flex: 1 1 auto; min-width: 0; }
+.msheet-title { font-size: var(--fs-14, 14px); font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.msheet-sub { margin-top: 3px; font-size: var(--fs-11, 11px); color: var(--text-3); line-height: 1.45; overflow-wrap: anywhere; }
+.msheet-close {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--r-sm, 8px);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+}
+.msheet-close:hover { background: var(--map-accent-soft); color: var(--text-1); }
+.msheet-rows { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+.msheet-row { display: flex; gap: 8px; font-size: var(--fs-11, 11px); line-height: 1.5; }
+.msheet-row dt { flex: none; width: 46px; color: var(--text-3); margin: 0; }
+.msheet-row dd { flex: 1 1 auto; min-width: 0; margin: 0; color: var(--text-2); overflow-wrap: anywhere; }
+.msheet-note {
+  margin-top: 9px;
+  padding: 7px 9px;
+  border-radius: var(--r-sm, 8px);
+  background: var(--warn-soft, var(--map-accent-soft));
+  color: var(--text-2);
+  font-size: var(--fs-11, 11px);
+  line-height: 1.5;
+}
+.msheet-note i { color: var(--warn); margin-right: 4px; }
+.msheet-acts { margin-top: 11px; display: flex; gap: 6px; flex-wrap: wrap; }
+.ma-btn {
+  height: 30px;
+  padding: 0 11px;
+  border-radius: var(--r-sm, 8px);
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: var(--fs-11, 11px);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: background var(--map-dur-1) var(--ease-out-expo), color var(--map-dur-1) var(--ease-out-expo), border-color var(--map-dur-1) var(--ease-out-expo);
+}
+.ma-btn:hover { background: var(--map-accent-soft); color: var(--map-accent-text); border-color: transparent; }
+.ma-btn.primary { background: var(--map-accent); color: var(--map-accent-ink); border-color: transparent; }
+.ma-btn.primary:hover { background: var(--map-accent); color: var(--map-accent-ink); filter: brightness(.94); }
+
+/* 路线摘要 */
+.map-routechip {
+  top: 58px;
+  left: var(--sp-3, 12px);
+  width: 300px;
+  max-width: calc(100% - 24px);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 9;
+  transform: translateY(-8px);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform var(--map-dur-2) var(--ease-out-expo), opacity var(--map-dur-1) var(--ease-out-expo);
+}
+.map-routechip.open { transform: none; opacity: 1; pointer-events: auto; }
+.rc-main { min-width: 0; flex: 1 1 auto; }
+.rc-big { font-size: var(--fs-16, 16px); font-weight: 700; color: var(--text-1); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.rc-sub { font-size: var(--fs-11, 11px); color: var(--text-3); margin-top: 2px; display: flex; gap: 6px; align-items: center; }
+.rc-src { font-size: 10px; padding: 1px 5px; border-radius: 4px; background: var(--map-accent-soft); color: var(--map-accent-text); }
+.rc-btn {
+  flex: none;
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  border-radius: var(--r-sm, 8px);
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: var(--fs-11, 11px);
+  cursor: pointer;
+}
+.rc-btn:hover { background: var(--map-accent-soft); color: var(--map-accent-text); }
+
+/* 选点条 */
+.map-pickbar {
+  top: var(--sp-3, 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  z-index: 12;
+  font-size: var(--fs-12, 12px);
+  color: var(--text-1);
+  white-space: nowrap;
+}
+.map-pickbar.show { display: flex; }
+.map-pickbar i { color: var(--map-accent-text); }
+.map-pickbar button {
+  border: 0;
+  background: var(--map-accent-soft);
+  color: var(--map-accent-text);
+  border-radius: var(--r-sm, 8px);
+  height: 24px;
+  padding: 0 8px;
+  font-family: inherit;
+  font-size: var(--fs-11, 11px);
+  cursor: pointer;
+}
+
+/* 边缘返回 */
+.map-edge {
+  position: absolute;
+  top: 50%;
+  width: 22px;
+  height: 120px;
+  transform: translateY(-50%);
+  z-index: 11;
+  pointer-events: none;
+  opacity: 0;
+  border-radius: var(--r-full, 999px);
+  background: linear-gradient(90deg, var(--map-accent-soft), transparent);
+  transition: opacity var(--map-dur-1) var(--ease-out-expo);
+}
+.map-edge.left { left: 0; }
+.map-edge.right { right: 0; transform: translateY(-50%) scaleX(-1); }
+.map-edge.on { opacity: 1; }
+
+/* Toast */
+.map-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 78px;
+  transform: translateX(-50%) translateY(8px);
+  z-index: 14;
+  max-width: calc(100% - 40px);
+  padding: 8px 13px;
+  border-radius: var(--r-full, 999px);
+  background: var(--glass-tint-strong, var(--glass-tint));
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--sh-pop);
+  color: var(--text-1);
+  font-size: var(--fs-11, 11px);
+  line-height: 1.45;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--map-dur-1) var(--ease-out-expo), transform var(--map-dur-2) var(--ease-out-expo);
+}
+.map-toast.show { opacity: 1; transform: translateX(-50%); }
+
+/* ============================== 普通面板 ============================== */
+.page {
+  height: 100%;
+  overflow: auto;
+  padding: var(--sp-4, 16px) var(--sp-5, 20px) var(--sp-6, 24px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3, 12px);
+  overscroll-behavior: contain;
+}
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.page-title { margin: 0; font-size: var(--fs-18, 18px); font-weight: 700; letter-spacing: -.2px; }
+.page-desc { margin: 3px 0 0; font-size: var(--fs-11, 11px); color: var(--text-3); line-height: 1.5; }
+.panel-card {
+  border-radius: var(--r-md, 12px);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-tint-2, var(--glass-tint));
+  padding: var(--sp-4, 14px) var(--sp-4, 16px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3, 12px);
+}
+.card-head { display: flex; align-items: center; gap: 8px; font-size: var(--fs-13, 13px); font-weight: 600; }
+.card-head i { color: var(--map-accent-text); font-size: 12px; }
+.card-note { font-size: var(--fs-11, 11px); color: var(--text-3); line-height: 1.6; }
+.card-note code {
+  font-family: var(--font-mono, ui-monospace, Consolas, monospace);
+  font-size: 10.5px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--glass-border);
+}
+
+/* 路线表单 */
+.route-field { display: flex; align-items: center; gap: 8px; }
+.route-dot { flex: none; width: 12px; display: grid; place-items: center; }
+.route-dot span { width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--map-accent); }
+.route-dot.end span { border-radius: 3px; background: var(--map-accent); }
+.route-line-v { flex: none; width: 12px; height: 10px; display: grid; place-items: center; }
+.route-line-v::before { content: ""; width: 1px; height: 10px; background: var(--glass-border-2); }
+.route-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--r-sm, 8px);
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-1);
+  font-family: inherit;
+  font-size: var(--fs-12, 12px);
+  outline: none;
+  transition: border-color var(--map-dur-1) var(--ease-out-expo), box-shadow var(--map-dur-1) var(--ease-out-expo);
+}
+.route-input::placeholder { color: var(--text-3); }
+.route-input:focus { border-color: var(--map-accent); box-shadow: 0 0 0 3px var(--map-accent-soft); }
+.field-btn {
+  flex: none;
+  height: 36px;
+  padding: 0 9px;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  border-radius: var(--r-sm, 8px);
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: var(--fs-11, 11px);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.field-btn:hover { background: var(--map-accent-soft); color: var(--map-accent-text); }
+.field-btn i { font-size: 11px; }
+.route-swap {
+  align-self: flex-end;
+  margin-left: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.route-swap:hover { color: var(--map-accent-text); background: var(--map-accent-soft); }
+
+.profiles { display: flex; gap: 3px; padding: 3px; border-radius: var(--r-md, 12px); border: 1px solid var(--glass-border); }
+.prof {
+  flex: 1 1 0;
+  height: 34px;
+  border: 0;
+  border-radius: var(--r-sm, 8px);
+  background: transparent;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: var(--fs-12, 12px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background var(--map-dur-1) var(--ease-out-expo), color var(--map-dur-1) var(--ease-out-expo);
+}
+.prof:hover { color: var(--text-1); background: var(--map-accent-soft); }
+.prof[aria-pressed="true"] { background: var(--map-accent); color: var(--map-accent-ink); font-weight: 600; }
+
+.go-btn {
+  height: 38px;
+  border: 0;
+  border-radius: var(--r-sm, 8px);
+  background: var(--map-accent);
+  color: var(--map-accent-ink);
+  font-family: inherit;
+  font-size: var(--fs-13, 13px);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: filter var(--map-dur-1) var(--ease-out-expo), transform var(--map-dur-1) var(--ease-out-expo);
+}
+.go-btn:hover { filter: brightness(.94); }
+.go-btn:active { transform: scale(.99); }
+.go-btn[disabled] {
+  background: var(--map-accent-soft);
+  color: var(--map-accent-text);
+  opacity: .72;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.route-result { display: none; flex-direction: column; gap: 10px; }
+.route-result.show { display: flex; }
+.route-empty { align-items: center; text-align: center; padding: var(--sp-7, 28px) var(--sp-5, 20px); gap: 7px; }
+.route-empty i { font-size: 22px; color: var(--map-accent-text); }
+.route-empty strong { font-size: var(--fs-13, 13px); font-weight: 600; color: var(--text-1); }
+.route-empty span { font-size: var(--fs-11, 11px); color: var(--text-3); line-height: 1.55; max-width: 320px; }
+.rr-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.rr-dur { font-size: var(--fs-24, 24px); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.4px; }
+.rr-dist { font-size: var(--fs-12, 12px); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.rr-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--map-accent-soft); color: var(--map-accent-text); }
+.steps { display: flex; flex-direction: column; max-height: 240px; overflow: auto; overscroll-behavior: contain; }
+.step { display: flex; gap: 9px; padding: 8px 0; border-top: 1px solid var(--glass-border); font-size: var(--fs-12, 12px); }
+.step:first-child { border-top: 0; }
+.step i { flex: none; width: 16px; color: var(--map-accent-text); font-size: 11px; margin-top: 2px; }
+.step-main { flex: 1 1 auto; min-width: 0; }
+.step-name { color: var(--text-2); font-size: var(--fs-11, 11px); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.step-dist { flex: none; color: var(--text-3); font-size: var(--fs-11, 11px); font-variant-numeric: tabular-nums; }
+
+/* 状态 */
+.status-row { display: flex; align-items: center; gap: 8px; font-size: var(--fs-12, 12px); }
+.dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--text-3); }
+.dot.ok { background: var(--ok); }
+.dot.warn { background: var(--warn); }
+.dot.err { background: var(--error); }
+.status-pill {
+  flex: none;
+  margin-left: auto;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: var(--r-full, 999px);
+  background: var(--glass-border);
+  color: var(--text-2);
+}
+.status-pill.ok { background: hsl(150 60% 40% / .14); color: var(--ok); }
+.status-pill.warn { background: hsl(38 70% 50% / .14); color: var(--warn); }
+.ep-list { display: flex; flex-direction: column; }
+.ep { display: flex; gap: 9px; align-items: flex-start; padding: 9px 0; border-top: 1px solid var(--glass-border); }
+.ep:first-child { border-top: 0; padding-top: 0; }
+.ep-method { flex: none; font-size: 10px; font-weight: 700; letter-spacing: .3px; padding: 2px 5px; border-radius: 4px; background: var(--map-accent-soft); color: var(--map-accent-text); margin-top: 1px; }
+.ep-main { flex: 1 1 auto; min-width: 0; }
+.ep-path { font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-size: var(--fs-11, 11px); color: var(--text-1); }
+.ep-desc { font-size: var(--fs-11, 11px); color: var(--text-3); line-height: 1.5; margin-top: 2px; }
+.ep-need { flex: none; font-size: 10px; color: var(--warn); }
+.kv { display: grid; grid-template-columns: 76px 1fr; gap: 6px 10px; font-size: var(--fs-11, 11px); line-height: 1.55; }
+.kv dt { color: var(--text-3); }
+.kv dd { margin: 0; color: var(--text-2); overflow-wrap: anywhere; }
+.warn-card { border-color: hsl(38 70% 50% / .28); background: hsl(38 70% 50% / .07); }
+.warn-card .card-head i { color: var(--warn); }
+
+/* 空态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 26px 12px;
+  color: var(--text-3);
+  font-size: var(--fs-12, 12px);
+}
+.empty-state i { font-size: 20px; opacity: .5; }
+.empty-state strong { color: var(--text-1); font-size: var(--fs-13, 13px); font-weight: 600; }
+
+/* 窄屏 */
+@media (max-width: 900px) {
+  .map-search { width: 300px; }
+  .ml-btn span { display: none; }
+  .ml-btn { padding: 0 8px; }
+}
+@media (max-width: 640px) {
+  .map-layers { top: 12px; right: 12px; flex-direction: column; }
+  .map-search { width: calc(100% - 64px); }
+  .map-sheet { width: calc(100% - 24px); }
+  .map-attr { right: 12px; bottom: 56px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marker, .marker .pin, .marker .tag, .map-sheet, .map-routechip, .map-toast, .mtile {
+    transition-duration: 1ms !important;
+    animation: none !important;
+  }
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ============================================================
+     常量
+     ============================================================ */
+  var API_BASE = 'https://ai.fanggame.company';
+  var IS_DARK_FORCED = null;
+  var REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var TILE = {
+    /* 降级底图：OSM 标准栅格（WGS-84，免 key，无需 Referer） */
+    osm: function (x, y, z) {
+      return 'https://tile.openstreetmap.org/' + z + '/' + x + '/' + y + '.png';
+    },
+    std: function (x, y, z, s, scale) {
+      return 'https://webrd0' + s + '.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=' + scale + '&style=8&x=' + x + '&y=' + y + '&z=' + z;
+    },
+    sat: function (x, y, z, s) {
+      return 'https://webst0' + s + '.is.autonavi.com/appmaptile?style=6&x=' + x + '&y=' + y + '&z=' + z;
+    },
+    satlabel: function (x, y, z, s) {
+      return 'https://webst0' + s + '.is.autonavi.com/appmaptile?style=7&x=' + x + '&y=' + y + '&z=' + z;
+    }
+  };
+
+  /* 底图服务降级：高德栅格免 key，但网络不可达时自动切到 OSM 栅格。
+     OSM 是 WGS-84，显示坐标统一走 toDisplay / fromDisplay 换算。 */
+  var BASE_MODE = 'amap';
+  function toDisplay(lng, lat) {
+    if (BASE_MODE === 'osm') return { lat: lat, lon: lng };
+    var g = wgs2gcj(lng, lat);
+    return { lat: g[1], lon: g[0] };
+  }
+  function fromDisplay(lat, lon) {
+    if (BASE_MODE === 'osm') return { lat: lat, lon: lon };
+    var g = gcj2wgs(lon, lat);
+    return { lat: g[1], lon: g[0] };
+  }
+
+  var MIN_ZOOM = 4;
+  var MAX_ZOOM = 18;
+  var HOME = { lat: 39.9087, lon: 116.3975, zoom: 11 };
+
+  /* ============================================================
+     工具
+     ============================================================ */
+  function $(sel, root) { return (root || document).querySelector(sel); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function pad2(n) { return n < 10 ? '0' + n : String(n); }
+  function fmtDist(m) {
+    if (!isFinite(m)) return '—';
+    if (m < 1000) return Math.round(m) + ' 米';
+    if (m < 10000) return (m / 1000).toFixed(1) + ' 公里';
+    return Math.round(m / 1000) + ' 公里';
+  }
+  function fmtDur(sec) {
+    if (!isFinite(sec)) return '—';
+    var m = Math.round(sec / 60);
+    if (m < 60) return Math.max(1, m) + ' 分钟';
+    var h = Math.floor(m / 60), r = m % 60;
+    return h + ' 小时' + (r ? ' ' + r + ' 分' : '');
+  }
+  function parseCoords(str) {
+    var m = String(str || '').trim().match(/^(-?\d{1,3}(?:\.\d+)?)\s*[,，\s]\s*(-?\d{1,3}(?:\.\d+)?)$/);
+    if (!m) return null;
+    var lat = parseFloat(m[1]), lon = parseFloat(m[2]);
+    if (!isFinite(lat) || !isFinite(lon)) return null;
+    if (lat < -85 || lat > 85 || lon < -180 || lon > 180) return null;
+    return { lat: lat, lon: lon };
+  }
+  function fmtCoord(lat, lon) { return Number(lat).toFixed(5) + ', ' + Number(lon).toFixed(5); }
+
+  function haversine(a, b) {
+    var R = 6371000, dLat = (b.lat - a.lat) * Math.PI / 180, dLon = (b.lon - a.lon) * Math.PI / 180;
+    var s1 = Math.sin(dLat / 2), s2 = Math.sin(dLon / 2);
+    var q = s1 * s1 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * s2 * s2;
+    return 2 * R * Math.asin(Math.sqrt(q));
+  }
+  function copyText(txt) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(txt).then(function () { return true; }, function () { return false; });
+    }
+    return Promise.resolve(false);
+  }
+
+  /* ============================================================
+     坐标系：高德 GCJ-02 ↔ WGS-84
+     OSM/OSRM 是 WGS-84；高德瓦片与高德 API 是 GCJ-02。
+     不转换会出现几百米偏移，所以进出都要过一遍。
+     ============================================================ */
+  var PI = Math.PI, A = 6378245.0, EE = 0.00669342162296594323;
+  function outOfChina(lng, lat) {
+    return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271;
+  }
+  function tLat(x, y) {
+    var r = -100 + 2 * x + 3 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+    r += (20 * Math.sin(6 * x * PI) + 20 * Math.sin(2 * x * PI)) * 2 / 3;
+    r += (20 * Math.sin(y * PI) + 40 * Math.sin(y / 3 * PI)) * 2 / 3;
+    r += (160 * Math.sin(y / 12 * PI) + 320 * Math.sin(y * PI / 30)) * 2 / 3;
+    return r;
+  }
+  function tLng(x, y) {
+    var r = 300 + x + 2 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+    r += (20 * Math.sin(6 * x * PI) + 20 * Math.sin(2 * x * PI)) * 2 / 3;
+    r += (20 * Math.sin(x * PI) + 40 * Math.sin(x / 3 * PI)) * 2 / 3;
+    r += (150 * Math.sin(x / 12 * PI) + 300 * Math.sin(x / 30 * PI)) * 2 / 3;
+    return r;
+  }
+  function wgs2gcj(lng, lat) {
+    if (outOfChina(lng, lat)) return [lng, lat];
+    var dLat = tLat(lng - 105, lat - 35), dLng = tLng(lng - 105, lat - 35);
+    var radLat = lat / 180 * PI, magic = Math.sin(radLat);
+    magic = 1 - EE * magic * magic;
+    var sqrtMagic = Math.sqrt(magic);
+    dLat = (dLat * 180) / ((A * (1 - EE)) / (magic * sqrtMagic) * PI);
+    dLng = (dLng * 180) / (A / sqrtMagic * Math.cos(radLat) * PI);
+    return [lng + dLng, lat + dLat];
+  }
+  function gcj2wgs(lng, lat) {
+    var w = [lng, lat];
+    for (var i = 0; i < 2; i++) {
+      var g = wgs2gcj(w[0], w[1]);
+      w = [w[0] + (lng - g[0]), w[1] + (lat - g[1])];
+    }
+    return w;
+  }
+
+  /* ============================================================
+     状态
+     ============================================================ */
+  var state = {
+    layer: 'std',
+    markers: [],
+    route: null,
+    pickMode: null,
+    origin: null,
+    dest: null,
+    profile: 'driving',
+    keyState: null,
+    keyMessage: '',
+    searchSeq: 0,
+    lastError: null
+  };
+
+  var shell = null;
+  var map = null;
+
+  /* ============================================================
+     主题（支持 ?theme=dark / light 预览；正常环境跟随系统）
+     ============================================================ */
+  function readForcedTheme() {
+    try {
+      var q = new URLSearchParams(location.search).get('theme');
+      if (q === 'dark' || q === 'light') IS_DARK_FORCED = q;
+    } catch (e) { /* ignore */ }
+  }
+  function applyForcedTheme() {
+    if (!IS_DARK_FORCED) return;
+    var dark = IS_DARK_FORCED === 'dark';
+    document.documentElement.setAttribute('data-mode', dark ? 'dark' : 'light');
+    document.body.classList.toggle('dark-mode', dark);
+  }
+
+  /* 截图模式：?shot=1 关掉 _app.js 的整页渐显，保证首帧就是最终态 */
+  function applyShotMode() {
+    var shot = false;
+    try { shot = new URLSearchParams(location.search).get('shot') === '1'; } catch (e) { }
+    if (!shot) return;
+    var css = document.createElement('style');
+    css.textContent = 'body.n26-app-in{animation:none!important}';
+    document.head.appendChild(css);
+  }
+
+  /* ============================================================
+     地图引擎
+     ============================================================ */
+  function createMap(stage) {
+    var view = { lat: HOME.lat, lon: HOME.lon, zoom: HOME.zoom };
+    var size = { w: 0, h: 0 };
+    var centerPx = { x: 0, y: 0 };
+    var raf = 0;
+    var anim = 0;
+    var tileCache = new Map();
+    var stats = { ok: 0, err: 0 };
+    var history = [];
+    var forward = [];
+    var firstTile = false;
+    var pointers = new Map();
+    var drag = null;
+    var pinch = null;
+    var edge = null;
+    var inertia = 0;
+    var suppressClick = false;
+    var clickTimer = 0;
+
+    var tileLayer = $('#tileLayer');
+    var labelLayer = $('#labelLayer');
+    var markerLayer = $('#markerLayer');
+    var svg = $('#routeSvg');
+    var casing = $('#routeCasing');
+    var line = $('#routeLine');
+    var loadChip = $('#loadChip');
+    var failBox = $('#mapFail');
+    var scaleBar = $('#scaleBarBar');
+    var scaleTxt = $('#scaleBarTxt');
+
+    function worldSize(z) { return 256 * Math.pow(2, z); }
+    function project(lat, lon, z) {
+      var ws = worldSize(z);
+      var x = (lon + 180) / 360 * ws;
+      var rad = clamp(lat, -85.0511, 85.0511) * PI / 180;
+      var y = (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / PI) / 2 * ws;
+      return { x: x, y: y };
+    }
+    function unproject(x, y, z) {
+      var ws = worldSize(z);
+      var lon = x / ws * 360 - 180;
+      var n = PI - 2 * PI * y / ws;
+      var lat = 180 / PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+      return { lat: clamp(lat, -85.0511, 85.0511), lon: lon };
+    }
+    function screenOf(lat, lon) {
+      var p = project(lat, lon, view.zoom);
+      return { x: p.x - centerPx.x + size.w / 2, y: p.y - centerPx.y + size.h / 2 };
+    }
+
+    function measure() {
+      size.w = stage.clientWidth;
+      size.h = stage.clientHeight;
+      schedule();
+    }
+
+    function schedule() {
+      if (raf) return;
+      raf = requestAnimationFrame(render);
+    }
+
+    function tileUrl(kind, x, y, z) {
+      var n = Math.pow(2, z);
+      var nx = ((x % n) + n) % n;
+      var s = ((nx + y) % 4) + 1;
+      if (BASE_MODE === 'osm') return TILE.osm(nx, y, z);
+      if (kind === 'std') {
+        var scale = (window.devicePixelRatio || 1) >= 1.5 ? 2 : 1;
+        return TILE.std(nx, y, z, s, scale);
+      }
+      if (kind === 'sat') return TILE.sat(nx, y, z, s);
+      return TILE.satlabel(nx, y, z, s);
+    }
+
+    function ensureTile(kind, x, y, z, host) {
+      var key = kind + '|' + z + '|' + x + '|' + y;
+      var rec = tileCache.get(key);
+      if (!rec) {
+        var img = new Image();
+        img.className = 'mtile';
+        img.alt = '';
+        img.decoding = 'async';
+        img.referrerPolicy = 'no-referrer';
+        img.onload = function () {
+          img.classList.add('in');
+          stats.ok++;
+          if (!firstTile) {
+            firstTile = true;
+            loadChip.classList.add('done');
+          }
+          if (failBox.classList.contains('show') && stats.ok > 0) failBox.classList.remove('show');
+        };
+        img.onerror = function () {
+          img.classList.add('bad');
+          stats.err++;
+          /* 高德连续失败且一张都没加载出来：自动降级 OSM，绝不留白屏 */
+          if (BASE_MODE === 'amap' && !firstTile && stats.err >= 8 && kind === 'std') { switchToOSM(); return; }
+          if (!firstTile && stats.err >= 8) failBox.classList.add('show');
+        };
+        rec = { img: img, key: key };
+        tileCache.set(key, rec);
+        img.src = tileUrl(kind, x, y, z);
+      }
+      if (rec.img.parentNode !== host) host.appendChild(rec.img);
+      rec.img.style.display = '';
+      return rec;
+    }
+
+    var switching = false;
+    function switchToOSM() {
+      if (switching || BASE_MODE === 'osm') return;
+      switching = true;
+      BASE_MODE = 'osm';
+      tileCache.forEach(function (r) { if (r.img.parentNode) r.img.parentNode.removeChild(r.img); });
+      tileCache.clear();
+      stats.ok = 0; stats.err = 0; firstTile = false;
+      failBox.classList.remove('show');
+      loadChip.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>已切换 OpenStreetMap…';
+      loadChip.classList.remove('done');
+      tileLayer.innerHTML = '';
+      labelLayer.innerHTML = '';
+      var attr = $('#mapAttr');
+      if (attr) attr.textContent = '© OpenStreetMap contributors';
+      var satBtn = document.querySelector('.ml-btn[data-layer="sat"]');
+      if (satBtn) { satBtn.setAttribute('aria-disabled', 'true'); satBtn.title = 'OSM 降级模式暂不支持卫星'; }
+      toast('高德底图不可达，已自动降级到 OpenStreetMap 栅格');
+      switching = false;
+      render();
+    }
+
+    function renderTiles(kind, host) {
+      var z = clamp(Math.round(view.zoom), MIN_ZOOM, MAX_ZOOM);
+      var ts = 256 * Math.pow(2, view.zoom - z);
+      var left = centerPx.x - size.w / 2;
+      var top = centerPx.y - size.h / 2;
+      var x0 = Math.floor(left / ts) - 1;
+      var y0 = Math.floor(top / ts) - 1;
+      var x1 = Math.floor((left + size.w) / ts) + 1;
+      var y1 = Math.floor((top + size.h) / ts) + 1;
+      var n = Math.pow(2, z);
+      var used = {};
+
+      if (!tileCache.size) loadChip.classList.remove('done');
+
+      for (var x = x0; x <= x1; x++) {
+        for (var y = y0; y <= y1; y++) {
+          if (y < 0 || y >= n) continue;
+          var nx = ((x % n) + n) % n;
+          var rec = ensureTile(kind, nx, y, z, host);
+          used[rec.key] = true;
+          var sx = x * ts - left;
+          var sy = y * ts - top;
+          rec.img.style.width = ts + 'px';
+          rec.img.style.height = ts + 'px';
+          rec.img.style.transform = 'translate3d(' + sx.toFixed(1) + 'px,' + sy.toFixed(1) + 'px,0)';
+        }
+      }
+
+      /* 回收不可见瓦片：留在缓存里，移出 DOM，避免图层堆积 */
+      tileCache.forEach(function (rec, key) {
+        if (key.indexOf(kind + '|') !== 0) return;
+        if (!used[key] && rec.img.parentNode) rec.img.parentNode.removeChild(rec.img);
+      });
+
+      if (tileCache.size > 260) {
+        var cut = 0;
+        tileCache.forEach(function (rec, key) {
+          if (cut++ < 80) {
+            if (rec.img.parentNode) rec.img.parentNode.removeChild(rec.img);
+            tileCache.delete(key);
+          }
+        });
+      }
+    }
+
+    function renderMarkers() {
+      var wanted = {};
+      state.markers.forEach(function (m) {
+        wanted[m.id] = true;
+        var host = markerLayer.querySelector('[data-mid="' + m.id + '"]');
+        if (!host) {
+          host = document.createElement('div');
+          host.className = 'marker' + (m.kind === 'me' ? ' kind-me' : '');
+          host.setAttribute('data-mid', m.id);
+          var pin = document.createElement('button');
+          pin.type = 'button';
+          pin.className = 'pin';
+          pin.setAttribute('aria-label', m.title || '地图标记');
+          pin.innerHTML = '<i class="fa-solid ' + (m.icon || 'fa-location-dot') + '" aria-hidden="true"></i>';
+          pin.addEventListener('click', function (e) {
+            e.stopPropagation();
+            selectMarker(m.id, true);
+          });
+          host.appendChild(pin);
+          if (m.kind === 'me') {
+            var ring = document.createElement('span');
+            ring.className = 'me-ring';
+            host.appendChild(ring);
+          }
+          var tag = document.createElement('span');
+          tag.className = 'tag';
+          tag.textContent = m.title || '标记';
+          host.appendChild(tag);
+          markerLayer.appendChild(host);
+        }
+        host.classList.toggle('sel', m.id === state.selected);
+      });
+      Array.prototype.forEach.call(markerLayer.children, function (el) {
+        if (!wanted[el.getAttribute('data-mid')]) el.remove();
+      });
+    }
+
+    function layoutMarkers() {
+      state.markers.forEach(function (m) {
+        var host = markerLayer.querySelector('[data-mid="' + m.id + '"]');
+        if (!host) return;
+        var p = screenOf(m.lat, m.lon);
+        host.style.transform = 'translate3d(' + p.x.toFixed(1) + 'px,' + p.y.toFixed(1) + 'px,0)';
+        host.style.visibility = (p.x < -80 || p.x > size.w + 80 || p.y < -80 || p.y > size.h + 80) ? 'hidden' : '';
+      });
+    }
+
+    function layoutRoute() {
+      if (!state.route || !state.route.coords) {
+        casing.setAttribute('points', '');
+        line.setAttribute('points', '');
+        return;
+      }
+      var pts = [];
+      for (var i = 0; i < state.route.coords.length; i++) {
+        var p = screenOf(state.route.coords[i].lat, state.route.coords[i].lon);
+        pts.push(p.x.toFixed(1) + ',' + p.y.toFixed(1));
+      }
+      casing.setAttribute('points', pts.join(' '));
+      line.setAttribute('points', pts.join(' '));
+    }
+
+    function render() {
+      raf = 0;
+      if (!size.w || !size.h) measure();
+      centerPx = project(view.lat, view.lon, view.zoom);
+
+      var layer = (BASE_MODE === 'osm') ? 'std' : state.layer;
+      if (layer === 'sat') {
+        tileLayer.style.display = '';
+        /* 高德 style=7 的“注记层”是不透明标准图，会完全盖住卫星影像；
+           因此卫星层只渲染 style=6 真影像，不再叠加注记，避免假图层。 */
+        labelLayer.style.display = 'none';
+        labelLayer.innerHTML = '';
+        if (tileLayer.getAttribute('data-kind') !== 'sat') {
+          tileLayer.innerHTML = '';
+          tileLayer.setAttribute('data-kind', 'sat');
+        }
+        renderTiles('sat', tileLayer);
+      } else {
+        labelLayer.style.display = 'none';
+        labelLayer.innerHTML = '';
+        tileLayer.style.display = '';
+        if (tileLayer.getAttribute('data-kind') !== 'std') {
+          tileLayer.innerHTML = '';
+          tileLayer.setAttribute('data-kind', 'std');
+        }
+        renderTiles('std', tileLayer);
+      }
+      renderMarkers();
+      layoutMarkers();
+      layoutRoute();
+      updateScale();
+    }
+
+    function updateScale() {
+      var mPerPx = 156543.03392 * Math.cos(view.lat * PI / 180) / Math.pow(2, view.zoom);
+      var target = 82;
+      var raw = mPerPx * target;
+      var pow = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
+      var nice = [1, 2, 5, 10];
+      var best = nice[0] * pow;
+      for (var i = 0; i < nice.length; i++) {
+        if (nice[i] * pow <= raw) best = nice[i] * pow;
+      }
+      var wpx = Math.max(42, Math.min(122, best / mPerPx));
+      scaleBar.style.width = wpx.toFixed(0) + 'px';
+      scaleTxt.textContent = fmtDist(best);
+    }
+
+    function panBy(dx, dy) {
+      var c = project(view.lat, view.lon, view.zoom);
+      var p = unproject(c.x - dx, c.y - dy, view.zoom);
+      view.lat = p.lat;
+      view.lon = clamp(p.lon, -180, 180);
+      schedule();
+    }
+
+    function centerForZoom(z, sx, sy) {
+      var cOld = project(view.lat, view.lon, view.zoom);
+      var before = unproject(cOld.x - size.w / 2 + sx, cOld.y - size.h / 2 + sy, view.zoom);
+      var zz = clamp(z, MIN_ZOOM, MAX_ZOOM);
+      var cNew = project(view.lat, view.lon, zz);
+      var after = unproject(cNew.x - size.w / 2 + sx, cNew.y - size.h / 2 + sy, zz);
+      return {
+        lat: clamp(view.lat + (before.lat - after.lat), -85.0511, 85.0511),
+        lon: clamp(view.lon + (before.lon - after.lon), -180, 180),
+        zoom: zz
+      };
+    }
+
+    function zoomAround(targetZoom, sx, sy) {
+      var t = centerForZoom(targetZoom, sx, sy);
+      if (Math.abs(t.zoom - view.zoom) < 0.0001) return;
+      view.lat = t.lat; view.lon = t.lon; view.zoom = t.zoom;
+      schedule();
+    }
+
+    function easeOutExpo(t) { return t >= 1 ? 1 : 1 - Math.pow(2, -10 * t); }
+
+    function animateView(target, durMs) {
+      if (anim) cancelAnimationFrame(anim);
+      if (REDUCED || !durMs) {
+        view.lat = target.lat; view.lon = target.lon; view.zoom = target.zoom;
+        schedule();
+        return;
+      }
+      var from = { lat: view.lat, lon: view.lon, zoom: view.zoom };
+      var t0 = performance.now();
+      var step = function (t) {
+        var k = clamp((t - t0) / durMs, 0, 1);
+        var e = easeOutExpo(k);
+        view.lat = from.lat + (target.lat - from.lat) * e;
+        view.lon = from.lon + (target.lon - from.lon) * e;
+        view.zoom = from.zoom + (target.zoom - from.zoom) * e;
+        schedule();
+        if (k < 1) anim = requestAnimationFrame(step);
+        else anim = 0;
+      };
+      anim = requestAnimationFrame(step);
+    }
+
+    function flyTo(lat, lon, zoom, record) {
+      if (record !== false) pushHistory();
+      animateView({ lat: clamp(lat, -85.0511, 85.0511), lon: lon, zoom: clamp(zoom, MIN_ZOOM, MAX_ZOOM) }, 420);
+    }
+
+    function pushHistory() {
+      var last = history[history.length - 1];
+      if (last && Math.abs(last.lat - view.lat) < 1e-6 && Math.abs(last.lon - view.lon) < 1e-6 && Math.abs(last.zoom - view.zoom) < 1e-6) return;
+      history.push({ lat: view.lat, lon: view.lon, zoom: view.zoom });
+      if (history.length > 24) history.shift();
+      forward.length = 0;
+    }
+
+    function goBack() {
+      if (!history.length) { toast('已经是最初的地图视角'); return; }
+      forward.push({ lat: view.lat, lon: view.lon, zoom: view.zoom });
+      var v = history.pop();
+      animateView(v, 360);
+    }
+    function goForward() {
+      if (!forward.length) { toast('没有可前进的地图视角'); return; }
+      history.push({ lat: view.lat, lon: view.lon, zoom: view.zoom });
+      var v = forward.pop();
+      animateView(v, 360);
+    }
+
+    function fitBounds(b, pad) {
+      pad = pad == null ? 48 : pad;
+      var midLat = (b.minLat + b.maxLat) / 2;
+      var midLon = (b.minLon + b.maxLon) / 2;
+      var z = MAX_ZOOM;
+      for (; z >= MIN_ZOOM; z--) {
+        var p1 = project(b.maxLat, b.minLon, z), p2 = project(b.minLat, b.maxLon, z);
+        if (Math.abs(p2.x - p1.x) <= size.w - pad * 2 && Math.abs(p2.y - p1.y) <= size.h - pad * 2) break;
+      }
+      var pMin = project(b.minLat, midLon, z), pMax = project(b.maxLat, midLon, z);
+      var y = (pMin.y + pMax.y) / 2;
+      var mid = unproject(project(midLat, midLon, z).x, y, z);
+      pushHistory();
+      animateView({ lat: mid.lat, lon: midLon, zoom: z }, 460);
+    }
+
+    /* ---------- 手势 ---------- */
+    function onWheel(e) {
+      e.preventDefault();
+      var rect = stage.getBoundingClientRect();
+      var sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+      if (e.ctrlKey || e.metaKey) {
+        var factor = Math.exp(-e.deltaY * 0.0024);
+        zoomAround(view.zoom + Math.log(factor) / Math.LN2, sx, sy);
+        return;
+      }
+      var isMouseWheel = e.deltaMode === 1 || (Math.abs(e.deltaY) >= 100 && Math.abs(e.deltaX) < 2);
+      if (isMouseWheel) {
+        var target = centerForZoom(view.zoom + (e.deltaY > 0 ? -1 : 1), sx, sy);
+        animateView(target, 180);
+        return;
+      }
+      panBy(e.deltaX, e.deltaY);
+    }
+
+    function onPointerDown(e) {
+      if (e.button != null && e.button !== 0 && e.pointerType === 'mouse') return;
+      var rect = stage.getBoundingClientRect();
+      var x = e.clientX - rect.left;
+      if (pointers.size === 0) {
+        drag = { startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY, lastX: e.clientX, lastY: e.clientY, t: performance.now(), moved: 0, vx: 0, vy: 0 };
+        edge = x <= 26 ? 'left' : (x >= rect.width - 26 ? 'right' : null);
+        if (edge) $('#edge' + (edge === 'left' ? 'Left' : 'Right')).classList.add('on');
+        suppressClick = false;
+        stage.setPointerCapture(e.pointerId);
+      }
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.size === 2) {
+        var ids = Array.from(pointers.values());
+        pinch = { d: Math.hypot(ids[0].x - ids[1].x, ids[0].y - ids[1].y), zoom: view.zoom };
+        drag = null;
+      }
+    }
+
+    function onPointerMove(e) {
+      if (!pointers.has(e.pointerId)) return;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (pointers.size === 2 && pinch) {
+        var ids = Array.from(pointers.values());
+        var d = Math.hypot(ids[0].x - ids[1].x, ids[0].y - ids[1].y);
+        if (d > 1 && pinch.d > 1) {
+          var rect = stage.getBoundingClientRect();
+          zoomAround(pinch.zoom + Math.log(d / pinch.d) / Math.LN2,
+            (ids[0].x + ids[1].x) / 2 - rect.left, (ids[0].y + ids[1].y) / 2 - rect.top);
+        }
+        return;
+      }
+
+      if (!drag) return;
+      var dx = e.clientX - drag.x;
+      var dy = e.clientY - drag.y;
+      drag.moved += Math.abs(dx) + Math.abs(dy);
+
+      if (edge) {
+        if (Math.abs(dy) > 26) {
+          edge = null;
+          $('#edgeLeft').classList.remove('on');
+          $('#edgeRight').classList.remove('on');
+        } else {
+          suppressClick = true;
+          return;
+        }
+      }
+
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      var el = e.timeStamp - drag.t;
+      if (el > 0) {
+        drag.vx = (e.clientX - drag.lastX) / el;
+        drag.vy = (e.clientY - drag.lastY) / el;
+      }
+      drag.lastX = e.clientX; drag.lastY = e.clientY; drag.t = e.timeStamp;
+      drag.x = e.clientX; drag.y = e.clientY;
+      panBy(dx, dy);
+      if (drag.moved > 4) suppressClick = true;
+    }
+
+    function onPointerUp(e) {
+      if (edge && drag) {
+        var dxTotal = e.clientX - drag.startX;
+        var dyTotal = e.clientY - drag.startY;
+        $('#edgeLeft').classList.remove('on');
+        $('#edgeRight').classList.remove('on');
+        if (Math.abs(dyTotal) <= 46) {
+          if (edge === 'left' && dxTotal > 40) goBack();
+          else if (edge === 'right' && dxTotal < -40) goForward();
+        }
+        edge = null;
+        suppressClick = true;
+        pointers.delete(e.pointerId);
+        drag = null;
+        return;
+      }
+      pointers.delete(e.pointerId);
+      if (pointers.size === 0) {
+        if (drag && drag.moved > 6) {
+          var vx = clamp(drag.vx, -1.6, 1.6), vy = clamp(drag.vy, -1.6, 1.6);
+          if (Math.abs(vx) > 0.05 || Math.abs(vy) > 0.05) startInertia(vx, vy);
+        }
+        drag = null;
+      }
+      if (pointers.size < 2) pinch = null;
+    }
+
+    function startInertia(vx, vy) {
+      if (REDUCED) return;
+      if (inertia) cancelAnimationFrame(inertia);
+      var t0 = performance.now();
+      var last = t0;
+      var step = function (t) {
+        var dt = t - last;
+        last = t;
+        var decay = Math.exp(-(t - t0) / 160);
+        if (decay < 0.02) { inertia = 0; return; }
+        panBy(vx * dt * decay, vy * dt * decay);
+        inertia = requestAnimationFrame(step);
+      };
+      inertia = requestAnimationFrame(step);
+    }
+
+    stage.addEventListener('wheel', onWheel, { passive: false });
+    stage.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+
+    stage.addEventListener('click', function (e) {
+      if (suppressClick) { suppressClick = false; return; }
+      if (e.target.closest('.pin')) return;
+      clearTimeout(clickTimer);
+      var rect = stage.getBoundingClientRect();
+      var sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+      clickTimer = setTimeout(function () { handleMapClick(sx, sy); }, 190);
+    });
+
+    stage.addEventListener('dblclick', function (e) {
+      clearTimeout(clickTimer);
+      var rect = stage.getBoundingClientRect();
+      var sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+      var target = { lat: view.lat, lon: view.lon, zoom: clamp(view.zoom + (e.shiftKey ? -1 : 1), MIN_ZOOM, MAX_ZOOM) };
+      var before = unproject(centerPx.x - size.w / 2 + sx, centerPx.y - size.h / 2 + sy, view.zoom);
+      var after = unproject(centerPx.x - size.w / 2 + sx, centerPx.y - size.h / 2 + sy, target.zoom);
+      target.lat = clamp(view.lat + (before.lat - after.lat), -85.0511, 85.0511);
+      target.lon = view.lon + (before.lon - after.lon);
+      animateView(target, 240);
+    });
+
+    stage.addEventListener('keydown', function (e) {
+      var step = 80;
+      if (e.key === 'ArrowLeft') { panBy(-step, 0); e.preventDefault(); }
+      else if (e.key === 'ArrowRight') { panBy(step, 0); e.preventDefault(); }
+      else if (e.key === 'ArrowUp') { panBy(0, -step); e.preventDefault(); }
+      else if (e.key === 'ArrowDown') { panBy(0, step); e.preventDefault(); }
+      else if (e.key === '+' || e.key === '=') { animateView({ lat: view.lat, lon: view.lon, zoom: clamp(view.zoom + 1, MIN_ZOOM, MAX_ZOOM) }, 200); e.preventDefault(); }
+      else if (e.key === '-') { animateView({ lat: view.lat, lon: view.lon, zoom: clamp(view.zoom - 1, MIN_ZOOM, MAX_ZOOM) }, 200); e.preventDefault(); }
+      else if (e.key === 'Backspace') { goBack(); e.preventDefault(); }
+    });
+
+    function handleMapClick(sx, sy) {
+      var p = unproject(centerPx.x - size.w / 2 + sx, centerPx.y - size.h / 2 + sy, view.zoom);
+      var at = { lat: p.lat, lon: p.lon };
+      if (state.pickMode) {
+        if (state.pickMode === 'origin') { state.origin = at; $('#routeFrom').value = fmtCoord(at.lat, at.lon); }
+        else { state.dest = at; $('#routeTo').value = fmtCoord(at.lat, at.lon); }
+        var mode = state.pickMode;
+        state.pickMode = null;
+        hidePickBar();
+        shell.select('route');
+        toast(mode === 'origin' ? '起点已设为地图选点' : '终点已设为地图选点');
+        updateRouteForm();
+        return;
+      }
+      if (state.route) { clearRoute(); }
+      var id = 'pin-' + Math.random().toString(36).slice(2, 8);
+      addMarker({ id: id, lat: at.lat, lon: at.lon, title: '地图选点', kind: 'pin', icon: 'fa-location-dot' });
+      selectMarker(id, true);
+    }
+
+    function resize() {
+      var w = stage.clientWidth, h = stage.clientHeight;
+      if (w === size.w && h === size.h) return;
+      size.w = w; size.h = h;
+      schedule();
+    }
+    if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
+    window.addEventListener('resize', resize);
+
+    measure();
+
+    return {
+      view: view,
+      flyTo: flyTo,
+      fitBounds: fitBounds,
+      panBy: panBy,
+      zoomBy: function (d) { animateView({ lat: view.lat, lon: view.lon, zoom: clamp(view.zoom + d, MIN_ZOOM, MAX_ZOOM) }, 200); },
+      reset: function () { pushHistory(); animateView({ lat: HOME.lat, lon: HOME.lon, zoom: HOME.zoom }, 420); },
+      goBack: goBack,
+      render: function () { schedule(); },
+      redrawNow: function () { render(); },
+      screenOf: screenOf,
+      setView: function (v) { view.lat = v.lat; view.lon = v.lon; view.zoom = v.zoom; schedule(); },
+      retry: function () { stats.ok = 0; stats.err = 0; firstTile = false; failBox.classList.remove('show'); tileCache.forEach(function (r) { if (r.img.parentNode) r.img.parentNode.removeChild(r.img); }); tileCache.clear(); loadChip.classList.remove('done'); render(); }
+    };
+  }
+
+  /* ============================================================
+     标记
+     ============================================================ */
+  function addMarker(m) {
+    var old = state.markers.filter(function (x) { return x.id === m.id; });
+    if (old.length) {
+      state.markers = state.markers.filter(function (x) { return x.id !== m.id; });
+    }
+    state.markers.push(m);
+    map.render();
+  }
+  function removeMarkers(exceptKind) {
+    state.markers = state.markers.filter(function (m) { return exceptKind && m.kind === exceptKind; });
+    map.render();
+  }
+  function selectMarker(id, openSheet) {
+    var m = state.markers.filter(function (x) { return x.id === id; })[0];
+    if (!m) return;
+    state.selected = id;
+    map.render();
+    if (openSheet) {
+      if (m.kind === 'poi') {
+        openPoiSheet(m.poi);
+      } else if (m.kind === 'pin') {
+        openPinSheet({ lat: m.lat, lon: m.lon }, m.title);
+      } else if (m.kind === 'me') {
+        openMeSheet(m.lat, m.lon);
+      }
+    }
+    /* 让标记在可视区中偏上，避免被详情卡挡住 */
+    var p = map.screenOf(m.lat, m.lon);
+    if (p.y > 420) map.panBy(0, -Math.min(120, p.y - 380));
+  }
+
+  /* ============================================================
+     API
+     ============================================================ */
+  /* 带 9 秒超时的 API 请求：Worker 不可达时不会让搜索无限转圈 */
+  function api(path, params) {
+    var url = new URL(API_BASE + '/api/map' + path);
+    Object.keys(params || {}).forEach(function (k) {
+      if (params[k] != null && params[k] !== '') url.searchParams.set(k, params[k]);
+    });
+    return new Promise(function (resolve, reject) {
+      var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      var timer = setTimeout(function () {
+        if (ctrl) { try { ctrl.abort(); } catch (e) {} }
+        var err = new Error('接口请求超时（9 秒）');
+        err.code = 'TIMEOUT';
+        reject(err);
+      }, 9000);
+      var opts = { cache: 'no-store' };
+      if (ctrl) opts.signal = ctrl.signal;
+      fetch(url.toString(), opts).then(function (res) {
+        return res.json().catch(function () { return null; }).then(function (j) {
+          clearTimeout(timer);
+          if (!res.ok || !j || !j.ok) {
+            var err = new Error((j && j.error) || ('HTTP ' + res.status));
+            err.code = (j && j.code) || ('HTTP_' + res.status);
+            err.status = res.status;
+            throw err;
+          }
+          resolve(j.data);
+        });
+      }).catch(function (e) {
+        clearTimeout(timer);
+        if (e && e.name === 'AbortError') {
+          var err = new Error('接口请求超时（9 秒）');
+          err.code = 'TIMEOUT';
+          reject(err);
+          return;
+        }
+        reject(e);
+      });
+    });
+  }
+
+  function checkHealth() {
+    return api('/health', {}).then(function (d) {
+      state.keyState = !!d.configured;
+      state.keyMessage = '';
+      renderKeyHint();
+      renderApiPanel();
+    }).catch(function (e) {
+      state.keyState = null;
+      state.keyMessage = e.message || '无法连接服务';
+      state.lastError = { code: e.code || 'NETWORK', message: e.message };
+      renderKeyHint();
+      renderApiPanel();
+    });
+  }
+
+  function renderKeyHint() {
+    var hint = $('#keyHint');
+    if (!hint) return;
+    if (state.keyState === false) {
+      hint.innerHTML = '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>' +
+        '<span>未配置 AMAP_KEY · 已降级为 OpenStreetMap 检索 + OSRM 路线</span>' +
+        '<button type="button" id="keyHintGo">查看接口</button>';
+      hint.style.display = '';
+      var b = $('#keyHintGo');
+      if (b) b.addEventListener('click', function () { shell.select('api'); });
+    } else if (state.keyState === null && state.keyMessage) {
+      hint.innerHTML = '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>' + esc(state.keyMessage) + '</span>';
+      hint.style.display = '';
+    } else {
+      hint.style.display = 'none';
+    }
+  }
+
+  /* ============================================================
+     搜索
+     ============================================================ */
+  function setSearchState(html, showResults) {
+    var box = $('#searchResults');
+    box.innerHTML = html || '';
+    $('#searchCard').classList.toggle('show-results', !!showResults);
+  }
+
+  function poiIcon(type) {
+    var t = String(type || '');
+    if (/餐饮|美食|饭店|餐厅/.test(t)) return 'fa-utensils';
+    if (/酒店|宾馆|住宿/.test(t)) return 'fa-bed';
+    if (/医院|诊所|医疗/.test(t)) return 'fa-hospital';
+    if (/学校|学院|大学/.test(t)) return 'fa-school';
+    if (/地铁|公交|车站/.test(t)) return 'fa-train-subway';
+    if (/商场|购物|超市/.test(t)) return 'fa-bag-shopping';
+    if (/公园|景区|景点/.test(t)) return 'fa-tree';
+    return 'fa-location-dot';
+  }
+
+  /* 无 AMAP_KEY 时也保证“地点搜索”可用：内置城市/地标地名库（GCJ-02 坐标）。
+     先命中本地库，未命中再走 Nominatim；两层降级都不会白屏。 */
+  var LOCAL_PLACES = [
+    { name: '北京 · 天安门', alias: ['北京', '天安门', 'beijing', 'tiananmen'], addr: '北京市东城区', lat: 39.9087, lon: 116.3975 },
+    { name: '北京 · 故宫', alias: ['故宫', '紫禁城', 'forbidden city', 'gugong'], addr: '北京市东城区', lat: 39.9163, lon: 116.3972 },
+    { name: '北京 · 颐和园', alias: ['颐和园', 'summer palace'], addr: '北京市海淀区', lat: 39.9999, lon: 116.2755 },
+    { name: '北京 · 鸟巢', alias: ['鸟巢', '国家体育场'], addr: '北京市朝阳区', lat: 39.9929, lon: 116.3965 },
+    { name: '上海 · 外滩', alias: ['上海', '外滩', 'shanghai', 'bund'], addr: '上海市黄浦区', lat: 31.2397, lon: 121.4900 },
+    { name: '上海 · 东方明珠', alias: ['东方明珠', '陆家嘴'], addr: '上海市浦东新区', lat: 31.2397, lon: 121.4998 },
+    { name: '杭州 · 西湖', alias: ['杭州', '西湖', 'hangzhou', 'west lake'], addr: '浙江省杭州市西湖区', lat: 30.2489, lon: 120.1551 },
+    { name: '广州 · 广州塔', alias: ['广州', '广州塔', '小蛮腰', 'guangzhou'], addr: '广东省广州市海珠区', lat: 23.1065, lon: 113.3247 },
+    { name: '深圳 · 市民中心', alias: ['深圳', '市民中心', 'shenzhen'], addr: '广东省深圳市福田区', lat: 22.5460, lon: 114.0644 },
+    { name: '成都 · 天府广场', alias: ['成都', '天府广场', 'chengdu'], addr: '四川省成都市锦江区', lat: 30.6570, lon: 104.0657 },
+    { name: '重庆 · 解放碑', alias: ['重庆', '解放碑', 'chongqing'], addr: '重庆市渝中区', lat: 29.5572, lon: 106.5770 },
+    { name: '西安 · 钟楼', alias: ['西安', '钟楼', 'xian'], addr: '陕西省西安市碑林区', lat: 34.2610, lon: 108.9450 },
+    { name: '南京 · 新街口', alias: ['南京', '新街口', 'nanjing'], addr: '江苏省南京市秦淮区', lat: 32.0415, lon: 118.7843 },
+    { name: '武汉 · 黄鹤楼', alias: ['武汉', '黄鹤楼', 'wuhan'], addr: '湖北省武汉市武昌区', lat: 30.5450, lon: 114.3020 },
+    { name: '长沙 · 五一广场', alias: ['长沙', '五一广场', 'changsha'], addr: '湖南省长沙市芙蓉区', lat: 28.1950, lon: 112.9770 },
+    { name: '苏州 · 观前街', alias: ['苏州', '观前街', 'suzhou'], addr: '江苏省苏州市姑苏区', lat: 31.3120, lon: 120.6250 },
+    { name: '青岛 · 栈桥', alias: ['青岛', '栈桥', 'qingdao'], addr: '山东省青岛市市南区', lat: 36.0600, lon: 120.3200 },
+    { name: '厦门 · 鼓浪屿', alias: ['厦门', '鼓浪屿', 'xiamen'], addr: '福建省厦门市思明区', lat: 24.4470, lon: 118.0670 },
+    { name: '昆明 · 翠湖', alias: ['昆明', '翠湖', 'kunming'], addr: '云南省昆明市五华区', lat: 25.0450, lon: 102.7100 },
+    { name: '哈尔滨 · 中央大街', alias: ['哈尔滨', '中央大街', 'harbin'], addr: '黑龙江省哈尔滨市道里区', lat: 45.7730, lon: 126.6170 },
+    { name: '乌鲁木齐 · 大巴扎', alias: ['乌鲁木齐', '大巴扎', 'urumqi'], addr: '新疆乌鲁木齐市天山区', lat: 43.7800, lon: 87.6200 },
+    { name: '拉萨 · 布达拉宫', alias: ['拉萨', '布达拉宫', 'lhasa', 'potala'], addr: '西藏拉萨市城关区', lat: 29.6570, lon: 91.1170 },
+    { name: '香港 · 维港', alias: ['香港', '维多利亚港', 'hong kong'], addr: '香港特别行政区', lat: 22.2930, lon: 114.1690 },
+    { name: '台北 · 101', alias: ['台北', '101', 'taipei'], addr: '台湾台北市信义区', lat: 25.0340, lon: 121.5650 },
+    { name: '天津 · 天津之眼', alias: ['天津', '天津之眼', 'tianjin'], addr: '天津市河北区', lat: 39.1330, lon: 117.2000 }
+  ];
+
+  function matchLocalPlaces(kw) {
+    var q = String(kw || '').toLowerCase().replace(/\s+/g, '');
+    if (!q) return [];
+    var hits = [];
+    LOCAL_PLACES.forEach(function (p) {
+      var keys = [p.name].concat(p.alias || []).map(function (k) {
+        return k.toLowerCase().replace(/\s+/g, '');
+      });
+      if (keys.some(function (k) { return k.indexOf(q) >= 0 || q.indexOf(k) >= 0; })) hits.push(p);
+    });
+    return hits.slice(0, 10).map(function (p, i) {
+      var lat = p.lat, lon = p.lon;
+      if (BASE_MODE === 'osm') { var g = gcj2wgs(p.lon, p.lat); lat = g[1]; lon = g[0]; }
+      return { id: 'local-' + i, name: p.name, type: '地名', address: p.addr, lat: lat, lon: lon };
+    });
+  }
+
+  function showLocalResults(items) {
+    clearRoute();
+    removeMarkers('me');
+    state.markers = state.markers.filter(function (m) { return m.kind === 'me'; });
+    items.forEach(function (p, i) {
+      addMarker({
+        id: 'poi-' + p.id, lat: p.lat, lon: p.lon, kind: 'poi', poi: p,
+        title: p.name, icon: 'fa-location-dot'
+      });
+    });
+    var center = { lat: map.view.lat, lon: map.view.lon };
+    var note = '<div class="ms-note"><i class="fa-solid fa-location-crosshairs"></i>' +
+      (state.keyState === false ? '未配置 AMAP_KEY · 内置地名库匹配' : '内置地名库匹配') + '</div>';
+    var html = note + items.map(function (p) {
+      return '<button type="button" class="ms-item" data-poi="' + esc(p.id) + '">' +
+        '<span class="ms-item-ico"><i class="fa-solid fa-location-dot"></i></span>' +
+        '<span class="ms-item-main"><span class="ms-item-name">' + esc(p.name) + '</span>' +
+        '<span class="ms-item-sub">' + esc(p.address || '') + '</span></span>' +
+        '<span class="ms-item-dist">' + fmtDist(haversine(center, p)) + '</span></button>';
+    }).join('');
+    setSearchState(html, true);
+    bindSearchItems(items);
+    map.fitBounds(bboxOf(items), 64);
+  }
+
+  /* AMAP_KEY 缺失 / Worker 不可用时的真实可用降级：Nominatim 检索。
+     OSM 结果是 WGS-84，经 toDisplay 换算到当前底图坐标系。 */
+  function searchNominatim(kw, seq) {
+    setSearchState('<div class="ms-skel"><span></span><span></span><span></span></div>', true);
+    var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=12&accept-language=zh-CN&q=' +
+      encodeURIComponent(kw);
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = setTimeout(function () {
+      if (ctrl) { try { ctrl.abort(); } catch (e) {} }
+    }, 12000);
+    var opts = { cache: 'no-store', headers: { 'Accept': 'application/json' } };
+    if (ctrl) opts.signal = ctrl.signal;
+    fetch(url, opts).then(function (res) {
+      return res.json();
+    }).then(function (list) {
+      clearTimeout(timer);
+      if (seq !== state.searchSeq) return;
+      if (!Array.isArray(list) || !list.length) {
+        setSearchState('<div class="ms-state"><div class="ms-state-title"><i class="fa-solid fa-circle-info"></i>OpenStreetMap 没有找到匹配地点</div>' +
+          '<div class="ms-state-body">OSM 对中文地名的覆盖弱于高德。可改用“纬度,经度”直接定位，或在接口页配置 AMAP_KEY。</div></div>', true);
+        return;
+      }
+      var items = list.map(function (it, i) {
+        var d = toDisplay(parseFloat(it.lon), parseFloat(it.lat));
+        var nm = it.name || String(it.display_name || '').split(',')[0] || '未命名地点';
+        return {
+          id: 'osm-' + i, name: nm, type: it.type || 'osm',
+          address: it.display_name, lat: d.lat, lon: d.lon
+        };
+      }).filter(function (p) { return isFinite(p.lat) && isFinite(p.lon); });
+      if (!items.length) {
+        setSearchState('<div class="ms-state"><div class="ms-state-title">没有可用的坐标结果</div></div>', true);
+        return;
+      }
+      clearRoute();
+      state.markers = state.markers.filter(function (m) { return m.kind === 'me'; });
+      items.forEach(function (p, i) {
+        addMarker({
+          id: 'poi-' + p.id, lat: p.lat, lon: p.lon, kind: 'poi', poi: p,
+          title: p.name, icon: 'fa-location-dot'
+        });
+      });
+      var center = { lat: map.view.lat, lon: map.view.lon };
+      var note = '<div class="ms-note"><i class="fa-solid fa-cloud-arrow-down"></i>' +
+        (state.keyState === false ? '未配置 AMAP_KEY，已降级用 OpenStreetMap 检索' : '高德服务不可用，已降级用 OpenStreetMap 检索') + '</div>';
+      var html = note + items.map(function (p, i) {
+        return '<button type="button" class="ms-item" data-poi="' + esc(p.id) + '">' +
+          '<span class="ms-item-ico"><i class="fa-solid fa-location-dot"></i></span>' +
+          '<span class="ms-item-main"><span class="ms-item-name">' + esc(p.name || '未命名地点') + '</span>' +
+          '<span class="ms-item-sub">' + esc(String(p.address || '').replace(/,/g, ' · ')) + '</span></span>' +
+          '<span class="ms-item-dist">' + fmtDist(haversine(center, p)) + '</span></button>';
+      }).join('');
+      setSearchState(html, true);
+      bindSearchItems(items);
+      map.fitBounds(bboxOf(items), 64);
+      toast('已用 OpenStreetMap 完成检索');
+    }).catch(function (e) {
+      if (seq !== state.searchSeq) return;
+      setSearchState('<div class="ms-state"><div class="ms-state-title"><i class="fa-solid fa-triangle-exclamation"></i>OpenStreetMap 检索失败</div>' +
+        '<div class="ms-state-body">' + esc(e.message || '网络不可用') + '。可直接输入“纬度,经度”定位。</div>' +
+        '<button type="button" class="ms-act" id="osmRetry">重试</button></div>', true);
+      var b = $('#osmRetry');
+      if (b) b.addEventListener('click', function () { var s = ++state.searchSeq; searchNominatim(kw, s); });
+    });
+  }
+
+  function doSearch() {
+    var kw = $('#searchInput').value.trim();
+    if (!kw) { toast('请输入地点、地址，或“纬度,经度”'); return; }
+    var direct = parseCoords(kw);
+    if (direct) {
+      setSearchState('', false);
+      removeMarkers('me');
+      if (state.route) clearRoute();
+      var id = 'pin-direct';
+      addMarker({ id: id, lat: direct.lat, lon: direct.lon, title: '坐标定位', kind: 'pin', icon: 'fa-crosshairs' });
+      map.flyTo(direct.lat, direct.lon, 14);
+      selectMarker(id, true);
+      return;
+    }
+    var local = matchLocalPlaces(kw);
+    if (local.length) {
+      setSearchState('', false);
+      showLocalResults(local);
+      return;
+    }
+    var seq = ++state.searchSeq;
+    setSearchState('<div class="ms-skel"><span></span><span></span><span></span></div>', true);
+    api('/poi', { keyword: kw, size: 20 }).then(function (d) {
+      if (seq !== state.searchSeq) return;
+      var items = (d.items || []).filter(function (p) { return isFinite(p.lat) && isFinite(p.lon); });
+      if (!items.length) {
+        setSearchState('<div class="ms-state"><div class="ms-state-title"><i class="fa-solid fa-circle-info" style="color:var(--text-3)"></i>没有找到匹配地点</div><div class="ms-state-body">试试加城市名，例如“杭州 西湖”。</div></div>', true);
+        return;
+      }
+      state.keyState = true;
+      clearRoute();
+      removeMarkers('me');
+      state.markers = state.markers.filter(function (m) { return m.kind === 'me'; });
+      items.forEach(function (p, i) {
+        addMarker({
+          id: 'poi-' + (p.id || i),
+          lat: p.lat, lon: p.lon, kind: 'poi', poi: p,
+          title: p.name, icon: poiIcon(p.type)
+        });
+      });
+      var center = { lat: map.view.lat, lon: map.view.lon };
+      var html = items.map(function (p, i) {
+        return '<button type="button" class="ms-item" data-poi="' + esc(p.id || i) + '">' +
+          '<span class="ms-item-ico"><i class="fa-solid ' + poiIcon(p.type) + '"></i></span>' +
+          '<span class="ms-item-main"><span class="ms-item-name">' + esc(p.name || '未命名地点') + '</span>' +
+          '<span class="ms-item-sub">' + esc((p.type || '').replace(/;/g, ' · ') + (p.address ? ' · ' + p.address : '')) + '</span></span>' +
+          '<span class="ms-item-dist">' + fmtDist(haversine(center, p)) + '</span></button>';
+      }).join('');
+      setSearchState(html, true);
+      bindSearchItems(items);
+      map.fitBounds(bboxOf(items), 64);
+    }).catch(function (e) {
+      if (seq !== state.searchSeq) return;
+      if (e.code === 'MAP_NO_KEY') {
+        state.keyState = false;
+        state.keyMessage = e.message;
+        renderKeyHint();
+        setSearchState(
+          '<div class="ms-state"><div class="ms-state-title"><i class="fa-solid fa-triangle-exclamation"></i>未配置 AMAP_KEY</div>' +
+          '<div class="ms-state-body">' + esc(e.message) + '。<br>正在降级到 OpenStreetMap 检索；也可直接输入 <code>纬度,经度</code> 定位。</div>' +
+          '<button type="button" class="ms-act" id="searchRetryKey">查看接口状态</button></div>', true);
+        var b = $('#searchRetryKey');
+        if (b) b.addEventListener('click', function () { shell.select('api'); });
+        searchNominatim(kw, seq);
+        return;
+      }
+      state.lastError = { code: e.code || 'HTTP', message: e.message };
+      setSearchState(
+        '<div class="ms-state"><div class="ms-state-title"><i class="fa-solid fa-triangle-exclamation"></i>搜索失败</div>' +
+        '<div class="ms-state-body">' + esc(e.message) + '</div>' +
+        '<button type="button" class="ms-act" id="searchRetry">重试</button>' +
+        '<button type="button" class="ms-act" id="searchOsm">改用 OSM 检索</button></div>', true);
+      var r = $('#searchRetry');
+      if (r) r.addEventListener('click', doSearch);
+      var o = $('#searchOsm');
+      if (o) o.addEventListener('click', function () { var s = ++state.searchSeq; searchNominatim(kw, s); });
+      /* 任何高德侧故障（超时 / 断网 / 5xx）都自动降级到 OSM，绝不停在转圈 */
+      toast('高德检索不可用，已改用 OpenStreetMap');
+      searchNominatim(kw, seq);
+    });
+  }
+
+  function bboxOf(items) {
+    var b = { minLat: 90, maxLat: -90, minLon: 180, maxLon: -180 };
+    items.forEach(function (p) {
+      b.minLat = Math.min(b.minLat, p.lat); b.maxLat = Math.max(b.maxLat, p.lat);
+      b.minLon = Math.min(b.minLon, p.lon); b.maxLon = Math.max(b.maxLon, p.lon);
+    });
+    if (b.minLat === b.maxLat) { b.minLat -= 0.01; b.maxLat += 0.01; }
+    if (b.minLon === b.maxLon) { b.minLon -= 0.01; b.maxLon += 0.01; }
+    return b;
+  }
+
+  function bindSearchItems(items) {
+    $('#searchResults').querySelectorAll('[data-poi]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-poi');
+        var m = state.markers.filter(function (x) { return x.id === 'poi-' + id; })[0];
+        if (!m) return;
+        $('#searchCard').classList.remove('show-results');
+        map.flyTo(m.lat, m.lon, Math.max(map.view.zoom, 15));
+        selectMarker(m.id, true);
+      });
+    });
+  }
+
+  /* ============================================================
+     详情卡
+     ============================================================ */
+  function sheetShell(icon, title, sub, body, actions) {
+    return '<div class="msheet-head">' +
+      '<span class="msheet-ico"><i class="fa-solid ' + icon + '"></i></span>' +
+      '<div class="msheet-main"><div class="msheet-title">' + esc(title) + '</div>' +
+      (sub ? '<div class="msheet-sub">' + sub + '</div>' : '') + '</div>' +
+      '<button type="button" class="msheet-close" id="sheetClose" aria-label="关闭详情"><i class="fa-solid fa-xmark"></i></button>' +
+      '</div>' + body +
+      '<div class="msheet-acts">' + actions + '</div>';
+  }
+
+  function openSheet(html) {
+    var sheet = $('#detailSheet');
+    sheet.innerHTML = html;
+    sheet.classList.add('open');
+    var close = $('#sheetClose');
+    if (close) close.addEventListener('click', closeSheet);
+  }
+  function closeSheet() {
+    $('#detailSheet').classList.remove('open');
+    state.selected = null;
+    map.render();
+  }
+
+  function openPoiSheet(p) {
+    if (!p) return;
+    var rows = '';
+    if (p.address) rows += '<div class="msheet-row"><dt>地址</dt><dd>' + esc(p.address) + '</dd></div>';
+    if (p.type) rows += '<div class="msheet-row"><dt>类型</dt><dd>' + esc(p.type.replace(/;/g, ' · ')) + '</dd></div>';
+    if (p.tel) rows += '<div class="msheet-row"><dt>电话</dt><dd>' + esc(p.tel) + '</dd></div>';
+    rows += '<div class="msheet-row"><dt>坐标</dt><dd>' + fmtCoord(p.lat, p.lon) + ' · GCJ-02</dd></div>';
+    var html = sheetShell(poiIcon(p.type), p.name || '地点', esc(p.cityname || ''), '<div class="msheet-rows">' + rows + '</div>',
+      '<button type="button" class="ma-btn primary" data-act="route"><i class="fa-solid fa-route"></i>到这里去</button>' +
+      '<button type="button" class="ma-btn" data-act="copy"><i class="fa-solid fa-copy"></i>复制坐标</button>' +
+      '<button type="button" class="ma-btn" data-act="center"><i class="fa-solid fa-crosshairs"></i>居中</button>');
+    openSheet(html);
+    bindSheetActions({ lat: p.lat, lon: p.lon, name: p.name });
+  }
+
+  function openPinSheet(at, label) {
+    var body = '<div class="msheet-rows">' +
+      '<div class="msheet-row"><dt>坐标</dt><dd>' + fmtCoord(at.lat, at.lon) + ' · GCJ-02</dd></div>' +
+      '<div class="msheet-row" id="pinAddressRow"><dt>地址</dt><dd><span id="pinAddress">解析中…</span></dd></div>' +
+      '</div>';
+    var html = sheetShell('fa-location-dot', label || '地图选点', '你选中的位置', body,
+      '<button type="button" class="ma-btn primary" data-act="route"><i class="fa-solid fa-route"></i>到这里去</button>' +
+      '<button type="button" class="ma-btn" data-act="copy"><i class="fa-solid fa-copy"></i>复制坐标</button>' +
+      '<button type="button" class="ma-btn" data-act="center"><i class="fa-solid fa-crosshairs"></i>居中</button>');
+    openSheet(html);
+    bindSheetActions(at);
+    api('/regeo', { lat: at.lat, lon: at.lon }).then(function (d) {
+      var span = $('#pinAddress');
+      if (!span) return;
+      span.textContent = d.formattedAddress || '已定位，但没有返回地址';
+      var note = $('#pinNote');
+      if (note) note.remove();
+    }).catch(function (e) {
+      var span = $('#pinAddress');
+      if (!span) return;
+      span.innerHTML = '<span style="color:var(--text-3)">地址解析不可用</span>';
+      if (e.code === 'MAP_NO_KEY') {
+        state.keyState = false;
+        renderKeyHint();
+        var row = $('#pinAddressRow');
+        if (row && !$('#pinNote')) {
+          row.insertAdjacentHTML('afterend', '<div class="msheet-note" id="pinNote"><i class="fa-solid fa-triangle-exclamation"></i>未配置 AMAP_KEY，无法把坐标解析成地址；坐标本身是准确的。</div>');
+        }
+      } else {
+        var row2 = $('#pinAddressRow');
+        if (row2 && !$('#pinNote')) {
+          row2.insertAdjacentHTML('afterend', '<div class="msheet-note" id="pinNote"><i class="fa-solid fa-triangle-exclamation"></i>' + esc(e.message) + '</div>');
+        }
+      }
+    });
+  }
+
+  function openMeSheet(lat, lon) {
+    var html = sheetShell('fa-location-crosshairs', '我的位置', '浏览器定位 · WGS-84 转 GCJ-02',
+      '<div class="msheet-rows"><div class="msheet-row"><dt>坐标</dt><dd>' + fmtCoord(lat, lon) + ' · GCJ-02</dd></div></div>',
+      '<button type="button" class="ma-btn primary" data-act="route"><i class="fa-solid fa-route"></i>从这里出发</button>' +
+      '<button type="button" class="ma-btn" data-act="copy"><i class="fa-solid fa-copy"></i>复制坐标</button>' +
+      '<button type="button" class="ma-btn" data-act="center"><i class="fa-solid fa-crosshairs"></i>居中</button>');
+    openSheet(html);
+    bindSheetActions({ lat: lat, lon: lon, isMe: true });
+  }
+
+  function bindSheetActions(at) {
+    var sheet = $('#detailSheet');
+    sheet.querySelectorAll('[data-act]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var act = btn.getAttribute('data-act');
+        if (act === 'copy') {
+          copyText(fmtCoord(at.lat, at.lon)).then(function (ok) {
+            toast(ok ? '坐标已复制' : '复制失败，请手动选择坐标');
+          });
+        } else if (act === 'center') {
+          map.flyTo(at.lat, at.lon, Math.max(map.view.zoom, 15));
+          closeSheet();
+        } else if (act === 'route') {
+          if (at.isMe) {
+            state.origin = { lat: at.lat, lon: at.lon };
+            $('#routeFrom').value = fmtCoord(at.lat, at.lon);
+          } else {
+            state.dest = { lat: at.lat, lon: at.lon };
+            $('#routeTo').value = fmtCoord(at.lat, at.lon);
+          }
+          updateRouteForm();
+          shell.select('route');
+          closeSheet();
+        }
+      });
+    });
+  }
+
+  /* ============================================================
+     当前位置
+     ============================================================ */
+  function locateMe() {
+    if (!navigator.geolocation) {
+      toast('当前环境不支持定位，可在搜索框输入 纬度,经度');
+      return;
+    }
+    toast('正在获取当前位置…');
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      var at = toDisplay(pos.coords.longitude, pos.coords.latitude);
+      state.markers = state.markers.filter(function (m) { return m.kind !== 'me'; });
+      addMarker({ id: 'me', lat: at.lat, lon: at.lon, title: '我的位置', kind: 'me', icon: 'fa-location-crosshairs' });
+      selectMarker('me', false);
+      map.flyTo(at.lat, at.lon, 15);
+      openMeSheet(at.lat, at.lon);
+      var acc = pos.coords.accuracy;
+      toast('定位成功' + (acc ? '（精度约 ' + Math.round(acc) + ' 米）' : ''));
+    }, function (err) {
+      var msg = '无法获取当前位置';
+      if (err.code === 1) msg += '：定位权限被拒绝';
+      else if (err.code === 2) msg += '：暂时无法获取信号';
+      else if (err.code === 3) msg += '：请求超时';
+      toast(msg + '。可在搜索框输入 纬度,经度');
+    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+  }
+
+  /* ============================================================
+     路线
+     ============================================================ */
+  var PROFILES = {
+    driving: { key: 'driving', host: 'routed-car', path: 'driving', label: '驾车', icon: 'fa-car-side' },
+    foot: { key: 'foot', host: 'routed-foot', path: 'foot', label: '步行', icon: 'fa-person-walking' },
+    bike: { key: 'bike', host: 'routed-bike', path: 'bike', label: '骑行', icon: 'fa-bicycle' }
+  };
+
+  function syncRouteGo() {
+    var go = $('#routeGo');
+    if (!go) return;
+    go.disabled = !(state.origin && state.dest);
+  }
+
+  function updateRouteForm() {
+    var go = $('#routeGo');
+    if (!go) return;
+    go.disabled = !(state.origin && state.dest);
+    $('#routeFrom').value = state.origin ? fmtCoord(state.origin.lat, state.origin.lon) : '';
+    $('#routeTo').value = state.dest ? fmtCoord(state.dest.lat, state.dest.lon) : '';
+  }
+
+  function readRouteFields() {
+    var a = parseCoords($('#routeFrom').value);
+    var b = parseCoords($('#routeTo').value);
+    if (a) state.origin = a;
+    if (b) state.dest = b;
+    updateRouteForm();
+  }
+
+  function computeRoute() {
+    readRouteFields();
+    if (!state.origin || !state.dest) { toast('请先设置起点和终点，可用“地图选点”或输入坐标'); return; }
+    var p = PROFILES[state.profile];
+    var box = $('#routeResult');
+    box.classList.add('show');
+    showRouteEmpty(false);
+    box.innerHTML = '<div class="card-note"><i class="fa-solid fa-circle-notch fa-spin"></i> 正在规划' + p.label + '路线…</div>';
+    var a = fromDisplay(state.origin.lat, state.origin.lon);
+    var b = fromDisplay(state.dest.lat, state.dest.lon);
+    a = [a.lon, a.lat]; b = [b.lon, b.lat];
+    var url = 'https://routing.openstreetmap.de/' + p.host + '/route/v1/' + p.path + '/' +
+      a[0].toFixed(6) + ',' + a[1].toFixed(6) + ';' + b[0].toFixed(6) + ',' + b[1].toFixed(6) +
+      '?overview=full&geometries=geojson&steps=true';
+    fetch(url, { cache: 'no-store' }).then(function (res) { return res.json(); }).then(function (j) {
+      if (!j || j.code !== 'Ok' || !j.routes || !j.routes.length) {
+        throw new Error(j && j.code === 'NoRoute' ? '未找到可用路线：起点或终点可能不在道路上' : ('路线服务返回 ' + ((j && j.code) || '异常')));
+      }
+      var r = j.routes[0];
+      var coords = r.geometry.coordinates.map(function (c) {
+        return toDisplay(c[0], c[1]);
+      });
+      var steps = (r.legs[0].steps || []).map(function (s) {
+        return {
+          text: stepText(s),
+          name: s.name || '',
+          dist: s.distance || 0,
+          icon: stepIcon(s)
+        };
+      });
+      state.route = {
+        coords: coords,
+        distance: r.distance,
+        duration: r.duration,
+        profile: state.profile,
+        steps: steps,
+        bounds: bboxOfCoords(coords)
+      };
+      renderRouteResult();
+      showRouteOnMap();
+      toast('路线已绘制 · 数据来自 OSM/OSRM');
+    }).catch(function (e) {
+      box.innerHTML = '<div class="card-note" style="color:var(--text-2)"><i class="fa-solid fa-triangle-exclamation" style="color:var(--warn)"></i> ' +
+        esc(e.message || '路线规划失败') + '</div>' +
+        '<button type="button" class="field-btn" id="routeRetry" style="align-self:flex-start"><i class="fa-solid fa-rotate-right"></i>重试</button>';
+      var retry = $('#routeRetry');
+      if (retry) retry.addEventListener('click', computeRoute);
+    });
+  }
+
+  function bboxOfCoords(coords) {
+    var b = { minLat: 90, maxLat: -90, minLon: 180, maxLon: -180 };
+    coords.forEach(function (c) {
+      b.minLat = Math.min(b.minLat, c.lat); b.maxLat = Math.max(b.maxLat, c.lat);
+      b.minLon = Math.min(b.minLon, c.lon); b.maxLon = Math.max(b.maxLon, c.lon);
+    });
+    if (b.minLat === b.maxLat) { b.minLat -= 0.005; b.maxLat += 0.005; }
+    if (b.minLon === b.maxLon) { b.minLon -= 0.005; b.maxLon += 0.005; }
+    return b;
+  }
+
+  function stepText(s) {
+    var t = s.maneuver && s.maneuver.type, m = s.maneuver && s.maneuver.modifier;
+    if (t === 'depart') return '出发';
+    if (t === 'arrive') return '到达目的地';
+    if (t === 'turn') {
+      if (m === 'left') return '左转';
+      if (m === 'right') return '右转';
+      if (m === 'slight left') return '向左前方行驶';
+      if (m === 'slight right') return '向右前方行驶';
+      if (m === 'sharp left') return '急左转';
+      if (m === 'sharp right') return '急右转';
+      if (m === 'uturn') return '调头';
+      return '转向';
+    }
+    if (t === 'new name' || t === 'continue') return '继续直行';
+    if (t === 'end of road') return m === 'left' ? '路尽头左转' : '路尽头右转';
+    if (t === 'merge') return '汇入道路';
+    if (t === 'fork') return m && m.indexOf('left') >= 0 ? '走左侧分叉' : '走右侧分叉';
+    if (t === 'roundabout' || t === 'rotary') return '进入环岛';
+    if (t === 'exit roundabout' || t === 'exit rotary') return '驶出环岛';
+    return '继续行驶';
+  }
+  function stepIcon(s) {
+    var t = s.maneuver && s.maneuver.type, m = s.maneuver && s.maneuver.modifier;
+    if (t === 'arrive') return 'fa-flag-checkered';
+    if (t === 'depart') return 'fa-circle-dot';
+    if (t === 'roundabout' || t === 'rotary') return 'fa-arrows-rotate';
+    if (m && m.indexOf('left') >= 0) return 'fa-arrow-left-long';
+    if (m && m.indexOf('right') >= 0) return 'fa-arrow-right-long';
+    return 'fa-arrow-up-long';
+  }
+
+  function showRouteEmpty(on) {
+    var el = $('#routeEmpty');
+    if (el) el.style.display = on ? '' : 'none';
+  }
+
+  function renderRouteResult() {
+    var r = state.route;
+    var box = $('#routeResult');
+    if (!r) { box.classList.remove('show'); box.innerHTML = ''; showRouteEmpty(true); return; }
+    showRouteEmpty(false);
+    var p = PROFILES[r.profile];
+    var steps = r.steps.map(function (s) {
+      return '<div class="step"><i class="fa-solid ' + s.icon + '"></i>' +
+        '<div class="step-main">' + esc(s.text) +
+        (s.name ? '<div class="step-name">' + esc(s.name) + '</div>' : '') + '</div>' +
+        '<div class="step-dist">' + fmtDist(s.dist) + '</div></div>';
+    }).join('');
+    box.classList.add('show');
+    box.innerHTML = '<div class="rr-top"><span class="rr-dur">' + fmtDur(r.duration) + '</span>' +
+      '<span class="rr-dist">' + fmtDist(r.distance) + ' · ' + p.label + '</span>' +
+      '<span class="rr-badge">OSM / OSRM</span></div>' +
+      '<div class="card-note">路线为实测道路几何，已在绘制前从 WGS-84 转换到高德 GCJ-02。</div>' +
+      '<div class="steps">' + steps + '</div>' +
+      '<button type="button" class="go-btn" id="routeOnMap"><i class="fa-solid fa-map"></i>在地图上查看</button>';
+    var b = $('#routeOnMap');
+    if (b) b.addEventListener('click', function () { shell.select('map'); showRouteOnMap(); });
+  }
+
+  function showRouteOnMap() {
+    if (!state.route) return;
+    state.markers = state.markers.filter(function (m) { return m.kind === 'me'; });
+    addMarker({ id: 'route-from', lat: state.origin.lat, lon: state.origin.lon, title: '起点', kind: 'pin', icon: 'fa-circle-dot' });
+    addMarker({ id: 'route-to', lat: state.dest.lat, lon: state.dest.lon, title: '终点', kind: 'pin', icon: 'fa-flag-checkered' });
+    map.render();
+    map.fitBounds(state.route.bounds, 70);
+    renderRouteChip();
+  }
+
+  function renderRouteChip() {
+    var chip = $('#routeChip');
+    if (!state.route) { chip.classList.remove('open'); return; }
+    var p = PROFILES[state.route.profile];
+    chip.innerHTML = '<div class="rc-main"><div class="rc-big">' + fmtDur(state.route.duration) + '</div>' +
+      '<div class="rc-sub">' + fmtDist(state.route.distance) + ' · ' + p.label + '<span class="rc-src">OSM</span></div></div>' +
+      '<button type="button" class="rc-btn" id="routeChipClose">收起</button>';
+    chip.classList.add('open');
+    var b = $('#routeChipClose');
+    if (b) b.addEventListener('click', clearRoute);
+  }
+
+  function clearRoute() {
+    state.route = null;
+    state.markers = state.markers.filter(function (m) { return m.kind !== 'pin' || m.id !== 'route-from' && m.id !== 'route-to'; });
+    $('#routeChip').classList.remove('open');
+    var rr = $('#routeResult');
+    if (rr) { rr.classList.remove('show'); rr.innerHTML = ''; }
+    showRouteEmpty(true);
+    map.render();
+  }
+
+  /* ============================================================
+     选点模式
+     ============================================================ */
+  function startPick(mode) {
+    state.pickMode = mode;
+    shell.select('map');
+    $('#pickBar').classList.add('show');
+    $('#pickText').textContent = mode === 'origin' ? '点击地图选择起点' : '点击地图选择终点';
+  }
+  function hidePickBar() {
+    $('#pickBar').classList.remove('show');
+  }
+
+  /* ============================================================
+     UI 构建
+     ============================================================ */
+  function buildMapPanel() {
+    var panel = document.createElement('div');
+    panel.className = 'map-panel';
+    panel.innerHTML =
+      '<div class="map-stage" id="mapStage" tabindex="0" role="application" aria-label="地图，可拖动平移、双指缩放">' +
+        '<div class="map-tiles" id="tileLayer" data-kind="std"></div>' +
+        '<div class="map-tiles" id="labelLayer" data-kind="satpayload" style="display:none"></div>' +
+        '<svg class="map-route-svg" id="routeSvg" aria-hidden="true"><polyline class="route-casing" id="routeCasing"></polyline><polyline class="route-line" id="routeLine"></polyline></svg>' +
+        '<div class="map-markers" id="markerLayer"></div>' +
+        '<div class="map-loadchip" id="loadChip"><i class="fa-solid fa-circle-notch fa-spin"></i>正在加载底图…</div>' +
+        '<div class="map-fail" id="mapFail"><i class="fa-solid fa-triangle-exclamation"></i><h3>底图加载失败</h3><p>已尝试高德栅格与 OpenStreetMap。请检查网络后重试。</p><button type="button" class="ma-btn primary" id="mapRetry">重试</button></div>' +
+      '</div>' +
+      '<div class="map-search glass map-card" id="searchCard">' +
+        '<div class="ms-row"><i class="fa-solid fa-magnifying-glass"></i>' +
+          '<input class="ms-input" id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="搜索地点、地址，或输入 纬度,经度" aria-label="搜索地点">' +
+          '<button type="button" class="ms-go" id="searchBtn" aria-label="搜索"><i class="fa-solid fa-arrow-right-long"></i></button>' +
+        '</div>' +
+        '<div class="ms-hint" id="keyHint" style="display:none"></div>' +
+        '<div class="ms-results" id="searchResults"></div>' +
+      '</div>' +
+      '<div class="map-layers glass map-card" id="layerPill" role="group" aria-label="底图图层">' +
+        '<button type="button" class="ml-btn" data-layer="std" aria-pressed="true"><i class="fa-solid fa-map"></i><span>标准</span></button>' +
+        '<button type="button" class="ml-btn" data-layer="sat" aria-pressed="false"><i class="fa-solid fa-satellite"></i><span>卫星</span></button>' +
+        '<button type="button" class="ml-btn" data-layer="traffic" aria-disabled="true" title="当前不可用"><i class="fa-solid fa-traffic-light"></i><span>路况</span></button>' +
+      '</div>' +
+      '<div class="map-zoom glass map-card">' +
+        '<button type="button" class="mz-btn" id="zoomIn" aria-label="放大"><i class="fa-solid fa-plus"></i></button>' +
+        '<button type="button" class="mz-btn" id="zoomOut" aria-label="缩小"><i class="fa-solid fa-minus"></i></button>' +
+        '<button type="button" class="mz-btn" id="locateBtn" aria-label="定位到当前位置"><i class="fa-solid fa-location-crosshairs"></i></button>' +
+      '</div>' +
+      '<div class="map-scale"><span class="map-scale-bar" id="scaleBarBar"></span><span class="map-scale-txt" id="scaleBarTxt">—</span></div>' +
+      '<div class="map-attr" id="mapAttr">© 高德地图</div>' +
+      '<div class="map-routechip glass map-card" id="routeChip"></div>' +
+      '<div class="map-pickbar glass map-card" id="pickBar"><i class="fa-solid fa-crosshairs"></i><span id="pickText">点击地图选择位置</span><button type="button" id="pickCancel">取消</button></div>' +
+      '<div class="map-sheet glass map-card" id="detailSheet" role="dialog" aria-label="地点详情"></div>' +
+      '<div class="map-edge left" id="edgeLeft"></div>' +
+      '<div class="map-edge right" id="edgeRight"></div>' +
+      '<div class="map-toast" id="toast" role="status" aria-live="polite"></div>';
+    return panel;
+  }
+
+  function buildRoutePanel() {
+    var panel = document.createElement('div');
+    panel.className = 'page';
+    panel.innerHTML =
+      '<div class="page-head"><div><h1 class="page-title">路线</h1>' +
+        '<p class="page-desc">驾车 / 步行 / 骑行。起点终点可直接输入坐标，或从地图选点。</p></div></div>' +
+      '<div class="panel-card">' +
+        '<div class="route-field"><span class="route-dot"><span></span></span>' +
+          '<input class="route-input" id="routeFrom" placeholder="起点：纬度,经度" aria-label="起点">' +
+          '<button type="button" class="field-btn" id="pickFrom"><i class="fa-solid fa-crosshairs"></i>地图选点</button>' +
+        '</div>' +
+        '<div class="route-line-v"></div>' +
+        '<div class="route-field"><span class="route-dot end"><span></span></span>' +
+          '<input class="route-input" id="routeTo" placeholder="终点：纬度,经度" aria-label="终点">' +
+          '<button type="button" class="field-btn" id="pickTo"><i class="fa-solid fa-crosshairs"></i>地图选点</button>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;align-items:center">' +
+          '<button type="button" class="field-btn" id="useMe"><i class="fa-solid fa-location-crosshairs"></i>起点用当前位置</button>' +
+          '<button type="button" class="route-swap" id="swapRoute" aria-label="交换起点终点"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="panel-card">' +
+        '<div class="profiles" id="profiles" role="group" aria-label="出行方式">' +
+          '<button type="button" class="prof" data-p="driving" aria-pressed="true"><i class="fa-solid fa-car-side"></i>驾车</button>' +
+          '<button type="button" class="prof" data-p="foot" aria-pressed="false"><i class="fa-solid fa-person-walking"></i>步行</button>' +
+          '<button type="button" class="prof" data-p="bike" aria-pressed="false"><i class="fa-solid fa-bicycle"></i>骑行</button>' +
+        '</div>' +
+        '<button type="button" class="go-btn" id="routeGo" disabled><i class="fa-solid fa-route"></i>规划路线</button>' +
+        '<div class="card-note">路线计算走 OSM / OSRM 公共路由（免 key）。Worker 暂未暴露 <code>/api/map/route</code>，因此这里不冒充高德导航数据。</div>' +
+      '</div>' +
+      '<div class="panel-card route-empty" id="routeEmpty">' +
+        '<i class="fa-solid fa-route"></i>' +
+        '<strong>还没有路线</strong>' +
+        '<span>设置起点和终点后，距离、用时与分步指引会显示在这里。也可以先在地图上点选位置。</span>' +
+      '</div>' +
+      '<div class="panel-card route-result" id="routeResult"></div>';
+    return panel;
+  }
+
+  function buildApiPanel() {
+    var panel = document.createElement('div');
+    panel.className = 'page';
+    panel.id = 'apiPage';
+    panel.innerHTML = '<div class="page-head"><div><h1 class="page-title">接口与数据源</h1>' +
+      '<p class="page-desc">高德服务经 Worker 代理，key 只在服务端；页面里没有任何 key。</p></div>' +
+      '<button type="button" class="field-btn" id="apiRecheck"><i class="fa-solid fa-rotate-right"></i>重新检测</button></div>' +
+      '<div id="apiBody"></div>';
+    return panel;
+  }
+
+  function renderApiPanel() {
+    var host = $('#apiBody');
+    if (!host) return;
+    var configured = state.keyState;
+    var keyCard;
+    if (configured === true) {
+      keyCard = '<div class="panel-card"><div class="card-head"><i class="fa-solid fa-circle-check" style="color:var(--ok)"></i>AMAP_KEY 已配置</div>' +
+        '<div class="status-row"><span class="dot ok"></span>高德 Web 服务可用<span class="status-pill ok">已连接</span></div>' +
+        '<div class="card-note">地点搜索、地址解析、逆地理走 Worker 代理；key 不会出现在前端。</div></div>';
+    } else if (configured === false) {
+      keyCard = '<div class="panel-card warn-card"><div class="card-head"><i class="fa-solid fa-triangle-exclamation"></i>未配置 AMAP_KEY</div>' +
+        '<div class="status-row"><span class="dot warn"></span>Worker 返回 503 <code>MAP_NO_KEY</code><span class="status-pill warn">未连接</span></div>' +
+        '<div class="card-note">地点检索、地址解析、逆地理暂不可用。底图浏览、缩放拖动、地图选点、路线规划仍可用。配置命令：<code>wrangler secret put AMAP_KEY</code>，重新部署后生效。</div></div>';
+    } else if (configured === null && !state.keyMessage) {
+      keyCard = '<div class="panel-card"><div class="card-head"><i class="fa-solid fa-circle-notch fa-spin"></i>正在检测服务状态</div>' +
+        '<div class="status-row"><span class="dot"></span>正在请求 <code>/api/map/health</code><span class="status-pill">检测中</span></div></div>';
+    } else {
+      keyCard = '<div class="panel-card warn-card"><div class="card-head"><i class="fa-solid fa-triangle-exclamation"></i>无法连接 Worker</div>' +
+        '<div class="status-row"><span class="dot err"></span>' + esc(state.keyMessage || '网络异常') + '<span class="status-pill warn">离线</span></div>' +
+        '<div class="card-note">底图瓦片仍会直连；地点与路线服务需要网络。</div></div>';
+    }
+
+    host.innerHTML = keyCard +
+      '<div class="panel-card" style="margin-top:12px"><div class="card-head"><i class="fa-solid fa-plug-circle-bolt"></i>Worker 端点</div>' +
+        '<div class="ep-list">' +
+          '<div class="ep"><span class="ep-method">GET</span><div class="ep-main"><div class="ep-path">/api/map/health</div><div class="ep-desc">服务状态与限流余量，不需要 key。</div></div></div>' +
+          '<div class="ep"><span class="ep-method">GET</span><div class="ep-main"><div class="ep-path">/api/map/poi?keyword=&city=&size=</div><div class="ep-desc">地点检索，关键词 + 可选城市，最多 25 条。</div></div><span class="ep-need">需 key</span></div>' +
+          '<div class="ep"><span class="ep-method">GET</span><div class="ep-main"><div class="ep-path">/api/map/geocode?address=&city=</div><div class="ep-desc">结构化地址解析，返回经纬度与行政层级。</div></div><span class="ep-need">需 key</span></div>' +
+          '<div class="ep"><span class="ep-method">GET</span><div class="ep-main"><div class="ep-path">/api/map/regeo?lat=&lon=</div><div class="ep-desc">逆地理：坐标转格式化地址与周边 POI。</div></div><span class="ep-need">需 key</span></div>' +
+        '</div></div>' +
+      '<div class="panel-card" style="margin-top:12px"><div class="card-head"><i class="fa-solid fa-layer-group"></i>数据源与授权</div>' +
+        '<dl class="kv">' +
+          '<dt>底图</dt><dd>高德栅格瓦片（标准 / 卫星），页面不含 key；深浅色由主题即时转换。</dd>' +
+          '<dt>地点</dt><dd>高德 Web 服务 · 经 Worker 代理（<code>/api/map/*</code>）。</dd>' +
+          '<dt>路线</dt><dd>OSM / OSRM 公共路由，驾车 / 步行 / 骑行；绘制前转 GCJ-02。</dd>' +
+          '<dt>坐标系</dt><dd>高德 GCJ-02；OSM 为 WGS-84，双向转换在应用内完成。</dd>' +
+        '</dl></div>' +
+      '<div class="panel-card warn-card" style="margin-top:12px"><div class="card-head"><i class="fa-solid fa-traffic-light"></i>已知限制</div>' +
+        '<div class="card-note">路况图层需要高德交通瓦片服务（JS API 权限 + key），当前 Worker 未提供该能力，已停用并明确标注，不展示模拟路况。<br>路线不是高德导航数据；若后续 Worker 增加 <code>/api/map/route</code>，可一处切换。</div></div>';
+  }
+
+  /* ============================================================
+     浮层：图层、工具
+     ============================================================ */
+  function setLayer(layer) {
+    if (layer === 'traffic') {
+      toast('路况图层不可用：需要高德交通瓦片服务与 JS API key，当前 Worker 未提供');
+      return;
+    }
+    if (BASE_MODE === 'osm' && layer === 'sat') {
+      toast('OSM 降级模式暂不支持卫星底图');
+      return;
+    }
+    state.layer = layer;
+    $('#layerPill').querySelectorAll('[data-layer]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-layer') === layer));
+    });
+    $('.map-attr').textContent = BASE_MODE === 'osm'
+      ? '© OpenStreetMap contributors'
+      : (layer === 'sat' ? '© 高德地图 · 卫星影像' : '© 高德地图');
+    map.render();
+  }
+
+  var toastTimer = 0;
+  function toast(msg, type) {
+    var t = $('#toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2800);
+  }
+
+  function hideResults() {
+    $('#searchCard').classList.remove('show-results');
+  }
+
+  function bindMapUI() {
+    $('#searchBtn').addEventListener('click', doSearch);
+    $('#searchInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
+      if (e.key === 'Escape') { hideResults(); this.blur(); }
+    });
+    $('#zoomIn').addEventListener('click', function () { map.zoomBy(1); });
+    $('#zoomOut').addEventListener('click', function () { map.zoomBy(-1); });
+    $('#locateBtn').addEventListener('click', locateMe);
+    $('#layerPill').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-layer]');
+      if (!b) return;
+      setLayer(b.getAttribute('data-layer'));
+    });
+    $('#mapRetry').addEventListener('click', function () { map.retry(); });
+    $('#pickCancel').addEventListener('click', function () {
+      state.pickMode = null;
+      hidePickBar();
+      shell.select('route');
+    });
+    $('#detailSheet').addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeSheet();
+    });
+  }
+
+  function bindRouteUI() {
+    $('#pickFrom').addEventListener('click', function () { startPick('origin'); });
+    $('#pickTo').addEventListener('click', function () { startPick('dest'); });
+    /* 输入期间只更新按钮状态，不回写输入框，避免边打字边被格式化清空 */
+    $('#routeFrom').addEventListener('input', function () {
+      var c = parseCoords(this.value);
+      state.origin = c || null;
+      syncRouteGo();
+    });
+    $('#routeTo').addEventListener('input', function () {
+      var c = parseCoords(this.value);
+      state.dest = c || null;
+      syncRouteGo();
+    });
+    $('#routeFrom').addEventListener('change', function () {
+      var c = parseCoords(this.value);
+      if (c) state.origin = c; else if (this.value.trim()) toast('起点格式应为 纬度,经度');
+      updateRouteForm();
+    });
+    $('#routeTo').addEventListener('change', function () {
+      var c = parseCoords(this.value);
+      if (c) state.dest = c; else if (this.value.trim()) toast('终点格式应为 纬度,经度');
+      updateRouteForm();
+    });
+    $('#swapRoute').addEventListener('click', function () {
+      var a = state.origin;
+      state.origin = state.dest;
+      state.dest = a;
+      updateRouteForm();
+    });
+    $('#useMe').addEventListener('click', function () {
+      if (!navigator.geolocation) { toast('当前环境不支持定位'); return; }
+      toast('正在获取当前位置…');
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        state.origin = toDisplay(pos.coords.longitude, pos.coords.latitude);
+        updateRouteForm();
+        toast('起点已设为当前位置');
+      }, function () { toast('无法获取当前位置，请用地图选点'); }, { enableHighAccuracy: true, timeout: 10000 });
+    });
+    $('#profiles').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-p]');
+      if (!b) return;
+      state.profile = b.getAttribute('data-p');
+      $('#profiles').querySelectorAll('[data-p]').forEach(function (x) {
+        x.setAttribute('aria-pressed', String(x.getAttribute('data-p') === state.profile));
+      });
+      if (state.route) computeRoute();
+    });
+    $('#routeGo').addEventListener('click', computeRoute);
+    var recheck = $('#apiRecheck');
+    if (recheck) recheck.addEventListener('click', function () { toast('正在检测…'); checkHealth(); });
+  }
+
+  /* ============================================================
+     启动
+     ============================================================ */
+  function boot() {
+    applyForcedTheme();
+
+    shell = N26UI.createShell(document.getElementById('app'), {
+      ariaLabel: '地图应用导航',
+      defaultId: 'map',
+      sidebar: [
+        { id: 'map', icon: 'fa-map-location-dot', label: '地图', render: buildMapPanel },
+        { id: 'route', icon: 'fa-route', label: '路线', render: buildRoutePanel },
+        { id: 'api', icon: 'fa-plug-circle-bolt', label: '接口', render: buildApiPanel }
+      ],
+      onSelect: function (id) {
+        if (id !== 'map') closeSheet();
+        if (id === 'api') renderApiPanel();
+      }
+    });
+
+    map = createMap($('#mapStage'));
+    bindMapUI();
+    bindRouteUI();
+
+    updateRouteForm();
+    checkHealth();
+    map.render();
+
+    /* 外部唤起：?pin=纬度,经度&label=名称&tab=map|route|api */
+    try {
+      var q = new URLSearchParams(location.search);
+      var tab = q.get('tab');
+      if (tab === 'route' || tab === 'api' || tab === 'map') {
+        shell.select(tab);
+        /* 启动直达不播放入场轻推动画：直接落到全不透明，避免首帧半透明 */
+        document.querySelectorAll('.n26ui-panel.n26ui-nudge-down, .n26ui-panel.n26ui-nudge-up')
+          .forEach(function (p) { p.classList.remove('n26ui-nudge-down', 'n26ui-nudge-up'); });
+      }
+      var pin = q.get('pin');
+      if (pin) {
+        var c = parseCoords(pin);
+        if (c) {
+          setTimeout(function () {
+            addMarker({ id: 'pin-url', lat: c.lat, lon: c.lon, title: q.get('label') || '外部位置', kind: 'pin', icon: 'fa-location-dot' });
+            selectMarker('pin-url', true);
+            map.flyTo(c.lat, c.lon, 15);
+          }, 600);
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    /* 供调试/自动化使用，不参与业务 */
+    window.MapApp = {
+      flyTo: function (lat, lon, z) { map.flyTo(lat, lon, z); },
+      search: function (kw) { $('#searchInput').value = kw; doSearch(); },
+      setLayer: setLayer,
+      stats: function () { return { markers: state.markers.length, route: !!state.route, key: state.keyState }; }
+    };
+  }
+
+  readForcedTheme();
+  applyShotMode();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+
+  if (window.Nexus && Nexus.ready) {
+    Nexus.ready(function () { applyForcedTheme(); });
+  }
+  window.addEventListener('nexus:theme', function () { applyForcedTheme(); });
+})();
+</script>
+</body>
+</html>

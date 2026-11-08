@@ -286,6 +286,8 @@ body.dark-mode .ag-side-item.active { background: rgba(59,130,246,0.22); color: 
 /* 配置浮层不能参与 grid 布局 */
 .ag-cfg { position: fixed !important; }
 </style>
+<link rel="stylesheet" href="../ui/n26-docknav.css?v=2965">
+<script src="../ui/n26-docknav.js?v=2965"></script>
 </head>
 <body>
 <div class="ag-wrap">
@@ -295,7 +297,7 @@ body.dark-mode .ag-side-item.active { background: rgba(59,130,246,0.22); color: 
             <span>FangClaw</span>
         </div>
         <button class="ag-side-new"><i class="fas fa-plus"></i> 新建任务</button>
-        <nav class="ag-side-nav">
+        <nav class="ag-side-nav" data-n26dock="v">
             <div class="ag-side-item active"><i class="fas fa-comment-dots"></i> 助理</div>
             <div class="ag-side-item"><i class="fas fa-user-tie"></i> 专家 · 技能 · 连接器</div>
             <div class="ag-side-item"><i class="fas fa-clock"></i> 定时任务</div>

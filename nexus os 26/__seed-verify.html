@@ -1,0 +1,14 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>seed</title></head>
+<body>
+<script>
+try {
+  localStorage.setItem('nexus_installed', 'true');
+  localStorage.setItem('installed', 'true');
+  var theme = location.hash === '#dark' ? 'dark' : 'light';
+  localStorage.setItem('theme', theme);
+  var app = 'browser';
+  location.replace('Nexus OS 26.html?app=' + app + (theme === 'dark' ? '&theme=dark' : '&theme=light'));
+} catch (e) { document.body.textContent = String(e); }
+</script>
+</body></html>

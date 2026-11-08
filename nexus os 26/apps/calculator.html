@@ -5,795 +5,2349 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>计算器</title>
 <link rel="stylesheet" href="../ui/tokens.css">
-<link rel="stylesheet" href="../ui/glass.css">
+<script>
+  /* 独立打开时的预览支持：?theme=dark / ?mode=scientific|convert
+     宿主内运行时这两个参数都不存在，逻辑完全不受影响。 */
+  (function () {
+    try {
+      if (window.parent === window) document.documentElement.classList.add('standalone');
+      var q = new URLSearchParams(location.search);
+      if (q.get('theme') === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {}
+  })();
+</script>
 <style>
   /* ============================================================
-     计算器 · 320×480 窗口内的紧凑排版
-     设计口径：数字键浅灰、功能键暖橙、运算符深色、等号主色。
-     所有读数走 tabular-nums，按键有按下回弹，长算式自动缩字号。
+     计算器 · Nexus OS 26 深度改造
+     布局：顶栏（模式分段）/ 显示区（表达式 + 大结果）/ 键盘 / 历史浮层
+     颜色与时长全部走 ui/tokens.css；深色由 data-mode、data-theme、
+     body.dark-mode 任意一种触发（宿主与独立预览都成立）。
      ============================================================ */
-  html, body { height: 100%; margin: 0; font-family: var(--font-sans); }
-  body { background: transparent; overflow: hidden; }
-  #app { height: 100%; }
+  :root {
+    /* 数字字体：显式锁定系统无衬线（Latin 优先 Segoe UI / SF），
+       避免中文字体回退带来的衬线感，深浅色字形完全一致。 */
+    --calc-num-font: "Segoe UI Variable Text", "Segoe UI", -apple-system, "SF Pro Text",
+      "Helvetica Neue", Arial, sans-serif;
+    /* 计算器品牌色：橙色（系统应用图标同为 #f59e0b 色相）。
+       本轮硬规则：强调色按应用品牌走，不再统一用系统蓝。 */
+    --calc-accent: hsl(38 92% 50%);
+    --calc-accent-ink: hsl(27 84% 38%);
+    --calc-accent-strong: hsl(24 85% 42%);
+    --calc-accent-ink-on-strong: rgb(255 255 255);
+    --calc-surface: rgba(255, 255, 255, 0.66);
+    --calc-surface-2: rgba(255, 255, 255, 0.80);
+    --calc-track: rgba(15, 23, 42, 0.055);
+    --calc-hairline: rgba(15, 23, 42, 0.08);
+    --calc-ink: var(--text-1);
+    --calc-ink-2: var(--text-2);
+    --calc-ink-3: var(--text-3);
+    --key-num: rgba(255, 255, 255, 0.94);
+    --key-num-hover: rgba(255, 255, 255, 1);
+    /* 浅色键面靠描边分界，不靠投影：0.15 的中性发丝边在 280px 下仍可辨 */
+    --key-num-bd: rgba(15, 23, 42, 0.15);
+    --key-fn: rgba(15, 23, 42, 0.055);
+    --key-fn-hover: rgba(15, 23, 42, 0.095);
+    --key-fn-bd: rgba(15, 23, 42, 0.075);
+    --key-op: color-mix(in srgb, var(--calc-accent) 16%, transparent);
+    --key-op-hover: color-mix(in srgb, var(--calc-accent) 24%, transparent);
+    --key-op-ink: var(--calc-accent-ink);
+    --key-eq: var(--calc-accent-strong);
+    --key-eq-hover: hsl(24 88% 36%);
+    --key-eq-ink: var(--calc-accent-ink-on-strong);
+    --key-shadow: 0 1px 1px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    --calc-shadow: var(--sh-card);
+    --hist-bg: rgba(250, 252, 255, 0.94);
+    --toast-bg: rgba(255, 255, 255, 0.92);
+    --accent-soft: color-mix(in srgb, var(--calc-accent) 12%, transparent);
+    --bg-fallback: rgb(240, 243, 248);
+    color-scheme: light;
+  }
+  html[data-mode="dark"],
+  html[data-theme="dark"],
+  body.dark-mode {
+    --calc-accent: hsl(36 96% 58%);
+    --calc-accent-ink: hsl(36 96% 66%);
+    --calc-accent-strong: hsl(32 92% 56%);
+    --calc-accent-ink-on-strong: hsl(26 60% 12%);
+    --calc-surface: rgba(255, 255, 255, 0.055);
+    --calc-surface-2: rgba(255, 255, 255, 0.08);
+    --calc-track: rgba(255, 255, 255, 0.075);
+    --calc-hairline: rgba(255, 255, 255, 0.10);
+    --calc-ink: rgba(240, 244, 252, 0.96);
+    --calc-ink-2: rgba(226, 232, 240, 0.70);
+    --calc-ink-3: rgba(203, 213, 225, 0.48);
+    --key-num: rgba(255, 255, 255, 0.085);
+    --key-num-hover: rgba(255, 255, 255, 0.14);
+    --key-num-bd: rgba(255, 255, 255, 0.085);
+    --key-fn: rgba(255, 255, 255, 0.045);
+    --key-fn-hover: rgba(255, 255, 255, 0.10);
+    --key-fn-bd: rgba(255, 255, 255, 0.07);
+    /* 深色下不用橙色淡底（叠在深蓝底上会发褐），改为中性底 + 橙色字，
+       橙色只出现在按下态与等号键，层次更干净。 */
+    --key-op: rgba(255, 255, 255, 0.06);
+    --key-op-hover: rgba(255, 255, 255, 0.12);
+    --key-op-ink: var(--calc-accent-ink);
+    --key-eq: var(--calc-accent-strong);
+    --key-eq-hover: hsl(32 96% 64%);
+    --key-eq-ink: var(--calc-accent-ink-on-strong);
+    --key-shadow: 0 1px 1px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    --calc-shadow: 0 1px 2px rgba(0, 0, 0, 0.30);
+    --hist-bg: rgba(24, 28, 38, 0.94);
+    --toast-bg: rgba(34, 39, 51, 0.94);
+    --accent-soft: color-mix(in srgb, var(--calc-accent) 14%, transparent);
+    --bg-fallback: rgb(20, 24, 34);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: transparent;
+    overflow: hidden;
+    font-family: var(--font-sans);
+    color: var(--calc-ink);
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  html.standalone body { background: var(--bg-fallback); }
+  button { font-family: inherit; font-variant-numeric: tabular-nums; }
 
   .calc {
-    --k-num-bg: #FFFFFF;
-    --k-num-bd: rgba(16, 24, 40, 0.07);
-    --k-num-ink: #1B2230;
-    --k-fn-bg: rgba(245, 158, 11, 0.14);
-    --k-fn-bd: rgba(245, 158, 11, 0.20);
-    --k-fn-ink: #B45309;
-    --k-op-bg: #2E3440;
-    --k-op-ink: #FFFFFF;
-    --k-shadow: 0 1px 2px rgba(16, 24, 40, 0.07);
-    --ink-2: rgba(27, 34, 48, 0.52);
-
     height: 100%;
-    box-sizing: border-box;
-    padding: 6px 12px 12px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    color: #1B2230;
-    user-select: none;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3) var(--sp-3);
     position: relative;
     overflow: hidden;
-  }
-  body.dark-mode .calc {
-    --k-num-bg: rgba(255, 255, 255, 0.075);
-    --k-num-bd: rgba(255, 255, 255, 0.06);
-    --k-num-ink: #F2F5FA;
-    --k-fn-bg: rgba(245, 158, 11, 0.20);
-    --k-fn-bd: rgba(245, 158, 11, 0.26);
-    --k-fn-ink: #FBBF24;
-    --k-op-bg: rgba(255, 255, 255, 0.15);
-    --k-op-ink: #FFFFFF;
-    --k-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-    --ink-2: rgba(232, 238, 248, 0.55);
-    color: #F2F5FA;
+    min-height: 0;
   }
 
-  /* ── 顶部工具条 ───────────────────────────────────────── */
-  .calc-tools {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 24px;
-    flex-shrink: 0;
+  /* ── 顶栏：模式分段 + 历史 ─────────────────────────────── */
+  .calc-top { flex: 0 0 auto; display: flex; align-items: center; gap: var(--sp-2); height: 28px; }
+  .seg {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    flex: 1 1 auto;
+    max-width: 264px;
+    height: 28px;
+    padding: 2px;
+    border-radius: var(--r-sm);
+    background: var(--calc-track);
+    border: 1px solid var(--calc-hairline);
   }
-  .calc-tool {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    height: 24px;
-    padding: 0 8px;
+  .seg-ind {
+    position: absolute;
+    top: 2px; left: 2px; bottom: 2px;
+    width: calc((100% - 4px) / 3);
+    border-radius: calc(var(--r-sm) - 3px);
+    background: var(--calc-surface-2);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    transform: translateX(calc(var(--i, 0) * 100%));
+    transition: transform var(--dur-fast) var(--ease-out-expo);
+    pointer-events: none;
+  }
+  body.dark-mode .seg-ind,
+  html[data-mode="dark"] .seg-ind,
+  html[data-theme="dark"] .seg-ind { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.10); }
+  .seg-btn {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0 2px;
     border: none;
-    border-radius: 8px;
     background: transparent;
-    color: var(--ink-2);
-    font-size: 11.5px;
+    color: var(--calc-ink-2);
+    font-size: var(--fs-12);
     font-weight: 600;
+    letter-spacing: 0.1px;
     cursor: pointer;
-    transition: background-color 0.15s var(--ease-out-quart), color 0.15s var(--ease-out-quart);
+    border-radius: calc(var(--r-sm) - 3px);
+    transition: color var(--dur-fast) var(--ease-out-expo);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .calc-tool:hover { background: rgba(16, 24, 40, 0.06); color: #1B2230; }
-  body.dark-mode .calc-tool:hover { background: rgba(255, 255, 255, 0.10); color: #FFFFFF; }
-  .calc-tool i { font-size: 11px; }
+  .seg-btn[aria-selected="true"] { color: var(--calc-accent-ink); }
+  .seg-btn:hover { color: var(--calc-accent-ink); }
+  .icon-btn {
+    flex: 0 0 auto;
+    width: 28px; height: 28px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid transparent;
+    border-radius: var(--r-xs);
+    background: transparent;
+    color: var(--calc-ink-2);
+    font-size: 13px;
+    cursor: pointer;
+    position: relative;
+    transition: background-color var(--dur-instant) var(--ease-out-expo), color var(--dur-instant) var(--ease-out-expo);
+  }
+  .icon-btn:hover { background: var(--calc-track); color: var(--calc-ink); }
+  .icon-btn[aria-expanded="true"] { background: var(--accent-soft); color: var(--calc-accent-ink); }
+  .hist-dot {
+    position: absolute;
+    top: 4px; right: 4px;
+    width: 5px; height: 5px;
+    border-radius: var(--r-full);
+    background: var(--calc-accent);
+    opacity: 0;
+    scale: 0.4;
+    transition: opacity var(--dur-fast) var(--ease-out-expo), scale var(--dur-fast) var(--ease-spring);
+  }
+  .hist-dot.on { opacity: 1; scale: 1; }
+
+  /* ── 主区 ─────────────────────────────────────────────── */
+  .calc-main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+  .calc-view { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+  .calc-view[hidden] { display: none; }
 
   /* ── 显示区 ───────────────────────────────────────────── */
-  .calc-screen {
-    flex: 0 1 96px;
-    min-height: 56px;
+  .display {
+    flex: 0 1 112px;
+    min-height: 72px;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    align-items: flex-end;
     gap: 2px;
-    padding: 0 4px 6px;
+    padding: var(--sp-2) var(--sp-3) var(--sp-2);
+    border-radius: var(--r-md);
+    border: 1px solid var(--calc-hairline);
+    background: var(--calc-surface);
+    box-shadow: var(--calc-shadow);
     overflow: hidden;
   }
-  .calc-expr {
-    width: 100%;
+  .display-top {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: 16px;
+    flex: 0 0 auto;
+  }
+  .angle-chip {
+    flex: 0 0 auto;
+    height: 17px;
+    padding: 0 6px;
+    border: 1px solid var(--calc-hairline);
+    border-radius: var(--r-xs);
+    background: transparent;
+    color: var(--calc-ink-3);
+    font-size: var(--fs-11);
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    cursor: pointer;
+    transition: color var(--dur-instant) var(--ease-out-expo), background-color var(--dur-instant) var(--ease-out-expo);
+  }
+  .angle-chip:hover { color: var(--calc-accent-ink); background: var(--accent-soft); }
+  .angle-chip[data-unit="rad"] { color: var(--calc-accent-ink); border-color: color-mix(in srgb, var(--calc-accent) 40%, transparent); }
+  .display-sub {
+    flex: 1 1 auto;
+    min-width: 0;
     text-align: right;
-    font-size: 12.5px;
-    font-weight: 500;
-    color: var(--ink-2);
+    font-family: var(--calc-num-font);
+    font-size: var(--fs-12);
+    line-height: 1.3;
+    color: var(--calc-ink-2);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-height: 17px;
-    transition: opacity 0.18s var(--ease-out-quart);
+    min-height: 16px;
   }
-  .calc-expr:empty { opacity: 0; }
-  .calc-value {
+  .display-value {
     width: 100%;
     text-align: right;
-    font-size: 44px;
-    font-weight: 300;
-    letter-spacing: -0.5px;
-    line-height: 1.12;
+    font-family: var(--calc-num-font);
+    font-size: 46px;
+    font-weight: 400;
+    line-height: 1.04;
+    letter-spacing: -0.6px;
+    color: var(--calc-ink);
     font-variant-numeric: tabular-nums;
-    font-feature-settings: "tnum" 1;
+    font-feature-settings: "tnum" 1, "lnum" 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: clip;
     cursor: pointer;
-    transition: font-size 0.16s var(--ease-out-quart), opacity 0.16s var(--ease-out-quart);
+    transition: color var(--dur-fast) var(--ease-out-expo);
   }
-  .calc-value.sz2 { font-size: 34px; }
-  .calc-value.sz3 { font-size: 27px; }
-  .calc-value.sz4 { font-size: 21px; }
-  .calc-value.is-error { color: #E0533D; font-size: 26px; font-weight: 500; cursor: default; }
-  body.dark-mode .calc-value.is-error { color: #FF8A75; }
-  /* 出结果的一瞬间轻微下沉，像真机屏幕刷新 */
-  .calc-value.pulse { animation: calcPulse 0.26s var(--ease-out-quart); }
-  @keyframes calcPulse {
-    0% { opacity: 0.35; translate: 0 3px; }
-    100% { opacity: 1; translate: 0 0; }
+  .display-value.sz2 { font-size: 38px; }
+  .display-value.sz3 { font-size: 31px; }
+  .display-value.sz4 { font-size: 25px; }
+  .display-value.sz5 { font-size: 20px; }
+  .display-value.sz6 { font-size: 16px; letter-spacing: 0; }
+  .display-value.is-error {
+    color: var(--danger);
+    font-size: 17px;
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1.3;
+    white-space: normal;
+    cursor: default;
+    text-align: right;
+  }
+  .display-hint {
+    min-height: 13px;
+    text-align: right;
+    font-size: var(--fs-11);
+    line-height: 1.2;
+    color: var(--calc-ink-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-out-expo);
+  }
+  .display-hint.show { opacity: 1; }
+  .display-value.settle { animation: calcSettle var(--dur-fast) var(--ease-out-expo); }
+  @keyframes calcSettle {
+    from { opacity: 0.4; translate: 0 4px; }
+    to { opacity: 1; translate: 0 0; }
+  }
+  .display.shake { animation: calcShake 160ms var(--ease-out-expo); }
+  @keyframes calcShake {
+    0%, 100% { translate: 0 0; }
+    25% { translate: -3px 0; }
+    60% { translate: 3px 0; }
   }
 
   /* ── 键盘 ─────────────────────────────────────────────── */
-  .calc-grid {
+  .keys { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+  .sci-bank {
+    flex: 0 0 auto;
+    height: 62px;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .sci-bank[hidden] { display: none; }
+  .keypad {
     flex: 1 1 auto;
     min-height: 0;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(5, minmax(30px, 1fr));
-    gap: 7px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(5, minmax(0, 1fr));
+    gap: 6px;
   }
-  .calc-btn {
+  .key {
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--k-num-bd);
-    border-radius: 14px;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    border: 1px solid var(--key-num-bd);
+    border-radius: var(--r-sm);
+    background: var(--key-num);
+    color: var(--calc-ink);
+    font-family: var(--calc-num-font);
     font-size: 20px;
-    font-weight: 400;
-    font-family: var(--font-sans);
+    font-weight: 500;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    box-shadow: var(--key-shadow);
     cursor: pointer;
-    box-shadow: var(--k-shadow);
-    transition: background-color 0.14s var(--ease-out-quart),
-      box-shadow 0.14s var(--ease-out-quart),
-      color 0.14s var(--ease-out-quart),
-      scale 0.12s var(--ease-out-quart);
+    user-select: none;
     -webkit-tap-highlight-color: transparent;
+    transition: background-color var(--dur-instant) var(--ease-out-expo),
+      color var(--dur-instant) var(--ease-out-expo),
+      border-color var(--dur-instant) var(--ease-out-expo),
+      scale var(--dur-instant) var(--ease-out-expo),
+      box-shadow var(--dur-instant) var(--ease-out-expo);
   }
-  .calc-btn:active { scale: 0.955; }
-  .calc-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-
-  .calc-btn.num {
-    background: var(--k-num-bg);
-    color: var(--k-num-ink);
-    font-size: 21px;
-  }
-  .calc-btn.num:hover { background: #F3F6FC; }
-  body.dark-mode .calc-btn.num:hover { background: rgba(255, 255, 255, 0.13); }
-
-  .calc-btn.func {
-    background: var(--k-fn-bg);
-    border-color: var(--k-fn-bd);
-    color: var(--k-fn-ink);
-    font-size: 17px;
+  .key i { font-size: 15px; }
+  .key.num { font-size: 21px; }
+  .key.num:hover { background: var(--key-num-hover); }
+  .key.fn {
+    background: var(--key-fn);
+    border-color: var(--key-fn-bd);
+    color: var(--calc-ink-2);
+    font-size: 16px;
     font-weight: 600;
   }
-  .calc-btn.func:hover { background: rgba(245, 158, 11, 0.22); }
-  body.dark-mode .calc-btn.func:hover { background: rgba(245, 158, 11, 0.30); }
-
-  .calc-btn.op {
-    background: var(--k-op-bg);
+  .key.fn:hover { background: var(--key-fn-hover); color: var(--calc-ink); }
+  .key.op {
+    background: var(--key-op);
     border-color: transparent;
-    color: var(--k-op-ink);
+    color: var(--key-op-ink);
     font-size: 21px;
-    font-weight: 500;
+    font-weight: 600;
   }
-  .calc-btn.op:hover { filter: brightness(1.12); }
-
-  .calc-btn.eq {
-    background: linear-gradient(180deg, #5AA9FF 0%, #3B82F6 100%);
+  .key.op:hover { background: var(--key-op-hover); }
+  .key.eq {
+    background: var(--key-eq);
     border-color: transparent;
-    color: #FFFFFF;
+    color: var(--key-eq-ink);
     font-size: 23px;
     font-weight: 600;
-    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--calc-accent) 38%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.28);
   }
-  .calc-btn.eq:hover { filter: brightness(1.06); }
-  .calc-btn.eq:active { box-shadow: 0 1px 3px rgba(59, 130, 246, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3); }
+  .key.eq:hover { background: var(--key-eq-hover); }
+  .key.sci {
+    background: var(--key-fn);
+    border-color: transparent;
+    color: var(--calc-ink-2);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.1px;
+  }
+  .key.sci:hover { background: var(--key-fn-hover); color: var(--calc-ink); }
 
-  /* ── 历史记录：压在屏幕上方的薄面板，不挤压键盘 ─────────── */
-  .calc-history {
-    position: absolute;
-    left: 12px; right: 12px;
-    top: 36px; bottom: 12px;
-    z-index: 5;
+  /* 按下即到底：只用 scale + 底色，90ms 完成，不做回弹拖尾 */
+  .key:active,
+  .key.is-hit { scale: 0.94; }
+  .key.num:active, .key.num.is-hit,
+  .key.fn:active, .key.fn.is-hit,
+  .key.sci:active, .key.sci.is-hit { background: var(--key-num-hover); }
+  .key.op:active, .key.op.is-hit {
+    background: var(--calc-accent-strong);
+    color: var(--calc-accent-ink-on-strong);
+  }
+  .key.eq:active, .key.eq.is-hit {
+    background: var(--key-eq-hover);
+    box-shadow: 0 1px 3px color-mix(in srgb, var(--calc-accent) 36%, transparent);
+  }
+
+  /* ── 单位换算 ─────────────────────────────────────────── */
+  .conv {
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    padding: 8px;
-    border-radius: 14px;
-    background: rgba(252, 253, 255, 0.97);
-    border: 1px solid rgba(16, 24, 40, 0.07);
-    box-shadow: 0 12px 32px rgba(16, 24, 40, 0.16);
-    -webkit-backdrop-filter: blur(18px) saturate(160%);
-    backdrop-filter: blur(18px) saturate(160%);
-    opacity: 0;
-    translate: 0 -6px;
-    pointer-events: none;
-    transition: opacity 0.18s var(--ease-out-quart), translate 0.18s var(--ease-out-quart);
-  }
-  body.dark-mode .calc-history {
-    background: rgba(34, 37, 48, 0.97);
-    border-color: rgba(255, 255, 255, 0.09);
-  }
-  .calc-history.show { opacity: 1; translate: 0 0; pointer-events: auto; }
-  .calc-history-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 4px 6px;
-    font-size: 11.5px;
-    font-weight: 700;
-    color: var(--ink-2);
-    letter-spacing: 0.4px;
-    flex-shrink: 0;
-  }
-  .calc-history-clear {
-    border: none; background: transparent; cursor: pointer;
-    font-size: 11.5px; font-weight: 600; color: #B45309;
-    padding: 2px 6px; border-radius: 6px;
-    transition: background-color 0.15s var(--ease-out-quart);
-  }
-  .calc-history-clear:hover { background: rgba(245, 158, 11, 0.16); }
-  .calc-history-list {
-    flex: 1;
+    gap: var(--sp-2);
     overflow-y: auto;
+    padding-right: 2px;
+  }
+  .conv[hidden] { display: none; }
+  .conv-main {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .conv-pad {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: 36px;
+    gap: 6px;
+    margin-top: auto;
+  }
+  .ck {
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    padding: 0;
+    border: 1px solid var(--key-num-bd);
+    border-radius: var(--r-sm);
+    background: var(--key-num);
+    color: var(--calc-ink);
+    font-family: var(--calc-num-font);
+    font-size: 19px;
+    font-weight: 500;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    box-shadow: var(--key-shadow);
+    cursor: pointer;
+    transition: background-color var(--dur-instant) var(--ease-out-expo),
+      color var(--dur-instant) var(--ease-out-expo), scale var(--dur-instant) var(--ease-out-expo);
+  }
+  .ck:hover { background: var(--key-num-hover); }
+  .ck:active { background: var(--key-num-hover); scale: 0.94; }
+  .ck.fn { background: var(--key-fn); border-color: var(--key-fn-bd); color: var(--calc-ink-2); font-size: 14px; }
+  .ck.fn:hover, .ck.fn:active { background: var(--key-fn-hover); color: var(--calc-ink); }
+  .ck i { font-size: 14px; }
+  .cat-row {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 14px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 14px), transparent);
+  }
+  .cat-row::-webkit-scrollbar { display: none; }
+  .cat {
+    flex: 0 0 auto;
+    height: 26px;
+    padding: 0 10px;
+    border: 1px solid var(--calc-hairline);
+    border-radius: var(--r-full);
+    background: transparent;
+    color: var(--calc-ink-2);
+    font-size: var(--fs-12);
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color var(--dur-fast) var(--ease-out-expo),
+      color var(--dur-fast) var(--ease-out-expo), border-color var(--dur-fast) var(--ease-out-expo);
+  }
+  .cat:hover { color: var(--calc-ink); border-color: var(--calc-hairline); }
+  .cat[aria-selected="true"] {
+    background: var(--accent-soft);
+    border-color: transparent;
+    color: var(--calc-accent-ink);
+    font-weight: 600;
+  }
+  .conv-card {
+    flex: 0 0 auto;
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding-right: 2px;
+    padding: 7px 12px 9px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--calc-hairline);
+    background: var(--calc-surface);
+    box-shadow: var(--calc-shadow);
   }
-  .calc-history-item {
-    padding: 7px 8px;
-    border-radius: 9px;
+  .conv-head { display: flex; align-items: center; justify-content: space-between; min-height: 18px; }
+  .conv-label {
+    font-size: var(--fs-11);
+    line-height: 1.4;
+    letter-spacing: 0.3px;
+    color: var(--calc-ink-3);
+  }
+  .conv-sign {
+    width: 20px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--calc-hairline);
+    border-radius: var(--r-xs);
+    background: transparent;
+    color: var(--calc-ink-2);
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1;
     cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-out-quart), color var(--dur-fast) var(--ease-out-quart);
+  }
+  .conv-sign:hover { background: var(--calc-track); color: var(--calc-ink); }
+  .conv-sign:active { background: var(--key-op); color: var(--calc-accent-ink); }
+  .conv-row { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+  .conv-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    padding: 2px 0;
+    border: none;
+    background: transparent;
+    color: var(--calc-ink);
+    font-family: var(--calc-num-font);
+    font-size: 26px;
+    font-weight: 400;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+    outline: none;
+    user-select: text;
+  }
+  .conv-input::placeholder { color: var(--calc-ink-3); }
+  .conv-out {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    font-family: var(--calc-num-font);
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1.15;
+    letter-spacing: -0.3px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--calc-ink);
+    cursor: pointer;
+  }
+  .conv-out.is-error { color: var(--danger); font-size: 14px; font-weight: 500; cursor: default; }
+  .unit-wrap { position: relative; flex: 0 0 auto; max-width: 46%; }
+  .unit-wrap select {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    max-width: 132px;
+    height: 26px;
+    padding: 0 18px 0 8px;
+    border: 1px solid var(--calc-hairline);
+    border-radius: var(--r-xs);
+    background: var(--calc-track);
+    color: var(--calc-ink-2);
+    font-family: inherit;
+    font-size: var(--fs-12);
+    font-weight: 500;
+    cursor: pointer;
+    outline: none;
+  }
+  .unit-wrap select:focus-visible { border-color: var(--calc-accent); }
+  .unit-wrap i {
+    position: absolute;
+    right: 6px; top: 50%;
+    translate: 0 -50%;
+    font-size: 9px;
+    color: var(--calc-ink-3);
+    pointer-events: none;
+  }
+  .swap-row { flex: 0 0 auto; display: flex; align-items: center; gap: var(--sp-2); margin: -3px 0; }
+  .swap-line { flex: 1 1 auto; height: 1px; background: var(--calc-hairline); }
+  .swap-btn {
+    flex: 0 0 auto;
+    width: 28px; height: 28px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--calc-hairline);
+    border-radius: var(--r-full);
+    background: var(--calc-surface-2);
+    color: var(--calc-accent-ink);
+    font-size: 11px;
+    cursor: pointer;
+    box-shadow: var(--calc-shadow);
+    transition: background-color var(--dur-instant) var(--ease-out-expo), scale var(--dur-instant) var(--ease-out-expo);
+  }
+  .swap-btn:hover { background: var(--accent-soft); }
+  .swap-btn:active { scale: 0.92; }
+  .conv-note {
+    flex: 0 0 auto;
+    padding: 0 2px;
+    font-size: var(--fs-11);
+    line-height: 1.6;
+    color: var(--calc-ink-3);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── 历史浮层（本应用唯一一层主动模糊） ────────────────── */
+  .hist {
+    position: absolute;
+    left: var(--sp-3);
+    right: var(--sp-3);
+    top: 42px;
+    bottom: var(--sp-3);
+    z-index: var(--z-panel);
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--r-md);
+    border: 1px solid var(--calc-hairline);
+    background: var(--hist-bg);
+    -webkit-backdrop-filter: blur(20px) saturate(148%);
+    backdrop-filter: blur(20px) saturate(148%);
+    box-shadow: var(--glass-shadow-lift);
+    opacity: 0;
+    translate: 0 -6px;
+    pointer-events: none;
+    transition: opacity var(--dur-fast) var(--ease-out-expo), translate var(--dur-fast) var(--ease-out-expo);
+  }
+  .hist[hidden] { display: none; }
+  .hist.show { opacity: 1; translate: 0 0; pointer-events: auto; }
+  .hist-head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    padding: 7px 8px 7px 12px;
+    border-bottom: 1px solid var(--calc-hairline);
+  }
+  .hist-title { font-size: var(--fs-13); font-weight: 600; }
+  .hist-actions { display: flex; align-items: center; gap: 2px; }
+  .hist-clear {
+    height: 24px;
+    padding: 0 8px;
+    border: none;
+    border-radius: var(--r-xs);
+    background: transparent;
+    color: var(--calc-ink-2);
+    font-size: var(--fs-12);
+    font-weight: 500;
+    cursor: pointer;
+    transition: color var(--dur-instant) var(--ease-out-expo), background-color var(--dur-instant) var(--ease-out-expo);
+  }
+  .hist-clear:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+  .hist-close {
+    width: 24px; height: 24px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: none;
+    border-radius: var(--r-xs);
+    background: transparent;
+    color: var(--calc-ink-2);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .hist-close:hover { background: var(--calc-track); color: var(--calc-ink); }
+  .hist-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 5px;
+  }
+  .hist-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-2);
+    width: 100%;
+    padding: 7px 8px;
+    border: none;
+    border-radius: var(--r-xs);
+    background: transparent;
+    color: inherit;
     text-align: right;
-    transition: background-color 0.14s var(--ease-out-quart);
+    cursor: pointer;
+    transition: background-color var(--dur-instant) var(--ease-out-expo);
   }
-  .calc-history-item:hover { background: rgba(74, 155, 245, 0.10); }
-  .calc-history-item .hi-expr {
-    font-size: 11px; color: var(--ink-2);
+  .hist-item:hover { background: var(--accent-soft); }
+  .hi-main { flex: 1 1 auto; min-width: 0; }
+  .hi-expr {
+    font-family: var(--calc-num-font);
+    font-size: var(--fs-11);
+    line-height: 1.4;
+    color: var(--calc-ink-3);
     font-variant-numeric: tabular-nums;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .calc-history-item .hi-res {
-    font-size: 15px; font-weight: 600;
+  .hi-res {
+    font-family: var(--calc-num-font);
+    font-size: var(--fs-16);
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--calc-ink);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .calc-history-empty {
-    flex: 1;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 6px;
-    font-size: 12px; color: var(--ink-2);
+  .hi-time { flex: 0 0 auto; padding-top: 1px; font-family: var(--calc-num-font); font-size: var(--fs-11); line-height: 1.4; color: var(--calc-ink-3); font-variant-numeric: tabular-nums; }
+  .hist-empty {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-3);
+    padding: 40px 20px;
+    text-align: center;
   }
-  .calc-history-empty i { font-size: 26px; opacity: 0.28; }
+  .hist-empty > i { font-size: 38px; opacity: 0.35; }
+  .hist-empty .t { font-size: var(--fs-14); font-weight: 600; }
+  .hist-empty .d { font-size: var(--fs-12); line-height: 1.6; color: var(--calc-ink-2); }
+  .hist-empty .empty-btn {
+    height: 28px;
+    padding: 0 14px;
+    border: 1px solid transparent;
+    border-radius: var(--r-full);
+    background: var(--accent-soft);
+    color: var(--calc-accent-ink);
+    font-size: var(--fs-12);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ── Toast ────────────────────────────────────────────── */
+  .toast {
+    position: absolute;
+    left: 50%;
+    bottom: calc(var(--sp-3) + 6px);
+    z-index: var(--z-toast);
+    max-width: calc(100% - 24px);
+    padding: 9px 14px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--calc-hairline);
+    background: var(--toast-bg);
+    -webkit-backdrop-filter: blur(20px) saturate(148%);
+    backdrop-filter: blur(20px) saturate(148%);
+    box-shadow: var(--sh-pop);
+    color: var(--calc-ink);
+    font-size: var(--fs-12);
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    translate: -50% 8px;
+    pointer-events: none;
+    transition: opacity var(--dur-fast) var(--ease-out-expo), translate var(--dur-fast) var(--ease-out-expo);
+  }
+  .toast.show { opacity: 1; translate: -50% 0; }
+
+  /* ── 窄 / 矮窗口（默认窗口 320×480，最小 280×380） ──────── */
+  @media (max-width: 300px) {
+    .calc { padding-left: var(--sp-2); padding-right: var(--sp-2); }
+    .seg-btn { font-size: var(--fs-11); }
+    .keypad { gap: 5px; }
+    .key.num { font-size: 19px; }
+    .display-value { font-size: 40px; }
+    .display-value.sz2 { font-size: 33px; }
+    .display-value.sz3 { font-size: 27px; }
+    .conv-input { font-size: 22px; }
+    .conv-out { font-size: 24px; }
+  }
+  @media (max-height: 430px) {
+    .display { flex-basis: 88px; min-height: 60px; }
+    .display-value { font-size: 38px; }
+    .display-value.sz2 { font-size: 32px; }
+    .display-value.sz3 { font-size: 27px; }
+    .display-value.sz4 { font-size: 22px; }
+    .sci-bank { height: 52px; }
+    .keypad { gap: 5px; }
+    .key.num, .key.op { font-size: 18px; }
+    .key.eq { font-size: 20px; }
+    .key.fn { font-size: 14px; }
+    .key.sci { font-size: 12px; }
+    .display-hint { display: none; }
+    .conv-input { font-size: 22px; }
+    .conv-out { font-size: 23px; min-height: 28px; }
+  }
+  @media (min-width: 420px) {
+    .seg { max-width: 300px; }
+    .seg-btn { font-size: var(--fs-13); }
+    .display-value { font-size: 52px; }
+    .display-value.sz2 { font-size: 43px; }
+    .display-value.sz3 { font-size: 35px; }
+  }
+
+  /* ── 降级 ─────────────────────────────────────────────── */
+  body.perf-mode .key,
+  body.perf-mode .seg-ind,
+  body.perf-mode .hist,
+  body.perf-mode .toast { transition: none; }
+  body.perf-mode .key { box-shadow: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .key:active, .key.is-hit, .swap-btn:active { scale: 1; }
+    .display-value.settle, .display.shake { animation: none; }
+    .seg-ind, .hist, .toast { transition: none; }
+  }
 </style>
 </head>
 <body>
-<div id="app"></div>
+<div id="app" class="calc" data-mode="standard">
+<header class="calc-top">
+  <div class="seg" id="seg" role="tablist" aria-label="计算模式" style="--i:0">
+    <span class="seg-ind" aria-hidden="true"></span>
+    <button type="button" class="seg-btn" role="tab" id="tabStandard" data-mode="standard" aria-selected="true" aria-controls="viewCalc" tabindex="0">标准</button>
+    <button type="button" class="seg-btn" role="tab" id="tabScientific" data-mode="scientific" aria-selected="false" aria-controls="viewCalc" tabindex="-1">科学</button>
+    <button type="button" class="seg-btn" role="tab" id="tabConvert" data-mode="convert" aria-selected="false" aria-controls="viewConv" tabindex="-1">换算</button>
+  </div>
+  <button type="button" class="icon-btn" id="histBtn" aria-label="历史记录" aria-haspopup="dialog" aria-expanded="false" title="历史记录 (Ctrl+H)">
+    <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
+    <span class="hist-dot" id="histDot" aria-hidden="true"></span>
+  </button>
+</header>
 
+<main class="calc-main">
+  <section class="calc-view" id="viewCalc" aria-label="计算">
+    <div class="display" id="display">
+      <div class="display-top">
+        <button type="button" class="angle-chip" id="angleChip" data-unit="deg" aria-label="切换角度单位" title="切换 DEG / RAD" hidden>DEG</button>
+        <div class="display-sub" id="displaySub"></div>
+      </div>
+      <div class="display-value" id="displayValue" role="button" tabindex="0" title="点击复制结果" aria-label="当前结果">0</div>
+      <div class="display-hint" id="displayHint"></div>
+    </div>
+
+    <div class="keys">
+      <div class="sci-bank" id="sciBank" role="group" aria-label="科学函数" hidden>
+        <button type="button" class="key sci" data-k="sin" aria-label="正弦" title="正弦 (S)">sin</button>
+        <button type="button" class="key sci" data-k="cos" aria-label="余弦" title="余弦 (C)">cos</button>
+        <button type="button" class="key sci" data-k="tan" aria-label="正切" title="正切 (T)">tan</button>
+        <button type="button" class="key sci" data-k="ln" aria-label="自然对数" title="自然对数 (L)">ln</button>
+        <button type="button" class="key sci" data-k="log" aria-label="常用对数" title="常用对数 (G)">log</button>
+        <button type="button" class="key sci" data-k="sqrt" aria-label="平方根" title="平方根 (R)">√</button>
+        <button type="button" class="key sci" data-k="sq" aria-label="平方" title="平方 (Q)">x²</button>
+        <button type="button" class="key sci" data-k="pow" aria-label="乘方" title="乘方 (^)">xʸ</button>
+        <button type="button" class="key sci" data-k="pi" aria-label="圆周率" title="圆周率 (P)">π</button>
+        <button type="button" class="key sci" data-k="eu" aria-label="自然常数" title="自然常数 (E)">ℯ</button>
+        <button type="button" class="key sci" data-k="lp" aria-label="左括号" title="左括号 (">(</button>
+        <button type="button" class="key sci" data-k="rp" aria-label="右括号" title="右括号 )">)</button>
+      </div>
+      <div class="keypad" id="keypad" role="group" aria-label="数字键盘">
+        <button type="button" class="key fn" data-k="ac" aria-label="全部清除" title="全部清除 (Esc)">AC</button>
+        <button type="button" class="key fn" data-k="back" aria-label="退格" title="退格 (Backspace)"><i class="fa-solid fa-delete-left" aria-hidden="true"></i></button>
+        <button type="button" class="key fn" data-k="pct" aria-label="百分号" title="百分号 (%)">%</button>
+        <button type="button" class="key op" data-k="÷" aria-label="除" title="除 (/)">÷</button>
+
+        <button type="button" class="key num" data-k="7">7</button>
+        <button type="button" class="key num" data-k="8">8</button>
+        <button type="button" class="key num" data-k="9">9</button>
+        <button type="button" class="key op" data-k="×" aria-label="乘" title="乘 (*)">×</button>
+
+        <button type="button" class="key num" data-k="4">4</button>
+        <button type="button" class="key num" data-k="5">5</button>
+        <button type="button" class="key num" data-k="6">6</button>
+        <button type="button" class="key op" data-k="−" aria-label="减" title="减 (-)">−</button>
+
+        <button type="button" class="key num" data-k="1">1</button>
+        <button type="button" class="key num" data-k="2">2</button>
+        <button type="button" class="key num" data-k="3">3</button>
+        <button type="button" class="key op" data-k="+" aria-label="加" title="加 (+)">+</button>
+
+        <button type="button" class="key fn" data-k="pm" aria-label="正负号" title="正负号">±</button>
+        <button type="button" class="key num" data-k="0">0</button>
+        <button type="button" class="key num" data-k="dot" aria-label="小数点">.</button>
+        <button type="button" class="key eq" data-k="eq" aria-label="等于" title="等于 (Enter)">=</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="conv" id="viewConv" aria-label="单位换算" hidden>
+    <div class="cat-row" id="catRow" role="tablist" aria-label="换算类别"></div>
+
+    <div class="conv-main">
+    <div class="conv-card">
+      <div class="conv-head">
+        <label class="conv-label" for="convInput">从</label>
+        <button type="button" class="conv-sign" id="convSign" aria-label="切换正负号" title="切换正负号">±</button>
+      </div>
+      <div class="conv-row">
+        <input class="conv-input" id="convInput" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="0" value="1">
+        <div class="unit-wrap">
+          <select id="convFrom" aria-label="源单位"></select>
+          <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="swap-row">
+      <span class="swap-line" aria-hidden="true"></span>
+      <button type="button" class="swap-btn" id="convSwap" aria-label="交换单位" title="交换单位">
+        <i class="fa-solid fa-right-left" aria-hidden="true"></i>
+      </button>
+      <span class="swap-line" aria-hidden="true"></span>
+    </div>
+
+    <div class="conv-card">
+      <label class="conv-label" for="convOut">到</label>
+      <div class="conv-row">
+        <div class="conv-out" id="convOut" role="button" tabindex="0" title="点击复制结果">0</div>
+        <div class="unit-wrap">
+          <select id="convTo" aria-label="目标单位"></select>
+          <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="conv-note" id="convNote"></div>
+    </div>
+
+    <div class="conv-pad" id="convPad" role="group" aria-label="数字小键盘">
+      <button type="button" class="ck" data-cv="7">7</button>
+      <button type="button" class="ck" data-cv="8">8</button>
+      <button type="button" class="ck" data-cv="9">9</button>
+      <button type="button" class="ck" data-cv="4">4</button>
+      <button type="button" class="ck" data-cv="5">5</button>
+      <button type="button" class="ck" data-cv="6">6</button>
+      <button type="button" class="ck" data-cv="1">1</button>
+      <button type="button" class="ck" data-cv="2">2</button>
+      <button type="button" class="ck" data-cv="3">3</button>
+      <button type="button" class="ck" data-cv="." aria-label="小数点">.</button>
+      <button type="button" class="ck" data-cv="0">0</button>
+      <button type="button" class="ck fn" data-cv="del" aria-label="退格"><i class="fa-solid fa-delete-left" aria-hidden="true"></i></button>
+    </div>
+  </section>
+</main>
+
+<div class="hist" id="histPanel" role="dialog" aria-modal="false" aria-label="历史记录" hidden>
+  <div class="hist-head">
+    <span class="hist-title">历史记录</span>
+    <div class="hist-actions">
+      <button type="button" class="hist-clear" id="histClear">清空</button>
+      <button type="button" class="hist-close" id="histClose" aria-label="关闭历史记录"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+    </div>
+  </div>
+  <div class="hist-list" id="histList"></div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div>
 <script src="../ui/motion.js"></script>
 <script src="_bridge.js"></script>
 <script src="_app.js?v=2.9.57"></script>
+<script src="../ui/n26-gestures.js"></script>
 <script>
-(function () {
-  'use strict';
+  (function () {
+    'use strict';
 
-  var app = document.getElementById('app');
-  var state = {
-    expr: '',            // 显示用算式（含 × ÷ −）
-    result: '',          // 上一次结果（字符串，可用于继续运算）
-    justEvaluated: false,
-    history: [],
-    error: false
-  };
+    var $ = function (id) { return document.getElementById(id); };
+    var app = $('app');
+    var display = $('display');
+    var dValue = $('displayValue');
+    var dSub = $('displaySub');
+    var dHint = $('displayHint');
+    var angleChip = $('angleChip');
+    var sciBank = $('sciBank');
+    var seg = $('seg');
+    var histBtn = $('histBtn');
+    var histDot = $('histDot');
+    var histPanel = $('histPanel');
+    var histList = $('histList');
+    var viewCalc = $('viewCalc');
+    var viewConv = $('viewConv');
+    var catRow = $('catRow');
+    var convInput = $('convInput');
+    var convFrom = $('convFrom');
+    var convTo = $('convTo');
+    var convOut = $('convOut');
+    var convNote = $('convNote');
+    var toastEl = $('toast');
 
-  /* ---------- 数字格式化：分组 + 去浮点噪声 ---------- */
-  function cleanNumber(n) {
-    if (!isFinite(n)) return null;
-    var r = Math.round(n * 1e12) / 1e12;
-    return r;
-  }
-  function groupInteger(intPart) {
-    return intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  }
-  function formatNumber(n) {
-    var v = cleanNumber(n);
-    if (v === null) return null;
-    if (v === 0) return '0';
-    var abs = Math.abs(v);
-    // 极大/极小走科学计数法，避免把 44px 的字撑成一团
-    if (abs >= 1e15 || abs < 1e-9) {
-      return v.toExponential(6).replace(/(\.\d*?)0+e/, '$1e').replace(/\.e/, 'e');
+    var HOSTED = window.parent !== window;
+    var HKEY = 'n26.calc.v2';
+    var MAX_HISTORY = 100;
+
+    var state = {
+      mode: 'standard',
+      expr: '',
+      value: 0,
+      valueText: '0',
+      justEvaluated: false,
+      error: '',
+      hint: '',
+      angle: 'deg',
+      history: [],
+      recall: -1,
+      conv: { cat: 'length', from: 'm', to: 'cm', value: '1', result: null }
+    };
+
+    /* ── 存储：宿主按用户存，独立打开走 localStorage，双写互为兜底 ── */
+    function lsRead() {
+      try {
+        var raw = window.localStorage.getItem(HKEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) { return null; }
     }
-    var s = String(v);
-    if (s.indexOf('e') >= 0) return s;
-    var neg = s.charAt(0) === '-';
-    if (neg) s = s.slice(1);
-    var parts = s.split('.');
-    var out = groupInteger(parts[0]) + (parts[1] !== undefined ? '.' + parts[1] : '');
-    return (neg ? '-' : '') + out;
-  }
-
-  /* ---------- 表达式求值：手写递归下降，不用 Function ---------- */
-  function tokenize(src) {
-    var t = [], i = 0;
-    while (i < src.length) {
-      var c = src.charAt(i);
-      if (c === ' ') { i++; continue; }
-      if (c >= '0' && c <= '9' || c === '.') {
-        var j = i;
-        while (j < src.length && ((src.charAt(j) >= '0' && src.charAt(j) <= '9') || src.charAt(j) === '.')) j++;
-        var numStr = src.slice(i, j);
-        if ((numStr.match(/\./g) || []).length > 1) throw new Error('BAD');
-        t.push({ t: 'num', v: parseFloat(numStr) });
-        i = j;
-        continue;
+    function snapshot() {
+      return {
+        history: state.history,
+        angle: state.angle,
+        mode: state.mode,
+        conv: { cat: state.conv.cat, from: state.conv.from, to: state.conv.to }
+      };
+    }
+    function persist() {
+      try { window.localStorage.setItem(HKEY, JSON.stringify(snapshot())); } catch (e) {}
+      if (HOSTED) {
+        try { Nexus.setUserLS(HKEY, snapshot()); } catch (e) {}
       }
-      if (c === '×') { t.push({ t: '*' }); i++; continue; }
-      if (c === '÷') { t.push({ t: '/' }); i++; continue; }
-      if (c === '−') { t.push({ t: '-' }); i++; continue; }
-      if ('+-()'.indexOf(c) >= 0) { t.push({ t: c }); i++; continue; }
-      throw new Error('BAD');
     }
-    return t;
-  }
 
-  function evaluate(src) {
-    var tk = tokenize(src), pos = 0;
-
-    function peek() { return tk[pos]; }
-    function eat(type) { if (tk[pos] && tk[pos].t === type) { pos++; return true; } return false; }
-
-    function parseExpr() {
-      var v = parseTerm();
-      while (peek() && (peek().t === '+' || peek().t === '-')) {
-        var op = tk[pos++].t;
-        var r = parseTerm();
-        v = op === '+' ? v + r : v - r;
+    /* ── 数字格式化 ───────────────────────────────────────── */
+    function trimNum(n) {
+      if (typeof n !== 'number' || !isFinite(n)) return n;
+      if (n === 0) return 0;
+      var a = Math.abs(n);
+      if (a >= 1e15 || a < 1e-9) return n;
+      return parseFloat(n.toPrecision(12));
+    }
+    function fmt(n) {
+      if (typeof n !== 'number' || isNaN(n)) return '—';
+      if (!isFinite(n)) return n > 0 ? '∞' : '−∞';
+      var a = Math.abs(n);
+      if (a !== 0 && (a >= 1e15 || a < 1e-9)) {
+        return n.toExponential(6)
+          .replace(/(\.\d*?)0+e/, '$1e')
+          .replace(/\.e/, 'e')
+          .replace('e+', 'e');
       }
-      return v;
+      var r = trimNum(n);
+      if (r === 0) r = 0;
+      var s = String(r);
+      var neg = s.charAt(0) === '-';
+      if (neg) s = s.slice(1);
+      var parts = s.split('.');
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return (neg ? '−' : '') + parts[0] + (parts[1] ? '.' + parts[1] : '');
     }
-    function parseTerm() {
-      var v = parseFactor();
-      while (peek() && (peek().t === '*' || peek().t === '/')) {
-        var op = tk[pos++].t;
-        var r = parseFactor();
-        if (op === '*') v = v * r;
-        else {
-          if (r === 0) throw new Error('DIV0');
-          v = v / r;
+    function plain(n) {
+      if (typeof n !== 'number' || !isFinite(n)) return '';
+      if (Math.abs(n) < 1e15 && Math.abs(n) >= 1e-9) {
+        var r = trimNum(n);
+        return String(r === 0 ? 0 : r);
+      }
+      return String(n);
+    }
+    function pretty(s) {
+      return s
+        .replace(/([+×÷^])/g, ' $1 ')
+        .replace(/−/g, ' − ')
+        .replace(/e \+/g, 'e+')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    /* ── 表达式引擎：递归下降，遵守真实优先级 ─────────────────
+       expr  → term (('+' | '−') term)*
+       term  → unary (('×' | '÷') unary | 隐式乘法)*
+       unary → ('+' | '−') unary | power
+       power → postfix ('^' unary)?          右结合
+       postfix → primary ('%' | '²')*
+       primary → 数字 | π | ℯ | 函数 '(' expr ')' | '(' expr ')'
+       隐式乘法支持 2π、2(3+4)、(1+2)(3+4)、2sin(30)
+       ─────────────────────────────────────────────────────── */
+    function CalcError(msg) { this.message = msg; }
+    CalcError.prototype = Object.create(Error.prototype);
+
+    function fail(msg) { throw new CalcError(msg); }
+
+    function tokenize(src) {
+      var tk = [], i = 0, n = src.length;
+      var fns = ['sin', 'cos', 'tan', 'log', 'ln'];
+      while (i < n) {
+        var c = src.charAt(i);
+        if (c === ' ' || c === ',') { i++; continue; }
+
+        if (c >= '0' && c <= '9' || c === '.') {
+          var j = i, dots = 0;
+          while (j < n && ((src.charAt(j) >= '0' && src.charAt(j) <= '9') || src.charAt(j) === '.')) {
+            if (src.charAt(j) === '.') dots++;
+            j++;
+          }
+          if (dots > 1) fail('数字格式不正确');
+          var raw = src.slice(i, j);
+          if (raw === '.') fail('表达式不完整');
+          // 科学计数法（计算结果继续运算时会出现 1e+21 这样的串）
+          if (j < n && (src.charAt(j) === 'e' || src.charAt(j) === 'E')) {
+            var k2 = j + 1, sign = '';
+            if (src.charAt(k2) === '+' || src.charAt(k2) === '-') { sign = src.charAt(k2); k2++; }
+            var st = k2;
+            while (k2 < n && src.charAt(k2) >= '0' && src.charAt(k2) <= '9') k2++;
+            if (k2 > st) j = k2;
+          }
+          var val = parseFloat(src.slice(i, j));
+          if (!isFinite(val)) fail('数字超出范围');
+          tk.push({ t: 'num', v: val });
+          i = j;
+          continue;
         }
+
+        var hit = null;
+        for (var f = 0; f < fns.length; f++) {
+          if (src.substr(i, fns[f].length) === fns[f]) { hit = fns[f]; break; }
+        }
+        if (hit) { tk.push({ t: 'fn', v: hit === 'ln' ? 'ln' : hit }); i += hit.length; continue; }
+
+        if (c === '√') { tk.push({ t: 'fn', v: 'sqrt' }); i++; continue; }
+        if (c === 'π') { tk.push({ t: 'num', v: Math.PI }); i++; continue; }
+        if (c === 'ℯ' || c === 'e') { tk.push({ t: 'num', v: Math.E }); i++; continue; }
+        if (c === '²') { tk.push({ t: 'sq' }); i++; continue; }
+        if (c === '%') { tk.push({ t: 'pct' }); i++; continue; }
+        if (c === '×' || c === '*') { tk.push({ t: 'op', v: '*' }); i++; continue; }
+        if (c === '÷' || c === '/') { tk.push({ t: 'op', v: '/' }); i++; continue; }
+        if (c === '−' || c === '-') { tk.push({ t: 'op', v: '-' }); i++; continue; }
+        if (c === '+') { tk.push({ t: 'op', v: '+' }); i++; continue; }
+        if (c === '^') { tk.push({ t: 'op', v: '^' }); i++; continue; }
+        if (c === '(') { tk.push({ t: 'lp' }); i++; continue; }
+        if (c === ')') { tk.push({ t: 'rp' }); i++; continue; }
+        fail('包含无法识别的字符');
       }
-      return v;
+      return tk;
     }
-    function parseFactor() {
-      if (eat('-')) return -parseFactor();
-      if (eat('+')) return parseFactor();
-      if (eat('(')) {
-        var v = parseExpr();
-        if (!eat(')')) throw new Error('BAD');
+
+    function applyFn(name, x) {
+      var rad = state.angle === 'deg' ? x * Math.PI / 180 : x;
+      if (name === 'sin') return Math.sin(rad);
+      if (name === 'cos') return Math.cos(rad);
+      if (name === 'tan') {
+        if (Math.abs(Math.cos(rad)) < 1e-12) fail('正切在此角度无定义');
+        return Math.tan(rad);
+      }
+      if (name === 'ln') {
+        if (x <= 0) fail('对数要求正数');
+        return Math.log(x);
+      }
+      if (name === 'log') {
+        if (x <= 0) fail('对数要求正数');
+        return Math.log10 ? Math.log10(x) : Math.log(x) / Math.LN10;
+      }
+      if (name === 'sqrt') {
+        if (x < 0) fail('负数不能开平方');
+        return Math.sqrt(x);
+      }
+      fail('未知函数');
+    }
+
+    function evaluate(src) {
+      var tk = tokenize(src);
+      if (!tk.length) fail('表达式不完整');
+      var pos = 0;
+
+      function peek() { return tk[pos]; }
+      function next() { return tk[pos++]; }
+      function startsPrimary(t) {
+        return !!t && (t.t === 'num' || t.t === 'fn' || t.t === 'lp');
+      }
+
+      function parseExpr() {
+        var v = parseTerm();
+        while (peek() && peek().t === 'op' && (peek().v === '+' || peek().v === '-')) {
+          var op = next().v;
+          var r = parseTerm();
+          v = op === '+' ? v + r : v - r;
+        }
         return v;
       }
-      var n = peek();
-      if (!n || n.t !== 'num') throw new Error('BAD');
-      pos++;
-      return n.v;
-    }
 
-    var out = parseExpr();
-    if (pos !== tk.length) throw new Error('BAD');
-    if (typeof out !== 'number' || isNaN(out)) throw new Error('BAD');
-    return out;
-  }
-
-  /* ---------- 渲染 ---------- */
-  function render() {
-    app.innerHTML =
-      '<div class="calc">' +
-        '<div class="calc-tools">' +
-          '<button class="calc-tool" id="calcHistBtn" title="历史记录"><span>历史</span></button>' +
-          '<button class="calc-tool" id="calcCopyBtn" title="复制当前结果"><span>复制</span></button>' +
-        '</div>' +
-        '<div class="calc-screen">' +
-          '<div class="calc-expr" id="calcExpr"></div>' +
-          '<div class="calc-value" id="calcValue" title="点击复制">0</div>' +
-        '</div>' +
-        '<div class="calc-grid" id="calcGrid">' +
-          key('func', 'ac', 'AC') +
-          key('func', 'back', '<svg viewBox="0 0 24 24" style="width:20px;height:20px;display:block"><path d="M9.6 5.5h8.9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9.6L3.4 12z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12.4 9.6l5 4.8M17.4 9.6l-5 4.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>') +
-          key('func', 'percent', '%') +
-          key('op', '÷', '÷') +
-
-          key('num', '7', '7') + key('num', '8', '8') + key('num', '9', '9') +
-          key('op', '×', '×') +
-
-          key('num', '4', '4') + key('num', '5', '5') + key('num', '6', '6') +
-          key('op', '−', '−') +
-
-          key('num', '1', '1') + key('num', '2', '2') + key('num', '3', '3') +
-          key('op', '+', '+') +
-
-          key('func', 'negate', '±') + key('num', '0', '0') + key('num', '.', '.') +
-          key('eq', 'eq', '=') +
-        '</div>' +
-        '<div class="calc-history" id="calcHistory">' +
-          '<div class="calc-history-head"><span>历史记录</span>' +
-            '<button class="calc-history-clear" id="calcHistClear" style="display:none;">清空</button>' +
-          '</div>' +
-          '<div class="calc-history-list" id="calcHistList"></div>' +
-        '</div>' +
-      '</div>';
-
-    app.querySelectorAll('.calc-btn').forEach(function (b) {
-      b.addEventListener('click', function () { handleKey(b.getAttribute('data-k')); });
-    });
-    document.getElementById('calcHistBtn').addEventListener('click', function (e) {
-      e.stopPropagation();
-      document.getElementById('calcHistory').classList.toggle('show');
-    });
-    document.getElementById('calcCopyBtn').addEventListener('click', copyResult);
-    document.getElementById('calcValue').addEventListener('click', copyResult);
-    document.getElementById('calcHistClear').addEventListener('click', function (e) {
-      e.stopPropagation();
-      state.history = [];
-      saveHistory();
-      renderHistory();
-    });
-    // 点空白处收起历史，符合「浮层点外面就关」的常识
-    app.addEventListener('click', function (e) {
-      var panel = document.getElementById('calcHistory');
-      if (!panel.classList.contains('show')) return;
-      if (panel.contains(e.target) || e.target.closest('#calcHistBtn')) return;
-      panel.classList.remove('show');
-    });
-  }
-
-  function key(cls, k, label) {
-    return '<button class="calc-btn ' + cls + '" data-k="' + k + '">' + label + '</button>';
-  }
-
-  /* ---------- 显示刷新 ---------- */
-  function currentText() {
-    if (state.error) return '错误';
-    if (state.justEvaluated && state.result !== '') return state.result;
-    return state.expr || state.result || '0';
-  }
-  function updateDisplay() {
-    var valEl = document.getElementById('calcValue');
-    var exprEl = document.getElementById('calcExpr');
-    if (!valEl || !exprEl) return;
-
-    var text = currentText();
-    valEl.classList.toggle('is-error', state.error);
-    valEl.textContent = text;
-    valEl.classList.remove('sz2', 'sz3', 'sz4');
-    if (!state.error) {
-      var len = text.length;
-      if (len > 17) valEl.classList.add('sz4');
-      else if (len > 13) valEl.classList.add('sz3');
-      else if (len > 10) valEl.classList.add('sz2');
-    }
-    // 已经是结果时，上行显示完整算式；输入中则显示正在敲的式子
-    exprEl.textContent = (state.justEvaluated && state.expr) ? (state.expr + ' =') : '';
-  }
-  function pulse() {
-    var el = document.getElementById('calcValue');
-    if (!el) return;
-    el.classList.remove('pulse');
-    void el.offsetWidth;
-    el.classList.add('pulse');
-  }
-
-  /* ---------- 输入逻辑 ---------- */
-  function lastNumberStart(s) {
-    var i = s.length - 1;
-    while (i >= 0 && (/[0-9.]/.test(s.charAt(i)))) i--;
-    return i + 1;
-  }
-
-  function handleKey(k) {
-    var wasError = state.error;
-    state.error = false;
-
-    if (k === 'ac') { clearAll(); return; }
-    if (k === 'back') { backspace(); return; }
-    if (k === 'eq') { calculate(); return; }
-    if (k === 'percent') { percent(); return; }
-    if (k === 'negate') { negate(); return; }
-
-    var isDigit = /^[0-9]$/.test(k);
-    var isDot = k === '.';
-    var isOp = ('+−×÷').indexOf(k) >= 0;
-
-    // 上一次算错了，之后不管按数字还是运算符，都算「重新开始」，
-    // 不该往那段出错式子上继续接。
-    if (wasError) {
-      state.expr = '';
-      state.result = '';
-      state.justEvaluated = false;
-    }
-
-    if (state.justEvaluated) {
-      if (isOp) {
-        // 接着上一次结果往下算，这是所有真计算器的行为
-        state.expr = (state.result || '0') + k;
-      } else if (isDigit || isDot) {
-        state.expr = k;
-      } else if (k === '(') {
-        state.expr = '(';
+      function parseTerm() {
+        var v = parseUnary();
+        for (;;) {
+          var t = peek();
+          if (t && t.t === 'op' && (t.v === '*' || t.v === '/')) {
+            next();
+            var r = parseUnary();
+            if (t.v === '*') v = v * r;
+            else {
+              if (r === 0) fail('不能除以 0');
+              v = v / r;
+            }
+          } else if (startsPrimary(t)) {
+            // 隐式乘法：2π / 2(3+4) / (1+2)(3+4)
+            v = v * parseUnary();
+          } else break;
+        }
+        return v;
       }
-      state.justEvaluated = false;
-      state.result = '';
-      updateDisplay();
-      return;
+
+      function parseUnary() {
+        var t = peek();
+        if (t && t.t === 'op' && (t.v === '+' || t.v === '-')) {
+          next();
+          var u = parseUnary();
+          return t.v === '-' ? -u : u;
+        }
+        return parsePower();
+      }
+
+      function parsePower() {
+        var base = parsePostfix();
+        var t = peek();
+        if (t && t.t === 'op' && t.v === '^') {
+          next();
+          var exp = parseUnary(); // 右结合，支持 2^-3
+          var out = Math.pow(base, exp);
+          if (isNaN(out)) fail('结果不是实数');
+          return out;
+        }
+        return base;
+      }
+
+      function parsePostfix() {
+        var v = parsePrimary();
+        for (;;) {
+          var t = peek();
+          if (t && t.t === 'pct') { next(); v = v / 100; }
+          else if (t && t.t === 'sq') { next(); v = v * v; }
+          else break;
+        }
+        return v;
+      }
+
+      function parsePrimary() {
+        var t = next();
+        if (!t) fail('表达式不完整');
+        if (t.t === 'num') return t.v;
+        if (t.t === 'lp') {
+          var v = parseExpr();
+          if (!peek() || peek().t !== 'rp') fail('括号没有闭合');
+          next();
+          return v;
+        }
+        if (t.t === 'fn') {
+          if (!peek() || peek().t !== 'lp') fail('函数后需要括号');
+          next();
+          var arg = parseExpr();
+          if (!peek() || peek().t !== 'rp') fail('括号没有闭合');
+          next();
+          return applyFn(t.v, arg);
+        }
+        fail('表达式不完整');
+      }
+
+      var value = parseExpr();
+      if (pos < tk.length) fail('表达式有误');
+      if (isNaN(value)) fail('结果不是实数');
+      return value;
     }
 
-    if (isOp) {
-      if (!state.expr) { state.expr = '0' + k; updateDisplay(); return; }
-      var last = state.expr.slice(-1);
-      if ('+−×÷'.indexOf(last) >= 0) {
-        // 连按运算符 = 改主意，替换掉上一个，而不是堆成 5+×
-        state.expr = state.expr.slice(0, -1) + k;
-      } else if (last === '(') {
+    function normalizeExpr(s) {
+      var open = 0;
+      for (var i = 0; i < s.length; i++) {
+        if (s.charAt(i) === '(') open++;
+        else if (s.charAt(i) === ')') open--;
+      }
+      while (open-- > 0) s += ')';
+      return s;
+    }
+
+    function tryValue(src) {
+      try {
+        var v = evaluate(normalizeExpr(src));
+        if (typeof v !== 'number' || !isFinite(v)) return null;
+        return trimNum(v);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    /* ── 显示渲染 ─────────────────────────────────────────── */
+    var hintTimer = 0;
+
+    function fitValue(text, isError) {
+      if (isError) { dValue.className = 'display-value is-error'; return; }
+      var len = text.length, cls = 'display-value';
+      if (len > 15) cls += ' sz6';
+      else if (len > 13) cls += ' sz5';
+      else if (len > 11) cls += ' sz4';
+      else if (len > 9) cls += ' sz3';
+      else if (len > 7) cls += ' sz2';
+      dValue.className = cls;
+    }
+
+    function render() {
+      angleChip.hidden = state.mode !== 'scientific';
+      angleChip.textContent = state.angle === 'deg' ? 'DEG' : 'RAD';
+      angleChip.dataset.unit = state.angle;
+
+      if (state.error) {
+        dSub.textContent = state.expr ? pretty(state.expr) : '';
+        dSub.title = dSub.textContent;
+        dValue.textContent = state.error;
+        fitValue('', true);
+        dHint.textContent = '按 Esc 或 AC 清空';
+        dHint.classList.add('show');
         return;
-      } else {
-        state.expr += k;
       }
-      updateDisplay();
-      return;
+
+      var main = '0';
+      if (state.justEvaluated) {
+        main = state.valueText;
+        dSub.textContent = state.expr ? pretty(state.expr) + ' =' : '';
+      } else if (!state.expr) {
+        dSub.textContent = '';
+      } else {
+        dSub.textContent = pretty(state.expr);
+        var pv = tryValue(state.expr);
+        if (pv !== null) {
+          main = fmt(pv);
+          state.valueText = main;
+          state.value = pv;
+        } else {
+          main = state.valueText || '0';
+        }
+      }
+      dSub.title = dSub.textContent;
+      dValue.textContent = main;
+      fitValue(main, false);
+      dHint.textContent = state.hint || '';
+      dHint.classList.toggle('show', !!state.hint);
     }
 
-    if (isDot) {
-      var tail = state.expr.slice(lastNumberStart(state.expr));
-      if (tail.indexOf('.') >= 0) return;          // 一个数字里只能有一个小数点
-      if (!tail) state.expr += '0.';
-      else state.expr += '.';
-      updateDisplay();
-      return;
+    function settleResult() {
+      dValue.classList.remove('settle');
+      void dValue.offsetWidth;
+      dValue.classList.add('settle');
     }
 
-    // 数字 / 括号
-    if (k === '(' || k === ')') {
-      if (k === ')' && (state.expr.match(/\(/g) || []).length <= (state.expr.match(/\)/g) || []).length) return;
-      state.expr += k;
-      updateDisplay();
-      return;
+    function reject(msg) {
+      state.hint = msg;
+      state.error = '';
+      render();
+      display.classList.remove('shake');
+      void display.offsetWidth;
+      display.classList.add('shake');
+      clearTimeout(hintTimer);
+      hintTimer = setTimeout(function () {
+        state.hint = '';
+        render();
+      }, 1500);
     }
-    // 前导 0 不堆积（0 后面跟数字要替换，但 0. 例外）
-    var start = lastNumberStart(state.expr);
-    var head = state.expr.slice(start);
-    if (head === '0' && isDigit) state.expr = state.expr.slice(0, start) + k;
-    else state.expr += k;
-    updateDisplay();
-  }
 
-  function clearAll() {
-    state.error = false;
-    state.expr = '';
-    state.result = '';
-    state.justEvaluated = false;
-    updateDisplay();
-  }
-  function backspace() {
-    if (state.error) { clearAll(); return; }
-    if (state.justEvaluated) {
-      // 结果状态下按退格 = 把结果当成新算式的开头继续编辑
-      state.expr = state.result === '0' ? '' : state.result;
+    function clearCalc() {
+      state.expr = '';
+      state.value = 0;
+      state.valueText = '0';
       state.justEvaluated = false;
-      state.result = '';
-    }
-    state.expr = state.expr.slice(0, -1);
-    updateDisplay();
-  }
-  function percent() {
-    if (state.error) return;
-    var src = state.justEvaluated ? state.result : state.expr;
-    if (!src) return;
-    var start = lastNumberStart(src);
-    var tail = src.slice(start);
-    if (!tail) return;
-    var v = parseFloat(tail);
-    if (!isFinite(v)) return;
-    var converted = formatNumber(v / 100);
-    if (converted === null) return;
-    var next = src.slice(0, start) + converted;
-    if (state.justEvaluated) { state.result = converted; state.expr = src + '÷100'; state.justEvaluated = true; }
-    else { state.expr = next; }
-    updateDisplay();
-  }
-  function negate() {
-    if (state.error) return;
-    var src = state.justEvaluated ? state.result : state.expr;
-    state.justEvaluated = false;
-    state.result = '';
-
-    if (!src) { state.expr = '0'; updateDisplay(); return; }
-    // 末尾是两个运算符之间（或刚开括号）：直接铺一个负号，别搞成双括号
-    if (/[+−×÷(]$/.test(src)) {
-      if (src.slice(-2) === '(-') return;
-      state.expr = src + '(-';
-      updateDisplay();
-      return;
+      state.error = '';
+      state.hint = '';
+      state.recall = -1;
+      clearTimeout(hintTimer);
     }
 
-    var start = lastNumberStart(src);
-    var tail = src.slice(start);
-    var before = src.slice(0, start);
-    var after = src.slice(start + tail.length);
-    var atEnd = after === '';
+    function finish() {
+      state.error = '';
+      state.hint = '';
+      state.recall = -1;
+      render();
+    }
 
-    if (before.slice(-2) === '(-' && atEnd) {
-      // 已经是负的 → 还原成正的
-      state.expr = before.slice(0, -2) + tail;
-    } else if (atEnd) {
-      state.expr = before + '(-' + tail + ')';
-    } else if (before.slice(-2) === '(-' && after === ')') {
-      state.expr = before.slice(0, -2) + tail + after.slice(1);
-    } else {
-      // 光标在括号里这种麻烦情况：整体取反，绝不制造不配平的括号
-      state.expr = '-(' + src + ')';
+    /* ── 输入规则 ─────────────────────────────────────────── */
+    function numSpan(s) {
+      var m = /(\d+\.?\d*|\.\d+)$/.exec(s);
+      return m ? { start: m.index, text: m[0] } : null;
     }
-    updateDisplay();
-  }
+    function isBinaryOpChar(ch) {
+      return ch === '+' || ch === '−' || ch === '×' || ch === '÷' || ch === '^';
+    }
+    function isValueEnd(ch) {
+      return /[0-9)πℯ%²]/.test(ch);
+    }
+    function plainExpr(n) {
+      var s = plain(n);
+      return s.charAt(0) === '-' ? '−' + s.slice(1) : s;
+    }
 
-  function calculate() {
-    // 已经是结果状态再按等号，什么都不该发生（不然历史里会堆一串重复项）
-    if (state.justEvaluated) return;
-    var src = state.expr;
-    if (!src) return;
-    var value;
-    try {
-      value = evaluate(src.replace(/,/g, ''));
-    } catch (err) {
-      state.error = true;
-      state.justEvaluated = true;
-      var msgEl = document.getElementById('calcValue');
-      state.result = '';
-      state.expr = src;
-      if (msgEl) msgEl.textContent = err.message === 'DIV0' ? '不能除以 0' : '算式不完整';
-      if (msgEl) { msgEl.classList.add('is-error'); msgEl.classList.remove('sz2', 'sz3', 'sz4'); }
-      var e2 = document.getElementById('calcExpr');
-      if (e2) e2.textContent = '';
-      return;
-    }
-    var text = formatNumber(value);
-    if (text === null) {
-      state.error = true;
-      return;
-    }
-    state.expr = src;
-    state.result = text;
-    state.justEvaluated = true;
-    updateDisplay();
-    pulse();
-    pushHistory(src, text);
-  }
-
-  /* ---------- 历史 ---------- */
-  function pushHistory(expr, res) {
-    state.history.unshift({ e: expr, r: res });
-    if (state.history.length > 40) state.history.length = 40;
-    saveHistory();
-    renderHistory();
-  }
-  function saveHistory() {
-    try { Nexus.setUserLS('calc_history', state.history); } catch (e) {}
-  }
-  function loadHistory() {
-    try {
-      Nexus.getUserLS('calc_history').then(function (h) {
-        if (Array.isArray(h)) { state.history = h.slice(0, 40); renderHistory(); }
-      }).catch(function () {});
-    } catch (e) {}
-  }
-  function renderHistory() {
-    var list = document.getElementById('calcHistList');
-    var clearBtn = document.getElementById('calcHistClear');
-    if (!list) return;
-    if (clearBtn) clearBtn.style.display = state.history.length ? '' : 'none';
-    if (!state.history.length) {
-      list.innerHTML = '<div class="calc-history-empty">' +
-        '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:26px;height:26px;opacity:.28">' +
-          '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/>' +
-          '<path d="M12 7.5V12l3 1.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' +
-        '</svg>' +
-        '<span>还没有计算记录</span></div>';
-      return;
-    }
-    list.innerHTML = state.history.map(function (h, i) {
-      return '<div class="calc-history-item" data-i="' + i + '">' +
-        '<div class="hi-expr">' + escapeHtml(h.e) + '</div>' +
-        '<div class="hi-res">' + escapeHtml(h.r) + '</div>' +
-      '</div>';
-    }).join('');
-    list.querySelectorAll('.calc-history-item').forEach(function (el) {
-      el.addEventListener('click', function () {
-        var item = state.history[parseInt(el.getAttribute('data-i'), 10)];
-        if (!item) return;
+    function doDigit(d) {
+      if (state.justEvaluated) {
         state.expr = '';
-        state.result = item.r;
+        state.justEvaluated = false;
+        state.valueText = '0';
+      }
+      var e = state.expr;
+      var last = e.slice(-1);
+      if (/[)πℯ%²]/.test(last)) e += '×';
+      var span = numSpan(e);
+      if (span) {
+        if (span.text === '0') {
+          if (d !== '0') e = e.slice(0, span.start) + d;
+        } else {
+          var digits = span.text.replace('.', '');
+          if (digits.length >= 16) { reject('单个数字最多 16 位'); return; }
+          e += d;
+        }
+      } else {
+        e += d;
+      }
+      state.expr = e;
+      finish();
+    }
+
+    function doDot() {
+      if (state.justEvaluated) {
+        state.expr = '';
+        state.justEvaluated = false;
+        state.valueText = '0';
+      }
+      var e = state.expr, last = e.slice(-1);
+      if (/[)πℯ%²]/.test(last)) {
+        e += '×0.';
+      } else {
+        var span = numSpan(e);
+        if (span) {
+          if (span.text.indexOf('.') >= 0) { reject('小数点只能有一个'); return; }
+          e += '.';
+        } else {
+          e += '0.';
+        }
+      }
+      state.expr = e;
+      finish();
+    }
+
+    function doOp(ch) {
+      if (state.justEvaluated) {
+        state.expr = plainExpr(state.value);
+        state.justEvaluated = false;
+      }
+      var e = state.expr;
+      var last = e.slice(-1);
+      if (!e) {
+        state.expr = ch === '−' ? '−' : '0' + ch;
+        finish();
+        return;
+      }
+      if (last === '(') {
+        if (ch === '−') { state.expr += '−'; finish(); }
+        else reject('括号里还没有数字');
+        return;
+      }
+      if (isBinaryOpChar(last)) {
+        var prev = e.slice(-2, -1);
+        if (last === '−' && isBinaryOpChar(prev)) {
+          if (ch === '−') { reject('这里不能连续输入运算符'); return; }
+          state.expr = e.slice(0, -2) + ch;
+        } else if (ch === '−' && (last === '×' || last === '÷' || last === '^')) {
+          state.expr = e + '−';
+        } else {
+          state.expr = e.slice(0, -1) + ch;
+        }
+        finish();
+        return;
+      }
+      state.expr = e + ch;
+      finish();
+    }
+
+    function doPct() {
+      if (state.justEvaluated) {
+        state.expr = plainExpr(state.value);
+        state.justEvaluated = false;
+      }
+      var e = state.expr, last = e.slice(-1);
+      if (!e || isBinaryOpChar(last) || last === '(') { reject('先输入数字'); return; }
+      state.expr = e + '%';
+      finish();
+    }
+
+    function doSquare() {
+      if (state.justEvaluated) {
+        state.expr = plainExpr(state.value);
+        state.justEvaluated = false;
+      }
+      var e = state.expr, last = e.slice(-1);
+      if (!e || !isValueEnd(last)) { reject('先输入数字'); return; }
+      state.expr = e + '²';
+      finish();
+    }
+
+    function doFn(name) {
+      if (state.justEvaluated) {
+        state.expr = '';
+        state.justEvaluated = false;
+        state.valueText = '0';
+      }
+      var e = state.expr, last = e.slice(-1);
+      if (isValueEnd(last)) e += '×';
+      state.expr = e + (name === 'sqrt' ? '√(' : name + '(');
+      finish();
+    }
+
+    function doConst(sym) {
+      if (state.justEvaluated) {
+        state.expr = '';
+        state.justEvaluated = false;
+        state.valueText = '0';
+      }
+      var e = state.expr, last = e.slice(-1);
+      if (isValueEnd(last)) e += '×';
+      state.expr = e + sym;
+      finish();
+    }
+
+    function doParen(side) {
+      if (state.justEvaluated) {
+        state.expr = '';
+        state.justEvaluated = false;
+        state.valueText = '0';
+      }
+      var e = state.expr, last = e.slice(-1);
+      if (side === '(') {
+        if (isValueEnd(last)) e += '×';
+        state.expr = e + '(';
+        finish();
+        return;
+      }
+      var open = 0;
+      for (var i = 0; i < e.length; i++) {
+        if (e.charAt(i) === '(') open++;
+        else if (e.charAt(i) === ')') open--;
+      }
+      if (open <= 0) { reject('没有可闭合的括号'); return; }
+      if (!e || isBinaryOpChar(last) || last === '(') { reject('括号里还没有数字'); return; }
+      state.expr = e + ')';
+      finish();
+    }
+
+    function doPm() {
+      if (state.justEvaluated) {
+        state.expr = plainExpr(state.value);
+        state.justEvaluated = false;
+      }
+      var e = state.expr;
+      if (!e) { state.expr = '−'; finish(); return; }
+      var m = /\(−([\d.]+(?:e[+-]?\d+)?)\)$/i.exec(e);
+      if (m) {
+        state.expr = e.slice(0, m.index) + m[1];
+        finish();
+        return;
+      }
+      var span = numSpan(e);
+      if (span) {
+        var before = e.slice(0, span.start);
+        var pre = before.slice(-2, -1);
+        if (before.slice(-1) === '−' && (before.length === 1 || isBinaryOpChar(pre) || pre === '(')) {
+          state.expr = before.slice(0, -1) + span.text;
+        } else {
+          state.expr = before + '(−' + span.text + ')';
+        }
+        finish();
+        return;
+      }
+      if (/[)πℯ%²]$/.test(e)) {
+        state.expr = e + '×(−1)';
+        finish();
+        return;
+      }
+      reject('先输入数字');
+    }
+
+    function doBack() {
+      if (state.error) { clearCalc(); render(); return; }
+      if (state.justEvaluated) {
+        state.expr = plainExpr(state.value);
+        state.justEvaluated = false;
+        state.valueText = fmt(state.value);
+      }
+      var e = state.expr;
+      if (!e) { clearCalc(); render(); return; }
+      var fns = ['sin(', 'cos(', 'tan(', 'log(', 'ln(', '√('];
+      for (var i = 0; i < fns.length; i++) {
+        if (e.slice(-fns[i].length) === fns[i]) {
+          state.expr = e.slice(0, -fns[i].length);
+          finish();
+          return;
+        }
+      }
+      state.expr = e.slice(0, -1);
+      finish();
+    }
+
+    function doEqual() {
+      if (state.error) return;
+      if (state.justEvaluated) return;
+      var src = normalizeExpr(state.expr);
+      if (!src.trim()) return;
+      try {
+        var raw = evaluate(src);
+        if (typeof raw !== 'number' || isNaN(raw)) fail('结果不是实数');
+        if (!isFinite(raw)) fail('结果超出范围');
+        var cleaned = trimNum(raw);
+        state.expr = src;
+        state.value = cleaned;
+        state.valueText = fmt(cleaned);
         state.justEvaluated = true;
-        state.error = false;
-        updateDisplay();
-        document.getElementById('calcHistory').classList.remove('show');
+        state.error = '';
+        state.hint = '';
+        state.recall = -1;
+
+        var entry = { e: src, r: state.valueText, t: Date.now() };
+        var top = state.history[0];
+        if (!top || top.e !== entry.e || top.r !== entry.r) {
+          state.history.unshift(entry);
+          if (state.history.length > MAX_HISTORY) state.history.length = MAX_HISTORY;
+          persist();
+          renderHistory();
+          updateDot();
+        }
+        render();
+        settleResult();
+      } catch (err) {
+        state.error = (err && err.message) || '表达式有误';
+        state.justEvaluated = false;
+        render();
+        display.classList.remove('shake');
+        void display.offsetWidth;
+        display.classList.add('shake');
+      }
+    }
+
+    function handle(k) {
+      if (state.error) {
+        if (k === 'eq') return;
+        if (k === 'back') { clearCalc(); render(); return; }
+        clearCalc();
+      }
+      switch (k) {
+        case 'ac': clearCalc(); render(); return;
+        case 'back': doBack(); return;
+        case 'eq': doEqual(); return;
+        case 'dot': doDot(); return;
+        case 'pct': doPct(); return;
+        case 'pm': doPm(); return;
+        case 'lp': doParen('('); return;
+        case 'rp': doParen(')'); return;
+        case 'sq': doSquare(); return;
+        case 'pow': doOp('^'); return;
+        case 'pi': doConst('π'); return;
+        case 'eu': doConst('ℯ'); return;
+        case 'sin': case 'cos': case 'tan': case 'ln': case 'log': doFn(k); return;
+        case 'sqrt': doFn('sqrt'); return;
+        case '+': case '−': case '×': case '÷': case '^': doOp(k); return;
+        default:
+          if (/^[0-9]$/.test(k)) { doDigit(k); return; }
+      }
+    }
+
+    /* ── 历史记录 ─────────────────────────────────────────── */
+    function validEntry(h) {
+      return h && typeof h.e === 'string' && typeof h.r === 'string';
+    }
+    function timeLabel(t) {
+      var d = new Date(t), now = new Date();
+      var hh = ('0' + d.getHours()).slice(-2);
+      var mm = ('0' + d.getMinutes()).slice(-2);
+      if (d.toDateString() === now.toDateString()) return hh + ':' + mm;
+      return (d.getMonth() + 1) + '/' + d.getDate();
+    }
+
+    function renderHistory() {
+      if (!state.history.length) {
+        histList.innerHTML =
+          '<div class="hist-empty">' +
+            '<i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>' +
+            '<div class="t">还没有计算记录</div>' +
+            '<div class="d">完成一次计算后，<br>算式和结果会自动保存在这里</div>' +
+            '<button type="button" class="empty-btn">开始计算</button>' +
+          '</div>';
+        return;
+      }
+      var frag = document.createDocumentFragment();
+      state.history.forEach(function (h, idx) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'hist-item';
+        btn.dataset.i = String(idx);
+        btn.title = '回填并重新计算';
+        var main = document.createElement('div');
+        main.className = 'hi-main';
+        var ex = document.createElement('div');
+        ex.className = 'hi-expr';
+        ex.textContent = pretty(h.e);
+        var rs = document.createElement('div');
+        rs.className = 'hi-res';
+        rs.textContent = h.r;
+        main.appendChild(ex);
+        main.appendChild(rs);
+        var tm = document.createElement('div');
+        tm.className = 'hi-time';
+        tm.textContent = timeLabel(h.t);
+        btn.appendChild(main);
+        btn.appendChild(tm);
+        frag.appendChild(btn);
       });
-    });
-  }
-  function escapeHtml(s) {
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
+      histList.innerHTML = '';
+      histList.appendChild(frag);
+    }
 
-  /* ---------- 复制 ---------- */
-  function copyResult() {
-    var text = currentText();
-    if (!text || text === '错误') return;
-    var done = function () { flashCopy(true); };
-    var fail = function () { flashCopy(false); };
-    try {
+    function updateDot() {
+      histDot.classList.toggle('on', state.history.length > 0 && !histPanel.classList.contains('show'));
+    }
+
+    function openHistory() {
+      renderHistory();
+      histPanel.hidden = false;
+      void histPanel.offsetWidth;
+      histPanel.classList.add('show');
+      histBtn.setAttribute('aria-expanded', 'true');
+      updateDot();
+    }
+    function closeHistory() {
+      histPanel.classList.remove('show');
+      histBtn.setAttribute('aria-expanded', 'false');
+      setTimeout(function () {
+        if (!histPanel.classList.contains('show')) histPanel.hidden = true;
+        updateDot();
+      }, 180);
+    }
+    function toggleHistory() {
+      if (histPanel.classList.contains('show')) closeHistory();
+      else openHistory();
+    }
+
+    /* ── Toast / 复制 ─────────────────────────────────────── */
+    var toastTimer = 0;
+    function toast(msg) {
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 1600);
+    }
+
+    function copyText(text) {
+      if (!text) return;
+      function done() { toast('已复制 ' + text); }
+      function fallback() {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          if (document.execCommand('copy')) done();
+          else toast('复制失败');
+        } catch (e) {
+          toast('复制失败');
+        }
+        document.body.removeChild(ta);
+      }
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(done).catch(fail);
-      } else { fallbackCopy(text) ? done() : fail(); }
-    } catch (e) { fail(); }
-  }
-  function fallbackCopy(text) {
-    try {
-      var ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
-      document.body.appendChild(ta);
-      ta.select();
-      var ok = document.execCommand('copy');
-      document.body.removeChild(ta);
-      return ok;
-    } catch (e) { return false; }
-  }
-  function flashCopy(ok) {
-    var btn = document.getElementById('calcCopyBtn');
-    if (!btn) return;
-    var label = btn.querySelector('span');
-    var old = label.textContent;
-    label.textContent = ok ? '已复制' : '复制失败';
-    btn.style.color = ok ? '#22A06B' : '#E0533D';
-    clearTimeout(flashCopy._t);
-    flashCopy._t = setTimeout(function () {
-      if (label) label.textContent = old;
-      btn.style.color = '';
-    }, 1100);
-  }
+        navigator.clipboard.writeText(text).then(done, fallback);
+      } else {
+        fallback();
+      }
+    }
 
-  /* ---------- 键盘 ---------- */
-  document.addEventListener('keydown', function (e) {
-    var k = e.key;
-    if (k >= '0' && k <= '9') { handleKey(k); e.preventDefault(); return; }
-    if (k === '.') { handleKey('.'); e.preventDefault(); return; }
-    if (k === '+') { handleKey('+'); e.preventDefault(); return; }
-    if (k === '-') { handleKey('−'); e.preventDefault(); return; }
-    if (k === '*') { handleKey('×'); e.preventDefault(); return; }
-    if (k === '/') { handleKey('÷'); e.preventDefault(); return; }
-    if (k === '(' || k === ')') { handleKey(k); e.preventDefault(); return; }
-    if (k === '%') { handleKey('percent'); e.preventDefault(); return; }
-    if (k === 'Enter' || k === '=') { handleKey('eq'); e.preventDefault(); return; }
-    if (k === 'Backspace') { handleKey('back'); e.preventDefault(); return; }
-    if (k === 'Escape') { handleKey('ac'); e.preventDefault(); return; }
-    if (k === 'c' || k === 'C') { handleKey('ac'); e.preventDefault(); return; }
-  });
+    function currentPlain() {
+      if (state.error) return '';
+      if (state.justEvaluated) return plain(state.value);
+      var pv = tryValue(state.expr);
+      if (pv !== null) return plain(pv);
+      return state.valueText ? plain(state.value) : '';
+    }
 
-  Nexus.ready(function () {
-    render();
-    updateDisplay();
-    loadHistory();
-    renderHistory();
-  });
-})();
+    /* ── 单位换算数据 ─────────────────────────────────────── */
+    var CATS = [
+      { id: 'length', name: '长度', units: [
+        { id: 'mm', n: '毫米 mm', f: 0.001 },
+        { id: 'cm', n: '厘米 cm', f: 0.01 },
+        { id: 'm', n: '米 m', f: 1 },
+        { id: 'km', n: '千米 km', f: 1000 },
+        { id: 'in', n: '英寸 in', f: 0.0254 },
+        { id: 'ft', n: '英尺 ft', f: 0.3048 },
+        { id: 'yd', n: '码 yd', f: 0.9144 },
+        { id: 'mi', n: '英里 mi', f: 1609.344 },
+        { id: 'li', n: '里', f: 500 },
+        { id: 'chi', n: '尺', f: 1 / 3 },
+        { id: 'nmi', n: '海里 nmi', f: 1852 }
+      ] },
+      { id: 'mass', name: '质量', units: [
+        { id: 'mg', n: '毫克 mg', f: 1e-6 },
+        { id: 'g', n: '克 g', f: 0.001 },
+        { id: 'kg', n: '千克 kg', f: 1 },
+        { id: 't', n: '吨 t', f: 1000 },
+        { id: 'oz', n: '盎司 oz', f: 0.028349523125 },
+        { id: 'lb', n: '磅 lb', f: 0.45359237 },
+        { id: 'jin', n: '斤', f: 0.5 },
+        { id: 'liang', n: '两', f: 0.05 }
+      ] },
+      { id: 'temp', name: '温度', temp: true, units: [
+        { id: 'c', n: '摄氏度 °C' },
+        { id: 'f', n: '华氏度 °F' },
+        { id: 'k', n: '开尔文 K' }
+      ] },
+      { id: 'area', name: '面积', units: [
+        { id: 'mm2', n: '平方毫米 mm²', f: 1e-6 },
+        { id: 'cm2', n: '平方厘米 cm²', f: 1e-4 },
+        { id: 'm2', n: '平方米 m²', f: 1 },
+        { id: 'km2', n: '平方千米 km²', f: 1e6 },
+        { id: 'ha', n: '公顷 ha', f: 1e4 },
+        { id: 'mu', n: '亩', f: 666.6666666667 },
+        { id: 'ft2', n: '平方英尺 ft²', f: 0.09290304 },
+        { id: 'ping', n: '坪', f: 3.30578512397 }
+      ] },
+      { id: 'volume', name: '体积', units: [
+        { id: 'ml', n: '毫升 mL', f: 0.001 },
+        { id: 'l', n: '升 L', f: 1 },
+        { id: 'cm3', n: '立方厘米 cm³', f: 0.001 },
+        { id: 'm3', n: '立方米 m³', f: 1000 },
+        { id: 'galus', n: '加仑(US)', f: 3.785411784 },
+        { id: 'qtus', n: '夸脱(US)', f: 0.946352946 },
+        { id: 'floz', n: '液盎司(US)', f: 0.0295735295625 },
+        { id: 'galuk', n: '加仑(UK)', f: 4.54609 }
+      ] },
+      { id: 'time', name: '时间', units: [
+        { id: 'ms', n: '毫秒 ms', f: 0.001 },
+        { id: 's', n: '秒 s', f: 1 },
+        { id: 'min', n: '分钟 min', f: 60 },
+        { id: 'h', n: '小时 h', f: 3600 },
+        { id: 'd', n: '天', f: 86400 },
+        { id: 'wk', n: '周', f: 604800 },
+        { id: 'yr', n: '年(365天)', f: 31536000 }
+      ] },
+      { id: 'speed', name: '速度', units: [
+        { id: 'mps', n: '米/秒 m/s', f: 1 },
+        { id: 'kmh', n: '千米/时 km/h', f: 1 / 3.6 },
+        { id: 'mph', n: '英里/时 mph', f: 0.44704 },
+        { id: 'kn', n: '节 kn', f: 0.5144444444 },
+        { id: 'fps', n: '英尺/秒 ft/s', f: 0.3048 }
+      ] },
+      { id: 'data', name: '数据', units: [
+        { id: 'bit', n: '比特 bit', f: 0.125 },
+        { id: 'b', n: '字节 B', f: 1 },
+        { id: 'kb', n: 'KB', f: 1024 },
+        { id: 'mb', n: 'MB', f: 1048576 },
+        { id: 'gb', n: 'GB', f: 1073741824 },
+        { id: 'tb', n: 'TB', f: 1099511627776 }
+      ] },
+      { id: 'pressure', name: '压力', units: [
+        { id: 'pa', n: '帕 Pa', f: 1 },
+        { id: 'kpa', n: '千帕 kPa', f: 1000 },
+        { id: 'bar', n: '巴 bar', f: 100000 },
+        { id: 'atm', n: '大气压 atm', f: 101325 },
+        { id: 'mmhg', n: '毫米汞柱 mmHg', f: 133.322387415 },
+        { id: 'psi', n: '磅力/平方英寸 psi', f: 6894.757293168 }
+      ] },
+      { id: 'angle', name: '角度', units: [
+        { id: 'deg', n: '度 °', f: 1 },
+        { id: 'rad', n: '弧度 rad', f: 57.29577951308232 },
+        { id: 'gon', n: '百分度 gon', f: 0.9 },
+        { id: 'turn', n: '圈 turn', f: 360 }
+      ] }
+    ];
+
+    function getCat() {
+      for (var i = 0; i < CATS.length; i++) if (CATS[i].id === state.conv.cat) return CATS[i];
+      return CATS[0];
+    }
+    function unitIndex(cat, id) {
+      for (var i = 0; i < cat.units.length; i++) if (cat.units[i].id === id) return i;
+      return -1;
+    }
+    function unitOf(cat, id) {
+      var i = unitIndex(cat, id);
+      return i >= 0 ? cat.units[i] : cat.units[0];
+    }
+    function toBase(cat, unit, v) {
+      if (!cat.temp) return v * unit.f;
+      if (unit.id === 'f') return (v - 32) * 5 / 9;
+      if (unit.id === 'k') return v - 273.15;
+      return v;
+    }
+    function fromBase(cat, unit, v) {
+      if (!cat.temp) return v / unit.f;
+      if (unit.id === 'f') return v * 9 / 5 + 32;
+      if (unit.id === 'k') return v + 273.15;
+      return v;
+    }
+    function convert(cat, a, b, v) {
+      return fromBase(cat, b, toBase(cat, a, v));
+    }
+
+    function buildCats() {
+      var frag = document.createDocumentFragment();
+      CATS.forEach(function (c) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'cat';
+        b.dataset.cat = c.id;
+        b.setAttribute('role', 'tab');
+        b.setAttribute('aria-selected', c.id === state.conv.cat ? 'true' : 'false');
+        b.tabIndex = c.id === state.conv.cat ? 0 : -1;
+        b.textContent = c.name;
+        frag.appendChild(b);
+      });
+      catRow.innerHTML = '';
+      catRow.appendChild(frag);
+    }
+
+    function renderCats() {
+      Array.prototype.forEach.call(catRow.children, function (b) {
+        var on = b.dataset.cat === state.conv.cat;
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+        b.tabIndex = on ? 0 : -1;
+      });
+    }
+
+    function fillUnits() {
+      var cat = getCat();
+      [[convFrom, 'from'], [convTo, 'to']].forEach(function (pair) {
+        var sel = pair[0], key = pair[1];
+        sel.innerHTML = '';
+        cat.units.forEach(function (u) {
+          var o = document.createElement('option');
+          o.value = u.id;
+          o.textContent = u.n;
+          sel.appendChild(o);
+        });
+        if (unitIndex(cat, state.conv[key]) < 0) {
+          state.conv[key] = cat.units[0].id;
+        }
+        sel.value = state.conv[key];
+      });
+    }
+
+    function noteText(cat, a, b) {
+      if (a.id === b.id) return '同一单位，数值不变';
+      var base = cat.temp ? 0 : 1;
+      var shortName = function (u) { return u.n.replace(/\s+[A-Za-z°℃℉²³]+$/, ''); };
+      var text = base + ' ' + shortName(a) + ' = ' + fmt(convert(cat, a, b, base)) + ' ' + shortName(b);
+      if (cat.id === 'data') text += '（按 1024 进制）';
+      return text;
+    }
+
+    function updateConvert() {
+      var cat = getCat();
+      var a = unitOf(cat, state.conv.from);
+      var b = unitOf(cat, state.conv.to);
+      var raw = (convInput.value || '').trim();
+      state.conv.value = raw;
+      state.conv.result = null;
+      convOut.classList.remove('is-error');
+
+      if (!raw || raw === '-' || raw === '+' || raw === '.' || raw === '-.') {
+        convOut.textContent = '—';
+        convNote.textContent = '';
+        return;
+      }
+      if (!/^[+-]?(\d+\.?\d*|\.\d+)$/.test(raw)) {
+        convOut.textContent = '请输入数字';
+        convOut.classList.add('is-error');
+        convNote.textContent = '支持整数、小数与负号';
+        return;
+      }
+      var v = parseFloat(raw);
+      if (!isFinite(v)) {
+        convOut.textContent = '数字超出范围';
+        convOut.classList.add('is-error');
+        convNote.textContent = '';
+        return;
+      }
+      var res = convert(cat, a, b, v);
+      if (!isFinite(res)) {
+        convOut.textContent = '结果超出范围';
+        convOut.classList.add('is-error');
+        convNote.textContent = '';
+        return;
+      }
+      state.conv.result = res;
+      convOut.textContent = fmt(res);
+      convNote.textContent = noteText(cat, a, b);
+    }
+
+    function setCategory(id) {
+      state.conv.cat = id;
+      var cat = getCat();
+      if (unitIndex(cat, state.conv.from) < 0) state.conv.from = cat.units[0].id;
+      if (unitIndex(cat, state.conv.to) < 0) state.conv.to = cat.units[1] ? cat.units[1].id : cat.units[0].id;
+      if (state.conv.from === state.conv.to && cat.units.length > 1) state.conv.to = cat.units[1].id;
+      renderCats();
+      fillUnits();
+      updateConvert();
+      persist();
+    }
+
+    function swapUnits() {
+      var t = state.conv.from;
+      state.conv.from = state.conv.to;
+      state.conv.to = t;
+      if (state.conv.result !== null) {
+        state.conv.value = plain(state.conv.result);
+        convInput.value = state.conv.value;
+      }
+      fillUnits();
+      updateConvert();
+      persist();
+    }
+
+    function padInput(ch) {
+      var v = convInput.value;
+      if (ch === 'del') {
+        v = v.slice(0, -1);
+        if (!v || v === '-' || v === '+') v = '0';
+      } else if (ch === '.') {
+        if (v.indexOf('.') < 0) v = (v === '' ? '0' : v) + '.';
+      } else if (v === '0') {
+        v = ch;
+      } else {
+        var digits = v.replace(/[-.]/g, '');
+        if (digits.length >= 15) return;
+        v += ch;
+      }
+      convInput.value = v;
+      state.conv.value = v;
+      updateConvert();
+    }
+
+    function toggleSign() {
+      var v = (convInput.value || '').trim();
+      if (!v) convInput.value = '-';
+      else if (v.charAt(0) === '-') convInput.value = v.slice(1);
+      else if (v.charAt(0) === '+') convInput.value = '-' + v.slice(1);
+      else convInput.value = '-' + v;
+      state.conv.value = convInput.value;
+      updateConvert();
+      convInput.focus();
+    }
+
+    /* ── 模式 ─────────────────────────────────────────────── */
+    var MODES = ['standard', 'scientific', 'convert'];
+    var tabs = [$('tabStandard'), $('tabScientific'), $('tabConvert')];
+
+    function setMode(m, opts) {
+      if (MODES.indexOf(m) < 0) m = 'standard';
+      state.mode = m;
+      app.dataset.mode = m;
+      seg.style.setProperty('--i', String(MODES.indexOf(m)));
+
+      tabs.forEach(function (t) {
+        var on = t.dataset.mode === m;
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+        t.tabIndex = on ? 0 : -1;
+      });
+
+      var isConv = m === 'convert';
+      viewCalc.hidden = isConv;
+      viewConv.hidden = !isConv;
+      sciBank.hidden = m !== 'scientific';
+      angleChip.hidden = m !== 'scientific';
+
+      if (isConv) {
+        fillUnits();
+        convInput.value = state.conv.value || '1';
+        updateConvert();
+      } else {
+        render();
+      }
+      closeHistory();
+      if (!opts || !opts.silent) persist();
+    }
+
+    function toggleAngle() {
+      state.angle = state.angle === 'deg' ? 'rad' : 'deg';
+      persist();
+      render();
+      toast(state.angle === 'deg' ? '角度单位：度 DEG' : '角度单位：弧度 RAD');
+    }
+
+    function recall(dir) {
+      if (!state.history.length) { reject('还没有历史记录'); return; }
+      var next = state.recall + (dir < 0 ? 1 : -1);
+      if (next < 0) { state.recall = -1; return; }
+      if (next >= state.history.length) next = state.history.length - 1;
+      state.recall = next;
+      var h = state.history[next];
+      state.expr = h.e;
+      state.justEvaluated = false;
+      state.error = '';
+      state.hint = '';
+      var pv = tryValue(h.e);
+      state.valueText = pv !== null ? fmt(pv) : h.r;
+      if (pv !== null) state.value = pv;
+      render();
+    }
+
+    function flashKey(k) {
+      var btn = app.querySelector('.key[data-k="' + k + '"]');
+      if (!btn) return;
+      btn.classList.add('is-hit');
+      setTimeout(function () { btn.classList.remove('is-hit'); }, 110);
+    }
+
+    function clearHistory() {
+      if (!state.history.length) { toast('还没有历史记录'); return; }
+      state.history = [];
+      persist();
+      renderHistory();
+      updateDot();
+      toast('已清空历史记录');
+    }
+
+    /* ── 事件绑定 ─────────────────────────────────────────── */
+    function onKeyDown(e) {
+      if (e.isComposing || e.keyCode === 229) return;
+      var tag = e.target && e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+        if (e.key === 'Escape') { e.target.blur(); return; }
+        if (tag === 'INPUT' && e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
+        return;
+      }
+
+      var mod = e.ctrlKey || e.metaKey;
+      if (mod && (e.key === 'h' || e.key === 'H')) { e.preventDefault(); toggleHistory(); return; }
+      if (mod && (e.key === 'c' || e.key === 'C')) {
+        if (!state.error && window.getSelection && String(window.getSelection()).length) return;
+        e.preventDefault();
+        if (state.mode === 'convert') {
+          if (state.conv.result !== null) copyText(plain(state.conv.result));
+        } else {
+          copyText(currentPlain());
+        }
+        return;
+      }
+      if (mod || e.altKey) return;
+
+      if (e.key === 'Escape') {
+        if (histPanel.classList.contains('show')) { closeHistory(); return; }
+        clearCalc();
+        render();
+        return;
+      }
+      if (state.mode === 'convert') {
+        // 换算页：焦点不在输入框时，数字键直接灌进输入框
+        if (e.key >= '0' && e.key <= '9') { e.preventDefault(); padInput(e.key); return; }
+        if (e.key === '.') { e.preventDefault(); padInput('.'); return; }
+        if (e.key === 'Backspace') { e.preventDefault(); padInput('del'); return; }
+        return;
+      }
+
+      if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); handle('eq'); flashKey('eq'); return; }
+      if (e.key === 'Backspace') { e.preventDefault(); handle('back'); flashKey('back'); return; }
+      if (e.key === 'Delete') { e.preventDefault(); handle('ac'); flashKey('ac'); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); recall(-1); return; }
+      if (e.key === 'ArrowDown') { e.preventDefault(); recall(1); return; }
+
+      var map = {
+        '*': '×', 'x': '×', 'X': '×', '/': '÷', '+': '+', '-': '−', '−': '−',
+        '.': 'dot', ',': 'dot', '%': 'pct', '^': '^', '(': 'lp', ')': 'rp'
+      };
+      var action = map[e.key];
+      if (action) {
+        e.preventDefault();
+        handle(action);
+        flashKey(action === '^' ? 'pow' : action);
+        return;
+      }
+      if (e.key.length === 1 && e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        handle(e.key);
+        flashKey(e.key);
+        return;
+      }
+      if (state.mode === 'scientific') {
+        var sci = { s: 'sin', c: 'cos', t: 'tan', l: 'ln', g: 'log', r: 'sqrt', q: 'sq', p: 'pi', e: 'eu' };
+        var letter = e.key.toLowerCase();
+        if (letter === 'd') { e.preventDefault(); toggleAngle(); return; }
+        if (sci[letter]) { e.preventDefault(); handle(sci[letter]); flashKey(sci[letter]); return; }
+      }
+    }
+
+    function bindEvents() {
+      seg.addEventListener('click', function (e) {
+        var btn = e.target.closest('.seg-btn');
+        if (btn) setMode(btn.dataset.mode);
+      });
+      seg.addEventListener('keydown', function (e) {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return;
+        e.preventDefault();
+        var idx = MODES.indexOf(state.mode);
+        if (e.key === 'ArrowLeft') idx = (idx + 2) % 3;
+        else if (e.key === 'ArrowRight') idx = (idx + 1) % 3;
+        else if (e.key === 'Home') idx = 0;
+        else idx = 2;
+        setMode(MODES[idx]);
+        tabs[idx].focus();
+      });
+
+      app.addEventListener('click', function (e) {
+        var key = e.target.closest('.key');
+        if (key) handle(key.dataset.k);
+      });
+
+      histBtn.addEventListener('click', toggleHistory);
+      $('histClose').addEventListener('click', closeHistory);
+      $('histClear').addEventListener('click', clearHistory);
+      histList.addEventListener('click', function (e) {
+        var item = e.target.closest('.hist-item');
+        if (item) {
+          var h = state.history[+item.dataset.i];
+          if (h) {
+            state.expr = h.e;
+            state.justEvaluated = false;
+            state.error = '';
+            state.hint = '';
+            var pv = tryValue(h.e);
+            state.valueText = pv !== null ? fmt(pv) : h.r;
+            if (pv !== null) state.value = pv;
+            closeHistory();
+            render();
+          }
+          return;
+        }
+        if (e.target.closest('.empty-btn')) closeHistory();
+      });
+
+      dValue.addEventListener('click', function () { copyText(currentPlain()); });
+      dValue.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          copyText(currentPlain());
+        }
+      });
+      angleChip.addEventListener('click', toggleAngle);
+
+      catRow.addEventListener('click', function (e) {
+        var chip = e.target.closest('.cat');
+        if (chip) setCategory(chip.dataset.cat);
+      });
+      catRow.addEventListener('keydown', function (e) {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        e.preventDefault();
+        var idx = 0;
+        for (var i = 0; i < CATS.length; i++) if (CATS[i].id === state.conv.cat) idx = i;
+        idx = (idx + (e.key === 'ArrowRight' ? 1 : CATS.length - 1)) % CATS.length;
+        setCategory(CATS[idx].id);
+        if (catRow.children[idx]) catRow.children[idx].focus();
+      });
+
+      convInput.addEventListener('input', function () {
+        state.conv.value = convInput.value;
+        updateConvert();
+      });
+      convFrom.addEventListener('change', function () {
+        state.conv.from = convFrom.value;
+        updateConvert();
+        persist();
+      });
+      convTo.addEventListener('change', function () {
+        state.conv.to = convTo.value;
+        updateConvert();
+        persist();
+      });
+      $('convSwap').addEventListener('click', swapUnits);
+      $('convSign').addEventListener('click', toggleSign);
+      $('convPad').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-cv]');
+        if (b) padInput(b.dataset.cv);
+      });
+      convOut.addEventListener('click', function () {
+        if (state.conv.result !== null) copyText(plain(state.conv.result));
+      });
+      convOut.addEventListener('keydown', function (e) {
+        if ((e.key === 'Enter' || e.key === ' ') && state.conv.result !== null) {
+          e.preventDefault();
+          copyText(plain(state.conv.result));
+        }
+      });
+
+      document.addEventListener('keydown', onKeyDown);
+    }
+
+    /* ── 启动 ─────────────────────────────────────────────── */
+    function init() {
+      var saved = lsRead();
+      if (saved && typeof saved === 'object') {
+        if (Array.isArray(saved.history)) state.history = saved.history.filter(validEntry).slice(0, MAX_HISTORY);
+        if (saved.angle === 'rad' || saved.angle === 'deg') state.angle = saved.angle;
+        if (MODES.indexOf(saved.mode) >= 0) state.mode = saved.mode;
+        if (saved.conv && typeof saved.conv === 'object') {
+          if (saved.conv.cat) state.conv.cat = saved.conv.cat;
+          if (saved.conv.from) state.conv.from = saved.conv.from;
+          if (saved.conv.to) state.conv.to = saved.conv.to;
+        }
+      }
+      try {
+        var qm = new URLSearchParams(location.search).get('mode');
+        if (MODES.indexOf(qm) >= 0) state.mode = qm;
+      } catch (e) {}
+
+      var cat = getCat();
+      if (unitIndex(cat, state.conv.from) < 0) state.conv.from = cat.units[0].id;
+      if (unitIndex(cat, state.conv.to) < 0) state.conv.to = cat.units[1] ? cat.units[1].id : cat.units[0].id;
+
+      buildCats();
+      bindEvents();
+      setMode(state.mode, { silent: true });
+      renderHistory();
+      updateDot();
+
+      if (HOSTED && window.Nexus && Nexus.getUserLS) {
+        try {
+          Nexus.getUserLS(HKEY).then(function (v) {
+            if (!v || !Array.isArray(v.history) || state.history.length) return;
+            state.history = v.history.filter(validEntry).slice(0, MAX_HISTORY);
+            if (v.angle === 'rad' || v.angle === 'deg') state.angle = v.angle;
+            renderHistory();
+            updateDot();
+            render();
+          }).catch(function () {});
+        } catch (e) {}
+      }
+    }
+
+    init();
+  })();
 </script>
 </body>
 </html>

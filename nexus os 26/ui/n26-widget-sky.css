@@ -1,0 +1,143 @@
+/* ============================================================================
+ * Nexus OS 26 · 小组件「天空」层样式
+ * ----------------------------------------------------------------------------
+ * 只用真实子 div 做底图，绝不碰 .desktop-widget-card 的 ::before / ::after：
+ *   ::before  → clock 的底部白线、date/todo/system 的结构线
+ *   ::after   → v2.9.59 身份实色卡那块斜向柔光（z-index:-1）
+ * 天空层同为 z-index:-1，但排在 ::after 之前，所以柔光仍然压在天空之上，
+ * 既保留自研玻璃受光特色，又让天气/时段底图透出来。
+ *
+ * 全面禁紫：只用蓝 / 青 / 琥珀 / 橙 / 中性墨。
+ * ==========================================================================*/
+
+/* ---------- 底图层 ---------- */
+.desktop-widget-card[data-sky="1"] > .n26-sky-layer {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    overflow: hidden;
+    background-image: var(--sky-bg);
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    opacity: 0;
+    animation: n26SkyIn .55s ease forwards;
+    transition: background-image .9s ease, opacity .55s ease;
+}
+@keyframes n26SkyIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* 时段色调 + 一层通用压暗：照片再亮，白色大数字也始终读得清 */
+.desktop-widget-card[data-sky="1"] > .n26-sky-layer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        var(--sky-tint),
+        linear-gradient(180deg, rgba(6, 16, 32, .10) 0%, rgba(6, 16, 32, .38) 100%);
+    transition: background .8s ease;
+}
+
+/* 时段角标：放顶部正中，避开天气卡左右分布的城市名与图标 */
+.desktop-widget-card[data-sky="1"] > .n26-sky-layer > .n26-sky-tag {
+    position: absolute;
+    top: 7px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: .6px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, .92);
+    background: rgba(10, 24, 44, .34);
+    border: 1px solid rgba(255, 255, 255, .18);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .28);
+    white-space: nowrap;
+    pointer-events: none;
+}
+/* 天气卡本身已有城市名 / 大图标 / 温度 / 四行 meta，顶栏再加字就太挤 —— 只保留背景随时段变 */
+.desktop-widget-card[data-sky="1"][data-wtype="weather"] > .n26-sky-layer > .n26-sky-tag {
+    display: none;
+}
+/* 夜晚更沉、正午更轻，让角标自己也有时段感 */
+.desktop-widget-card[data-sky-phase="night"] > .n26-sky-layer > .n26-sky-tag {
+    background: rgba(6, 18, 40, .52);
+}
+.desktop-widget-card[data-sky-phase="noon"] > .n26-sky-layer > .n26-sky-tag {
+    background: rgba(18, 62, 104, .26);
+}
+
+/* ---------- 时钟放大后的日出 / 日落 / 黄金时分详情 ---------- */
+/* 小卡（2×2）不显示；拉到 4×2 / 4×4 才出现，正是用户要的「时间变大就显示更详细」 */
+.desktop-widget-card[data-sky="1"] > .n26-sky-sun { display: none; }
+.desktop-widget-card[data-sky="1"][data-wtype="clock"].wsize-m > .n26-sky-sun,
+.desktop-widget-card[data-sky="1"][data-wtype="clock"].wsize-l > .n26-sky-sun {
+    display: flex;
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 10px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, .28);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .2px;
+    color: rgba(255, 255, 255, .88);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .42);
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+}
+.desktop-widget-card[data-sky="1"][data-wtype="clock"].wsize-l > .n26-sky-sun {
+    font-size: 12px;
+    gap: 10px;
+}
+.desktop-widget-card[data-sky="1"][data-wtype="clock"] .n26-sky-sun .s-phase {
+    color: #ffd9a8;
+    font-weight: 700;
+}
+/* 大卡把时间整体轻轻上抬，给底部详情让出空间；顺便撤掉会和详情打架的白线 */
+.desktop-widget-card[data-sky="1"][data-wtype="clock"].wsize-m .widget-clock,
+.desktop-widget-card[data-sky="1"][data-wtype="clock"].wsize-l .widget-clock {
+    transform: translateY(-14px);
+}
+.desktop-widget-card[data-sky="1"][data-wtype="clock"].wsize-m::before,
+.desktop-widget-card[data-sky="1"][data-wtype="clock"].wsize-l::before {
+    display: none;
+}
+
+/* ---------- 有天空底图的卡，文字统一收口为高对比白字 ---------- */
+.desktop-widget-card[data-sky="1"] .widget-clock-time,
+.desktop-widget-card[data-sky="1"] .widget-clock-date,
+.desktop-widget-card[data-sky="1"] .widget-clock-week,
+.desktop-widget-card[data-sky="1"] .widget-weather-temp,
+.desktop-widget-card[data-sky="1"] .widget-weather-status,
+.desktop-widget-card[data-sky="1"] .widget-weather-meta,
+.desktop-widget-card[data-sky="1"] .widget-weather-city {
+    color: #fff !important;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, .42);
+}
+/* 拟物化皮肤的琥珀时钟字是特例，保留它原本的身份 */
+body.style-skeuomorphic .desktop-widget-card[data-sky="1"] .widget-clock-time,
+body.style-skeuomorphic .desktop-widget-card[data-sky="1"] .widget-clock-date,
+body.style-skeuomorphic .desktop-widget-card[data-sky="1"] .widget-clock-week {
+    color: #fbbf24 !important;
+}
+
+/* ---------- 降级：用户系统开了「减少动态效果」 ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .desktop-widget-card[data-sky="1"] > .n26-sky-layer {
+        animation: none;
+        opacity: 1;
+        transition: none;
+    }
+    .desktop-widget-card[data-sky="1"] > .n26-sky-layer::after { transition: none; }
+}

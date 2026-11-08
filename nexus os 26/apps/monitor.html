@@ -15,7 +15,7 @@
     --card: rgba(255, 255, 255, 0.72);
     --line: rgba(15, 23, 42, 0.08);
     --mn-text: #1a1f2b;
-    --sub: rgba(30, 41, 59, 0.55);
+    --sub: rgba(30, 41, 59, 0.66);
     --green: #10b981;
     --orange: #f59e0b;
     --red: #ef4444;
@@ -47,6 +47,9 @@
     display: flex; align-items: center; justify-content: center;
     color: white; font-size: 15px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
   }
+  /* 超椭圆：与主壳 #n26Squircle 同源（apps/_squircle.js 注入定义） */
+  html.n26-squircle-ready .app-icon { border-radius: 0;
+    -webkit-clip-path: url(#n26Squircle); clip-path: url(#n26Squircle); }
   .app-title { font-size: 15px; font-weight: 700; }
   .app-sub { font-size: 11px; color: var(--sub); margin-top: 1px; }
   .live-dot {
@@ -360,5 +363,6 @@
   });
 })();
 </script>
+<script src="_squircle.js"></script>
 </body>
 </html>

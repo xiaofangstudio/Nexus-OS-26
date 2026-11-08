@@ -1,0 +1,1937 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>演示</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<link rel="stylesheet" href="../ui/n26-ui.css">
+<link rel="stylesheet" href="_polish.css">
+<link rel="stylesheet" href="_office.css">
+<style>
+/* ===== Nexus 演示 · 幻灯片（PPT） ===== */
+html,body{height:100%;margin:0}
+body{background:transparent;overflow:hidden;-webkit-font-smoothing:antialiased}
+
+.of-app.ppt{
+  --of-accent:hsl(18 88% 52%);
+  --of-accent-press:hsl(18 88% 44%);
+  --of-accent-ink:hsl(18 78% 38%);
+  --of-accent-weak:color-mix(in srgb,var(--of-accent) 12%,transparent);
+  --of-accent-weak2:color-mix(in srgb,var(--of-accent) 32%,transparent);
+  --of-on-accent:rgb(255 255 255 / .96);
+}
+html[data-mode="dark"] .of-app.ppt,html[data-theme="dark"] .of-app.ppt,body.dark-mode .of-app.ppt{
+  --of-accent:hsl(18 92% 62%);
+  --of-accent-press:hsl(18 92% 54%);
+  --of-accent-ink:hsl(24 96% 78%);
+  --of-on-accent:rgb(34 12 4 / .92);
+}
+
+.ppt{height:100%;min-height:0;display:flex;flex-direction:column}
+.ppt-main{flex:1;min-height:0;display:flex;overflow:hidden}
+/* 左侧幻灯片导轨 */
+.ppt-rail{width:146px;flex:0 0 146px;display:flex;flex-direction:column;gap:6px;padding:8px;border-right:1px solid rgba(15,23,42,.075);background:rgba(255,255,255,.34);overflow:hidden}
+html[data-mode="dark"] .ppt-rail,html[data-theme="dark"] .ppt-rail,body.dark-mode .ppt-rail{border-right-color:rgba(255,255,255,.08);background:rgba(255,255,255,.035)}
+.ppt-rail-tools{display:flex;gap:2px;flex-shrink:0}
+.ppt-rail-tools .of-btn{height:24px;min-width:24px;font-size:10px}
+.ppt-slides{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:7px;padding:2px}
+.ppt-slide{position:relative;flex-shrink:0;border-radius:7px;border:1px solid rgba(15,23,42,.14);background:rgb(255 255 255);cursor:pointer;overflow:hidden;transition:box-shadow var(--dur-fast) var(--ease-out-expo),border-color var(--dur-fast) var(--ease-out-expo)}
+html[data-mode="dark"] .ppt-slide,html[data-theme="dark"] .ppt-slide,body.dark-mode .ppt-slide{border-color:rgba(255,255,255,.18)}
+.ppt-slide:hover{border-color:var(--of-accent-weak2)}
+.ppt-slide.on{border-color:var(--of-accent);box-shadow:0 0 0 2px var(--of-accent-weak2)}
+.ppt-slide .num{position:absolute;left:4px;top:3px;z-index:2;font-size:9px;font-weight:600;color:rgba(15,23,42,.48);background:rgba(255,255,255,.82);border-radius:4px;padding:1px 4px;line-height:1.2}
+.ppt-mini{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.ppt-mini-inner{position:absolute;left:0;top:0;width:960px;height:540px;transform-origin:top left;pointer-events:none}
+/* 画布区 */
+.ppt-stage{flex:1;min-width:0;min-height:0;overflow:auto;padding:18px;display:flex;align-items:center;justify-content:center;background:
+  radial-gradient(110% 90% at 50% -10%,color-mix(in srgb,var(--of-accent) 5%,transparent),transparent 60%),
+  rgba(15,23,42,.035)}
+html[data-mode="dark"] .ppt-stage,html[data-theme="dark"] .ppt-stage,body.dark-mode .ppt-stage{background:
+  radial-gradient(110% 90% at 50% -10%,color-mix(in srgb,var(--of-accent) 9%,transparent),transparent 60%),
+  rgba(0,0,0,.24)}
+.ppt-scalewrap{position:relative;flex-shrink:0}
+.ppt-canvas{position:absolute;left:0;top:0;width:960px;height:540px;transform-origin:top left;overflow:hidden;border-radius:4px;background:rgb(252 252 253);box-shadow:0 2px 5px rgba(15,23,42,.12),0 18px 44px rgba(15,23,42,.22);cursor:default;outline:none}
+html[data-mode="dark"] .ppt-canvas,html[data-theme="dark"] .ppt-canvas,body.dark-mode .ppt-canvas{box-shadow:0 2px 6px rgba(0,0,0,.4),0 20px 50px rgba(0,0,0,.52)}
+.ppt-els{position:absolute;inset:0}
+.ppt-el{position:absolute;box-sizing:border-box;cursor:move;user-select:none}
+.ppt-el.sel{outline:1.5px solid var(--of-accent);outline-offset:1px}
+.ppt-el.ph{outline:1px dashed rgba(15,23,42,.22)}
+.ppt-el.ph.sel{outline:1.5px solid var(--of-accent)}
+.ppt-text{width:100%;height:100%;display:flex;align-items:center;overflow:hidden;padding:2px 3px;box-sizing:border-box}
+.ppt-text-inner{width:100%;white-space:pre-wrap;word-break:break-word;outline:none;border-radius:3px}
+.ppt-text-inner[contenteditable="true"]{background:rgba(255,255,255,.55);box-shadow:0 0 0 1px var(--of-accent-weak2);cursor:text}
+.ppt-ph-hint{opacity:.42;font-style:italic}
+.ppt-bline{display:flex;gap:.55em}
+.ppt-bdot{flex:0 0 auto}
+.ppt-el-img{width:100%;height:100%;object-fit:contain;display:block;pointer-events:none}
+.ppt-el-svg{width:100%;height:100%;display:block;pointer-events:none}
+.ppt-el-chart{width:100%;height:100%;background:rgb(255 255 255);border-radius:6px;padding:4px;box-sizing:border-box;overflow:hidden;pointer-events:none}
+.ppt-ph-img{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1.5px dashed rgba(15,23,42,.30);border-radius:8px;color:rgba(15,23,42,.48);font-size:12px;background:rgba(15,23,42,.035)}
+.ppt-ph-img i{font-size:21px}
+.ppt-handle{position:absolute;width:9px;height:9px;border-radius:2px;background:rgb(255 255 255);border:1.5px solid var(--of-accent);z-index:10}
+.ppt-handle[data-dir="nw"]{left:-5px;top:-5px;cursor:nwse-resize}
+.ppt-handle[data-dir="ne"]{right:-5px;top:-5px;cursor:nesw-resize}
+.ppt-handle[data-dir="sw"]{left:-5px;bottom:-5px;cursor:nesw-resize}
+.ppt-handle[data-dir="se"]{right:-5px;bottom:-5px;cursor:nwse-resize}
+/* 参考线 / 框选 / 多选包围盒 */
+.ppt-overlay{position:absolute;inset:0;pointer-events:none;z-index:9;overflow:hidden}
+.ppt-guide{position:absolute;background:var(--of-accent);opacity:.9}
+.ppt-guide.v{width:1px;top:0;bottom:0}
+.ppt-guide.h{height:1px;left:0;right:0}
+.ppt-guide-tag{position:absolute;transform:translate(-50%,-50%);font-size:9px;font-weight:600;padding:1px 4px;border-radius:3px;background:var(--of-accent);color:#fff;white-space:nowrap;line-height:1.5;font-variant-numeric:tabular-nums}
+.ppt-measure{position:absolute;background:var(--of-accent);opacity:.72}
+.ppt-marquee{position:absolute;border:1px solid var(--of-accent);background:var(--of-accent-weak);border-radius:2px}
+.ppt-selbox{position:absolute;border:1px dashed var(--of-accent)}
+/* 右侧检查器 */
+.ppt-insp{width:224px;flex:0 0 224px;display:flex;flex-direction:column;border-left:1px solid rgba(15,23,42,.075);background:rgba(255,255,255,.34);overflow:auto}
+html[data-mode="dark"] .ppt-insp,html[data-theme="dark"] .ppt-insp,body.dark-mode .ppt-insp{border-left-color:rgba(255,255,255,.08);background:rgba(255,255,255,.035)}
+.ppt-sec{padding:9px 11px;border-bottom:1px solid rgba(15,23,42,.07)}
+html[data-mode="dark"] .ppt-sec,html[data-theme="dark"] .ppt-sec,body.dark-mode .ppt-sec{border-bottom-color:rgba(255,255,255,.075)}
+.ppt-sec h4{margin:0 0 7px;font-size:11px;font-weight:600;letter-spacing:.3px;color:var(--text-2);display:flex;align-items:center;gap:5px}
+.ppt-sec h4 i{font-size:10px;color:var(--of-accent-ink)}
+.ppt-prop{display:grid;grid-template-columns:34px 1fr;align-items:center;gap:6px;margin-bottom:6px;font-size:11px;color:var(--text-3)}
+.ppt-prop .of-num{width:100%;height:25px;font-size:11px}
+.ppt-prop input[type="color"]{width:100%;height:25px;padding:2px;border:1px solid rgba(15,23,42,.13);border-radius:6px;background:rgba(255,255,255,.7);cursor:pointer}
+html[data-mode="dark"] .ppt-prop input[type="color"],html[data-theme="dark"] .ppt-prop input[type="color"],body.dark-mode .ppt-prop input[type="color"]{border-color:rgba(255,255,255,.16);background:rgba(255,255,255,.08)}
+.ppt-prop-row{display:flex;gap:4px;margin-bottom:6px}
+.ppt-prop-row .of-btn{height:25px;flex:1;font-size:10px;padding:0 4px;border:1px solid rgba(15,23,42,.10)}
+html[data-mode="dark"] .ppt-prop-row .of-btn,html[data-theme="dark"] .ppt-prop-row .of-btn,body.dark-mode .ppt-prop-row .of-btn{border-color:rgba(255,255,255,.12)}
+.ppt-notes{width:100%;min-height:62px;padding:7px;border:1px solid rgba(15,23,42,.12);border-radius:7px;background:rgba(255,255,255,.7);color:var(--text-1);font-family:inherit;font-size:11.5px;line-height:1.55;resize:vertical;outline:none}
+html[data-mode="dark"] .ppt-notes,html[data-theme="dark"] .ppt-notes,body.dark-mode .ppt-notes{border-color:rgba(255,255,255,.16);background:rgba(255,255,255,.08)}
+.ppt-empty-insp{padding:14px 12px;font-size:11.5px;line-height:1.7;color:var(--text-3)}
+.ppt-empty-insp b{display:block;color:var(--text-2);font-weight:600;margin-bottom:4px}
+.ppt-hint{font-size:10px;line-height:1.6;color:var(--text-3)}
+.ppt-layouts{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.ppt-lay{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 2px 6px;border:1px solid rgba(15,23,42,.12);border-radius:7px;background:transparent;font-family:inherit;color:var(--text-3);cursor:pointer;font-size:9px;line-height:1.1}
+html[data-mode="dark"] .ppt-lay,html[data-theme="dark"] .ppt-lay,body.dark-mode .ppt-lay{border-color:rgba(255,255,255,.14)}
+.ppt-lay i{font-size:11px}
+.ppt-lay:hover{color:var(--text-1);border-color:var(--of-accent-weak2)}
+.ppt-lay.on{color:var(--of-accent-ink);border-color:var(--of-accent);background:var(--of-accent-weak)}
+.ppt-size-in{width:52px}
+
+/* 放映 */
+.ppt-show{--of-accent:hsl(18 88% 52%);position:fixed;inset:0;z-index:80;background:rgb(8 10 16);display:flex;align-items:center;justify-content:center;outline:none}
+.ppt-show-slide{position:relative;background:rgb(252 252 253);overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.55)}
+.ppt-show-inner{position:absolute;left:0;top:0;width:960px;height:540px;transform-origin:top left;overflow:hidden}
+.ppt-show-bar{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);display:flex;align-items:center;gap:9px;padding:6px 12px;border-radius:var(--r-full);background:rgba(20,24,34,.72);color:rgba(240,244,252,.9);font-size:12px;backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.14)}
+.ppt-show-bar button{width:26px;height:26px;border:0;border-radius:50%;background:rgba(255,255,255,.12);color:inherit;cursor:pointer}
+.ppt-show-bar button:hover{background:rgba(255,255,255,.22)}
+.ppt-show-bar button[aria-disabled="true"]{opacity:.35;cursor:default}
+.ppt-show-page{font-variant-numeric:tabular-nums;min-width:52px;text-align:center}
+.ppt-show-tip{position:absolute;top:14px;left:50%;transform:translateX(-50%);font-size:11px;color:rgba(240,244,252,.55)}
+.ppt-show-prog{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.14)}
+.ppt-show-prog > i{display:block;height:100%;width:0;background:var(--of-accent);transition:width var(--dur-fast) linear}
+
+/* 模板 */
+.ppt-tpl{flex:1;min-height:0;overflow:auto;padding:18px 20px}
+.ppt-tpl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:14px}
+.pptx-card{display:flex;flex-direction:column;gap:8px;padding:11px;border:1px solid rgba(15,23,42,.09);border-radius:12px;background:rgba(255,255,255,.60);cursor:pointer;text-align:left;font-family:inherit;color:var(--text-1);transition:transform var(--dur-fast) var(--ease-out-expo),border-color var(--dur-fast) var(--ease-out-expo)}
+html[data-mode="dark"] .pptx-card,html[data-theme="dark"] .pptx-card,body.dark-mode .pptx-card{border-color:rgba(255,255,255,.10);background:rgba(255,255,255,.055)}
+.pptx-card:hover{transform:translateY(-1px);border-color:var(--of-accent-weak2)}
+.pptx-thumb{aspect-ratio:16/9;border-radius:7px;overflow:hidden;position:relative;background:rgb(255 255 255);border:1px solid rgba(15,23,42,.10)}
+.pptx-card b{font-size:13px;font-weight:600}
+.pptx-card span{font-size:11px;color:var(--text-3)}
+
+/* 让侧栏壳内容铺满，不额外留白 */
+.ppt .n26ui-content{padding:0;overflow:hidden;display:flex}
+.ppt .n26ui-panel:not([hidden]){flex:1;min-width:0;min-height:0;display:flex}
+.ppt-panel{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.ppt .of-ribbon .of-btn[aria-pressed="true"]{background:var(--of-accent-weak);border-color:var(--of-accent-weak2);color:var(--of-accent-ink)}
+.ppt .of-ribbon .of-grp{min-height:64px}
+.ppt-el .ppt-ph-img{cursor:pointer}
+</style>
+</head>
+<body>
+<div id="app" class="of-app ppt">
+  <header class="of-top">
+    <div class="of-brand"><i class="fa-solid fa-file-powerpoint" aria-hidden="true"></i><b>演示</b></div>
+    <input id="pptTitle" class="of-top-title" aria-label="演示文稿标题" placeholder="未命名演示文稿" spellcheck="false">
+    <span id="pptSave" class="of-save" data-state="idle">已保存</span>
+    <button class="of-btn wide" id="pptSaveBtn"><i class="fa-solid fa-floppy-disk"></i>保存</button>
+    <button class="of-btn primary wide" id="pptShowBtn"><i class="fa-solid fa-play"></i>从头放映</button>
+  </header>
+  <div class="of-body"><div id="pptShell"></div></div>
+</div>
+<input type="file" id="pptFile" accept="image/*" hidden>
+
+<script src="../ui/motion.js"></script>
+<script src="_bridge.js"></script>
+<script src="_app.js?v=2.9.57"></script>
+<script src="../ui/n26-gestures.js"></script>
+<script src="../ui/n26-ui.js"></script>
+<script src="_office.js"></script>
+<script>
+(function () {
+'use strict';
+/* ================= 状态与模型 ================= */
+var store = OF.store('n26PptDecks');
+var state = { v: 2, currentId: null, decks: [] };
+var MASTER_DEFAULT = { bg: 'rgb(252 252 253)', accent: 'hsl(212 72% 46%)', font: '', titleColor: 'rgb(24 30 42)' };
+var LAYOUT_META = [
+  { id: 'cover', label: '封面', icon: 'fa-image', title: '封面版式' },
+  { id: 'section', label: '章节', icon: 'fa-bookmark', title: '章节版式' },
+  { id: 'content', label: '内容', icon: 'fa-heading', title: '标题 + 内容' },
+  { id: 'twocol', label: '两栏', icon: 'fa-columns', title: '两栏版式' },
+  { id: 'imagetext', label: '图文', icon: 'fa-photo-film', title: '图文版式' },
+  { id: 'blank', label: '空白', icon: 'fa-square', title: '空白版式' }
+];
+var deck = null, slide = null, slideIndex = 0;
+var shell = null, scale = 1;
+var selIds = [], primaryId = null;
+var saveTimer = null, booted = false;
+var hist = { undo: [], redo: [] };
+var presenting = false;
+var pendingPhImage = null;
+
+var el = { title: document.getElementById('pptTitle'), save: document.getElementById('pptSave'), file: document.getElementById('pptFile') };
+var cards, libCount, scalewrap, canvas, elsLayer, overlay, railList, insp, statusSlide, statusSize, statusSel;
+
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function hintOf(ph) {
+  return ph === 'title' ? '单击添加标题' : ph === 'subtitle' ? '单击添加副标题'
+    : ph === 'body' ? '单击添加正文' : ph === 'left' ? '单击添加左栏正文'
+    : ph === 'right' ? '单击添加右栏正文' : '单击添加说明';
+}
+
+function elText(text, x, y, w, h, opt) {
+  opt = opt || {};
+  return {
+    id: OF.uid('el'), type: 'text', x: x, y: y, w: w, h: h, text: text,
+    fontSize: opt.fontSize || 20, bold: opt.bold || 0, italic: opt.italic || 0,
+    underline: opt.underline || 0, color: opt.color || 'rgb(24 30 42)', align: opt.align || 'left',
+    font: opt.font || '', fill: opt.fill || '', lineHeight: opt.lineHeight || 1.35, bullet: 0,
+    ph: null, groupId: null
+  };
+}
+function phText(ph, x, y, w, h, opt) {
+  var e = elText('', x, y, w, h, opt);
+  e.ph = ph;
+  return e;
+}
+function elShape(shape, x, y, w, h, fill) {
+  return { id: OF.uid('el'), type: 'shape', shape: shape, x: x, y: y, w: w, h: h, fill: fill || 'hsl(212 72% 50%)', groupId: null };
+}
+function decoShape(shape, x, y, w, h, fill) {
+  var e = elShape(shape, x, y, w, h, fill);
+  e.deco = 1;
+  return e;
+}
+function accentInk(accent) {
+  var hex = toColor(accent || '#ffffff').replace('#', '');
+  if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+  var r = parseInt(hex.slice(0, 2), 16) / 255, g = parseInt(hex.slice(2, 4), 16) / 255, b = parseInt(hex.slice(4, 6), 16) / 255;
+  if (!isFinite(r + g + b)) return 'rgb(250 251 255)';
+  var lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return lum > .62 ? 'rgb(24 30 42)' : 'rgb(250 251 255)';
+}
+function elChart(x, y, w, h, type, labels, values, title) {
+  return { id: OF.uid('el'), type: 'chart', x: x, y: y, w: w, h: h, chartType: type, labels: labels, values: values, chartTitle: title || '', groupId: null };
+}
+
+function layoutSpec(kind, m) {
+  m = m || MASTER_DEFAULT;
+  var bg = m.bg || MASTER_DEFAULT.bg;
+  var accent = m.accent || MASTER_DEFAULT.accent;
+  var tc = m.titleColor || MASTER_DEFAULT.titleColor;
+  var els = [];
+  if (kind === 'cover') {
+    els.push(phText('title', 110, 166, 740, 96, { fontSize: 46, bold: 1, align: 'center', color: tc, font: m.font }));
+    els.push(phText('subtitle', 110, 274, 740, 40, { fontSize: 18, align: 'center', color: 'rgb(96 106 124)', font: m.font }));
+    els.push(decoShape('rect', 452, 330, 56, 4, accent));
+  } else if (kind === 'section') {
+    bg = accent;
+    var ink = accentInk(accent);
+    var sub = ink === 'rgb(24 30 42)' ? 'rgb(52 62 78)' : 'rgba(245 248 255 / .78)';
+    var bar = ink === 'rgb(24 30 42)' ? 'rgba(15 23 42 / .45)' : 'rgba(255 255 255 / .55)';
+    els.push(phText('title', 110, 196, 740, 84, { fontSize: 44, bold: 1, align: 'center', color: ink, font: m.font }));
+    els.push(phText('subtitle', 110, 288, 740, 40, { fontSize: 18, align: 'center', color: sub, font: m.font }));
+    els.push(decoShape('rect', 452, 348, 56, 4, bar));
+  } else if (kind === 'content') {
+    els.push(phText('title', 64, 44, 832, 52, { fontSize: 30, bold: 1, color: tc, font: m.font }));
+    els.push(decoShape('rect', 64, 104, 56, 3, accent));
+    els.push(phText('body', 64, 130, 832, 350, { fontSize: 19, color: 'rgb(52 62 78)', lineHeight: 1.55, font: m.font }));
+  } else if (kind === 'twocol') {
+    els.push(phText('title', 64, 44, 832, 52, { fontSize: 30, bold: 1, color: tc, font: m.font }));
+    els.push(decoShape('rect', 64, 104, 56, 3, accent));
+    els.push(phText('left', 64, 132, 388, 340, { fontSize: 17, color: 'rgb(52 62 78)', lineHeight: 1.55, font: m.font }));
+    els.push(phText('right', 508, 132, 388, 340, { fontSize: 17, color: 'rgb(52 62 78)', lineHeight: 1.55, font: m.font }));
+    els.push(decoShape('rect', 478, 132, 1, 340, 'rgba(15 23 42 / .14)'));
+  } else if (kind === 'imagetext') {
+    els.push(phText('title', 64, 44, 832, 52, { fontSize: 30, bold: 1, color: tc, font: m.font }));
+    els.push(decoShape('rect', 64, 104, 56, 3, accent));
+    els.push({ id: OF.uid('el'), type: 'phimage', x: 64, y: 132, w: 430, h: 330, ph: 'image', groupId: null });
+    els.push(phText('body', 520, 132, 376, 330, { fontSize: 17, color: 'rgb(52 62 78)', lineHeight: 1.55, font: m.font }));
+  }
+  return { bg: bg, els: els };
+}
+
+function slideNew(kind, master) {
+  kind = kind || 'content';
+  var spec = layoutSpec(kind, master);
+  return { id: OF.uid('sl'), layout: kind, bg: spec.bg, notes: '', els: spec.els };
+}
+function deckNew(title, seedFn) {
+  var now = Date.now();
+  var d = { id: OF.uid('ppt'), title: title || '未命名演示文稿', w: 960, h: 540, master: clone(MASTER_DEFAULT), slides: [], created: now, updated: now };
+  d.slides.push(slideNew('cover', d.master));
+  if (seedFn) seedFn(d);
+  return d;
+}
+
+function findEl(id) {
+  if (!slide) return null;
+  for (var i = 0; i < slide.els.length; i++) if (slide.els[i].id === id) return slide.els[i];
+  return null;
+}
+function selEls() {
+  if (!slide) return [];
+  return slide.els.filter(function (e) { return selIds.indexOf(e.id) >= 0; });
+}
+function primaryEl() { return primaryId ? findEl(primaryId) : null; }
+function bboxOf(list) {
+  if (!list.length) return { x: 0, y: 0, w: 0, h: 0 };
+  var x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  list.forEach(function (e) {
+    x1 = Math.min(x1, e.x); y1 = Math.min(y1, e.y);
+    x2 = Math.max(x2, e.x + e.w); y2 = Math.max(y2, e.y + e.h);
+  });
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+}
+function groupMembers(t) {
+  if (!t || !t.groupId || !slide) return t ? [t] : [];
+  return slide.els.filter(function (e) { return e.groupId === t.groupId; });
+}
+
+/* ================= 保存与历史 ================= */
+function setSaveState(s) {
+  el.save.dataset.state = s;
+  el.save.textContent = s === 'dirty' ? '正在保存…' : s === 'error' ? '保存失败' : ('已保存 ' + OF.fmtClock());
+}
+function serialize() { return { v: 2, currentId: state.currentId, decks: state.decks }; }
+function scheduleSave() {
+  if (!booted) return;
+  setSaveState('dirty');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, 650);
+}
+function flush() {
+  if (!deck) return Promise.resolve(true);
+  deck.title = (el.title.value || '').trim() || '未命名演示文稿';
+  deck.updated = Date.now();
+  var i = state.decks.findIndex(function (d) { return d.id === deck.id; });
+  if (i >= 0) state.decks[i] = deck;
+  return store.write(serialize()).then(function (ok) {
+    setSaveState(ok ? 'saved' : 'error');
+    renderLibrary();
+    return ok;
+  });
+}
+function pushHist() {
+  if (!deck) return;
+  hist.undo.push(JSON.stringify({ slides: deck.slides, master: deck.master }));
+  if (hist.undo.length > 40) hist.undo.shift();
+  hist.redo = [];
+}
+function restoreSnapshot(json) {
+  var snap = JSON.parse(json);
+  deck.slides = snap.slides;
+  deck.master = snap.master;
+  if (slideIndex >= deck.slides.length) slideIndex = deck.slides.length - 1;
+  slide = deck.slides[slideIndex];
+  selIds = []; primaryId = null;
+  renderAll(); scheduleSave();
+}
+function undo() {
+  if (!hist.undo.length) { OF.toast('没有可撤销的操作'); return; }
+  hist.redo.push(JSON.stringify({ slides: deck.slides, master: deck.master }));
+  restoreSnapshot(hist.undo.pop());
+}
+function redo() {
+  if (!hist.redo.length) { OF.toast('没有可重做的操作'); return; }
+  hist.undo.push(JSON.stringify({ slides: deck.slides, master: deck.master }));
+  restoreSnapshot(hist.redo.pop());
+}
+
+/* ================= 渲染 ================= */
+function elementHTML(e, mini) {
+  var style = 'left:' + e.x + 'px;top:' + e.y + 'px;width:' + Math.max(8, e.w) + 'px;height:' + Math.max(8, e.h) + 'px;';
+  var inner = '', cls = [];
+  if (e.type === 'text') {
+    style += 'color:' + (e.color || 'rgb(24 30 42)') + ';font-size:' + (e.fontSize || 20) + 'px;' +
+      (e.bold ? 'font-weight:700;' : '') + (e.italic ? 'font-style:italic;' : '') +
+      (e.underline ? 'text-decoration:underline;' : '') + (e.font ? 'font-family:' + e.font + ';' : '') +
+      (e.fill ? 'background:' + e.fill + ';' : '');
+    var align = e.align || 'left';
+    var content = '';
+    if (e.text) {
+      if (e.bullet) {
+        content = String(e.text).split('\n').map(function (line) {
+          return '<div class="ppt-bline"><span class="ppt-bdot">•</span><span>' + OF.esc(line) + '</span></div>';
+        }).join('');
+      } else {
+        content = OF.esc(e.text);
+      }
+    } else if (!mini && e.ph) {
+      content = '<span class="ppt-ph-hint">' + hintOf(e.ph) + '</span>';
+    }
+    if (e.ph && !mini) cls.push('ph');
+    inner = '<div class="ppt-text" style="justify-content:' +
+      (align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start') +
+      ';text-align:' + align + ';line-height:' + (e.lineHeight || 1.35) + '">' +
+      '<div class="ppt-text-inner">' + content + '</div></div>';
+  } else if (e.type === 'shape') {
+    var fill2 = e.fill || 'transparent';
+    var svg = '<svg class="ppt-el-svg" viewBox="0 0 100 100" preserveAspectRatio="none">';
+    if (e.shape === 'circle') svg += '<ellipse cx="50" cy="50" rx="49" ry="49" fill="' + fill2 + '"></ellipse>';
+    else if (e.shape === 'round') svg += '<rect x="1" y="1" width="98" height="98" rx="14" fill="' + fill2 + '"></rect>';
+    else if (e.shape === 'triangle') svg += '<polygon points="50,2 98,96 2,96" fill="' + fill2 + '"></polygon>';
+    else if (e.shape === 'arrow') svg += '<polygon points="2,38 62,38 62,12 98,50 62,88 62,62 2,62" fill="' + fill2 + '"></polygon>';
+    else if (e.shape === 'line') svg += '<line x1="0" y1="50" x2="100" y2="50" stroke="' + (e.fill || 'hsl(212 72% 46%)') + '" stroke-width="3" vector-effect="non-scaling-stroke"></line>';
+    else svg += '<rect x="1" y="1" width="98" height="98" fill="' + fill2 + '"></rect>';
+    svg += '</svg>';
+    inner = svg;
+  } else if (e.type === 'image') {
+    inner = '<img class="ppt-el-img" src="' + e.src + '" alt="">';
+  } else if (e.type === 'phimage') {
+    inner = '<div class="ppt-ph-img"><i class="fa-solid fa-image"></i><span>单击插入图片</span></div>';
+  } else if (e.type === 'chart') {
+    inner = '<div class="ppt-el-chart">' + OF.svgChart({
+      type: e.chartType, labels: e.labels, values: e.values, title: e.chartTitle, w: 440, h: 260, dark: false
+    }) + '</div>';
+  }
+  if (!mini && selIds.indexOf(e.id) >= 0) cls.push('sel');
+  var handles = '';
+  if (!mini && e.id === primaryId && selIds.length === 1 && e.type !== 'phimage') {
+    handles = ['nw', 'ne', 'sw', 'se'].map(function (d) { return '<div class="ppt-handle" data-dir="' + d + '"></div>'; }).join('');
+  }
+  return '<div class="ppt-el' + (cls.length ? ' ' + cls.join(' ') : '') + '" data-id="' + e.id + '" style="' + style + '">' + inner + handles + '</div>';
+}
+
+function renderCanvas() {
+  if (!elsLayer || !slide) return;
+  if (canvas) canvas.style.background = slide.bg || 'rgb(252 252 253)';
+  elsLayer.innerHTML = slide.els.map(function (e) { return elementHTML(e, false); }).join('');
+  renderOverlay();
+  updateInspector();
+  syncRibbon();
+  updateStatus();
+}
+function renderOverlay() {
+  if (!overlay) return;
+  if (selIds.length > 1) {
+    var b = bboxOf(selEls());
+    overlay.innerHTML = '<div class="ppt-selbox" style="left:' + b.x + 'px;top:' + b.y + 'px;width:' + b.w + 'px;height:' + b.h + 'px"></div>' +
+      '<div class="ppt-guide-tag" style="left:' + (b.x + b.w / 2) + 'px;top:' + (b.y - 12) + 'px">' + selIds.length + ' 个对象</div>';
+  } else {
+    overlay.innerHTML = '';
+  }
+}
+function renderRail() {
+  if (!railList || !deck) return;
+  railList.innerHTML = '';
+  deck.slides.forEach(function (s, i) {
+    var b = document.createElement('div');
+    b.className = 'ppt-slide' + (i === slideIndex ? ' on' : '');
+    b.tabIndex = 0;
+    b.setAttribute('role', 'button');
+    b.style.aspectRatio = '16 / 9';
+    b.style.background = s.bg;
+    b.innerHTML = '<span class="num">' + (i + 1) + '</span><div class="ppt-mini"><div class="ppt-mini-inner">' +
+      s.els.map(function (e) { return elementHTML(e, true); }).join('') + '</div></div>';
+    var inner = b.querySelector('.ppt-mini-inner');
+    requestAnimationFrame(function () {
+      var wpx = b.clientWidth || 130;
+      inner.style.transform = 'scale(' + (wpx / 960) + ')';
+    });
+    b.addEventListener('click', function () { selectSlide(i); });
+    b.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); selectSlide(i); }
+    });
+    railList.appendChild(b);
+  });
+  updateStatus();
+}
+function renderAll() { renderCanvas(); renderRail(); }
+function selectSlide(i) {
+  if (!deck || i < 0 || i >= deck.slides.length) return;
+  slideIndex = i;
+  slide = deck.slides[i];
+  selIds = []; primaryId = null;
+  renderAll();
+}
+function updateStatus() {
+  if (!statusSlide) return;
+  statusSlide.textContent = (slideIndex + 1) + ' / ' + (deck ? deck.slides.length : 0);
+  if (statusSize) statusSize.textContent = '16:9 · 960 × 540';
+  if (statusSel) statusSel.textContent = selIds.length ? ('已选 ' + selIds.length + ' 个对象') : '未选中对象';
+}
+function fitCanvas() {
+  var stageEl = document.querySelector('.ppt-stage');
+  if (!stageEl || !scalewrap) return;
+  var availW = stageEl.clientWidth - 36, availH = stageEl.clientHeight - 36;
+  if (availW <= 0 || availH <= 0) return;
+  scale = OF.clamp(Math.min(availW / 960, availH / 540), .2, 1.4);
+  canvas.style.transform = 'scale(' + scale + ')';
+  scalewrap.style.width = (960 * scale) + 'px';
+  scalewrap.style.height = (540 * scale) + 'px';
+}
+/* ================= 选择 ================= */
+function selectOnly(t) {
+  var members = groupMembers(t);
+  selIds = members.map(function (m) { return m.id; });
+  primaryId = t.id;
+}
+function toggleSelect(t) {
+  var members = groupMembers(t);
+  var any = members.some(function (m) { return selIds.indexOf(m.id) >= 0; });
+  if (any) {
+    selIds = selIds.filter(function (id) {
+      return !members.some(function (m) { return m.id === id; });
+    });
+  } else {
+    members.forEach(function (m) { if (selIds.indexOf(m.id) < 0) selIds.push(m.id); });
+  }
+  primaryId = selIds.length ? t.id : null;
+}
+function groupedSelected() { return selEls().some(function (e) { return !!e.groupId; }); }
+
+/* ================= 颜色与选项 ================= */
+function toColor(c) {
+  if (!c || c === 'transparent') return '#ffffff';
+  if (/^#/.test(c)) return c;
+  if (/^rgb/i.test(c)) {
+    var m = c.match(/(\d+)\s*[,\s]\s*(\d+)\s*[,\s]\s*(\d+)/);
+    if (m) {
+      var p = function (n) { return ('0' + parseInt(n, 10).toString(16)).slice(-2); };
+      return '#' + p(m[1]) + p(m[2]) + p(m[3]);
+    }
+  }
+  if (/^hsl/i.test(c)) {
+    var d = document.createElement('div');
+    d.style.color = c;
+    document.body.appendChild(d);
+    var rgb = getComputedStyle(d).color;
+    d.remove();
+    return toColor(rgb);
+  }
+  return '#ffffff';
+}
+function fontOptions(cur) {
+  var list = [['', '默认'], ['PingFang SC,Microsoft YaHei,sans-serif', '苹方 / 雅黑'], ['SimSun,serif', '宋体'], ['Georgia,serif', 'Georgia'], ['KaiTi,serif', '楷体']];
+  return list.map(function (o) {
+    return '<option value="' + o[0] + '"' + (cur === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+  }).join('');
+}
+function lhOptions(cur) {
+  var list = [1, 1.15, 1.35, 1.5, 1.75, 2];
+  var v = cur || 1.35;
+  return list.map(function (n) {
+    return '<option value="' + n + '"' + (Math.abs(n - v) < .01 ? ' selected' : '') + '>' + n.toFixed(2) + '</option>';
+  }).join('');
+}
+
+/* ================= 检查器 ================= */
+function updateInspector() {
+  if (!insp || !slide) return;
+  var sel = selEls();
+  var one = sel.length === 1 ? sel[0] : null;
+  var m = deck.master || MASTER_DEFAULT;
+  var h = '';
+
+  h += '<div class="ppt-sec"><h4><i class="fa-solid fa-table-cells-large"></i>版式</h4><div class="ppt-layouts">';
+  LAYOUT_META.forEach(function (L) {
+    h += '<button class="ppt-lay' + (slide.layout === L.id ? ' on' : '') + '" data-lay="' + L.id + '" title="' + L.title + '">' +
+      '<i class="fa-solid ' + L.icon + '"></i><span>' + L.label + '</span></button>';
+  });
+  h += '</div></div>';
+
+  h += '<div class="ppt-sec"><h4><i class="fa-solid fa-paintbrush"></i>页面</h4>' +
+    '<div class="ppt-prop"><span>背景</span><input type="color" id="pptBg" value="' + toColor(slide.bg) + '"></div>' +
+    '<div class="ppt-prop" style="grid-template-columns:1fr;gap:4px"><span>演讲备注</span>' +
+    '<textarea class="ppt-notes" id="pptNotes" placeholder="给这一页写点提示…">' + OF.esc(slide.notes || '') + '</textarea></div></div>';
+
+  h += '<div class="ppt-sec"><h4><i class="fa-solid fa-swatchbook"></i>母版</h4>' +
+    '<div class="ppt-prop"><span>背景</span><input type="color" id="pptMBg" value="' + toColor(m.bg) + '"></div>' +
+    '<div class="ppt-prop"><span>主色</span><input type="color" id="pptMAccent" value="' + toColor(m.accent) + '"></div>' +
+    '<div class="ppt-prop"><span>字体</span><select class="of-select" id="pptMFont">' + fontOptions(m.font) + '</select></div>' +
+    '<div class="ppt-prop-row"><button class="of-btn" data-act="master-all">背景应用到全部页</button></div>' +
+    '<div class="ppt-hint">新建页与套用版式时使用母版背景、主色和字体。</div></div>';
+
+  if (sel.length) {
+    h += '<div class="ppt-sec"><h4><i class="fa-solid fa-arrows-up-down-left-right"></i>' +
+      (one ? '位置与大小' : sel.length + ' 个对象') + '</h4>';
+    if (one) {
+      h += '<div class="ppt-prop"><span>X</span><input class="of-num" data-prop="x" type="number" value="' + Math.round(one.x) + '"></div>' +
+        '<div class="ppt-prop"><span>Y</span><input class="of-num" data-prop="y" type="number" value="' + Math.round(one.y) + '"></div>' +
+        '<div class="ppt-prop"><span>宽</span><input class="of-num" data-prop="w" type="number" min="24" value="' + Math.round(one.w) + '"></div>' +
+        '<div class="ppt-prop"><span>高</span><input class="of-num" data-prop="h" type="number" min="24" value="' + Math.round(one.h) + '"></div>';
+      if (one.type === 'image') h += '<div class="ppt-prop-row"><button class="of-btn" data-act="reimage">替换图片</button></div>';
+    } else {
+      var bb = bboxOf(sel);
+      h += '<div class="ppt-hint">包围盒 ' + Math.round(bb.w) + ' × ' + Math.round(bb.h) +
+        '，可用下方对齐、等间距与编组。</div>';
+    }
+    h += '</div>';
+
+    if (sel.some(function (e) { return e.type === 'text'; })) {
+      var t = sel.filter(function (e) { return e.type === 'text'; })[0];
+      h += '<div class="ppt-sec"><h4><i class="fa-solid fa-font"></i>文字</h4>' +
+        '<div class="ppt-prop"><span>字号</span><input class="of-num" data-prop="fontSize" type="number" min="8" max="200" value="' + t.fontSize + '"></div>' +
+        '<div class="ppt-prop"><span>颜色</span><input type="color" id="pptFc" value="' + toColor(t.color) + '"></div>' +
+        '<div class="ppt-prop"><span>行距</span><select class="of-select" id="pptLHI">' + lhOptions(t.lineHeight) + '</select></div>' +
+        '<div class="ppt-prop"><span>对齐</span><div class="of-seg">' +
+        '<button data-align="left" aria-selected="' + (t.align === 'left') + '"><i class="fa-solid fa-align-left"></i></button>' +
+        '<button data-align="center" aria-selected="' + (t.align === 'center') + '"><i class="fa-solid fa-align-center"></i></button>' +
+        '<button data-align="right" aria-selected="' + (t.align === 'right') + '"><i class="fa-solid fa-align-right"></i></button>' +
+        '</div></div>' +
+        '<div class="ppt-prop"><span>列表</span><div class="of-seg">' +
+        '<button data-tog="bullet" aria-selected="' + (t.bullet ? 'true' : 'false') + '">• 项目</button>' +
+        '<button data-tog="plain" aria-selected="' + (t.bullet ? 'false' : 'true') + '">无</button>' +
+        '</div></div></div>';
+    }
+
+    if (sel.some(function (e) { return e.type === 'shape' || e.type === 'text'; })) {
+      var fillSrc = sel.filter(function (e) { return e.fill; })[0];
+      h += '<div class="ppt-sec"><h4><i class="fa-solid fa-fill-drip"></i>填充</h4>' +
+        '<div class="ppt-prop"><span>颜色</span><input type="color" id="pptFill" value="' +
+        toColor(fillSrc ? fillSrc.fill : 'hsl(212 72% 50%)') + '"></div>' +
+        '<div class="ppt-prop-row"><button class="of-btn" data-act="clearfill">无填充</button>' +
+        '<button class="of-btn" data-act="accentfill">主色填充</button></div></div>';
+    }
+
+    h += '<div class="ppt-sec"><h4><i class="fa-solid fa-screwdriver-wrench"></i>排列</h4>' +
+      '<div class="ppt-prop-row">' +
+      '<button class="of-btn" data-act="up" title="上移一层"><i class="fa-solid fa-arrow-up"></i></button>' +
+      '<button class="of-btn" data-act="down" title="下移一层"><i class="fa-solid fa-arrow-down"></i></button>' +
+      '<button class="of-btn" data-act="top" title="置于顶层"><i class="fa-solid fa-angles-up"></i></button>' +
+      '<button class="of-btn" data-act="bottom" title="置于底层"><i class="fa-solid fa-angles-down"></i></button></div>' +
+      '<div class="ppt-prop-row">' +
+      '<button class="of-btn" data-act="align-left">左对齐</button>' +
+      '<button class="of-btn" data-act="align-center">水平居中</button>' +
+      '<button class="of-btn" data-act="align-right">右对齐</button></div>' +
+      '<div class="ppt-prop-row">' +
+      '<button class="of-btn" data-act="align-top">顶对齐</button>' +
+      '<button class="of-btn" data-act="align-middle">垂直居中</button>' +
+      '<button class="of-btn" data-act="align-bottom">底对齐</button></div>' +
+      '<div class="ppt-prop-row">' +
+      '<button class="of-btn" data-act="dist-h"' + (sel.length < 3 ? ' disabled' : '') + '>横向等间距</button>' +
+      '<button class="of-btn" data-act="dist-v"' + (sel.length < 3 ? ' disabled' : '') + '>纵向等间距</button></div>' +
+      '<div class="ppt-prop-row">' +
+      '<button class="of-btn" data-act="' + (groupedSelected() ? 'ungroup' : 'group') + '"' + (sel.length < 2 ? ' disabled' : '') + '>' +
+      (groupedSelected() ? '取消编组' : '编组') + '</button>' +
+      '<button class="of-btn" data-act="dup">复制</button>' +
+      '<button class="of-btn danger" data-act="del">删除</button></div></div>';
+  } else {
+    h += '<div class="ppt-empty-insp"><b>未选中对象</b>单击文字进入编辑；拖动对象移动，拖角点缩放。框选可同时选中多个对象，Shift 加选。</div>';
+  }
+
+  insp.innerHTML = h;
+  bindInspector();
+}
+
+function bindInspector() {
+  var bg = insp.querySelector('#pptBg');
+  if (bg) bg.addEventListener('change', function () {
+    pushHist();
+    slide.bg = this.value;
+    canvas.style.background = this.value;
+    var cur = railList && railList.children[slideIndex];
+    if (cur) cur.style.background = this.value;
+    scheduleSave();
+  });
+  var notes = insp.querySelector('#pptNotes');
+  if (notes) notes.addEventListener('input', function () { slide.notes = this.value; scheduleSave(); });
+  var mbg = insp.querySelector('#pptMBg');
+  if (mbg) mbg.addEventListener('input', function () { deck.master.bg = this.value; scheduleSave(); });
+  var macc = insp.querySelector('#pptMAccent');
+  if (macc) macc.addEventListener('input', function () { deck.master.accent = this.value; scheduleSave(); });
+  var mfont = insp.querySelector('#pptMFont');
+  if (mfont) mfont.addEventListener('change', function () { deck.master.font = this.value; scheduleSave(); });
+
+  insp.querySelectorAll('[data-lay]').forEach(function (b) {
+    b.addEventListener('click', function () { applyLayout(b.dataset.lay); });
+  });
+  insp.querySelectorAll('[data-act]').forEach(function (b) {
+    b.addEventListener('click', function () { elementAction(b.dataset.act); });
+  });
+  insp.querySelectorAll('[data-prop]').forEach(function (inp) {
+    inp.addEventListener('change', function () {
+      var v = parseFloat(this.value);
+      if (!isFinite(v)) return;
+      var prop = this.dataset.prop;
+      var els = selEls();
+      if (!els.length) return;
+      pushHist();
+      if (prop === 'fontSize') {
+        els.filter(function (e) { return e.type === 'text'; }).forEach(function (e) { e.fontSize = OF.clamp(v, 8, 200); });
+      } else if (els.length === 1) {
+        els[0][prop] = (prop === 'w' || prop === 'h') ? Math.max(24, v) : v;
+      }
+      renderCanvas(); scheduleSave();
+    });
+  });
+  var fc = insp.querySelector('#pptFc');
+  if (fc) fc.addEventListener('change', function () {
+    var val = this.value;
+    var els = selEls().filter(function (e) { return e.type === 'text'; });
+    if (!els.length) return;
+    pushHist();
+    els.forEach(function (e) { e.color = val; });
+    renderCanvas(); scheduleSave();
+  });
+  var lhSel = insp.querySelector('#pptLHI');
+  if (lhSel) lhSel.addEventListener('change', function () { applyText({ lineHeight: parseFloat(this.value) }); });
+  insp.querySelectorAll('[data-align]').forEach(function (b) {
+    b.addEventListener('click', function () { applyText({ align: b.dataset.align }); });
+  });
+  insp.querySelectorAll('[data-tog]').forEach(function (b) {
+    b.addEventListener('click', function () { applyText({ bullet: b.dataset.tog === 'bullet' ? 1 : 0 }); });
+  });
+  var fill = insp.querySelector('#pptFill');
+  if (fill) fill.addEventListener('change', function () { applyFill(this.value); });
+}
+
+function applyText(patch) {
+  var els = selEls().filter(function (e) { return e.type === 'text'; });
+  if (!els.length) { OF.toast('先选中一个文本框'); return; }
+  pushHist();
+  els.forEach(function (e) {
+    Object.keys(patch).forEach(function (k) { e[k] = patch[k]; });
+  });
+  renderCanvas(); scheduleSave();
+}
+function applyFill(color) {
+  var els = selEls().filter(function (e) { return e.type === 'shape' || e.type === 'text'; });
+  if (!els.length) { OF.toast('先选中一个形状或文本框'); return; }
+  pushHist();
+  els.forEach(function (e) { e.fill = color; });
+  renderCanvas(); scheduleSave();
+}
+/* ================= 对象操作 ================= */
+function elementAction(act) {
+  if (!slide) return;
+  var els = selEls();
+  if (act === 'master-all') {
+    pushHist();
+    var mbg = deck.master.bg;
+    deck.slides.forEach(function (s) { if (s.layout !== 'section') s.bg = mbg; });
+    renderAll(); scheduleSave();
+    OF.toast('已把母版背景应用到全部页面', 'success');
+    return;
+  }
+  if (!els.length) return;
+  if (act === 'reimage') {
+    pendingPhImage = primaryId;
+    el.file.click();
+    return;
+  }
+  if (act === 'del') {
+    pushHist();
+    var ids = selIds.slice();
+    slide.els = slide.els.filter(function (e) { return ids.indexOf(e.id) < 0; });
+    selIds = []; primaryId = null;
+  } else if (act === 'dup') {
+    pushHist();
+    var copies = els.map(function (e) {
+      var c = clone(e);
+      c.id = OF.uid('el');
+      c.x += 16; c.y += 16;
+      slide.els.push(c);
+      return c;
+    });
+    selIds = copies.map(function (c) { return c.id; });
+    primaryId = selIds[selIds.length - 1];
+  } else if (act === 'up' || act === 'down' || act === 'top' || act === 'bottom') {
+    pushHist();
+    moveLayer(act);
+  } else if (act.indexOf('align-') === 0) {
+    pushHist();
+    alignSel(act);
+  } else if (act === 'dist-h' || act === 'dist-v') {
+    if (els.length < 3) { OF.toast('等间距分布至少需要选中 3 个对象'); return; }
+    pushHist();
+    distributeSel(act === 'dist-h' ? 'h' : 'v');
+  } else if (act === 'group') {
+    if (els.length < 2) { OF.toast('至少选择两个对象才能编组'); return; }
+    pushHist();
+    var gid = OF.uid('g');
+    els.forEach(function (e) { e.groupId = gid; });
+    OF.toast('已编组 ' + els.length + ' 个对象', 'success');
+  } else if (act === 'ungroup') {
+    pushHist();
+    els.forEach(function (e) { e.groupId = null; });
+    OF.toast('已取消编组', 'success');
+  } else if (act === 'clearfill') {
+    applyFill('');
+  } else if (act === 'accentfill') {
+    applyFill(deck.master.accent || MASTER_DEFAULT.accent);
+  } else if (act === 'nofill') {
+    applyFill('');
+  }
+  renderCanvas(); renderRail(); scheduleSave();
+}
+
+function moveLayer(dir) {
+  var arr = slide.els;
+  var isSel = function (e) { return selIds.indexOf(e.id) >= 0; };
+  if (dir === 'top') {
+    var picked = arr.filter(isSel);
+    slide.els = arr.filter(function (e) { return !isSel(e); }).concat(picked);
+    return;
+  }
+  if (dir === 'bottom') {
+    var picked2 = arr.filter(isSel);
+    slide.els = picked2.concat(arr.filter(function (e) { return !isSel(e); }));
+    return;
+  }
+  if (dir === 'up') {
+    var i = arr.length - 2;
+    while (i >= 0) {
+      if (isSel(arr[i]) && !isSel(arr[i + 1])) {
+        var start = i;
+        while (start > 0 && isSel(arr[start - 1])) start--;
+        var block = arr.slice(start, i + 1);
+        var next = arr[i + 1];
+        var items = [next].concat(block);
+        arr.splice.apply(arr, [start, i + 2 - start].concat(items));
+        i = start - 1;
+      } else {
+        i--;
+      }
+    }
+    return;
+  }
+  if (dir === 'down') {
+    var j = 1;
+    while (j < arr.length) {
+      if (isSel(arr[j]) && !isSel(arr[j - 1])) {
+        var end = j;
+        while (end + 1 < arr.length && isSel(arr[end + 1])) end++;
+        var block2 = arr.slice(j, end + 1);
+        var prev = arr[j - 1];
+        var items2 = block2.concat([prev]);
+        arr.splice.apply(arr, [j - 1, end - j + 2].concat(items2));
+        j = end + 2;
+      } else {
+        j++;
+      }
+    }
+  }
+}
+
+function alignSel(kind) {
+  var els = selEls();
+  if (!els.length) return;
+  var b = bboxOf(els);
+  var single = els.length === 1;
+  els.forEach(function (e) {
+    if (kind === 'align-left') e.x = single ? 0 : b.x;
+    else if (kind === 'align-center') e.x = single ? (960 - e.w) / 2 : b.x + b.w / 2 - e.w / 2;
+    else if (kind === 'align-right') e.x = single ? 960 - e.w : b.x + b.w - e.w;
+    else if (kind === 'align-top') e.y = single ? 0 : b.y;
+    else if (kind === 'align-middle') e.y = single ? (540 - e.h) / 2 : b.y + b.h / 2 - e.h / 2;
+    else if (kind === 'align-bottom') e.y = single ? 540 - e.h : b.y + b.h - e.h;
+  });
+}
+
+function distributeSel(axis) {
+  var els = selEls().slice();
+  if (axis === 'h') {
+    els.sort(function (a, b) { return a.x - b.x; });
+    var left = els[0].x;
+    var right = els[els.length - 1].x + els[els.length - 1].w;
+    var sum = els.reduce(function (n, e) { return n + e.w; }, 0);
+    var gap = (right - left - sum) / (els.length - 1);
+    if (gap < 0) { OF.toast('当前宽度不足以等间距排列'); return; }
+    var cur = left;
+    els.forEach(function (e) { e.x = cur; cur += e.w + gap; });
+  } else {
+    els.sort(function (a, b) { return a.y - b.y; });
+    var top = els[0].y;
+    var bottom = els[els.length - 1].y + els[els.length - 1].h;
+    var sum2 = els.reduce(function (n, e) { return n + e.h; }, 0);
+    var gap2 = (bottom - top - sum2) / (els.length - 1);
+    if (gap2 < 0) { OF.toast('当前高度不足以等间距排列'); return; }
+    var cur2 = top;
+    els.forEach(function (e) { e.y = cur2; cur2 += e.h + gap2; });
+  }
+}
+
+/* ================= 版式 ================= */
+function hasContent() {
+  if (!slide) return false;
+  return slide.els.some(function (e) {
+    if (e.deco) return false;
+    if (e.type === 'text') return String(e.text || '').trim().length > 0;
+    if (e.type === 'phimage') return false;
+    return true;
+  });
+}
+function applyLayout(kind) {
+  if (!slide) return;
+  if (hasContent()) {
+    OF.confirm({ title: '套用版式', message: '这一页已有内容，套用版式会重建占位符（可撤销）。', okText: '继续' }).then(function (ok) {
+      if (ok) doApplyLayout(kind);
+    });
+  } else {
+    doApplyLayout(kind);
+  }
+}
+function doApplyLayout(kind) {
+  pushHist();
+  var spec = layoutSpec(kind, deck.master || MASTER_DEFAULT);
+  slide.layout = kind;
+  slide.bg = spec.bg;
+  slide.els = spec.els;
+  selIds = []; primaryId = null;
+  renderAll(); scheduleSave();
+  OF.toast('已套用「' + (LAYOUT_META.filter(function (L) { return L.id === kind; })[0] || {}).label + '」版式', 'success');
+}
+
+/* ================= 幻灯片操作 ================= */
+function addSlide(kind) {
+  if (!deck) return;
+  pushHist();
+  var s = slideNew(kind || 'content', deck.master);
+  deck.slides.splice(slideIndex + 1, 0, s);
+  slideIndex++;
+  slide = s; selIds = []; primaryId = null;
+  renderAll(); scheduleSave();
+  OF.toast('已新增一页', 'success');
+}
+function duplicateSlide() {
+  if (!slide) return;
+  pushHist();
+  var copy = clone(slide);
+  copy.id = OF.uid('sl');
+  copy.els.forEach(function (e) { e.id = OF.uid('el'); });
+  deck.slides.splice(slideIndex + 1, 0, copy);
+  slideIndex++;
+  slide = copy; selIds = []; primaryId = null;
+  renderAll(); scheduleSave();
+}
+function deleteSlide() {
+  if (!deck || deck.slides.length <= 1) { OF.toast('至少保留一页'); return; }
+  OF.confirm({ title: '删除幻灯片', message: '第 ' + (slideIndex + 1) + ' 页会被删除，可用撤销恢复。', okText: '删除' }).then(function (ok) {
+    if (!ok) return;
+    pushHist();
+    deck.slides.splice(slideIndex, 1);
+    if (slideIndex >= deck.slides.length) slideIndex = deck.slides.length - 1;
+    slide = deck.slides[slideIndex];
+    selIds = []; primaryId = null;
+    renderAll(); scheduleSave();
+  });
+}
+function moveSlide(dir) {
+  var to = slideIndex + dir;
+  if (!deck || to < 0 || to >= deck.slides.length) return;
+  pushHist();
+  var tmp = deck.slides[slideIndex];
+  deck.slides[slideIndex] = deck.slides[to];
+  deck.slides[to] = tmp;
+  slideIndex = to;
+  slide = deck.slides[to];
+  renderAll(); scheduleSave();
+}
+
+/* ================= 插入元素 ================= */
+function insertText() {
+  if (!slide) return;
+  pushHist();
+  var e = elText('双击编辑文字', 330, 240, 300, 60, { fontSize: 24, align: 'center' });
+  slide.els.push(e);
+  selIds = [e.id]; primaryId = e.id;
+  renderCanvas(); renderRail(); scheduleSave();
+  setTimeout(function () {
+    var inner = elsLayer.querySelector('.ppt-el[data-id="' + e.id + '"] .ppt-text-inner');
+    if (inner) startTextEdit(inner, e, true);
+  }, 0);
+}
+function insertShape(shape) {
+  if (!slide) return;
+  pushHist();
+  var e = elShape(shape, 360, 200, 220, 140, deck.master.accent || 'hsl(212 72% 50%)');
+  if (shape === 'circle') { e.w = 170; e.h = 170; }
+  if (shape === 'line') { e.h = 6; e.w = 300; }
+  if (shape === 'arrow') { e.w = 260; e.h = 90; }
+  slide.els.push(e);
+  selIds = [e.id]; primaryId = e.id;
+  renderCanvas(); renderRail(); scheduleSave();
+}
+function insertChart(type) {
+  OF.dialog({
+    title: '插入图表', icon: 'fa-chart-column', okText: '插入',
+    body: '<div class="of-field"><label>图表标题</label><input class="of-input" data-title value="季度数据"></div>' +
+      '<div class="of-field" style="margin-top:8px"><label>数据（每行「标签,数值」）</label><textarea class="of-textarea" data-data>一月,120\n二月,168\n三月,145\n四月,210</textarea></div>',
+    collect: function (root) {
+      var title = root.querySelector('[data-title]').value.trim();
+      var raw = root.querySelector('[data-data]').value;
+      var labels = [], values = [];
+      raw.split(/\n/).forEach(function (line) {
+        line = line.trim();
+        if (!line) return;
+        var p = line.split(/[,，\t]/);
+        labels.push((p[0] || '').trim());
+        values.push(parseFloat(String(p[1] || '').replace(/[^0-9.\-]/g, '')) || 0);
+      });
+      if (!values.length) return false;
+      pushHist();
+      var e = elChart(300, 150, 360, 250, type, labels, values, title);
+      slide.els.push(e);
+      selIds = [e.id]; primaryId = e.id;
+      renderCanvas(); renderRail(); scheduleSave();
+      return true;
+    }
+  });
+}
+
+el.file.addEventListener('change', function () {
+  var f = el.file.files && el.file.files[0];
+  el.file.value = '';
+  if (!f) return;
+  var replaceId = pendingPhImage;
+  pendingPhImage = null;
+  OF.readImage(f, 1600).then(function (img) {
+    pushHist();
+    if (replaceId) {
+      var ph = findEl(replaceId);
+      if (ph) {
+        ph.type = 'image';
+        ph.src = img.src;
+        delete ph.ph;
+        selIds = [ph.id]; primaryId = ph.id;
+        renderCanvas(); renderRail(); scheduleSave();
+        return;
+      }
+    }
+    var maxW = 520, maxH = 360;
+    var ratio = Math.min(maxW / img.w, maxH / img.h, 1);
+    var w = Math.round(img.w * ratio), h = Math.round(img.h * ratio);
+    var e = { id: OF.uid('el'), type: 'image', src: img.src, x: Math.round((960 - w) / 2), y: Math.round((540 - h) / 2), w: w, h: h, groupId: null };
+    slide.els.push(e);
+    selIds = [e.id]; primaryId = e.id;
+    renderCanvas(); renderRail(); scheduleSave();
+  }).catch(function (err) { OF.toast('图片插入失败：' + err.message, 'error'); });
+});
+
+/* ================= 文字编辑 ================= */
+function startTextEdit(node, e, selectAll) {
+  if (!node || !e) return;
+  node.textContent = e.text || '';
+  node.contentEditable = 'true';
+  node.focus();
+  try {
+    var range = document.createRange();
+    range.selectNodeContents(node);
+    if (!selectAll) range.collapse(false);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } catch (err) { }
+  function finish() {
+    node.contentEditable = 'false';
+    node.removeEventListener('blur', finish);
+    node.removeEventListener('keydown', onKey);
+    var txt = (node.innerText || '').replace(/\u200b/g, '').replace(/\n+$/, '');
+    pushHist();
+    e.text = txt;
+    renderCanvas(); renderRail(); scheduleSave();
+  }
+  function onKey(ev) {
+    ev.stopPropagation();
+    if (ev.key === 'Escape') { node.contentEditable = 'false'; node.blur(); }
+  }
+  node.addEventListener('blur', finish);
+  node.addEventListener('keydown', onKey);
+}
+
+/* ================= 功能区状态 ================= */
+function setPressed(cmd, on) {
+  var b = document.querySelector('.of-ribbon [data-cmd="' + cmd + '"]');
+  if (b) b.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+function syncRibbon() {
+  var t = selEls().filter(function (e) { return e.type === 'text'; })[0] || null;
+  var fontSel = document.getElementById('pptFont');
+  var sizeIn = document.getElementById('pptSizeNum');
+  var colorIn = document.getElementById('pptColor');
+  var lhSel = document.getElementById('pptLH');
+  if (fontSel) fontSel.value = t ? (t.font || '') : '';
+  if (sizeIn) sizeIn.value = t ? String(t.fontSize) : '';
+  if (colorIn) { try { colorIn.value = toColor(t ? t.color : 'rgb(24 30 42)'); } catch (err) { } }
+  if (lhSel) lhSel.value = String(t ? (t.lineHeight || 1.35) : 1.35);
+  setPressed('bold', t && t.bold);
+  setPressed('italic', t && t.italic);
+  setPressed('underline', t && t.underline);
+  setPressed('bullet', t && t.bullet);
+}
+/* ================= 画布交互 ================= */
+function canvasPoint(ev) {
+  var r = canvas.getBoundingClientRect();
+  return { x: (ev.clientX - r.left) / scale, y: (ev.clientY - r.top) / scale };
+}
+function paintNode(node, e) {
+  if (!node) return;
+  node.style.left = e.x + 'px';
+  node.style.top = e.y + 'px';
+  node.style.width = Math.max(8, e.w) + 'px';
+  node.style.height = Math.max(8, e.h) + 'px';
+}
+
+function computeSnap(box, excludeIds) {
+  var th = 6;
+  var vx = [0, 480, 960], hy = [0, 270, 540];
+  slide.els.forEach(function (e) {
+    if (excludeIds.indexOf(e.id) >= 0) return;
+    vx.push(e.x, e.x + e.w / 2, e.x + e.w);
+    hy.push(e.y, e.y + e.h / 2, e.y + e.h);
+  });
+  var bx = [box.x, box.x + box.w / 2, box.x + box.w];
+  var by = [box.y, box.y + box.h / 2, box.y + box.h];
+  var gx = null, gy = null;
+  bx.forEach(function (v) {
+    vx.forEach(function (c) {
+      var d = c - v;
+      if (Math.abs(d) <= th && (!gx || Math.abs(d) < Math.abs(gx.d))) gx = { d: d, at: c };
+    });
+  });
+  by.forEach(function (v) {
+    hy.forEach(function (c) {
+      var d = c - v;
+      if (Math.abs(d) <= th && (!gy || Math.abs(d) < Math.abs(gy.d))) gy = { d: d, at: c };
+    });
+  });
+  return { dx: gx ? gx.d : 0, dy: gy ? gy.d : 0, gx: gx, gy: gy };
+}
+
+function nearestGapX(box, excludeIds) {
+  var best = null;
+  slide.els.forEach(function (e) {
+    if (excludeIds.indexOf(e.id) >= 0) return;
+    var oy1 = Math.max(box.y, e.y), oy2 = Math.min(box.y + box.h, e.y + e.h);
+    if (oy2 - oy1 < 8) return;
+    var gap, x1, x2;
+    if (e.x >= box.x + box.w) { gap = e.x - (box.x + box.w); x1 = box.x + box.w; x2 = e.x; }
+    else if (e.x + e.w <= box.x) { gap = box.x - (e.x + e.w); x1 = e.x + e.w; x2 = box.x; }
+    else return;
+    if (gap < 0 || gap > 320) return;
+    if (!best || gap < best.gap) best = { gap: gap, x1: x1, x2: x2, y: (oy1 + oy2) / 2 };
+  });
+  return best;
+}
+function nearestGapY(box, excludeIds) {
+  var best = null;
+  slide.els.forEach(function (e) {
+    if (excludeIds.indexOf(e.id) >= 0) return;
+    var ox1 = Math.max(box.x, e.x), ox2 = Math.min(box.x + box.w, e.x + e.w);
+    if (ox2 - ox1 < 8) return;
+    var gap, y1, y2;
+    if (e.y >= box.y + box.h) { gap = e.y - (box.y + box.h); y1 = box.y + box.h; y2 = e.y; }
+    else if (e.y + e.h <= box.y) { gap = box.y - (e.y + e.h); y1 = e.y + e.h; y2 = box.y; }
+    else return;
+    if (gap < 0 || gap > 320) return;
+    if (!best || gap < best.gap) best = { gap: gap, y1: y1, y2: y2, x: (ox1 + ox2) / 2 };
+  });
+  return best;
+}
+
+function snapTag(d) {
+  var n = Math.round(Math.abs(d));
+  return n === 0 ? '对齐' : (n + ' px');
+}
+function drawGuides(box, snap, excludeIds) {
+  var parts = '';
+  var tagY = OF.clamp(box.y + box.h / 2, 12, 528);
+  var tagX = OF.clamp(box.x + box.w / 2, 44, 916);
+  if (snap.gx) {
+    parts += '<div class="ppt-guide v" style="left:' + snap.gx.at + 'px"></div>' +
+      '<div class="ppt-guide-tag" style="left:' + snap.gx.at + 'px;top:' + tagY + 'px">' + snapTag(snap.gx.d) + '</div>';
+  }
+  if (snap.gy) {
+    parts += '<div class="ppt-guide h" style="top:' + snap.gy.at + 'px"></div>' +
+      '<div class="ppt-guide-tag" style="left:' + tagX + 'px;top:' + snap.gy.at + 'px">' + snapTag(snap.gy.d) + '</div>';
+  }
+  var gx = nearestGapX(box, excludeIds);
+  if (gx) {
+    parts += '<div class="ppt-measure" style="left:' + Math.min(gx.x1, gx.x2) + 'px;top:' + gx.y + 'px;width:' + Math.max(1, Math.abs(gx.x2 - gx.x1)) + 'px;height:1px"></div>' +
+      '<div class="ppt-guide-tag" style="left:' + ((gx.x1 + gx.x2) / 2) + 'px;top:' + (gx.y - 9) + 'px">' + Math.round(gx.gap) + ' px</div>';
+  }
+  var gy = nearestGapY(box, excludeIds);
+  if (gy) {
+    parts += '<div class="ppt-measure" style="left:' + gy.x + 'px;top:' + Math.min(gy.y1, gy.y2) + 'px;width:1px;height:' + Math.max(1, Math.abs(gy.y2 - gy.y1)) + 'px"></div>' +
+      '<div class="ppt-guide-tag" style="left:' + (gy.x + 12) + 'px;top:' + ((gy.y1 + gy.y2) / 2) + 'px">' + Math.round(gy.gap) + ' px</div>';
+  }
+  overlay.innerHTML = parts;
+}
+
+function startDrag(ev, dir, onTap) {
+  var list = selEls();
+  if (!list.length) return;
+  var origins = list.map(function (e) {
+    return {
+      el: e, x: e.x, y: e.y, w: e.w, h: e.h,
+      node: elsLayer.querySelector('.ppt-el[data-id="' + e.id + '"]')
+    };
+  });
+  var bbox = bboxOf(list);
+  var sx = ev.clientX, sy = ev.clientY;
+  var moved = false, pushed = false;
+  function move(e2) {
+    var dx = (e2.clientX - sx) / scale;
+    var dy = (e2.clientY - sy) / scale;
+    if (!moved && (Math.abs(dx) > 1 || Math.abs(dy) > 1)) moved = true;
+    if (moved && e2.shiftKey && dir === 'move') {
+      if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0;
+    }
+    if (!pushed) { pushHist(); pushed = true; }
+    if (dir !== 'move' && origins.length === 1) {
+      var o = origins[0], t = o.el;
+      var nx = o.x, ny = o.y, nw = o.w, nh = o.h;
+      if (dir.indexOf('e') >= 0) nw = Math.max(24, o.w + dx);
+      if (dir.indexOf('s') >= 0) nh = Math.max(24, o.h + dy);
+      if (dir.indexOf('w') >= 0) {
+        var maxL = o.x + o.w - 24;
+        nx = Math.min(o.x + dx, maxL);
+        nw = o.w + (o.x - nx);
+      }
+      if (dir.indexOf('n') >= 0) {
+        var maxT = o.y + o.h - 24;
+        ny = Math.min(o.y + dy, maxT);
+        nh = o.h + (o.y - ny);
+      }
+      t.x = nx; t.y = ny; t.w = nw; t.h = nh;
+      paintNode(o.node, t);
+      overlay.innerHTML = '';
+      return;
+    }
+    var box = { x: bbox.x + dx, y: bbox.y + dy, w: bbox.w, h: bbox.h };
+    var snap = computeSnap(box, selIds);
+    var ax = dx + snap.dx, ay = dy + snap.dy;
+    origins.forEach(function (o) {
+      o.el.x = o.x + ax;
+      o.el.y = o.y + ay;
+      paintNode(o.node, o.el);
+    });
+    drawGuides({ x: bbox.x + ax, y: bbox.y + ay, w: bbox.w, h: bbox.h }, snap, selIds);
+  }
+  function up() {
+    window.removeEventListener('mousemove', move);
+    window.removeEventListener('mouseup', up);
+    if (moved) { renderCanvas(); renderRail(); scheduleSave(); }
+    else if (typeof onTap === 'function') onTap();
+    else renderOverlay();
+  }
+  window.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', up);
+}
+
+function startMarquee(ev) {
+  var start = canvasPoint(ev);
+  var additive = ev.shiftKey;
+  var base = additive ? selIds.slice() : [];
+  var moved = false, last = start;
+  function move(e2) {
+    last = canvasPoint(e2);
+    var x = Math.min(start.x, last.x), y = Math.min(start.y, last.y);
+    var w = Math.abs(last.x - start.x), h = Math.abs(last.y - start.y);
+    if (w > 3 || h > 3) moved = true;
+    overlay.innerHTML = '<div class="ppt-marquee" style="left:' + x + 'px;top:' + y + 'px;width:' + w + 'px;height:' + h + 'px"></div>';
+  }
+  function up() {
+    window.removeEventListener('mousemove', move);
+    window.removeEventListener('mouseup', up);
+    if (!moved) {
+      selIds = base; primaryId = selIds[0] || null;
+      renderCanvas();
+      return;
+    }
+    var x1 = Math.min(start.x, last.x), y1 = Math.min(start.y, last.y);
+    var x2 = Math.max(start.x, last.x), y2 = Math.max(start.y, last.y);
+    var ids = base.slice();
+    slide.els.forEach(function (e) {
+      if (e.x < x2 && e.x + e.w > x1 && e.y < y2 && e.y + e.h > y1) {
+        groupMembers(e).forEach(function (m) { if (ids.indexOf(m.id) < 0) ids.push(m.id); });
+      }
+    });
+    selIds = ids; primaryId = ids.length ? ids[ids.length - 1] : null;
+    renderCanvas();
+  }
+  window.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', up);
+}
+
+function bindCanvas() {
+  if (!canvas) return;
+  canvas.addEventListener('mousedown', function (ev) {
+    if (presenting || ev.button !== 0) return;
+    var node = ev.target.closest('.ppt-el');
+    if (!node) { startMarquee(ev); return; }
+    var e = findEl(node.dataset.id);
+    if (!e) return;
+    if (ev.target.closest('[contenteditable="true"]')) return;
+    var additive = ev.shiftKey || ev.ctrlKey || ev.metaKey;
+    var handle = ev.target.closest('.ppt-handle');
+    if (e.type === 'phimage' && !handle) {
+      if (additive) { toggleSelect(e); renderCanvas(); return; }
+      selIds = [e.id]; primaryId = e.id; renderCanvas();
+      pendingPhImage = e.id;
+      el.file.click();
+      return;
+    }
+    if (e.type === 'text' && e.ph && !additive && !handle) {
+      selIds = [e.id]; primaryId = e.id; renderCanvas();
+      ev.preventDefault();
+      startDrag(ev, 'move', function () {
+        var inner = elsLayer.querySelector('.ppt-el[data-id="' + e.id + '"] .ppt-text-inner');
+        if (inner) startTextEdit(inner, e);
+      });
+      return;
+    }
+    if (additive) { toggleSelect(e); renderCanvas(); return; }
+    if (selIds.indexOf(e.id) < 0) { selectOnly(e); renderCanvas(); }
+    ev.preventDefault();
+    startDrag(ev, handle ? handle.dataset.dir : 'move');
+  });
+
+  canvas.addEventListener('dblclick', function (ev) {
+    if (ev.target.isContentEditable) return;
+    var node = ev.target.closest('.ppt-el');
+    if (!node) return;
+    var e = findEl(node.dataset.id);
+    if (!e || e.type !== 'text') return;
+    if (!(selIds.length === 1 && selIds[0] === e.id)) { selectOnly(e); renderCanvas(); }
+    var inner = elsLayer.querySelector('.ppt-el[data-id="' + e.id + '"] .ppt-text-inner');
+    startTextEdit(inner, e);
+  });
+
+  document.addEventListener('keydown', function (ev) {
+    if (presenting) return;
+    var ae = document.activeElement;
+    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) return;
+    if (!canvas || !slide || canvas.closest('[hidden]')) return;
+    var mod = ev.ctrlKey || ev.metaKey;
+    var key = ev.key.toLowerCase();
+    if (mod && key === 's') { ev.preventDefault(); flush(); return; }
+    if (mod && key === 'z') { ev.preventDefault(); if (ev.shiftKey) redo(); else undo(); return; }
+    if (mod && key === 'y') { ev.preventDefault(); redo(); return; }
+    if (mod && key === 'a') {
+      ev.preventDefault();
+      selIds = slide.els.map(function (e) { return e.id; });
+      primaryId = selIds.length ? selIds[selIds.length - 1] : null;
+      renderCanvas(); return;
+    }
+    if (mod && key === 'd') { ev.preventDefault(); if (selIds.length) elementAction('dup'); else duplicateSlide(); return; }
+    if (mod && key === 'm') { ev.preventDefault(); addSlide('content'); return; }
+    if (mod && key === 'g') { ev.preventDefault(); elementAction(ev.shiftKey ? 'ungroup' : 'group'); return; }
+    if (ev.key === 'Delete' || ev.key === 'Backspace') {
+      if (selIds.length) { ev.preventDefault(); elementAction('del'); }
+      return;
+    }
+    if (ev.key === 'Escape') {
+      if (selIds.length) { selIds = []; primaryId = null; renderCanvas(); }
+      return;
+    }
+    if (ev.key === 'F5') { ev.preventDefault(); startShow(ev.shiftKey ? slideIndex : 0); return; }
+    if (selIds.length && (ev.key === 'ArrowUp' || ev.key === 'ArrowDown' || ev.key === 'ArrowLeft' || ev.key === 'ArrowRight')) {
+      ev.preventDefault();
+      var step = ev.shiftKey ? 10 : 1;
+      pushHist();
+      selEls().forEach(function (e) {
+        if (ev.key === 'ArrowUp') e.y -= step;
+        if (ev.key === 'ArrowDown') e.y += step;
+        if (ev.key === 'ArrowLeft') e.x -= step;
+        if (ev.key === 'ArrowRight') e.x += step;
+      });
+      renderCanvas(); scheduleSave();
+    } else if (!selIds.length && (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft')) {
+      ev.preventDefault();
+      selectSlide(slideIndex + (ev.key === 'ArrowRight' ? 1 : -1));
+    }
+  });
+}
+/* ================= 编辑器界面 ================= */
+function btnHtml(cmd, icon, title, text) {
+  return '<button class="of-btn' + (text ? '' : ' ico') + '" data-cmd="' + cmd + '" title="' + title + '">' +
+    '<i class="fa-solid ' + icon + '"></i>' + (text ? '<span>' + text + '</span>' : '') + '</button>';
+}
+function rowHtml(inner) {
+  return '<span class="of-grp-row" style="display:flex;align-items:center;gap:2px">' + inner + '</span>';
+}
+function grpHtml(label, body) {
+  return '<div class="of-grp"><div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">' + body + '</div>' +
+    '<span class="of-grp-label">' + label + '</span></div>';
+}
+
+function ribbonHTML() {
+  var insertRow1 = btnHtml('text', 'fa-t', '文本框') + btnHtml('image', 'fa-image', '图片') +
+    btnHtml('chart', 'fa-chart-column', '柱状图') + btnHtml('chart-line', 'fa-chart-line', '折线图');
+  var insertRow2 = btnHtml('rect', 'fa-square', '矩形') + btnHtml('round', 'fa-square', '圆角矩形') +
+    btnHtml('circle', 'fa-circle', '圆形') + btnHtml('triangle', 'fa-play', '三角形') +
+    btnHtml('arrow', 'fa-arrow-right', '箭头') + btnHtml('line', 'fa-minus', '线条');
+  var fontSelect = '<select id="pptFont" class="of-select" style="width:100px;height:26px;font-size:11px">' + fontOptions('') + '</select>';
+  var sizeInput = '<input id="pptSizeNum" class="of-num" type="number" min="8" max="200" placeholder="字号" style="width:52px;height:26px;font-size:11px">';
+  var colorInput = '<input id="pptColor" type="color" title="文字颜色" style="width:26px;height:26px;padding:2px;border:1px solid rgba(15,23,42,.14);border-radius:6px;background:transparent;cursor:pointer">';
+  var lhSelect = '<select id="pptLH" class="of-select" title="行距" style="width:62px;height:26px;font-size:11px">' + lhOptions(1.35) + '</select>';
+  var textRow1 = rowHtml(fontSelect + sizeInput + colorInput);
+  var textRow2 = rowHtml(
+    btnHtml('bold', 'fa-bold', '加粗 (Ctrl+B)') + btnHtml('italic', 'fa-italic', '倾斜') +
+    btnHtml('underline', 'fa-underline', '下划线') + btnHtml('align-left', 'fa-align-left', '左对齐') +
+    btnHtml('align-center', 'fa-align-center', '居中') + btnHtml('align-right', 'fa-align-right', '右对齐'));
+  var textRow3 = rowHtml(lhSelect + btnHtml('bullet', 'fa-list', '项目符号'));
+
+  var arrangeRow1 = rowHtml(
+    btnHtml('up', 'fa-arrow-up', '上移一层') + btnHtml('down', 'fa-arrow-down', '下移一层') +
+    btnHtml('top', 'fa-angles-up', '置于顶层') + btnHtml('bottom', 'fa-angles-down', '置于底层'));
+  var arrangeRow2 = rowHtml(
+    btnHtml('align-top', 'fa-arrow-up-long', '顶对齐') + btnHtml('align-middle', 'fa-align-center', '垂直居中') +
+    btnHtml('align-bottom', 'fa-arrow-down-long', '底对齐') +
+    btnHtml('dist-h', 'fa-arrows-left-right', '横向等间距') + btnHtml('dist-v', 'fa-arrows-up-down', '纵向等间距'));
+  var arrangeRow3 = rowHtml(
+    btnHtml('group', 'fa-object-group', '编组 (Ctrl+G)') + btnHtml('ungroup', 'fa-object-ungroup', '取消编组'));
+
+  return '<div class="of-ribbon">' +
+    grpHtml('文件', rowHtml(btnHtml('new', 'fa-file-circle-plus', '新建演示') + btnHtml('save', 'fa-floppy-disk', '保存'))) +
+    grpHtml('历史', rowHtml(btnHtml('undo', 'fa-rotate-left', '撤销') + btnHtml('redo', 'fa-rotate-right', '重做'))) +
+    grpHtml('版式', rowHtml(LAYOUT_META.map(function (L) { return btnHtml('lay-' + L.id, L.icon, L.title); }).join(''))) +
+    grpHtml('插入', insertRow1 + insertRow2) +
+    grpHtml('文字', textRow1 + textRow2 + textRow3) +
+    grpHtml('排列', arrangeRow1 + arrangeRow2 + arrangeRow3) +
+    grpHtml('幻灯片', rowHtml(btnHtml('slide-add', 'fa-plus', '新增一页 (Ctrl+M)') +
+      btnHtml('slide-dup', 'fa-clone', '复制当前页') + btnHtml('slide-del', 'fa-trash-can', '删除当前页') +
+      btnHtml('slide-up', 'fa-arrow-up', '上移一页') + btnHtml('slide-down', 'fa-arrow-down', '下移一页')) +
+      rowHtml(btnHtml('present', 'fa-play', '从头放映 (F5)', '放映')) +
+      rowHtml(btnHtml('present-here', 'fa-video', '从当前页放映 (Shift+F5)', '当前页'))) +
+    '</div>';
+}
+
+function buildEditor(root) {
+  root.innerHTML = ribbonHTML() +
+    '<div class="ppt-main">' +
+    '<div class="ppt-rail"><div class="ppt-rail-tools">' +
+    btnHtml('slide-add', 'fa-plus', '新增一页') + btnHtml('slide-dup', 'fa-clone', '复制当前页') +
+    btnHtml('slide-del', 'fa-trash-can', '删除当前页') +
+    '</div><div class="ppt-slides" id="pptSlides"></div></div>' +
+    '<div class="ppt-stage"><div class="ppt-scalewrap" id="pptScalewrap">' +
+    '<div class="ppt-canvas" id="pptCanvas" tabindex="-1"><div class="ppt-els" id="pptEls"></div>' +
+    '<div class="ppt-overlay" id="pptOverlay"></div></div></div></div>' +
+    '<div class="ppt-insp" id="pptInsp"></div>' +
+    '</div>' +
+    '<div class="of-status">' +
+    '<span class="of-status-item" id="pptStatusSlide">1 / 1</span>' +
+    '<span class="of-status-item" id="pptStatusSize">16:9 · 960 × 540</span>' +
+    '<span class="of-status-item" id="pptStatusSel">未选中对象</span>' +
+    '<span style="flex:1"></span>' +
+    '<span class="of-status-tip">拖拽对齐参考线 · 双击编辑 · Ctrl+G 编组 · F5 放映</span>' +
+    '</div>';
+
+  railList = root.querySelector('#pptSlides');
+  scalewrap = root.querySelector('#pptScalewrap');
+  canvas = root.querySelector('#pptCanvas');
+  elsLayer = root.querySelector('#pptEls');
+  overlay = root.querySelector('#pptOverlay');
+  insp = root.querySelector('#pptInsp');
+  statusSlide = root.querySelector('#pptStatusSlide');
+  statusSize = root.querySelector('#pptStatusSize');
+  statusSel = root.querySelector('#pptStatusSel');
+
+  root.querySelector('.of-ribbon').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-cmd]');
+    if (!b || b.disabled) return;
+    runCmd(b.dataset.cmd);
+  });
+  var fontSel = root.querySelector('#pptFont');
+  if (fontSel) fontSel.addEventListener('change', function () { applyText({ font: this.value }); });
+  var sizeIn = root.querySelector('#pptSizeNum');
+  if (sizeIn) sizeIn.addEventListener('change', function () {
+    var v = parseFloat(this.value);
+    if (isFinite(v)) applyText({ fontSize: OF.clamp(v, 8, 200) });
+  });
+  var colorIn = root.querySelector('#pptColor');
+  if (colorIn) colorIn.addEventListener('change', function () { applyText({ color: this.value }); });
+  var lhSel = root.querySelector('#pptLH');
+  if (lhSel) lhSel.addEventListener('change', function () { applyText({ lineHeight: parseFloat(this.value) }); });
+
+  bindCanvas();
+  fitCanvas();
+  renderAll();
+}
+
+function toggleText(prop) {
+  var t = selEls().filter(function (e) { return e.type === 'text'; })[0];
+  if (!t) { OF.toast('先选中一个文本框'); return; }
+  var patch = {};
+  patch[prop] = t[prop] ? 0 : 1;
+  applyText(patch);
+}
+
+function runCmd(name) {
+  if (name.indexOf('lay-') === 0) { applyLayout(name.slice(4)); return; }
+  switch (name) {
+    case 'new': createDeck(); break;
+    case 'save': flush().then(function (ok) { OF.toast(ok ? '已保存到本机' : '保存失败', ok ? 'success' : 'error'); }); break;
+    case 'undo': undo(); break;
+    case 'redo': redo(); break;
+    case 'text': insertText(); break;
+    case 'rect': insertShape('rect'); break;
+    case 'round': insertShape('round'); break;
+    case 'circle': insertShape('circle'); break;
+    case 'triangle': insertShape('triangle'); break;
+    case 'arrow': insertShape('arrow'); break;
+    case 'line': insertShape('line'); break;
+    case 'image': pendingPhImage = null; el.file.click(); break;
+    case 'chart': insertChart('bar'); break;
+    case 'chart-line': insertChart('line'); break;
+    case 'bold': toggleText('bold'); break;
+    case 'italic': toggleText('italic'); break;
+    case 'underline': toggleText('underline'); break;
+    case 'bullet': toggleText('bullet'); break;
+    case 'align-left': applyText({ align: 'left' }); break;
+    case 'align-center': applyText({ align: 'center' }); break;
+    case 'align-right': applyText({ align: 'right' }); break;
+    case 'up': elementAction('up'); break;
+    case 'down': elementAction('down'); break;
+    case 'top': elementAction('top'); break;
+    case 'bottom': elementAction('bottom'); break;
+    case 'align-top': elementAction('align-top'); break;
+    case 'align-middle': elementAction('align-middle'); break;
+    case 'align-bottom': elementAction('align-bottom'); break;
+    case 'dist-h': elementAction('dist-h'); break;
+    case 'dist-v': elementAction('dist-v'); break;
+    case 'group': elementAction('group'); break;
+    case 'ungroup': elementAction('ungroup'); break;
+    case 'slide-add': addSlide('content'); break;
+    case 'slide-dup': duplicateSlide(); break;
+    case 'slide-del': deleteSlide(); break;
+    case 'slide-up': moveSlide(-1); break;
+    case 'slide-down': moveSlide(1); break;
+    case 'present': startShow(0); break;
+    case 'present-here': startShow(slideIndex); break;
+  }
+}
+
+/* ================= 放映 ================= */
+function startShow(fromIndex) {
+  if (!deck || !deck.slides.length || presenting) return;
+  var idx = OF.clamp(typeof fromIndex === 'number' ? fromIndex : 0, 0, deck.slides.length - 1);
+  presenting = true;
+  var mask = document.createElement('div');
+  mask.className = 'ppt-show';
+  mask.tabIndex = 0;
+  var box = document.createElement('div');
+  box.className = 'ppt-show-slide';
+  var inner = document.createElement('div');
+  inner.className = 'ppt-show-inner';
+  box.appendChild(inner);
+  var bar = document.createElement('div');
+  bar.className = 'ppt-show-bar';
+  bar.innerHTML = '<button data-nav="prev" title="上一页"><i class="fa-solid fa-chevron-left"></i></button>' +
+    '<span class="ppt-show-page"></span>' +
+    '<button data-nav="next" title="下一页"><i class="fa-solid fa-chevron-right"></i></button>' +
+    '<button data-nav="exit" title="退出 (Esc)"><i class="fa-solid fa-xmark"></i></button>';
+  var tip = document.createElement('div');
+  tip.className = 'ppt-show-tip';
+  tip.textContent = '← / → 翻页 · Esc 退出';
+  var prog = document.createElement('div');
+  prog.className = 'ppt-show-prog';
+  prog.innerHTML = '<i></i>';
+  mask.appendChild(box); mask.appendChild(bar); mask.appendChild(tip); mask.appendChild(prog);
+
+  function layoutShow() {
+    var s = Math.min((window.innerWidth - 56) / 960, (window.innerHeight - 110) / 540);
+    s = Math.max(s, .2);
+    box.style.width = (960 * s) + 'px';
+    box.style.height = (540 * s) + 'px';
+    inner.style.transform = 'scale(' + s + ')';
+  }
+  function paint() {
+    var s = deck.slides[idx];
+    box.style.background = s.bg || 'rgb(252 252 253)';
+    inner.innerHTML = s.els.map(function (e) { return elementHTML(e, true); }).join('');
+    var page = bar.querySelector('.ppt-show-page');
+    if (page) page.textContent = (idx + 1) + ' / ' + deck.slides.length;
+    var prevBtn = bar.querySelector('[data-nav="prev"]');
+    var nextBtn = bar.querySelector('[data-nav="next"]');
+    if (prevBtn) prevBtn.setAttribute('aria-disabled', idx <= 0 ? 'true' : 'false');
+    if (nextBtn) nextBtn.setAttribute('aria-disabled', idx >= deck.slides.length - 1 ? 'true' : 'false');
+    prog.querySelector('i').style.width = ((idx + 1) / deck.slides.length * 100) + '%';
+    layoutShow();
+  }
+  function go(step) {
+    var n = idx + step;
+    if (n < 0 || n >= deck.slides.length) return;
+    idx = n; paint();
+  }
+  function exitShow() {
+    presenting = false;
+    document.removeEventListener('keydown', onKey, true);
+    window.removeEventListener('resize', layoutShow);
+    mask.remove();
+    if (document.fullscreenElement === mask && document.exitFullscreen) {
+      try { document.exitFullscreen().catch(function () { }); } catch (err) { }
+    }
+    renderCanvas();
+  }
+  function onKey(ev) {
+    if (ev.key === 'Escape') { ev.preventDefault(); exitShow(); }
+    else if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown' || ev.key === ' ' || ev.key === 'PageDown') { ev.preventDefault(); go(1); }
+    else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp' || ev.key === 'PageUp') { ev.preventDefault(); go(-1); }
+  }
+
+  bar.addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-nav]');
+    if (!b) return;
+    var act = b.dataset.nav;
+    if (act === 'prev') go(-1);
+    else if (act === 'next') go(1);
+    else exitShow();
+  });
+  mask.addEventListener('click', function (ev) {
+    if (ev.target.closest('.ppt-show-bar')) return;
+    if (ev.target.closest('.ppt-show-slide')) {
+      var r = box.getBoundingClientRect();
+      var rel = (ev.clientX - r.left) / r.width;
+      if (rel < .25) go(-1); else go(1);
+    } else {
+      go(1);
+    }
+  });
+  document.addEventListener('keydown', onKey, true);
+  window.addEventListener('resize', layoutShow);
+  document.body.appendChild(mask);
+  paint();
+  mask.focus();
+  try {
+    var p = mask.requestFullscreen ? mask.requestFullscreen() : null;
+    if (p && p.catch) p.catch(function () { });
+  } catch (err) { }
+  setTimeout(function () { if (presenting) layoutShow(); }, 120);
+}
+/* ================= 文稿库 ================= */
+function phSet(s, ph, text) {
+  for (var i = 0; i < s.els.length; i++) {
+    if (s.els[i].ph === ph && s.els[i].type === 'text') { s.els[i].text = text; return s.els[i]; }
+  }
+  return null;
+}
+
+function seedLaunch(d) {
+  d.master = { bg: 'rgb(246 249 255)', accent: 'hsl(212 72% 46%)', font: '', titleColor: 'rgb(20 28 44)' };
+  var s1 = slideNew('cover', d.master);
+  phSet(s1, 'title', 'Nexus OS 26');
+  phSet(s1, 'subtitle', '一次关于桌面体验的重新想象');
+  s1.notes = '开场 30 秒，先讲为什么要重新做桌面。';
+  var s2 = slideNew('content', d.master);
+  phSet(s2, 'title', '三个关键变化');
+  phSet(s2, 'body', '01  统一应用外壳与玻璃材质\n02  文档 / 表格 / 演示共用本地存储\n03  相机与相册打通，拍完即归档');
+  var s3 = slideNew('content', d.master);
+  phSet(s3, 'title', '这一季度的进展');
+  var bodyEl = phSet(s3, 'body', '文档、表格、演示都支持真实编辑与自动保存。\n图表由本地数据生成，不依赖网络。');
+  if (bodyEl) { bodyEl.w = 420; bodyEl.h = 300; }
+  s3.els.push(elChart(520, 150, 370, 270, 'bar', ['文档', '表格', '演示', '相机'], [3, 4, 5, 1], '已完成应用'));
+  var s4 = slideNew('section', d.master);
+  phSet(s4, 'title', '谢谢观看');
+  phSet(s4, 'subtitle', '按 → 继续，Esc 退出');
+  d.slides = [s1, s2, s3, s4];
+}
+
+function seedQuarter(d) {
+  d.master = { bg: 'rgb(252 250 246)', accent: 'hsl(24 82% 48%)', font: '', titleColor: 'rgb(36 28 20)' };
+  var s1 = slideNew('cover', d.master);
+  phSet(s1, 'title', '第二季度业务回顾');
+  phSet(s1, 'subtitle', '增长、留存与下一步计划');
+  var s2 = slideNew('content', d.master);
+  phSet(s2, 'title', '关键指标');
+  var b2 = phSet(s2, 'body', '月活用户环比 +18%\n付费转化率 4.2%\n平均响应时间下降到 180ms');
+  if (b2) { b2.w = 400; }
+  s2.els.push(elChart(500, 140, 390, 290, 'bar', ['四月', '五月', '六月', '七月'], [120, 168, 145, 210], '月度活跃'));
+  var s3 = slideNew('twocol', d.master);
+  phSet(s3, 'title', '计划与风险');
+  phSet(s3, 'left', '下一步\n· 补齐移动端\n· 上线协作草稿\n· 打磨导出链路');
+  phSet(s3, 'right', '风险\n· 大文档性能仍需压测\n· 第三方字体授权\n· 相机权限引导');
+  var s4 = slideNew('section', d.master);
+  phSet(s4, 'title', '讨论');
+  phSet(s4, 'subtitle', 'Q & A');
+  d.slides = [s1, s2, s3, s4];
+}
+
+function seedLesson(d) {
+  d.master = { bg: 'rgb(247 250 247)', accent: 'hsl(156 46% 38%)', font: '', titleColor: 'rgb(20 34 28)' };
+  var s1 = slideNew('cover', d.master);
+  phSet(s1, 'title', '信息架构入门');
+  phSet(s1, 'subtitle', '从导航到搜索的十二个练习');
+  var s2 = slideNew('content', d.master);
+  phSet(s2, 'title', '本节要点');
+  var b2 = phSet(s2, 'body', '· 先分类，再排序\n· 每个入口只做一件事\n· 让空白承担层级\n· 把反馈放在动作旁边');
+  if (b2) { b2.fontSize = 24; b2.bullet = 1; }
+  var s3 = slideNew('imagetext', d.master);
+  phSet(s3, 'title', '案例拆解');
+  phSet(s3, 'body', '左侧放界面截图，右侧只保留三条结论。\n\n图片占位符支持单击直接选择本地图片。');
+  var s4 = slideNew('content', d.master);
+  phSet(s4, 'title', '练习');
+  phSet(s4, 'body', '1. 把一个三层导航压缩成两层\n2. 为搜索无结果设计一条退路\n3. 用等间距对齐整理一页幻灯片');
+  var s5 = slideNew('section', d.master);
+  phSet(s5, 'title', '下课');
+  phSet(s5, 'subtitle', '有问题随时回来');
+  d.slides = [s1, s2, s3, s4, s5];
+}
+
+var TPL = [
+  { name: '产品启动会', desc: '4 页 · 封面 / 内容 / 图表 / 结尾', seed: seedLaunch },
+  { name: '季度业务回顾', desc: '4 页 · 指标图表与计划两栏', seed: seedQuarter },
+  { name: '课程分享', desc: '5 页 · 要点列表与图文案例', seed: seedLesson }
+];
+
+function deckThumbHTML(d, width) {
+  var s = d.slides[0] || slideNew('cover', d.master);
+  var inner = '<div class="ppt-mini-inner" style="' + (width ? 'transform:scale(' + (width / 960) + ')' : '') + '">' +
+    s.els.map(function (e) { return elementHTML(e, true); }).join('') + '</div>';
+  return '<div class="pptx-thumb" style="background:' + (s.bg || '#fff') + '">' +
+    '<div class="ppt-mini">' + inner + '</div></div>';
+}
+
+function libraryPanel() {
+  var wrap = document.createElement('div');
+  wrap.className = 'ppt-panel';
+  wrap.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:16px 20px 10px;flex-shrink:0">' +
+    '<b style="font-size:15px">我的演示文稿</b>' +
+    '<span id="pptLibCount" style="font-size:11px;color:var(--text-3)"></span>' +
+    '<span style="flex:1"></span>' +
+    '<button class="of-btn" id="pptLibNew"><i class="fa-solid fa-plus"></i><span>新建</span></button></div>' +
+    '<div id="pptLibCards" style="flex:1;min-height:0;overflow:auto;padding:4px 20px 24px;' +
+    'display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:12px;align-content:start"></div>';
+  cards = wrap.querySelector('#pptLibCards');
+  libCount = wrap.querySelector('#pptLibCount');
+  wrap.querySelector('#pptLibNew').addEventListener('click', function () { createDeckFromSeed('未命名演示文稿', null); });
+  renderLibrary();
+  return wrap;
+}
+
+function renderLibrary() {
+  if (!cards || !cards.isConnected) return;
+  cards.innerHTML = '';
+  var list = state.decks.slice().sort(function (a, b) { return (b.updated || 0) - (a.updated || 0); });
+  list.forEach(function (d) {
+    var c = document.createElement('div');
+    c.className = 'pptx-card';
+    c.innerHTML = deckThumbHTML(d, 210) +
+      '<b>' + OF.esc(d.title || '未命名演示文稿') + '</b>' +
+      '<span>' + d.slides.length + ' 页 · ' + OF.fmtTime(d.updated) + '</span>' +
+      '<div style="display:flex;gap:6px"><button class="of-btn" data-open="' + d.id + '" style="flex:1;height:26px;font-size:11px">打开</button>' +
+      '<button class="of-btn danger" data-del="' + d.id + '" title="删除" style="width:30px;height:26px"><i class="fa-solid fa-trash-can"></i></button></div>';
+    c.addEventListener('click', function (ev) {
+      var del = ev.target.closest('[data-del]');
+      if (del) { ev.stopPropagation(); removeDeck(del.dataset.del); return; }
+      openDeck(d.id);
+    });
+    cards.appendChild(c);
+  });
+  if (libCount) libCount.textContent = state.decks.length + ' 份演示';
+}
+
+function templatesPanel() {
+  var wrap = document.createElement('div');
+  wrap.className = 'ppt-panel';
+  wrap.innerHTML = '<div class="ppt-tpl"><div style="display:flex;align-items:baseline;gap:10px">' +
+    '<b style="font-size:15px">模板</b><span style="font-size:11px;color:var(--text-3)">从一份完整结构开始，所有文字都可直接改</span></div>' +
+    '<div class="ppt-tpl-grid" id="pptTplGrid"></div></div>';
+  var grid = wrap.querySelector('#pptTplGrid');
+  TPL.forEach(function (t) {
+    var prev = deckNew(t.name, t.seed);
+    var card = document.createElement('div');
+    card.className = 'pptx-card';
+    card.innerHTML = deckThumbHTML(prev, 210) + '<b>' + t.name + '</b><span>' + t.desc + '</span>';
+    card.addEventListener('click', function () { createDeckFromSeed(t.name, t.seed); });
+    grid.appendChild(card);
+  });
+  return wrap;
+}
+
+/* ================= 文稿切换 ================= */
+function openDeck(id) {
+  var d = state.decks.filter(function (x) { return x.id === id; })[0];
+  if (!d) return;
+  flush();
+  deck = d;
+  state.currentId = d.id;
+  slideIndex = 0;
+  slide = d.slides[0];
+  selIds = []; primaryId = null;
+  hist.undo = []; hist.redo = [];
+  el.title.value = d.title;
+  setSaveState('saved');
+  if (shell) shell.select('edit');
+  scheduleSave();
+}
+function createDeckFromSeed(title, seedFn) {
+  flush();
+  var d = deckNew(title, seedFn);
+  state.decks.unshift(d);
+  state.currentId = d.id;
+  deck = d; slideIndex = 0; slide = d.slides[0];
+  selIds = []; primaryId = null;
+  hist.undo = []; hist.redo = [];
+  el.title.value = d.title;
+  renderLibrary();
+  if (shell) shell.select('edit');
+  renderAll(); fitCanvas();
+  scheduleSave();
+  OF.toast('已新建演示文稿', 'success');
+}
+function removeDeck(id) {
+  var target = state.decks.filter(function (d) { return d.id === id; })[0];
+  if (!target) return;
+  OF.confirm({ title: '删除演示文稿', message: '「' + target.title + '」会被删除，删除后无法撤销。', okText: '删除' }).then(function (ok) {
+    if (!ok) return;
+    var wasCurrent = deck && deck.id === id;
+    state.decks = state.decks.filter(function (d) { return d.id !== id; });
+    if (!state.decks.length) {
+      var nd = deckNew('未命名演示文稿', null);
+      state.decks.push(nd);
+      wasCurrent = true;
+    }
+    if (wasCurrent) {
+      deck = state.decks[0];
+      state.currentId = deck.id;
+      slideIndex = 0; slide = deck.slides[0];
+      el.title.value = deck.title;
+    }
+    store.write(serialize());
+    renderLibrary();
+    if (wasCurrent && shell) shell.select('lib');
+    OF.toast('已删除', 'success');
+  });
+}
+
+/* ================= 载入 / 迁移 ================= */
+function migrateDeck(d) {
+  var m = { bg: MASTER_DEFAULT.bg, accent: MASTER_DEFAULT.accent, font: '', titleColor: MASTER_DEFAULT.titleColor };
+  if (d.master && typeof d.master === 'object') {
+    m.bg = d.master.bg || m.bg;
+    m.accent = d.master.accent || m.accent;
+    m.font = d.master.font || '';
+    m.titleColor = d.master.titleColor || m.titleColor;
+  }
+  var raw = (Array.isArray(d.slides) && d.slides.length) ? d.slides : [slideNew('cover', m)];
+  var slides = raw.map(function (s) {
+    var kind = LAYOUT_META.some(function (L) { return L.id === s.layout; }) ? s.layout : 'content';
+    var els = Array.isArray(s.els) ? s.els : [];
+    if (!els.length) els = layoutSpec(kind, m).els;
+    els.forEach(function (e) {
+      if (e.type === 'text') {
+        if (typeof e.lineHeight !== 'number') e.lineHeight = 1.35;
+        if (e.bullet == null) e.bullet = 0;
+        if (e.bold == null) e.bold = 0;
+        if (e.italic == null) e.italic = 0;
+        if (e.underline == null) e.underline = 0;
+        if (!e.align) e.align = 'left';
+      }
+      if (e.groupId === undefined) e.groupId = null;
+    });
+    return {
+      id: s.id || OF.uid('sl'),
+      layout: kind,
+      bg: s.bg || (kind === 'section' ? m.accent : m.bg),
+      notes: s.notes || '',
+      els: els
+    };
+  });
+  var ms = parseInt(d.master && d.master.updated, 10);
+  return {
+    id: d.id || OF.uid('ppt'),
+    title: d.title || '未命名演示文稿',
+    w: 960, h: 540,
+    master: m,
+    slides: slides,
+    created: d.created || Date.now(),
+    updated: d.updated || (isFinite(ms) ? ms : Date.now())
+  };
+}
+
+function load(data) {
+  if (typeof data === 'string') {
+    try { data = JSON.parse(data); } catch (err) { data = null; }
+  }
+  if (Array.isArray(data)) data = { decks: data, currentId: null };
+  if (data && !Array.isArray(data.decks)) {
+    if (data.deck && Array.isArray(data.deck.slides)) data = { decks: [data.deck], currentId: data.currentId };
+    else if (Array.isArray(data.slides)) data = { decks: [data], currentId: null };
+    else if (Array.isArray(data.docs)) data = { decks: data.docs, currentId: data.currentId };
+  }
+  if (data && Array.isArray(data.decks) && data.decks.length) {
+    state.decks = data.decks.map(migrateDeck);
+    state.currentId = (data.currentId && state.decks.some(function (d) { return d.id === data.currentId; }))
+      ? data.currentId : state.decks[0].id;
+  }
+  if (!state.decks.length) {
+    var d = deckNew('未命名演示文稿', null);
+    state.decks.push(d);
+    state.currentId = d.id;
+  }
+  deck = state.decks.filter(function (x) { return x.id === state.currentId; })[0] || state.decks[0];
+  state.currentId = deck.id;
+  slideIndex = 0;
+  slide = deck.slides[0];
+  el.title.value = deck.title;
+  setSaveState('saved');
+}
+
+/* ================= 启动 ================= */
+function startShell() {
+  shell = N26UI.createShell(document.getElementById('pptShell'), {
+    sidebar: [
+      { id: 'lib', icon: 'fa-folder-open', label: '文稿', render: libraryPanel },
+      { id: 'edit', icon: 'fa-pen-ruler', label: '编辑', render: function () {
+        var wrap = document.createElement('div');
+        wrap.className = 'ppt-panel';
+        buildEditor(wrap);
+        return wrap;
+      } },
+      { id: 'tpl', icon: 'fa-layer-group', label: '模板', render: templatesPanel }
+    ],
+    defaultId: 'lib',
+    onSelect: function (id) {
+      if (id === 'lib') renderLibrary();
+      if (id === 'edit') setTimeout(function () { fitCanvas(); if (slide) renderAll(); }, 40);
+    }
+  });
+
+  el.title.addEventListener('input', function () {
+    if (!deck) return;
+    deck.title = this.value;
+    scheduleSave();
+  });
+  el.title.addEventListener('change', function () {
+    if (!deck) return;
+    deck.title = (this.value || '').trim() || '未命名演示文稿';
+    renderLibrary();
+    scheduleSave();
+  });
+  document.getElementById('pptSaveBtn').addEventListener('click', function () {
+    flush().then(function (ok) { OF.toast(ok ? '已保存到本机存储' : '保存失败', ok ? 'success' : 'error'); });
+  });
+  document.getElementById('pptShowBtn').addEventListener('click', function () { startShow(0); });
+
+  window.addEventListener('resize', function () { fitCanvas(); });
+  OF.onTheme(function () { renderLibrary(); });
+}
+
+function boot() {
+  store.read().then(function (data) {
+    load(data);
+    booted = true;
+    startShell();
+  }).catch(function () {
+    load(null);
+    booted = true;
+    startShell();
+  });
+}
+
+boot();
+
+})();
+</script>
+</body>
+</html>

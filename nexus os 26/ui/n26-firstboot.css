@@ -1,0 +1,273 @@
+/* ============================================================================
+ * Nexus OS 26 · 首次进入构建动画 · 样式层（全部 n26fb- 前缀）
+ * ----------------------------------------------------------------------------
+ * 只做三件事：① 压制既有入场过渡 ② 动画期摘掉大面积模糊（性能真杠杆）
+ * ③ 给「构建辅助层」提供外观。所有运动都由 JS 每帧写 inline 样式驱动，
+ *    本文件不定义任何 transition / @keyframes 来计时（时间源唯一在音频时钟）。
+ * 配色：全面禁紫；强调色天蓝 #38bdf8；浅/深两套中性玻璃。
+ * ==========================================================================*/
+
+/* ---------- ① 与 enterDesktop() 既有 600ms 过渡的统一（交接文档 §4.5） ----------
+ * 只在「本次会话准备播放构建动画」时加 n26fb-armed；非首次完全不激活，
+ * 走原生 desktopEnter / dockEnter / finderEnter。 */
+body.n26fb-armed #desktop.entering,
+body.n26fb-armed #dock.dock-enter,
+body.n26fb-armed #finder-bar.finder-enter {
+    animation: none !important;
+}
+/* 预隐藏：enterDesktop() 执行完 → 动画第 0 帧之间，绝不能整屏闪现完整桌面
+ * （交接文档 §6.1 验收项 1）。start() 会同步移除 armed 并立刻写第 0 帧，
+ * 因此这层 !important 只在「构建动画接管之前」生效，不干扰动画本身。 */
+/* ★ 2026-11-07 事故修复：预隐藏再加一道 n26fb-pending 守卫。
+   armed 单独存在不再有杀伤力；JS 7s 后无条件摘 pending，
+   即使动画启动彻底失败，Dock 也一定自动恢复可见，不会「能点却不渲染」。 */
+body.n26fb-armed.n26fb-pending #dock,
+body.n26fb-armed.n26fb-pending #finder-bar,
+body.n26fb-armed.n26fb-pending #desktopIcons .desktop-icon,
+body.n26fb-armed.n26fb-pending .desktop-widget {
+    opacity: 0 !important;
+}
+/* 注意：不要覆盖 #dock 的 transform（里面有 translateX(-50%) 居中），
+ * 也不要给 .dock-enter 写 transform:none —— 会让 Dock 水平跳变。 */
+
+/* ---------- ② 动画期摘模糊层：60s 内不合成几十层 backdrop-filter ---------- */
+body.n26fb-active #dock,
+body.n26fb-active #finder-bar,
+body.n26fb-active .window.glass,
+body.n26fb-active .context-menu.glass {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+/* 动画期禁止任何残留过渡偷跑（skip 必须一帧到终态） */
+body.n26fb-active #dock,
+body.n26fb-active .dock-item,
+body.n26fb-active .dock-separator,
+body.n26fb-active #finder-bar,
+body.n26fb-active #finder-bar *,
+body.n26fb-active #desktopIcons .desktop-icon,
+body.n26fb-active .desktop-widget {
+    transition: none !important;
+    animation: none !important;
+}
+
+/* ---------- ③ 构建辅助层 ---------- */
+#n26fb-stage {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    pointer-events: none;
+    overflow: hidden;
+    --n26fb-ink: #1d2733;
+    --n26fb-ink-2: rgba(29, 39, 51, .62);
+    --n26fb-line: rgba(56, 189, 248, .55);
+    --n26fb-line-soft: rgba(56, 189, 248, .22);
+    --n26fb-glass: rgba(255, 255, 255, .78);
+    --n26fb-glass-brd: rgba(255, 255, 255, .9);
+    --n26fb-card: rgba(255, 255, 255, .62);
+    --n26fb-sk: rgba(29, 39, 51, .10);
+    --n26fb-sk-2: rgba(29, 39, 51, .055);
+    --n26fb-shadow: 0 24px 60px rgba(24, 40, 62, .16);
+    --n26fb-veil-bg: #f4f7fa;
+}
+body.dark-mode #n26fb-stage {
+    /* 深色真桌面底图偏暗、蓝调更重（交接文档 §7 #7）：材质整体压暗、线提亮 */
+    --n26fb-ink: #eaf2fa;
+    --n26fb-ink-2: rgba(234, 242, 250, .66);
+    --n26fb-line: rgba(96, 196, 255, .72);
+    --n26fb-line-soft: rgba(96, 196, 255, .26);
+    --n26fb-glass: rgba(20, 30, 43, .80);
+    --n26fb-glass-brd: rgba(150, 190, 220, .18);
+    --n26fb-card: rgba(26, 38, 52, .66);
+    --n26fb-sk: rgba(226, 240, 255, .13);
+    --n26fb-sk-2: rgba(226, 240, 255, .06);
+    --n26fb-shadow: 0 24px 60px rgba(0, 0, 0, .38);
+    --n26fb-veil-bg: #101822;
+}
+/* 交接文档 #3：开场 0–0.205s 空场 → 用「由状态机 t 驱动」的中性遮罩做解锁淡入。
+   opacity 每帧由 JS 按 t 线性写入，不是 CSS duration，不破坏唯一时间源。 */
+.n26fb-veil {
+    position: absolute; inset: 0;
+    background: var(--n26fb-veil-bg);
+    opacity: 0;
+    pointer-events: none;
+}
+#n26fb-cam {
+    position: absolute;
+    inset: 0;
+    transform-origin: 50% 50%;
+    will-change: transform;
+}
+
+/* 聚焦框（虚线，四角括号感） */
+.n26fb-focus {
+    position: absolute;
+    box-sizing: border-box;
+    border: 1.5px dashed var(--n26fb-line);
+    border-radius: 12px;
+    box-shadow: 0 0 0 1px var(--n26fb-line-soft), inset 0 0 40px var(--n26fb-line-soft);
+}
+.n26fb-focus::before,
+.n26fb-focus::after {
+    content: '';
+    position: absolute;
+    width: 14px; height: 14px;
+    border: 2px solid var(--n26fb-line);
+}
+.n26fb-focus::before { left: -2px; top: -2px; border-right: 0; border-bottom: 0; border-radius: 4px 0 0 0; }
+.n26fb-focus::after { right: -2px; bottom: -2px; border-left: 0; border-top: 0; border-radius: 0 0 4px 0; }
+
+/* 辅助线 */
+.n26fb-line { position: absolute; background: var(--n26fb-line-soft); }
+.n26fb-line.h { height: 1px; }
+.n26fb-line.v { width: 1px; }
+
+/* ---------- 窗口骨架：复用真实窗口的结构与视觉语言 ---------- */
+.n26fb-window {
+    position: absolute;
+    box-sizing: border-box;
+    overflow: hidden;
+    border-radius: 14px;
+    background: var(--n26fb-glass);
+    border: 1px solid var(--n26fb-glass-brd);
+    box-shadow: var(--n26fb-shadow);
+    transform-origin: 0 0;
+}
+.n26fb-window .window-titlebar {
+    height: var(--n26fb-tbh, 34px);
+    min-height: 0;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--n26fb-sk);
+    background: var(--n26fb-sk-2);
+    overflow: hidden;
+}
+.n26fb-window .window-controls { display: flex; gap: 6px; flex: 0 0 auto; }
+.n26fb-window .window-btn {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--n26fb-sk);
+    opacity: var(--n26fb-tbh-r, 1);
+}
+.n26fb-window .window-btn.close { background: #f87171; opacity: .85; }
+.n26fb-window .window-btn.minimize { background: #fbbf24; opacity: .85; }
+.n26fb-window .window-btn.maximize { background: #4ade80; opacity: .85; }
+.n26fb-window .window-title {
+    font-size: 11px; font-weight: 600; letter-spacing: .2px;
+    color: var(--n26fb-ink-2); white-space: nowrap;
+}
+.n26fb-window .window-content {
+    position: absolute;
+    top: var(--n26fb-tbh, 34px);
+    left: 0; right: 0; bottom: 0;
+    display: flex;
+    box-sizing: border-box;
+    padding: 0;
+}
+.n26fb-side {
+    width: 22%;
+    box-sizing: border-box;
+    padding: 12px 10px;
+    border-right: 1px solid var(--n26fb-sk);
+    display: flex; flex-direction: column; gap: 8px;
+    background: var(--n26fb-sk-2);
+}
+.n26fb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.n26fb-toolbar {
+    height: 30px; box-sizing: border-box;
+    border-bottom: 1px solid var(--n26fb-sk);
+    display: flex; align-items: center; gap: 7px; padding: 0 12px;
+}
+.n26fb-grid {
+    flex: 1; padding: 12px;
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: 34px; gap: 9px; align-content: start;
+    /* 内容网格线：随 gridReveal 出现 */
+    background-image: linear-gradient(to right, var(--n26fb-sk) 1px, transparent 1px);
+    background-size: 25% 100%;
+    opacity: var(--n26fb-grid-r, 0);
+}
+.n26fb-sk-item {
+    background: var(--n26fb-sk);
+    border-radius: 5px;
+    min-width: 0;
+}
+.n26fb-side .n26fb-sk-item { height: 9px; width: 88%; }
+.n26fb-toolbar .n26fb-sk-item { width: 22px; height: 9px; flex: 0 0 auto; }
+.n26fb-grid .n26fb-sk-item { height: 30px; border-radius: 6px; }
+.n26fb-grid .n26fb-sk-item:nth-child(3n) { background: var(--n26fb-sk-2); }
+
+/* 演示指针 */
+.n26fb-pointer {
+    position: absolute;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #38bdf8;
+    border: 2px solid rgba(255, 255, 255, .92);
+    box-shadow: 0 0 0 7px rgba(56, 189, 248, .16), 0 4px 14px rgba(16, 60, 92, .28);
+    transform-origin: 0 0;
+}
+
+/* AI 小方引导卡 */
+.n26fb-covi {
+    position: absolute;
+    box-sizing: border-box;
+    border-radius: 18px;
+    background: var(--n26fb-glass);
+    border: 1px solid var(--n26fb-glass-brd);
+    box-shadow: var(--n26fb-shadow);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 10px; padding: 16px;
+    transform-origin: 50% 50%;
+}
+.n26fb-covi .n26fb-covi-ic {
+    width: 34px; height: 34px; border-radius: 11px;
+    background: linear-gradient(160deg, #7dd3fc, #38bdf8);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 16px;
+}
+.n26fb-covi .n26fb-covi-t { font-size: 14px; font-weight: 650; color: var(--n26fb-ink); }
+.n26fb-covi .n26fb-covi-s { font-size: 11px; color: var(--n26fb-ink-2); }
+
+/* ---------- HUD：时间码 / 拍号 / 跳过 / 声音 ---------- */
+.n26fb-hud {
+    position: absolute;
+    right: 22px; bottom: 20px;
+    display: flex; align-items: center; gap: 10px;
+    pointer-events: auto;
+    padding: 9px 12px;
+    border-radius: 14px;
+    background: var(--n26fb-glass);
+    border: 1px solid var(--n26fb-glass-brd);
+    box-shadow: var(--n26fb-shadow);
+    color: var(--n26fb-ink);
+    font: 500 11px/1.2 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    letter-spacing: .3px;
+    user-select: none;
+}
+.n26fb-hud .n26fb-tc { font-variant-numeric: tabular-nums; opacity: .72; min-width: 92px; }
+.n26fb-hud .n26fb-sc { opacity: .5; }
+.n26fb-hud button {
+    font: inherit; color: inherit;
+    border: 1px solid var(--n26fb-sk);
+    background: var(--n26fb-sk-2);
+    border-radius: 8px;
+    padding: 5px 10px;
+    cursor: pointer;
+}
+.n26fb-hud button:hover { border-color: #38bdf8; color: #0284c7; }
+body.dark-mode .n26fb-hud button:hover { color: #7dd3fc; }
+.n26fb-hud .n26fb-snd.off { opacity: .5; }
+
+/* reduced-motion：唯一允许的过渡（一次性 300ms 交叉淡入，非关键帧） */
+#n26fb-reduce-veil {
+    position: fixed; inset: 0; z-index: 9000;
+    background: var(--n26fb-veil, #f4f7fa);
+    opacity: 1;
+    transition: opacity 300ms linear;
+    pointer-events: none;
+}
+body.dark-mode #n26fb-reduce-veil { --n26fb-veil: #101822; }
+#n26fb-reduce-veil.out { opacity: 0; }

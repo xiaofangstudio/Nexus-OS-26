@@ -1,0 +1,233 @@
+/* ══════════════════════════════════════════════════════════════════
+   N26 玻璃总账 · v3.1（2026-11-08）
+   ----------------------------------------------------------------
+   全系统唯一裁决层：谁有磨砂、谁没有，只看这一份。
+   规则：
+   1) 只有 body.style-glass 且非 mat-solid 时才有磨砂；
+      其余情况（关液态玻璃 / 纯色材质）一律 backdrop-filter:none。
+   2) 模糊 = var(--n26-blur) × 层级倍率；
+      饱和 = var(--n26-glass-sat) × 材质系数；
+      底色的透明度 = var(--n26-glass-alpha) × 材质系数 × 层级倍率。
+      不再出现 px / % / brightness 的写死值。
+   3) 白名单以外的元素全部清零（含历史遗留的 30/44/56px 写死规则）。
+   4) 窗口内部面板、卡片、内容面一律实底，不做「半透明 + 无模糊」的灰脏叠色。
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── 0. 颜色真值（浅/深） ───────────────────────────────────────── */
+body {
+    --n26-tint: 255 255 255;
+    --n26-solid-1: #f6f8fc;   /* 面板 / 整屏弹层 */
+    --n26-solid-2: #ffffff;   /* 卡片 / 输入 / 选择器 */
+    --n26-solid-3: #eef1f7;   /* 次级底 */
+}
+body.dark-mode {
+    --n26-tint: 18 20 30;
+    --n26-solid-1: #16181f;
+    --n26-solid-2: #1e212b;
+    --n26-solid-3: #23262f;
+}
+
+/* ── 1. 默认全关：清掉一切历史写死模糊 ───────────────────────────
+   :is(#n26a #n26b #n26c, *) 的优先级 = 3 个 id，足以压过旧层的
+   body.mat-frost :is(...) *、#launchpad、#desktop .window * 等规则。 */
+html body :is(#n26a #n26b #n26c, *) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+
+/* ── 2. 磨砂白名单（只此一份，任何新增面板必须在这里登记） ─────── */
+
+/* 2.1 启动台 */
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #launchpad) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .95)) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * 1)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * 1)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+}
+
+/* 2.2 窗口本体（标题行/内容面本身不再单独模糊，见第 3 节） */
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, .window, .password-panel) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1))) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+}
+
+/* 2.3 顶栏（浅色以前完全没有，深色写死 18/150%，这里统一） */
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #finder-bar) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .42)) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * .92)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * .92)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+}
+
+/* 2.4 Dock 三段（底板 + 左右胶囊）：液态时优先吃元素级折射串 --n26-lg-filter，
+   它内部已经是「url(#折射) blur(--n26-blur) saturate(--n26-glass-sat) 颗粒」；
+   非液态时回落到本层的纯磨砂串。 */
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #dock, #dockBar) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .29)) !important;
+    -webkit-backdrop-filter: var(--n26-lg-filter, blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1))) !important;
+    backdrop-filter: var(--n26-lg-filter, blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1))) !important;
+}
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #n26LeftDock, #n26RightDock) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .40)) !important;
+    -webkit-backdrop-filter: var(--n26-lg-filter, blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * 1.3)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1))) !important;
+    backdrop-filter: var(--n26-lg-filter, blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * 1.3)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1))) !important;
+}
+body.dark-mode.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #dock, #dockBar) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * 1.05)) !important;
+}
+body.dark-mode.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #n26LeftDock, #n26RightDock) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * 1.09)) !important;
+}
+
+/* 2.5 通知侧栏 / 控制中心 / 开始菜单 / Spotlight */
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #notification-sidebar) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .91)) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * 1.15)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * 1.15)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+}
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #control-center, #controlCenter) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .91)) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * 1.7)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * 1.7)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+}
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #startMenu) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .95)) !important;
+    -webkit-backdrop-filter: var(--n26-lg-filter, blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1))) !important;
+    backdrop-filter: var(--n26-lg-filter, blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1))) !important;
+}
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #spotlight) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * 1.13)) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+}
+body.dark-mode.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #notification-sidebar) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .87)) !important;
+}
+body.dark-mode.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #control-center, #controlCenter) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .84)) !important;
+}
+body.dark-mode.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #startMenu) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .87)) !important;
+}
+body.dark-mode.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #spotlight) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * 1.02)) !important;
+}
+
+/* 2.6 小组件面板：遮罩不磨砂，面板主体才是玻璃 */
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, .widget-panel) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .60)) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * .9)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * .9)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+}
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #widgetPanelSidebar) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .55)) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * .62)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * .62)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+}
+body.dark-mode.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, .widget-panel) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .70)) !important;
+}
+body.dark-mode.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #widgetPanelSidebar) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .84)) !important;
+}
+
+/* 2.7 桌面小组件架（去掉 brightness 与 190% 饱和） */
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #n26DesktopShelf) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .73)) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * .9)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * .9)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+}
+body.dark-mode.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #n26DesktopShelf) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * 1.0)) !important;
+}
+
+/* 2.8 对话框 / 确认框（遮罩不磨砂） */
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, .nex-modal) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * 1.42)) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+}
+
+/* 2.9 AI 小方迷你条（液态目标）：旧层 ui/n26-polish.css 的规则只有 1 个 id，
+   会被第 1 节的 3-id 清零规则压掉，必须在这里重新登记。 */
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #covi-hud-bar) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .95)) !important;
+    -webkit-backdrop-filter: var(--n26-lg-filter, blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1))) !important;
+    backdrop-filter: var(--n26-lg-filter, blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1))) !important;
+}
+body.dark-mode.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #covi-hud-bar) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * 1.08)) !important;
+}
+
+/* 2.10 通用确认弹窗（.nexus-confirm-modal 与 .nex-modal 是两套，旧 CSS 里各写一份） */
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, .nexus-confirm-modal) {
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * 1.42)) !important;
+    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
+}
+
+/* ── 3. 不该磨砂：实底，不留半层 ───────────────────────────────── */
+
+/* 3.1 启动台搜索框：继承启动台玻璃，本身不再二次模糊 */
+html body :is(#n26a #n26b #n26c, #launchpadSearch) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * .35)) !important;
+}
+
+/* 3.2 窗口内部：标题行透明，内容/设置/商城全部实底 */
+html body :is(#n26a #n26b #n26c, .window > .window-titlebar) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background-color: transparent !important;
+}
+html body :is(#n26a #n26b #n26c, #settingsPanel) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background-color: var(--n26-solid-1) !important;
+}
+html body :is(#n26a #n26b #n26c, #settingsPanel .settings-section) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background-color: var(--n26-solid-2) !important;
+}
+html body :is(#n26a #n26b #n26c, .appstore-card) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background-color: var(--n26-solid-2) !important;
+}
+html body :is(#n26a #n26b #n26c, .smt-picker, #smtPicker) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background-color: var(--n26-solid-2) !important;
+}
+html body :is(#n26a #n26b #n26c, #n26AiChat) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background-color: var(--n26-solid-2) !important;
+}
+
+/* 3.3 遮罩层：只做压暗，不磨砂 */
+html body :is(#n26a #n26b #n26c, #widgetPanel, .widget-panel-overlay, .nex-modal-overlay, .nexus-confirm-overlay, .widget-todo-modal-overlay, .account-modal-overlay) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+
+/* ── 4. 关掉玻璃：所有曾经的玻璃面改成实底 ────────────────────── */
+html body:not(.style-glass) :is(#n26a #n26b #n26c, #launchpad, #notification-sidebar, #control-center, #controlCenter, #startMenu, #spotlight, .widget-panel, #n26DesktopShelf),
+html body.mat-solid :is(#n26a #n26b #n26c, #launchpad, #notification-sidebar, #control-center, #controlCenter, #startMenu, #spotlight, .widget-panel, #n26DesktopShelf) {
+    background-color: var(--n26-solid-1) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+html body:not(.style-glass) :is(#n26a #n26b #n26c, .nex-modal, .nexus-confirm-modal, #dock, #dockBar, #n26LeftDock, #n26RightDock, #covi-hud-bar),
+html body.mat-solid :is(#n26a #n26b #n26c, .nex-modal, .nexus-confirm-modal, #dock, #dockBar, #n26LeftDock, #n26RightDock, #covi-hud-bar) {
+    background-color: var(--n26-solid-1) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+html body:not(.style-glass) :is(#n26a #n26b #n26c, #widgetPanelSidebar, #settingsPanel .settings-sidebar),
+html body.mat-solid :is(#n26a #n26b #n26c, #widgetPanelSidebar, #settingsPanel .settings-sidebar) {
+    background-color: var(--n26-solid-3) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}

@@ -157,3 +157,174 @@ body.n26-busy :is(#n26a #n26b #n26c, *)::after {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   6. 颗粒滤镜（SVG feTurbulence）交互期降级
+      实测（1440×900 / Edge headless）：设置页滚动 31.7 fps；
+      仅把 --n26-grain-fn 换成 opacity(1)，同一场景 94.8 fps。
+      噪声是每帧对每块玻璃重新计算的，且会阻止模糊结果被缓存。
+      滚动时噪声在高速运动里根本看不出来，停手 200ms 后恢复，
+      静止画面与原来完全一致。
+   ══════════════════════════════════════════════════════════════════════ */
+
+body.n26-interacting *,
+body.n26-interacting *::before,
+body.n26-interacting *::after {
+    --n26-grain-fn: opacity(1) !important;
+}
+
+/* 滚动过程中窗口内部不再叠第二层模糊（与拖拽时的 n26-busy 同策略） */
+body.n26-interacting .window * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   7. 性能模式：让开关真正起作用
+      旧 perf-mode 只关了窗口滤镜/标题栏底色，backdrop-filter 与颗粒一层没少，
+      所以「性能全开」实测仍是 30 多帧。现在：
+        · 颗粒全关（最贵的一项）
+        · 窗口内部不再叠第二层模糊，只保留窗口/Dock/开始菜单自身的玻璃
+        · 装饰动画停跑
+   ══════════════════════════════════════════════════════════════════════ */
+
+body.perf-mode *,
+body.perf-mode *::before,
+body.perf-mode *::after {
+    --n26-grain-fn: opacity(1) !important;
+}
+
+body.perf-mode .window *,
+body.perf-mode .window *::before,
+body.perf-mode .window *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+body.perf-mode .window,
+body.perf-mode #dock,
+body.perf-mode #dockBar,
+body.perf-mode #n26LeftDock,
+body.perf-mode #n26RightDock,
+body.perf-mode #startMenu,
+body.perf-mode #control-center,
+body.perf-mode #notification-sidebar,
+body.perf-mode #covi-hud-bar {
+    animation-duration: 0.01ms !important;
+}
+
+body.perf-mode .widget-panel-overlay,
+body.perf-mode .desktop-icon,
+body.perf-mode .n26-wallpaper-anim,
+body.perf-mode #wallpaper * {
+    animation: none !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   8. 窗口「动」的那 300-400ms 不叠背景模糊
+      开窗/最大化/最小化期间窗口本身在缩放或改尺寸，backdrop-filter
+      每帧都要按新面积重采样 + 重模糊（一个 700×500 窗口约 35 万像素/帧），
+      而这期间画面一直在动，模糊本身看不太出来。
+      动画/过渡一结束类名即被移除，静止画面与原来完全一致。
+   ══════════════════════════════════════════════════════════════════════ */
+
+.window.opening,
+.window.minimizing,
+.window.n26-animating {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   9. 模糊档位收敛为三档（定义在 tokens.css）
+        1×   --glass-blur-1: 34px  全屏弹层
+        0.5× --glass-blur-2: 17px  窗口 / Dock / 侧栏
+        0.35×--glass-blur-3: 12px  卡片 / 右键菜单
+      各主题里原来散落着 30 / 34 / 40 / 180% / 200% 等系数，这里把
+      两个最常开合的整屏弹层统一到 1×，其余引用全部走 token。
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* v3.1：主壳没有加载 ui/tokens.css，--glass-blur-1 / --glass-saturate
+   在这里是未定义变量，整条声明在计算期失效 → 启动台彻底没有磨砂。
+   改为直接吃全局滑杆令牌，深浅色/材质档一起生效。 */
+#launchpad {
+    backdrop-filter: blur(var(--n26-blur, 18px)) saturate(var(--n26-glass-sat, 148%)) var(--n26-grain-fn, opacity(1)) !important;
+    -webkit-backdrop-filter: blur(var(--n26-blur, 18px)) saturate(var(--n26-glass-sat, 148%)) var(--n26-grain-fn, opacity(1)) !important;
+}
+
+/* 窗口内部不再叠第二层模糊：窗口本体已经是一整块玻璃，
+   内部面板再糊一次只是把同一张背景重复采样 + 重复模糊，
+   视觉增量接近 0，成本却翻倍。全屏弹层/右键菜单挂在 body 上，不受影响。 */
+#desktop .window * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* 窗口本体禁止 will-change：会提前缓存 render surface，
+   非整数 DPR 下模糊边缘容易出现黑线（黑三角大概率同源）。 */
+.window {
+    will-change: auto !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   10. 全屏模糊层「空闲预热」（perf v7）
+      实测（1440×900 / Edge headless + ANGLE D3D11）：
+        · 开始菜单首次打开 最长帧 97~108ms，摘掉 backdrop-filter 后 14ms
+        · 启动台首次打开 48~61ms
+        · 小组件选择页首次打开 220ms
+      这些不是布局也不是 JS，而是「全屏 backdrop-filter 面第一次进合成器」
+      的一次性开销（层分配 + 模糊着色器编译 + 整屏背景快照）。
+      同一层第二次打开就只剩 13~35ms。
+
+      做法：启动后空闲时，把这几个弹层以 2% 不透明度真实画 3 帧再收回。
+      画面改动量 = 一层 2% 的白色叠在 3 帧上（肉眼不可见），
+      真实打开时的玻璃参数一个字没动。
+   ══════════════════════════════════════════════════════════════════════ */
+
+body.n26-gp #smTileMenu,
+body.n26-gp #launchpad,
+body.n26-gp #widgetPanel {
+    visibility: visible !important;
+    opacity: 0.02 !important;
+    pointer-events: none !important;
+}
+
+/* 选择页的内层面板默认 opacity:0 + scale(.85)，只把外层画亮并不会栅格化 19 张卡片。
+   预热时把内层也摆到最终形态，让卡片在 2% 不透明度下真实走一遍栅格化。 */
+body.n26-gp #widgetPanel .widget-panel {
+    opacity: 1 !important;
+    transform: none !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   11. 小组件选择页：开合动画期间临时合成层（perf v7）
+      实测 trace：冷开最长帧 225ms 卡在 GPU SkiaOutputSurfaceImplOnGpu::
+      FinishPaintRenderPass，热开每次仍有 18 帧 >25ms 卡在 SwapBuffers，
+      主线程全程只有 15ms 以内 —— 不是 JS/布局，是 scale(.85)→scale(1)
+      动画期间整块面板（19 张带阴影/渐变的卡片）每帧重新栅格化。
+
+      A/B（同口径，1440×900，3 轮取并集）：
+        基线            max 54.6ms，>25ms 帧 18
+        动画期 will-change max 30.4ms，>25ms 帧 2   ← 采用
+      类由 JS 在开/合时加，动画结束 480ms 后立刻移除，不留常驻图层。
+      scale / 位移 / 圆角 / 模糊全部保持不变，视觉零变化。
+   ══════════════════════════════════════════════════════════════════════ */
+
+.widget-panel-overlay.n26-anim .widget-panel {
+    will-change: transform;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   12. Dock 悬停放大：交互期间临时合成层（perf v7）
+      --dock-mag 同时驱动槽位 width:calc()，逐帧写入 → 整条 Dock 的 flex 行
+      每帧重排重绘，拖慢的是整页合成（实测 3s 扫动：基线 p50 12.1ms / 290 帧，
+      加合成层后 p50 6.1ms / 432~494 帧，>25ms 帧 3 → 0）。
+      只在放大交互期间生效：.dock-magnifying 由 initDockMagnification 加/删，
+      鼠标离开、缓动收敛后自动撤掉，不留常驻图层。
+      视觉不变：只是把同一像素的绘制从主线程挪到合成器。
+   ══════════════════════════════════════════════════════════════════════ */
+
+#dock.dock-magnifying {
+    will-change: transform;
+}
+

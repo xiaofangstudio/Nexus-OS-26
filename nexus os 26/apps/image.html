@@ -1,1026 +1,2069 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-ui="liquid" data-mode="dark">
+<html lang="zh-CN" data-theme="light" data-mode="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title data-i18n="doc_title">图片</title>
-<link rel="stylesheet" href="../vendor/fontawesome/all.min.css">
+<title>相册</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<script>
+if (location.search.indexOf('theme=dark') >= 0) {
+  document.documentElement.setAttribute('data-theme', 'dark');
+  document.documentElement.setAttribute('data-mode', 'dark');
+  document.documentElement.classList.add('force-dark');
+}
+</script>
+<script src="../ui/n26-gestures.js"></script>
 <script src="_bridge.js"></script>
-<script src="_app.js?v=2.9.57"></script>
+<script src="_app.js?v=2.9.67"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; overflow: hidden; }
-  body {
-    background: #0b0e14;
-    color: #f2f2f0;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-    font-size: 13px;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+:root{
+  --img-bg: var(--bg, rgba(242,243,241,1));
+  --img-surface: var(--surface, rgba(249,249,247,1));
+  --img-surface-2: var(--surface-2, rgba(238,239,236,1));
+  --img-surface-3: var(--surface-3, rgba(228,230,226,1));
+  --img-text: var(--text, rgba(30,30,34,.94));
+  --img-muted: var(--text-muted, rgba(100,100,108,.92));
+  --img-faint: var(--text-faint, rgba(120,120,128,.72));
+  --img-border: var(--border, rgba(15,23,42,.10));
+  --img-divider: var(--divider, rgba(15,23,42,.06));
+  --img-accent: hsl(12 78% 47%);
+  --img-accent-ink: hsl(12 82% 34%);
+  --img-accent-soft: hsl(12 78% 47% / .13);
+  --img-accent-line: hsl(12 78% 47% / .32);
+  --img-on-accent: rgba(255,255,255,.98);
+  --ck-a: color-mix(in srgb, var(--img-surface) 86%, var(--img-bg));
+  --ck-b: color-mix(in srgb, var(--img-surface) 62%, var(--img-bg));
+  --tile: 136px;
+  --gap: var(--sp-2);
+  --tb: 52px;
+  --st: 28px;
+  --film: 88px;
+}
+html[data-mode="dark"], body.dark-mode{
+  --img-bg: var(--bg, rgba(28,28,32,1));
+  --img-surface: var(--surface, rgba(36,36,41,1));
+  --img-surface-2: var(--surface-2, rgba(44,44,50,1));
+  --img-surface-3: var(--surface-3, rgba(54,54,61,1));
+  --img-text: var(--text, rgba(242,243,246,.96));
+  --img-muted: var(--text-muted, rgba(180,182,190,.92));
+  --img-faint: var(--text-faint, rgba(150,152,162,.72));
+  --img-border: var(--border, rgba(255,255,255,.14));
+  --img-divider: var(--divider, rgba(255,255,255,.08));
+  --img-accent: hsl(14 70% 60%);
+  --img-accent-ink: hsl(16 84% 74%);
+  --img-accent-soft: hsl(14 70% 60% / .16);
+  --img-accent-line: hsl(14 70% 60% / .40);
+  --img-on-accent: rgba(24,15,11,.92);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:var(--img-bg);
+  color:var(--img-text);
+  font-family:var(--font-sans, -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif);
+  font-size:var(--fs-14, 14px);
+  line-height:1.6;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+button,input{font-family:inherit}
+[hidden]{display:none !important}
+#app{position:fixed;inset:0;overflow:hidden;display:flex;flex-direction:column}
+.grow{flex:1 1 auto;min-width:0}
 
-  /* ---------- 舞台 ---------- */
-  #stage {
-    position: relative;
-    flex: 1;
-    overflow: hidden;
-    cursor: grab;
-    background:
-      radial-gradient(1200px 700px at 50% 40%, rgba(38, 46, 66, 0.55), transparent 70%),
-      #0b0e14;
-  }
-  #stage.dragging { cursor: grabbing; }
-  #stage.empty { cursor: default; }
-  #imgWrap {
-    position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    will-change: transform;
-  }
-  #mainImg {
-    max-width: none;
-    transform-origin: center center;
-    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
-    border-radius: 4px;
-    background: #fff;
-  }
-  #mainImg.snappy { transition: none; }
-  #mainImg.hidden { display: none; }
+/* —— 跟滑杆走的玻璃；无色 tint，只用 surface —— */
+.n26-glass-follow{
+  background: color-mix(in srgb, var(--img-surface) calc(min(1, var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1)) * 100%), transparent);
+  -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * .86)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1)));
+  backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * .86)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1)));
+  border: 1px solid var(--img-border);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,calc(var(--n26-glass-hi, .35) * .62)), var(--sh-pop, 0 4px 16px rgba(0,0,0,.12));
+}
+body.mat-solid .n26-glass-follow{
+  background:var(--img-surface);
+  -webkit-backdrop-filter:none;
+  backdrop-filter:none;
+}
+.n26-sheen{position:relative;overflow:hidden}
+.n26-sheen::after{
+  content:"";position:absolute;inset:0 0 auto 0;height:52%;
+  background:linear-gradient(120deg,rgba(255,255,255,.16),transparent 52%);
+  opacity:calc(var(--n26-glass-hi, .35) * 1.1);
+  pointer-events:none;
+}
+body:not(.mat-liquid) .n26-sheen::after{display:none}
+body.perf-mode .n26-sheen::after{display:none}
 
-  /* ---------- 顶部工具栏（浮玻璃） ---------- */
-  #toolbar {
-    position: absolute;
-    top: 14px; left: 50%;
-    transform: translateX(-50%);
-    display: flex; align-items: center; gap: 2px;
-    padding: 6px;
-    border-radius: 14px;
-    background: rgba(22, 26, 36, 0.62);
-    -webkit-backdrop-filter: blur(var(--glass-blur, 24px)) saturate(180%);
-    backdrop-filter: blur(var(--glass-blur, 24px)) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-    z-index: 20;
-    opacity: 0;
-    animation: barIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.05s forwards;
-  }
-  @keyframes barIn { from { opacity: 0; transform: translateX(-50%) translateY(-8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
-  .tbtn {
-    width: 34px; height: 34px;
-    display: inline-flex; align-items: center; justify-content: center;
-    border: none; border-radius: 9px;
-    background: transparent; color: rgba(255, 255, 255, 0.85);
-    font-size: 14px; cursor: pointer;
-    transition: background 0.16s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)), color 0.16s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)), transform 0.16s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
-  }
-  .tbtn:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
-  .tbtn:active { transform: scale(0.92); }
-  .tbtn.on { background: rgba(10, 132, 255, 0.32); color: #7cc0ff; }
-  .tsep { width: 1px; height: 20px; background: rgba(255, 255, 255, 0.14); margin: 0 4px; }
-  #zoomLabel {
-    min-width: 46px; text-align: center;
-    font-size: 12px; font-variant-numeric: tabular-nums;
-    color: rgba(255, 255, 255, 0.75);
-  }
+/* —— 顶栏 —— */
+.topbar{
+  position:absolute;inset:0 0 auto 0;height:var(--tb);z-index:var(--z-panel, 900);
+  display:flex;align-items:center;padding:0 var(--sp-3);
+}
+.tb{display:flex;align-items:center;gap:var(--sp-2);width:100%;min-width:0}
+.brand{display:flex;align-items:center;gap:var(--sp-2);min-width:0}
+.brand-ic{
+  width:28px;height:28px;border-radius:var(--r-sm);display:grid;place-items:center;
+  background:var(--img-accent-soft);color:var(--img-accent);border:1px solid var(--img-accent-line);
+  font-size:13px;flex:0 0 auto;
+}
+.brand-tx{display:flex;flex-direction:column;line-height:1.1;min-width:0}
+.brand-tx b{font-size:var(--fs-14);font-weight:600;white-space:nowrap}
+.brand-tx span{font-size:var(--fs-11, 11px);color:var(--img-muted);white-space:nowrap;margin-top:2px}
+.tabs{display:flex;align-items:center;gap:2px;flex:0 0 auto}
+.tab{
+  height:28px;padding:0 var(--sp-2);border:1px solid transparent;border-radius:var(--r-full, 999px);
+  background:transparent;color:var(--img-muted);font-size:var(--fs-12, 12px);line-height:1.1;cursor:pointer;
+  display:inline-flex;align-items:center;gap:4px;transition:background var(--dur-fast, 160ms) var(--ease-out-expo),color var(--dur-fast, 160ms) var(--ease-out-expo),border-color var(--dur-fast, 160ms) var(--ease-out-expo);
+}
+.tab:hover{background:color-mix(in srgb, var(--img-text) 7%, transparent);color:var(--img-text)}
+.tab[aria-selected="true"]{background:var(--img-accent-soft);border-color:var(--img-accent-line);color:var(--img-accent-ink)}
+.tab .n{font-size:var(--fs-11, 11px);color:var(--img-faint);font-variant-numeric:tabular-nums}
+.tab[aria-selected="true"] .n{color:inherit;opacity:.8}
+.search{
+  display:flex;align-items:center;gap:6px;height:30px;padding:0 var(--sp-2);
+  border:1px solid var(--img-border);border-radius:var(--r-sm);background:color-mix(in srgb, var(--img-surface-2) 68%, transparent);
+  min-width:150px;transition:border-color var(--dur-fast, 160ms) var(--ease-out-expo);
+}
+.search:focus-within{border-color:var(--img-accent-line)}
+.search i{font-size:12px;color:var(--img-faint)}
+.search input{
+  width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--img-text);
+  font-size:var(--fs-12, 12px);line-height:1.1;padding:0;
+}
+.search input::placeholder{color:var(--img-faint)}
+.in-btn{width:18px;height:18px;padding:0;border:0;border-radius:var(--r-xs);background:transparent;color:var(--img-faint);display:grid;place-items:center;cursor:pointer;font-size:11px}
+.in-btn:hover{color:var(--img-text);background:color-mix(in srgb, var(--img-text) 8%, transparent)}
+.icon-btn,.text-btn{
+  height:30px;border:1px solid transparent;border-radius:var(--r-sm);background:transparent;color:var(--img-text);
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;flex:0 0 auto;
+  transition:background var(--dur-fast,160ms) var(--ease-out-expo),color var(--dur-fast,160ms) var(--ease-out-expo),border-color var(--dur-fast,160ms) var(--ease-out-expo),scale var(--dur-fast,160ms) var(--ease-spring);
+}
+.icon-btn{width:30px;padding:0;font-size:14px}
+.text-btn{padding:0 var(--sp-2);font-size:var(--fs-12,12px);font-weight:500;line-height:1.1}
+.icon-btn:hover,.text-btn:hover{background:color-mix(in srgb, var(--img-text) 8%, transparent)}
+.icon-btn:active,.text-btn:active{scale:.96}
+.text-btn.primary{background:var(--img-accent);color:var(--img-on-accent);border-color:var(--img-accent)}
+.text-btn.primary:hover{background:color-mix(in srgb, var(--img-accent) 86%, var(--img-text))}
+.icon-btn.on{background:var(--img-accent-soft);border-color:var(--img-accent-line);color:var(--img-accent)}
+.icon-btn[aria-disabled="true"],.text-btn[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
+.slash{font-size:var(--fs-11,11px);color:var(--img-faint);padding:0 2px}
+.slide-prog{position:absolute;left:0;right:0;bottom:0;height:2px;background:transparent;overflow:hidden}
+.slide-prog i{display:block;height:100%;width:0;background:var(--img-accent);transform-origin:left center}
+.slide-prog i.run{animation:n26SlideProg 5s linear forwards}
+@keyframes n26SlideProg{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 
-  /* ---------- 信息条 ---------- */
-  #infoBar {
-    position: absolute;
-    top: 62px; left: 50%;
-    transform: translateX(-50%);
-    padding: 5px 14px;
-    border-radius: 999px;
-    background: rgba(22, 26, 36, 0.5);
-    -webkit-backdrop-filter: blur(var(--glass-blur, 16px));
-    backdrop-filter: blur(var(--glass-blur, 16px));
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    font-size: 11.5px; color: rgba(255, 255, 255, 0.72);
-    white-space: nowrap;
-    z-index: 19;
-    opacity: 0; pointer-events: none;
-    transition: opacity 0.3s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
-  }
-  #infoBar.show { opacity: 1; }
+/* —— 相册列表 —— */
+#library{position:absolute;inset:0 0 var(--st) 0;overflow:hidden}
+#libScroll{
+  position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;
+  padding:calc(var(--tb) + var(--sp-2)) var(--sp-4) var(--sp-6);
+  overscroll-behavior:contain;
+}
+#libScroll::-webkit-scrollbar{width:10px}
+#libScroll::-webkit-scrollbar-thumb{background:color-mix(in srgb, var(--img-text) 14%, transparent);border-radius:var(--r-full);border:3px solid transparent;background-clip:padding-box}
+.day{margin-bottom:var(--sp-4)}
+.day-head{
+  position:relative;z-index:1;
+  display:flex;align-items:baseline;gap:var(--sp-2);padding:6px 2px 8px;
+  background:var(--img-bg);
+  border-bottom:1px solid var(--img-divider);
+}
+.day-head h2{margin:0;font-size:var(--fs-13,13px);font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.day-head span{font-size:var(--fs-11,11px);color:var(--img-muted);font-variant-numeric:tabular-nums;flex:0 0 auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tile),1fr));gap:var(--gap);padding-top:var(--sp-2)}
+.tile{
+  position:relative;aspect-ratio:1;border-radius:var(--r-sm);overflow:hidden;cursor:pointer;
+  background:var(--img-surface-2);border:2px solid transparent;padding:0;color:inherit;text-align:left;
+  transition:border-color var(--dur-fast,160ms) var(--ease-out-expo),scale var(--dur-fast,160ms) var(--ease-spring),background var(--dur-fast,160ms) var(--ease-out-expo);
+  animation:n26TileIn var(--dur-base, 260ms) var(--ease-out-expo) both;
+}
+@keyframes n26TileIn{from{opacity:0;scale:.985}to{opacity:1;scale:1}}
+.tile:hover{scale:1.02;border-color:var(--img-accent-line)}
+.tile:focus-visible{outline:2px solid var(--img-accent-line);outline-offset:2px}
+.tile img{width:100%;height:100%;object-fit:cover;display:block;user-select:none;-webkit-user-drag:none;background:var(--img-surface-2)}
+.tile.sel{border-color:var(--img-accent);background:var(--img-accent-soft)}
+.tile .cap{
+  position:absolute;inset:auto 0 0 0;padding:14px 8px 6px;
+  font-size:var(--fs-11,11px);line-height:1.2;color:rgba(255,255,255,.96);
+  background:linear-gradient(transparent,rgba(0,0,0,.52));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity var(--dur-fast,160ms) var(--ease-out-expo);
+  pointer-events:none;
+}
+.tile:hover .cap,.tile:focus-visible .cap{opacity:1}
+body :focus-visible{outline-color:var(--img-accent)!important}
+.tile .fav{
+  position:absolute;top:6px;left:6px;width:22px;height:22px;border-radius:var(--r-full);border:0;
+  display:grid;place-items:center;font-size:11px;cursor:pointer;
+  background:color-mix(in srgb, var(--img-surface) 78%, transparent);color:var(--img-accent);
+  opacity:0;transition:opacity var(--dur-fast,160ms) var(--ease-out-expo),scale var(--dur-fast,160ms) var(--ease-spring);
+}
+.tile:hover .fav,.tile .fav.on{opacity:1}
+.tile .fav:hover{scale:1.06}
+.tile .pick{
+  position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:var(--r-full);
+  border:1.5px solid rgba(255,255,255,.72);background:rgba(0,0,0,.18);display:grid;place-items:center;color:transparent;
+  font-size:11px;pointer-events:none;opacity:0;transition:opacity var(--dur-fast,160ms) var(--ease-out-expo);
+}
+.tile .pick.show{opacity:1}
+.tile.sel .pick{background:var(--img-accent);border-color:var(--img-accent);color:var(--img-on-accent)}
+.tile.broken .cap,.tile.broken .fav{display:none}
+.tile-broken{
+  position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  background:var(--img-surface-2);color:var(--img-muted);font-size:var(--fs-11,11px);text-align:center;padding:var(--sp-2);
+}
+.tile.broken .tile-broken{display:flex}
+.tile-broken i{font-size:18px;color:var(--img-faint)}
+.sk{aspect-ratio:1;border-radius:var(--r-sm);background:var(--img-surface-2);position:relative;overflow:hidden}
+.sk::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);animation:n26Sk 1.5s var(--ease-in-out-quart,cubic-bezier(.76,0,.24,1)) infinite}
+@keyframes n26Sk{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
 
-  /* ---------- 底部胶片条 ---------- */
-  #filmstrip {
-    position: absolute;
-    left: 50%; bottom: 14px;
-    transform: translateX(-50%);
-    display: flex; align-items: center; gap: 8px;
-    max-width: min(92vw, 860px);
-    padding: 8px 10px;
-    border-radius: 16px;
-    background: rgba(22, 26, 36, 0.62);
-    -webkit-backdrop-filter: blur(var(--glass-blur, 24px)) saturate(180%);
-    backdrop-filter: blur(var(--glass-blur, 24px)) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    z-index: 20;
-    opacity: 0;
-    animation: barIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.12s forwards;
-  }
-  #filmList { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px; }
-  #filmList::-webkit-scrollbar { display: none; }
-  .thumb {
-    flex: 0 0 auto;
-    width: 52px; height: 40px;
-    border-radius: 7px;
-    overflow: hidden;
-    cursor: pointer;
-    border: 2px solid transparent;
-    opacity: 0.55;
-    background: #171a24 center/cover no-repeat;
-    transition: opacity 0.2s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)), border-color 0.2s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)), transform 0.2s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
-  }
-  .thumb:hover { opacity: 0.9; transform: translateY(-2px); }
-  .thumb.active { border-color: #0a84ff; opacity: 1; }
-  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* —— 空 / 错误态 —— */
+.state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-3);padding:60px 20px;text-align:center;min-height:100%;color:var(--img-text)}
+.state i{font-size:40px;opacity:.35}
+.state i.danger{color:var(--danger);opacity:.9}
+.state .t{font-size:var(--fs-14,14px);font-weight:600;line-height:1.3}
+.state .d{font-size:var(--fs-12,12px);line-height:1.6;color:var(--img-muted);max-width:340px}
+.state .acts{display:flex;gap:var(--sp-2);flex-wrap:wrap;justify-content:center}
+.fu-btn{display:inline-flex;align-items:center;gap:var(--sp-2);height:32px;padding:0 var(--sp-3);border-radius:var(--r-sm);border:1px solid var(--img-border);background:var(--img-surface);color:var(--img-text);font-size:var(--fs-12,12px);cursor:pointer;transition:background var(--dur-fast,160ms) var(--ease-out-expo),border-color var(--dur-fast,160ms) var(--ease-out-expo),scale var(--dur-fast,160ms) var(--ease-spring)}
+.fu-btn:hover{background:var(--img-surface-2)}
+.fu-btn:active{scale:.97}
+body .fu-btn--accent{background:var(--img-accent)!important;border-color:var(--img-accent)!important;color:var(--img-on-accent)!important}
+body .fu-btn--accent:hover{background:color-mix(in srgb, var(--img-accent) 86%, var(--img-text))!important}
+.fu-btn--ghost{background:transparent}
 
-  /* ---------- 空态 / 拖放区 ---------- */
-  #empty {
-    position: absolute; inset: 0;
-    display: none;
-    flex-direction: column; align-items: center; justify-content: center;
-    gap: 14px;
-    z-index: 5;
-  }
-  #empty.show { display: flex; }
-  #empty .icon {
-    width: 84px; height: 84px;
-    border-radius: 22px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 34px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px dashed rgba(255, 255, 255, 0.22);
-    color: rgba(255, 255, 255, 0.5);
-  }
-  #empty h2 { font-size: 17px; font-weight: 600; color: rgba(255, 255, 255, 0.9); }
-  #empty p { font-size: 12.5px; color: rgba(255, 255, 255, 0.45); text-align: center; line-height: 1.7; }
-  #pickBtn {
-    margin-top: 4px;
-    padding: 9px 22px;
-    border: none; border-radius: 999px;
-    background: #0a84ff; color: #fff;
-    font-size: 13px; font-weight: 600; cursor: pointer;
-    transition: transform 0.16s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)), background 0.16s;
-  }
-  #pickBtn:hover { background: #2f97ff; }
-  #pickBtn:active { transform: scale(0.95); }
+/* —— 状态栏 / 批量条 —— */
+#statusbar{
+  position:absolute;inset:auto 0 0 0;height:var(--st);z-index:var(--z-dock,500);
+  display:flex;align-items:center;gap:var(--sp-2);padding:0 var(--sp-4);
+  background:var(--img-surface);border-top:1px solid var(--img-border);
+  font-size:var(--fs-11,11px);color:var(--img-muted);line-height:1.1;
+}
+#statusbar .dot{width:3px;height:3px;border-radius:50%;background:var(--img-faint)}
+#statusbar .sel{color:var(--img-accent-ink);font-weight:600}
+#statusbar .net{color:var(--img-muted)}
+#statusbar .net.off{color:var(--warn)}
+#bulkbar{
+  position:absolute;left:var(--sp-4);right:var(--sp-4);bottom:calc(var(--st) + var(--sp-2));z-index:var(--z-menu,800);
+  display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);border-radius:var(--r-md);
+  animation:n26BarIn var(--dur-base,260ms) var(--ease-out-expo) both;
+}
+@keyframes n26BarIn{from{opacity:0;translate:0 8px}to{opacity:1;translate:0 0}}
+#bulkbar .cnt{font-size:var(--fs-12,12px);font-weight:600;color:var(--img-text);font-variant-numeric:tabular-nums}
+#bulkbar .cnt b{color:var(--img-accent-ink)}
+#bulkbar .grow{flex:1}
+#bulkbar .fu-btn{height:28px}
 
-  /* 拖入悬停遮罩 */
-  #dropHint {
-    position: absolute; inset: 0;
-    display: none;
-    align-items: center; justify-content: center;
-    background: rgba(10, 132, 255, 0.14);
-    border: 2px dashed rgba(10, 132, 255, 0.6);
-    border-radius: 12px;
-    font-size: 15px; font-weight: 600; color: #9ccaff;
-    z-index: 40;
-    pointer-events: none;
-  }
-  #dropHint.show { display: flex; }
+/* —— 查看器 —— */
+#viewer{position:absolute;inset:0;display:none;flex-direction:column;padding-top:var(--tb);overflow:hidden}
+body.mode-viewer #viewer{display:flex}
+body.mode-viewer #library,body.mode-viewer #statusbar,body.mode-viewer #bulkbar,body.mode-viewer #tbLib{display:none}
+body.mode-viewer #tbView{display:flex}
+body.mode-viewer #tbLib{display:none}
+#tbView{display:none;gap:var(--sp-1)}
+.vname{display:flex;flex-direction:column;line-height:1.1;min-width:0;max-width:38%}
+.vname b{font-size:var(--fs-13,13px);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vname span{font-size:var(--fs-11,11px);color:var(--img-muted);margin-top:2px;font-variant-numeric:tabular-nums}
+.zoomgrp{display:inline-flex;align-items:center;height:30px;border:1px solid var(--img-border);border-radius:var(--r-sm);overflow:hidden;flex:0 0 auto}
+.zoomgrp button{height:28px;min-width:28px;padding:0 6px;border:0;background:transparent;color:var(--img-text);cursor:pointer;font-size:12px}
+.zoomgrp button:hover{background:color-mix(in srgb, var(--img-text) 7%, transparent)}
+.zoomgrp .zl{min-width:48px;font-size:var(--fs-11,11px);font-variant-numeric:tabular-nums;color:var(--img-muted);cursor:default}
+.zoomgrp .zl:hover{background:transparent}
+.vsep{width:1px;height:18px;background:var(--img-divider);flex:0 0 auto;margin:0 2px}
+#vBody{flex:1 1 auto;display:flex;min-height:0;position:relative}
+#vStage{
+  position:relative;flex:1 1 auto;min-width:0;overflow:hidden;background-color:var(--ck-a);
+  background-image:conic-gradient(var(--ck-b) 25%,transparent 0 50%,var(--ck-b) 0 75%,transparent 0);
+  background-size:24px 24px;background-position:0 0;touch-action:none;
+}
+#vStage.dragging{cursor:grabbing}
+#vStage.zoomed{cursor:grab}
+#mainImg{
+  position:absolute;left:50%;top:50%;transform-origin:center center;will-change:transform;
+  max-width:none;max-height:none;user-select:none;-webkit-user-drag:none;display:block;
+  border-radius:var(--r-xs);box-shadow:var(--sh-window,0 16px 48px rgba(0,0,0,.2));
+}
+img.n26-fade{animation:n26ImgIn var(--dur-base, 260ms) var(--ease-out-expo) both}
+@keyframes n26ImgIn{from{opacity:0}to{opacity:1}}
+.vspin{
+  position:absolute;left:50%;top:50%;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;
+  border:2px solid color-mix(in srgb, var(--img-text) 18%, transparent);border-top-color:var(--img-accent);
+  animation:n26Spin .8s linear infinite;z-index:2;
+}
+@keyframes n26Spin{to{transform:rotate(360deg)}}
+.v-error{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-3);text-align:center;padding:var(--sp-5);z-index:3;background:color-mix(in srgb, var(--img-bg) 72%, transparent)}
+.v-error i{font-size:40px;color:var(--danger);opacity:.8}
+.v-error .t{font-size:var(--fs-14,14px);font-weight:600;line-height:1.3}
+.v-error .d{font-size:var(--fs-12,12px);line-height:1.6;color:var(--img-muted);max-width:360px}
+.v-error .acts{display:flex;gap:var(--sp-2)}
+.film{
+  flex:0 0 var(--film);display:flex;align-items:center;gap:var(--sp-2);
+  padding:0 var(--sp-2);background:var(--img-surface);border-top:1px solid var(--img-border);
+}
+body.no-film .film{display:none}
+.film .fbtn{width:26px;height:52px;border:0;border-radius:var(--r-sm);background:transparent;color:var(--img-muted);cursor:pointer;font-size:12px}
+.film .fbtn:hover{background:color-mix(in srgb, var(--img-text) 6%, transparent);color:var(--img-text)}
+#filmList{display:flex;align-items:center;gap:var(--sp-2);overflow-x:auto;overflow-y:hidden;height:72px;flex:1;padding:2px}
+#filmList::-webkit-scrollbar{height:0}
+.thumb{
+  position:relative;flex:0 0 72px;width:72px;height:72px;border-radius:var(--r-xs);overflow:hidden;
+  border:2px solid transparent;background:var(--img-surface-2);cursor:pointer;padding:0;
+  transition:border-color var(--dur-fast,160ms) var(--ease-out-expo),scale var(--dur-fast,160ms) var(--ease-spring);
+}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.thumb.active{border-color:var(--img-accent)}
+.thumb:hover{scale:1.04}
+.thumb.broken::after{content:"\f1e5";font-family:"Font Awesome 6 Free";font-weight:900;position:absolute;inset:0;display:grid;place-items:center;color:var(--img-faint);font-size:14px}
 
-  /* 加载指示 */
-  #loading {
-    position: absolute; top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    display: none;
-    width: 34px; height: 34px;
-    border: 3px solid rgba(255, 255, 255, 0.15);
-    border-top-color: #0a84ff;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    z-index: 30;
-  }
-  #loading.show { display: block; }
-  @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+/* 信息侧栏：宽屏内嵌，窄屏浮层 */
+#vInfo{
+  position:absolute;right:var(--sp-3);top:var(--sp-3);bottom:var(--sp-3);width:280px;z-index:var(--z-panel,900);
+  border-radius:var(--r-md);padding:var(--sp-3);overflow:auto;display:none;flex-direction:column;gap:var(--sp-1);
+}
+body.show-info #vInfo{display:flex}
+#viewer #vInfo{background:color-mix(in srgb, var(--img-surface) 92%, transparent)}
+@media (min-width: 1080px){
+  #vInfo{position:relative;right:auto;top:auto;bottom:auto;inset:auto;border-radius:0;border:0;border-left:1px solid var(--img-border);box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--img-surface);width:280px;display:none;flex:0 0 280px}
+}
+#vInfo h3{margin:0;font-size:var(--fs-12,12px);font-weight:600;line-height:1.3;color:var(--img-muted);letter-spacing:.02em}
+#vInfo .fld{display:flex;flex-direction:column;gap:2px;padding-bottom:var(--sp-1);border-bottom:1px solid var(--img-divider)}
+#vInfo .k{font-size:var(--fs-11,11px);color:var(--img-faint);line-height:1.1}
+#vInfo .v{font-size:var(--fs-12,12px);line-height:1.45;color:var(--img-text);word-break:break-word}
+#vInfo .v.num{font-variant-numeric:tabular-nums}
+#vInfo .fu-btn{margin-top:auto}
 
-  /* ============================================================
-     v2.9.55：浅色主题全覆盖 / 液态玻璃动画 / 沉浸全屏 / 幻灯片
-     ★ 沿用 video.html 做法：原深色 CSS 不动，追加 light 覆盖层。
-     ★ 模糊层仍只有「工具栏」+「胶片条」两个玻璃元素；沉浸视图复用
-       同一个 filmstrip（移动 DOM），不新增第三层 backdrop。
-     ============================================================ */
+/* 裁剪 */
+.crop-layer{position:absolute;inset:0;z-index:4;display:none;overflow:hidden;background:color-mix(in srgb, var(--img-bg) 35%, transparent)}
+body.cropping .crop-layer{display:block}
+body.cropping #mainImg{visibility:hidden}
+body.cropping .film,body.cropping #vInfo{display:none}
+.crop-inner{position:absolute;left:50%;top:50%;translate:-50% -50%;box-shadow:0 0 0 100vmax rgba(0,0,0,.42)}
+.crop-inner canvas{display:block;max-width:none;max-height:none}
+.crop-rect{position:absolute;border:1px solid var(--img-accent);box-shadow:0 0 0 1px rgba(255,255,255,.5) inset;cursor:move;touch-action:none}
+.crop-rect .g{position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(var(--img-accent-line) 1px,transparent 1px),linear-gradient(90deg,var(--img-accent-line) 1px,transparent 1px);background-size:33.33% 33.33%;opacity:.6}
+.crop-rect .h{position:absolute;width:14px;height:14px;background:var(--img-accent);border:2px solid var(--img-on-accent);border-radius:var(--r-xs);translate:-50% -50%}
+.crop-rect .h[data-dir="nw"]{left:0;top:0;cursor:nwse-resize}
+.crop-rect .h[data-dir="ne"]{left:100%;top:0;cursor:nesw-resize}
+.crop-rect .h[data-dir="sw"]{left:0;top:100%;cursor:nesw-resize}
+.crop-rect .h[data-dir="se"]{left:100%;top:100%;cursor:nwse-resize}
+.crop-rect .h[data-dir="n"]{left:50%;top:0;cursor:ns-resize}
+.crop-rect .h[data-dir="s"]{left:50%;top:100%;cursor:ns-resize}
+.crop-rect .h[data-dir="w"]{left:0;top:50%;cursor:ew-resize}
+.crop-rect .h[data-dir="e"]{left:100%;top:50%;cursor:ew-resize}
+.crop-bar{position:absolute;left:50%;bottom:var(--sp-4);translate:-50% 0;z-index:var(--z-menu,800);display:none;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-3);border-radius:var(--r-md)}
+body.cropping .crop-bar{display:flex}
+.crop-bar .hint{font-size:var(--fs-11,11px);color:var(--img-muted);white-space:nowrap}
+.crop-bar .fu-btn{height:28px}
 
-  /* ---------- 浅色主题覆盖 ---------- */
-  html[data-mode="light"] body { background: #f2f5fa; color: #17202c; }
-  html[data-mode="light"] #stage {
-    background:
-      radial-gradient(1200px 700px at 50% 40%, rgba(180, 205, 240, 0.55), transparent 70%),
-      #eef3fa;
-  }
-  html[data-mode="light"] #toolbar,
-  html[data-mode="light"] #filmstrip {
-    background: rgba(255, 255, 255, 0.66);
-    border-color: rgba(255, 255, 255, 0.8);
-    box-shadow: 0 12px 40px rgba(30, 50, 80, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  }
-  html[data-mode="light"] #infoBar {
-    background: rgba(255, 255, 255, 0.72);
-    border-color: rgba(255, 255, 255, 0.85);
-    color: rgba(23, 32, 44, 0.72);
-    box-shadow: 0 8px 24px rgba(30, 50, 80, 0.12);
-  }
-  html[data-mode="light"] .tbtn { color: rgba(23, 32, 44, 0.8); }
-  html[data-mode="light"] .tbtn:hover { background: rgba(20, 40, 70, 0.08); color: #17202c; }
-  html[data-mode="light"] .tbtn.on { background: rgba(46, 124, 214, 0.18); color: #2e7cd6; }
-  html[data-mode="light"] .tsep { background: rgba(20, 40, 70, 0.14); }
-  html[data-mode="light"] #zoomLabel { color: rgba(23, 32, 44, 0.75); }
-  html[data-mode="light"] #empty h2 { color: rgba(23, 32, 44, 0.9); }
-  html[data-mode="light"] #empty p { color: rgba(23, 32, 44, 0.5); }
-  html[data-mode="light"] #empty .icon {
-    background: rgba(20, 40, 70, 0.05);
-    border-color: rgba(20, 40, 70, 0.22);
-    color: rgba(23, 32, 44, 0.5);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 14px 40px rgba(46, 124, 214, 0.12);
-  }
-  html[data-mode="light"] #pickBtn { background: #2e7cd6; }
-  html[data-mode="light"] #pickBtn:hover { background: #4a90e2; }
-  html[data-mode="light"] .thumb { background: #dfe7f2 center/cover no-repeat; }
-  html[data-mode="light"] .thumb.active { border-color: #2e7cd6; }
-  html[data-mode="light"] #dropHint {
-    background: rgba(46, 124, 214, 0.12);
-    border-color: rgba(46, 124, 214, 0.55);
-    color: #2e7cd6;
-  }
-  html[data-mode="light"] #loading { border-color: rgba(20, 40, 70, 0.12); border-top-color: #2e7cd6; }
-  html[data-mode="light"] #mainImg { box-shadow: 0 24px 80px rgba(30, 50, 80, 0.22); }
+/* 菜单 / 提示 / 快捷键 */
+.menu{
+  position:fixed;z-index:var(--z-menu,800);min-width:204px;max-width:280px;padding:6px;border-radius:var(--r-md);
+  display:none;flex-direction:column;gap:2px;
+}
+.menu.open{display:flex;animation:n26MenuIn var(--dur-fast,160ms) var(--ease-out-expo) both}
+@keyframes n26MenuIn{from{opacity:0;translate:0 -4px}to{opacity:1;translate:0 0}}
+.menu-item{display:flex;align-items:center;gap:var(--sp-2);height:32px;padding:0 var(--sp-2);border:0;border-radius:var(--r-xs);background:transparent;color:var(--img-text);font-size:var(--fs-12,12px);text-align:left;cursor:pointer;white-space:nowrap}
+.menu-item i:first-child{width:16px;font-size:12px;color:var(--img-muted);text-align:center}
+.menu-item .tail{margin-left:auto;font-size:var(--fs-11,11px);color:var(--img-faint)}
+.menu-item:hover{background:color-mix(in srgb, var(--img-text) 7%, transparent)}
+.menu-item.on{color:var(--img-accent-ink)}
+.menu-item.on i:first-child{color:var(--img-accent)}
+.menu-sep{height:1px;background:var(--img-divider);margin:4px 2px}
+.toast{
+  position:fixed;left:50%;bottom:calc(var(--st) + var(--sp-4));translate:-50% 0;z-index:var(--z-toast,1200);
+  min-width:280px;max-width:360px;padding:14px 18px;border-radius:var(--r-sm);
+  font-size:var(--fs-12,12px);line-height:1.5;color:var(--img-text);display:none;
+}
+.toast.show{display:block;animation:n26ToastIn var(--dur-slow,400ms) var(--ease-out-expo) both}
+@keyframes n26ToastIn{from{opacity:0;translate:-50% 8px}to{opacity:1;translate:-50% 0}}
+.sheet{position:fixed;inset:0;z-index:var(--z-modal,1100);background:rgba(0,0,0,.34);display:none;align-items:center;justify-content:center;padding:var(--sp-4)}
+.sheet.show{display:flex}
+.sheet-card{width:480px;max-width:100%;max-height:86%;overflow:auto;border-radius:var(--r-lg);padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-3);animation:n26SheetIn var(--dur-base,260ms) var(--ease-spring) both}
+@keyframes n26SheetIn{from{opacity:0;scale:.96}to{opacity:1;scale:1}}
+.sheet-head{display:flex;align-items:center;justify-content:space-between}
+.sheet-head h2{margin:0;font-size:var(--fs-16,16px);font-weight:600;line-height:1.3}
+.kbd-row{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);padding:5px 0;border-bottom:1px solid var(--img-divider);font-size:var(--fs-12,12px);color:var(--img-muted)}
+.kbd-row:last-child{border-bottom:0}
+.kbd{font-size:var(--fs-11,11px);color:var(--img-text);background:var(--img-surface-2);border:1px solid var(--img-border);border-radius:var(--r-xs);padding:1px 6px;font-family:inherit;white-space:nowrap}
+#drop{position:fixed;inset:0;z-index:var(--z-overlay,1000);display:none;align-items:center;justify-content:center;padding:var(--sp-6);background:color-mix(in srgb, var(--img-bg) 62%, transparent)}
+body.dragging-file #drop{display:flex}
+#drop .dz{width:100%;height:100%;border:2px dashed var(--img-accent-line);border-radius:var(--r-lg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-2);color:var(--img-text);background:color-mix(in srgb, var(--img-surface) 70%, transparent)}
+#drop .dz i{font-size:36px;color:var(--img-accent)}
+#drop .dz b{font-size:var(--fs-14,14px);font-weight:600}
+#drop .dz span{font-size:var(--fs-12,12px);color:var(--img-muted)}
 
-  /* 跟随宿主玻璃材质：solid 时完全不透明、无模糊 */
-  body.mat-solid #toolbar,
-  body.mat-solid #infoBar,
-  body.mat-solid #filmstrip {
-    -webkit-backdrop-filter: none; backdrop-filter: none;
-  }
-  body.mat-solid #toolbar,
-  body.mat-solid #filmstrip { background: #161a24; }
-  body.mat-solid #infoBar { background: #161a24; }
-  html[data-mode="light"] body.mat-solid #toolbar,
-  html[data-mode="light"] body.mat-solid #infoBar,
-  html[data-mode="light"] body.mat-solid #filmstrip { background: #fafcff; }
-
-  /* ---------- 液态玻璃细节 + 动画 ---------- */
-  /* 斜向液态反光 + 内描边高光 */
-  #toolbar::after, #filmstrip::after {
-    content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-    background: linear-gradient(125deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.02) 34%, transparent 58%, rgba(255, 255, 255, 0.06) 100%);
-  }
-  #toolbar > *, #filmstrip > * { position: relative; z-index: 1; }
-  #toolbar, #filmstrip, body, #stage { transition: background-color 0.32s ease, color 0.32s ease, box-shadow 0.32s ease; }
-  /* 空态图标呼吸浮动 */
-  #empty .icon { animation: igFloat 4.5s ease-in-out infinite; }
-  @keyframes igFloat { 0%, 100% { translate: 0 0; } 50% { translate: 0 -7px; } }
-  /* 缩略图错峰进入（仅首次渲染，之后由 JS 关掉避免切图重播） */
-  .thumb { animation: igThumbIn 0.3s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both; }
-  @keyframes igThumbIn { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
-  /* 图片切换淡入（只用 opacity，不与 transform 的平移/缩放叠加） */
-  #mainImg.img-in { animation: igFade 0.42s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)); }
-  @keyframes igFade { from { opacity: 0; } to { opacity: 1; } }
-  /* 工具栏按钮液态按压：用独立 scale 属性，屏蔽原 transform 免得叠加缩太小 */
-  .tbtn { transition: background 0.16s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)), color 0.16s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)), scale 0.16s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)); }
-  #toolbar .tbtn:active, #filmstrip .tbtn:active { transform: none; scale: 0.9; }
-  .tbtn:focus-visible { outline: 2px solid #4a9bf5; outline-offset: 2px; }
-  #btnSlide.on { background: rgba(10, 132, 255, 0.32); color: #7cc0ff; }
-  html[data-mode="light"] #btnSlide.on { background: rgba(46, 124, 214, 0.18); color: #2e7cd6; }
-
-  /* ---------------- 沉浸全屏视图 ---------------- */
-  #immersive {
-    position: fixed; inset: 0; z-index: 60;
-    display: none; flex-direction: column;
-    background:
-      radial-gradient(1100px 760px at 20% 16%, rgba(74, 155, 245, 0.20), transparent 62%),
-      radial-gradient(1000px 720px at 84% 86%, rgba(56, 189, 248, 0.16), transparent 60%),
-      linear-gradient(150deg, #0a1120, #12233c);
-    opacity: 0;
-    transition: opacity 0.42s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
-    overflow: hidden;
-  }
-  html[data-mode="light"] #immersive {
-    background:
-      radial-gradient(1100px 760px at 20% 16%, rgba(46, 124, 214, 0.16), transparent 62%),
-      radial-gradient(1000px 720px at 84% 86%, rgba(56, 189, 248, 0.12), transparent 60%),
-      linear-gradient(150deg, #eaf1fa, #d4e4f6);
-  }
-  #immersive.open { opacity: 1; }
-  #immersive.closing { opacity: 0; }
-  #immersive .im-glow {
-    position: absolute; width: 60vw; height: 60vw; left: -10vw; top: -18vw;
-    background: radial-gradient(circle, rgba(74, 155, 245, 0.18), transparent 66%);
-    filter: blur(30px); pointer-events: none;
-    animation: igDrift 16s ease-in-out infinite alternate;
-  }
-  html[data-mode="light"] #immersive .im-glow { background: radial-gradient(circle, rgba(46, 124, 214, 0.16), transparent 66%); }
-  @keyframes igDrift { from { translate: 0 0; } to { translate: 18vw 10vw; } }
-
-  /* 顶栏 */
-  #immersive .im-head {
-    position: relative; z-index: 2;
-    display: flex; align-items: center; justify-content: space-between; gap: 16px;
-    padding: 18px 26px 10px;
-  }
-  #immersive .im-title {
-    display: flex; align-items: center; gap: 10px; min-width: 0;
-    font-size: 15px; font-weight: 650; color: rgba(255, 255, 255, 0.92);
-  }
-  html[data-mode="light"] #immersive .im-title { color: #17202c; }
-  #immersive .im-title i { color: #4a9bf5; }
-  #immersive .im-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #immersive .im-count { font-size: 12px; opacity: 0.7; flex: 0 0 auto; }
-  #immersive .im-actions { display: flex; gap: 8px; flex: 0 0 auto; }
-  #immersive .im-btn {
-    width: 36px; height: 36px; border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    background: rgba(255, 255, 255, 0.07);
-    color: rgba(255, 255, 255, 0.88); font-size: 14px; cursor: pointer;
-    display: inline-flex; align-items: center; justify-content: center;
-    transition: background 0.16s, scale 0.16s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
-  }
-  html[data-mode="light"] #immersive .im-btn { background: rgba(255, 255, 255, 0.6); border-color: rgba(20, 40, 70, 0.12); color: #17202c; }
-  #immersive .im-btn:hover { background: rgba(255, 255, 255, 0.16); }
-  #immersive .im-btn:active { scale: 0.9; }
-  #immersive .im-btn.on { background: rgba(74, 155, 245, 0.3); color: #bfe0ff; }
-
-  /* 中央舞台：imgWrap 移进来 */
-  #immersive .im-stage { position: relative; flex: 1 1 0; min-height: 0; }
-  #immersive .im-stage #mainImg { box-shadow: 0 30px 90px rgba(0, 0, 0, 0.5); }
-  html[data-mode="light"] #immersive .im-stage #mainImg { box-shadow: 0 30px 90px rgba(30, 50, 80, 0.22); }
-
-  /* 底部：filmstrip 移进来 + 幻灯片进度条 */
-  #immersive .im-bottom {
-    position: relative; flex: 0 0 auto; padding: 12px 20px 18px;
-    display: flex; flex-direction: column; align-items: center; gap: 10px;
-  }
-  /* barIn 是 forwards，会持续覆盖 transform → 沉浸里必须整条关掉动画并显式归位 */
-  #immersive .im-bottom #filmstrip {
-    position: relative; left: auto; bottom: auto; transform: none;
-    animation: none; opacity: 1;
-    max-width: min(92vw, 860px);
-  }
-  #imProgressTrack {
-    width: min(60vw, 520px); height: 4px; border-radius: 999px;
-    background: rgba(255, 255, 255, 0.2); overflow: hidden;
-  }
-  html[data-mode="light"] #imProgressTrack { background: rgba(20, 40, 70, 0.14); }
-  #imProgressFill {
-    height: 100%; width: 0%; border-radius: 999px;
-    background: linear-gradient(90deg, #0a84ff, #4aa8ff);
-    box-shadow: 0 0 10px rgba(10, 132, 255, 0.4);
-    transition: width 0.35s ease;
-  }
-  /* 分层进场 + 自动隐藏 UI */
-  #immersive .im-head { translate: 0 -14px; }
-  #immersive .im-bottom { translate: 0 16px; }
-  #immersive .im-head, #immersive .im-bottom {
-    opacity: 0;
-    transition: translate 0.5s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)), opacity 0.4s ease;
-  }
-  #immersive.open .im-head, #immersive.open .im-bottom { translate: 0 0; opacity: 1; }
-  #immersive.hide-ui .im-head, #immersive.hide-ui .im-bottom { opacity: 0; pointer-events: none; }
-
-  /* 减弱动态 / 性能模式降级 */
-  @media (prefers-reduced-motion: reduce) {
-    #immersive, #immersive .im-head, #immersive .im-bottom { transition-duration: 0.01ms !important; }
-    #mainImg.img-in, .thumb { animation-duration: 0.01ms !important; }
-    #immersive .im-glow, #empty .icon { animation: none !important; }
-  }
-  body.perf-mode #immersive .im-glow { animation: none !important; }
-  body.perf-mode #empty .icon { animation: none !important; }
+/* 窄窗收敛 */
+@media (max-width: 820px){
+  .zoomgrp .zl{min-width:42px}
+  #tbView .vsep{display:none}
+}
+@media (max-width: 720px){
+  .brand-tx{display:none}
+  .brand{border:0;padding:0}
+  .text-btn span{display:none}
+  .text-btn{padding:0 6px}
+  .search{min-width:32px;width:32px;padding:0 8px}
+  .search input{width:0;opacity:0;pointer-events:none}
+  .search.open{width:170px}
+  .search.open input{width:100%;opacity:1;pointer-events:auto}
+  .tabs .n{display:none}
+  #tbView .vname{max-width:26%}
+  .zoomgrp{display:none}
+  #btnFlip{display:none}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+  .tile:hover,.thumb:hover{scale:1}
+}
+body.perf-mode .n26-glass-follow{backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--img-surface)}
+body.perf-mode .sk::after,body.perf-mode .vspin,body.perf-mode .slide-prog i.run{animation:none}
 </style>
 </head>
 <body>
 <div id="app">
-  <div id="stage">
-    <div id="imgWrap"><img id="mainImg" class="hidden" alt="" draggable="false"></div>
-
-    <div id="toolbar">
-      <button class="tbtn" id="btnPrev" title="上一张 (←)" data-i18n-title="img_prev"><i class="fas fa-chevron-left"></i></button>
-      <button class="tbtn" id="btnNext" title="下一张 (→)" data-i18n-title="img_next"><i class="fas fa-chevron-right"></i></button>
-      <div class="tsep"></div>
-      <button class="tbtn" id="btnZoomOut" title="缩小 (-)" data-i18n-title="img_zoom_out"><i class="fas fa-magnifying-glass-minus"></i></button>
-      <span id="zoomLabel">100%</span>
-      <button class="tbtn" id="btnZoomIn" title="放大 (+)" data-i18n-title="img_zoom_in"><i class="fas fa-magnifying-glass-plus"></i></button>
-      <button class="tbtn" id="btnFit" title="适应窗口 (0)" data-i18n-title="img_fit"><i class="fas fa-expand"></i></button>
-      <div class="tsep"></div>
-      <button class="tbtn" id="btnRotate" title="旋转 (R)" data-i18n-title="img_rotate"><i class="fas fa-rotate-right"></i></button>
-      <button class="tbtn" id="btnInfo" title="信息 (I)" data-i18n-title="img_info"><i class="fas fa-circle-info"></i></button>
-      <div class="tsep"></div>
-      <button class="tbtn" id="btnOpen" title="打开图片文件" data-i18n-title="img_open"><i class="fas fa-folder-open"></i></button>
-      <button class="tbtn" id="btnSlide" title="幻灯片播放 (P)" data-i18n-title="img_slide"><i class="fas fa-circle-play"></i></button>
-      <button class="tbtn" id="btnFull" title="沉浸全屏 (F)" data-i18n-title="img_full"><i class="fas fa-arrow-up-right-and-arrow-down-left-from-center"></i></button>
+  <header id="topbar" class="topbar n26-glass-follow n26-sheen">
+    <div class="tb" id="tbLib">
+      <div class="brand">
+        <span class="brand-ic"><i class="fa-solid fa-images" aria-hidden="true"></i></span>
+        <span class="brand-tx"><b data-i18n="app_title">相册</b><span id="brandCount">0</span></span>
+      </div>
+      <nav class="tabs" role="tablist" aria-label="照片筛选">
+        <button class="tab" role="tab" data-filter="all" aria-selected="true" tabindex="0"><span data-i18n="tab_all">全部</span><span class="n" data-count="all">0</span></button>
+        <button class="tab" role="tab" data-filter="fav" aria-selected="false" tabindex="-1"><span data-i18n="tab_fav">收藏</span><span class="n" data-count="fav">0</span></button>
+        <button class="tab" role="tab" data-filter="local" aria-selected="false" tabindex="-1"><span data-i18n="tab_local">本地</span><span class="n" data-count="local">0</span></button>
+      </nav>
+      <div class="grow"></div>
+      <div class="search" id="searchBox">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <input id="searchInput" type="search" autocomplete="off" data-i18n-placeholder="search_ph" data-i18n-aria="search_ph" aria-label="搜索照片">
+        <button class="in-btn" id="searchClear" data-i18n-aria="clear_search" aria-label="清除搜索" hidden><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </div>
+      <button class="icon-btn" id="btnTimeline" data-i18n-title="timeline" data-i18n-aria="timeline" aria-label="时间轴"><i class="fa-solid fa-clock" aria-hidden="true"></i></button>
+      <button class="icon-btn" id="btnSort" data-i18n-title="sort" data-i18n-aria="sort" aria-label="排序"><i class="fa-solid fa-arrow-down-short-wide" aria-hidden="true"></i></button>
+      <button class="text-btn" id="btnSelect" data-i18n-title="select_t" aria-label="选择"><i class="fa-solid fa-check-double" aria-hidden="true"></i><span data-i18n="select">选择</span></button>
+      <button class="text-btn primary" id="btnImport" data-i18n-title="import" aria-label="导入"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i><span data-i18n="import">导入</span></button>
+      <button class="icon-btn" id="btnMoreLib" data-i18n-title="more" data-i18n-aria="more" aria-label="更多"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
     </div>
 
-    <div id="infoBar"></div>
-
-    <div id="filmstrip">
-      <button class="tbtn" id="btnFilmPrev" title="上一张" data-i18n-title="img_prev"><i class="fas fa-chevron-left"></i></button>
-      <div id="filmList"></div>
-      <button class="tbtn" id="btnFilmNext" title="下一张" data-i18n-title="img_next"><i class="fas fa-chevron-right"></i></button>
+    <div class="tb" id="tbView">
+      <button class="icon-btn" id="btnBack" data-i18n-title="back" data-i18n-aria="back" aria-label="返回相册"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+      <div class="vname"><b id="vName">—</b><span id="vIndex"></span></div>
+      <div class="grow"></div>
+      <div class="zoomgrp" role="group" aria-label="缩放">
+        <button id="btnZoomOut" data-i18n-title="zoom_out" aria-label="缩小"><i class="fa-solid fa-minus" aria-hidden="true"></i></button>
+        <span class="zl" id="zoomLabel">100%</span>
+        <button id="btnZoomIn" data-i18n-title="zoom_in" aria-label="放大"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
+      </div>
+      <button class="icon-btn" id="btnFit" data-i18n-title="fit" aria-label="适应窗口"><i class="fa-solid fa-expand" aria-hidden="true"></i></button>
+      <button class="text-btn" id="btnActual" data-i18n-title="actual" aria-label="原始尺寸">1:1</button>
+      <span class="vsep"></span>
+      <button class="icon-btn" id="btnRotate" data-i18n-title="rotate" aria-label="旋转"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i></button>
+      <button class="icon-btn" id="btnFlip" data-i18n-title="flip" aria-label="水平镜像"><i class="fa-solid fa-arrows-left-right" aria-hidden="true"></i></button>
+      <button class="icon-btn" id="btnFav" data-i18n-title="fav_add" aria-label="收藏"><i class="fa-regular fa-heart" aria-hidden="true"></i></button>
+      <button class="icon-btn" id="btnDownload" data-i18n-title="download" aria-label="下载"><i class="fa-solid fa-download" aria-hidden="true"></i></button>
+      <button class="icon-btn" id="btnInfo" data-i18n-title="info" aria-label="信息"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button>
+      <button class="icon-btn" id="btnMoreView" data-i18n-title="more" data-i18n-aria="more" aria-label="更多"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
     </div>
+    <div class="slide-prog" id="slideProg" hidden><i id="slideProgBar"></i></div>
+  </header>
 
-    <div id="empty">
-      <div class="icon"><i class="fas fa-image"></i></div>
-      <h2 data-i18n="img_empty_title">还没有图片</h2>
-      <p data-i18n-html="img_empty_desc">把图片文件拖进来即可查看<br>也可以从文件系统的「图片」文件夹中自动收集<br>支持 Ctrl+V 粘贴剪贴板图片</p>
-      <button id="pickBtn" data-i18n="img_pick">选择图片</button>
-    </div>
-
-    <div id="dropHint" data-i18n="img_drop_hint"><i class="fas fa-cloud-arrow-up" style="margin-right:8px;"></i>松开鼠标，打开图片</div>
-    <div id="loading"></div>
-  </div>
-
-  <!-- v2.9.55 沉浸全屏视图：同一个 imgWrap / filmstrip 运行时移入，缩放与选图状态零中断 -->
-    <div id="immersive" role="dialog" aria-label="沉浸查看" data-i18n-aria="img_immersive_label">
-      <div class="im-glow" aria-hidden="true"></div>
-      <div class="im-head">
-        <div class="im-title"><i class="fas fa-image" aria-hidden="true"></i><span id="imName">—</span><span class="im-count" id="imCount"></span></div>
-        <div class="im-actions">
-          <button class="im-btn" id="imSlide" title="幻灯片播放" aria-label="幻灯片播放" data-i18n-title="img_slide" data-i18n-aria="img_slide"><i class="fas fa-play" aria-hidden="true"></i></button>
-          <button class="im-btn" id="imNative" title="浏览器全屏" aria-label="浏览器全屏" data-i18n-title="img_native" data-i18n-aria="img_native"><i class="fas fa-expand" aria-hidden="true"></i></button>
-          <button class="im-btn" id="imExit" title="退出沉浸 (Esc)" aria-label="退出沉浸" data-i18n-title="img_exit" data-i18n-aria="img_exit"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+  <main id="library">
+    <div id="libScroll">
+      <div id="skeleton">
+        <div class="grid" aria-hidden="true">
+          <div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div>
+          <div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div>
+          <div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div>
+          <div class="sk"></div><div class="sk"></div><div class="sk"></div>
         </div>
       </div>
-    <div class="im-stage" id="imStage"></div>
-    <div class="im-bottom" id="imBottom">
-      <div id="imProgressTrack"><div id="imProgressFill"></div></div>
+      <div id="libList"></div>
+      <div id="libState" class="state" hidden></div>
+    </div>
+  </main>
+
+  <section id="viewer" aria-label="图片查看器">
+    <div id="vBody">
+      <div id="vStage" data-n26-pinch="emit">
+        <img id="mainImg" alt="" data-n26-pinch="emit" draggable="false" hidden>
+        <div class="vspin" id="vSpin" hidden></div>
+        <div class="v-error" id="vError" hidden>
+          <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+          <span class="t" data-i18n="err_title">无法打开这张图片</span>
+          <span class="d" id="vErrorDesc" data-i18n="err_desc">文件已损坏、格式不受支持，或网络图片在离线时不可用。</span>
+          <div class="acts">
+            <button class="fu-btn" id="btnERetry"><i class="fa-solid fa-rotate" aria-hidden="true"></i><span data-i18n="retry">重试</span></button>
+            <button class="fu-btn" id="btnESave"><i class="fa-solid fa-download" aria-hidden="true"></i><span data-i18n="save_original">另存原文件</span></button>
+          </div>
+        </div>
+        <div class="crop-layer" id="cropLayer">
+          <div class="crop-inner" id="cropInner">
+            <canvas id="cropCanvas"></canvas>
+            <div class="crop-rect" id="cropRect">
+              <i class="g"></i>
+              <span class="h" data-dir="nw"></span><span class="h" data-dir="ne"></span>
+              <span class="h" data-dir="sw"></span><span class="h" data-dir="se"></span>
+              <span class="h" data-dir="n"></span><span class="h" data-dir="s"></span>
+              <span class="h" data-dir="w"></span><span class="h" data-dir="e"></span>
+            </div>
+          </div>
+        </div>
+        <div class="crop-bar n26-glass-follow">
+          <span class="hint" data-i18n="crop_hint">拖动选框调整裁剪区域</span>
+          <button class="fu-btn fu-btn--ghost" id="btnCropCancel" data-i18n="cancel">取消</button>
+          <button class="fu-btn fu-btn--accent" id="btnCropApply" data-i18n="crop_apply">应用裁剪</button>
+        </div>
+      </div>
+      <aside id="vInfo" class="n26-glass-follow" aria-label="图片信息"></aside>
+    </div>
+    <div class="film" id="vFilm">
+      <button class="fbtn" id="btnPrev" data-i18n-title="prev" aria-label="上一张"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+      <div id="filmList"></div>
+      <button class="fbtn" id="btnNext" data-i18n-title="next" aria-label="下一张"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+    </div>
+  </section>
+
+  <footer id="statusbar">
+    <span id="stCount">0</span>
+    <span class="dot" aria-hidden="true"></span>
+    <span id="stSize">—</span>
+    <span class="sel" id="stSel" hidden></span>
+    <span class="grow"></span>
+    <span class="net" id="stNet" data-i18n="online">在线</span>
+  </footer>
+
+  <div id="bulkbar" class="n26-glass-follow" hidden>
+    <span class="cnt" id="bulkCount"></span>
+    <div class="grow"></div>
+    <button class="fu-btn" id="bulkAll" data-i18n="select_all">全选</button>
+    <button class="fu-btn fu-btn--accent" id="bulkExport" data-i18n="download">下载</button>
+    <button class="fu-btn fu-btn--ghost" id="bulkCancel" data-i18n="cancel">取消</button>
+  </div>
+
+  <div class="menu" id="menu" role="menu"></div>
+  <div class="toast n26-glass-follow" id="toast" role="status" aria-live="polite"></div>
+  <div class="sheet" id="sheet">
+    <div class="sheet-card n26-glass-follow" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <div class="sheet-head"><h2 id="sheetTitle" data-i18n="shortcuts">快捷键</h2><button class="icon-btn" id="sheetClose" aria-label="关闭"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+      <div id="sheetBody"></div>
     </div>
   </div>
+  <div id="drop"><div class="dz"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i><b data-i18n="drop_title">松开即可导入照片</b><span data-i18n="drop_desc">支持 JPG / PNG / WebP / GIF / AVIF</span></div></div>
+  <input type="file" id="filePicker" accept="image/*" multiple hidden>
 </div>
-<input type="file" id="filePicker" accept="image/*" multiple style="display:none;">
 <script>
+window.APP_I18N = {
+  zh: {
+    app_title:'相册', tab_all:'全部', tab_fav:'收藏', tab_local:'本地', search_ph:'搜索照片…', clear_search:'清除搜索',
+    timeline:'按月份跳转', sort:'排序', select:'选择', select_t:'进入多选', import:'导入', more:'更多', back:'返回相册',
+    zoom_out:'缩小', zoom_in:'放大', fit:'适应窗口', actual:'原始尺寸', rotate:'旋转 90°', flip:'水平镜像',
+    fav_add:'收藏', fav_remove:'取消收藏', download:'下载', info:'图片信息', err_title:'无法打开这张图片',
+    err_desc:'文件已损坏、格式不受支持，或网络图片在离线时不可用。', retry:'重试', save_original:'另存原文件',
+    crop_hint:'拖动选框调整裁剪区域', cancel:'取消', crop_apply:'应用裁剪', prev:'上一张', next:'下一张',
+    online:'在线', offline:'离线', select_all:'全选', shortcuts:'快捷键', drop_title:'松开即可导入照片',
+    drop_desc:'支持 JPG / PNG / WebP / GIF / AVIF', close:'关闭',
+    count_n:'{n} 张照片', count_selected:'已选 {n} 张', size_n:'{n}', size_unknown:'—',
+    empty_title:'还没有照片', empty_desc:'从本机导入照片，或去截图；导入的照片会保存在本应用，下次打开仍在。',
+    empty_import:'从本机导入', empty_shot:'去截图', empty_filter:'没有符合条件的照片', empty_filter_desc:'换个关键词，或切回「全部」再找找。',
+    clear_filter:'清除筛选', loading:'正在读取照片…', fs_error_title:'无法读取文件系统', fs_error_desc:'当前以离线模式打开，仍可以从本机导入照片。',
+    preview_fail:'无法预览', sort_title:'排序方式', sort_date:'日期（新→旧）', sort_date_asc:'日期（旧→新）',
+    sort_name:'名称', sort_size:'大小', timeline_title:'跳转到月份', grid_size:'缩略图大小', rescan:'重新扫描',
+    fav_none:'还没有收藏的照片', fav_none_desc:'点缩略图左上角的心形，收藏会出现在这里。',
+    local_none:'还没有本地导入的照片', local_none_desc:'用「导入」或直接把图片拖进窗口。',
+    no_match:'没有匹配「{q}」的照片', photo_open:'打开', select_photo:'选择这张照片', saved:'已保存到设备', save_fail:'无法另存这张图片',
+    copied:'图片已复制', copy_fail:'当前环境不支持复制图片', copy_path:'复制路径', copied_path:'路径已复制', path_na:'—',
+    fullscreen_fail:'当前环境不支持全屏', imported_n:'已导入 {n} 张照片', import_fail:'导入失败，文件可能不是图片',
+    storage_fail:'本地空间不足，已暂停导入；本次打开期间照片仍可查看', batch_export:'正在导出 {a}/{b}',
+    crop_ok:'已生成裁剪副本', crop_fail:'裁剪后无法生成图片', date_undated:'未标注日期', group_all:'全部照片',
+    info_title:'信息', info_dims:'尺寸', info_size:'大小', info_format:'格式', info_date:'拍摄时间', info_camera:'机型',
+    info_path:'位置', info_source:'来源', source_fs:'文件系统', source_local:'本机导入', unknown:'—',
+    slide:'开始幻灯片', stop_slide:'停止幻灯片', crop:'裁剪', copy_img:'复制图片', save_as:'另存为', fullscreen:'全屏显示',
+    rescan_done:'已重新扫描', scan_fail:'读取文件系统失败', reload:'重新读取',
+    fs_empty_hint:'文件系统里没有图片时，可以从本机导入。', shot_open_fail:'无法打开截图应用',
+    grid_small:'小', grid_medium:'中', grid_large:'大', about_note:'照片来自文件系统与本机导入，不上传、不联网。'
+  },
+  en: {
+    app_title:'Photos', tab_all:'All', tab_fav:'Favorites', tab_local:'Imported', search_ph:'Search photos…', clear_search:'Clear search',
+    timeline:'Jump to month', sort:'Sort', select:'Select', select_t:'Enter multi-select', import:'Import', more:'More', back:'Back to photos',
+    zoom_out:'Zoom out', zoom_in:'Zoom in', fit:'Fit window', actual:'Actual size', rotate:'Rotate 90°', flip:'Flip horizontally',
+    fav_add:'Favorite', fav_remove:'Remove favorite', download:'Download', info:'Image info', err_title:'Can\'t open this image',
+    err_desc:'The file is damaged, unsupported, or a network image is unavailable while offline.', retry:'Retry', save_original:'Save original',
+    crop_hint:'Drag the selection to crop', cancel:'Cancel', crop_apply:'Apply crop', prev:'Previous', next:'Next',
+    online:'Online', offline:'Offline', select_all:'Select all', shortcuts:'Keyboard shortcuts', drop_title:'Drop to import photos',
+    drop_desc:'JPG / PNG / WebP / GIF / AVIF supported', close:'Close',
+    count_n:'{n} photos', count_selected:'{n} selected', size_n:'{n}', size_unknown:'—',
+    empty_title:'No photos yet', empty_desc:'Import photos from this device or take a screenshot. Imported photos stay in this app.',
+    empty_import:'Import photos', empty_shot:'Open Screenshot', empty_filter:'No photos match', empty_filter_desc:'Try another keyword, or switch back to All.',
+    clear_filter:'Clear filters', loading:'Reading photos…', fs_error_title:'Can\'t read the file system', fs_error_desc:'Running offline. Local import still works.',
+    preview_fail:'No preview', sort_title:'Sort by', sort_date:'Date (newest)', sort_date_asc:'Date (oldest)',
+    sort_name:'Name', sort_size:'Size', timeline_title:'Jump to month', grid_size:'Thumbnail size', rescan:'Rescan',
+    fav_none:'No favorites yet', fav_none_desc:'Use the heart on a thumbnail; favorites show up here.',
+    local_none:'No imported photos yet', local_none_desc:'Use Import, or drop image files into the window.',
+    no_match:'Nothing matches “{q}”', photo_open:'Open', select_photo:'Select this photo', saved:'Saved to device', save_fail:'Couldn\'t save this image',
+    copied:'Image copied', copy_fail:'Image copy isn\'t supported here', copy_path:'Copy path', copied_path:'Path copied', path_na:'—',
+    fullscreen_fail:'Fullscreen isn\'t supported here', imported_n:'Imported {n} photos', import_fail:'Import failed: not an image',
+    storage_fail:'Local storage is full; import paused. Photos remain viewable for this session', batch_export:'Exporting {a}/{b}',
+    crop_ok:'Crop saved as a copy', crop_fail:'Couldn\'t create the cropped image', date_undated:'No date', group_all:'All photos',
+    info_title:'Info', info_dims:'Dimensions', info_size:'Size', info_format:'Format', info_date:'Captured', info_camera:'Camera',
+    info_path:'Location', info_source:'Source', source_fs:'File system', source_local:'Imported', unknown:'—',
+    slide:'Start slideshow', stop_slide:'Stop slideshow', crop:'Crop', copy_img:'Copy image', save_as:'Save as', fullscreen:'Fullscreen',
+    rescan_done:'Rescanned', scan_fail:'Couldn\'t read the file system', reload:'Reload',
+    fs_empty_hint:'No images in the file system; import from this device instead.', shot_open_fail:'Can\'t open Screenshot',
+    grid_small:'Small', grid_medium:'Medium', grid_large:'Large', about_note:'Photos come from the file system and local imports. Nothing is uploaded.'
+  }
+};
 (function () {
   'use strict';
-  var N = window.Nexus;
+  var N = window.Nexus || {};
+  var q = function (s, r) { return (r || document).querySelector(s); };
+  var qa = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var clamp = function (v, lo, hi) { return Math.max(lo, Math.min(hi, v)); };
+  var forcedDark = document.documentElement.classList.contains('force-dark');
+  var lang = 'zh';
 
-  /* ===== i18n 字典：图片查看器（v2.9.57） ===== */
-  window.APP_I18N = {
-    zh: {
-      doc_title: '图片',
-      img_prev: '上一张 (←)',
-      img_next: '下一张 (→)',
-      img_zoom_out: '缩小 (-)',
-      img_zoom_in: '放大 (+)',
-      img_fit: '适应窗口 (0)',
-      img_rotate: '旋转 (R)',
-      img_info: '信息 (I)',
-      img_open: '打开图片文件',
-      img_slide: '幻灯片播放 (P)',
-      img_full: '沉浸全屏 (F)',
-      img_empty_title: '还没有图片',
-      img_empty_desc: '把图片文件拖进来即可查看<br>也可以从文件系统的「图片」文件夹中自动收集<br>支持 Ctrl+V 粘贴剪贴板图片',
-      img_pick: '选择图片',
-      img_drop_hint: '松开鼠标，打开图片',
-      img_native: '浏览器全屏',
-      img_exit: '退出沉浸 (Esc)',
-      img_immersive_label: '沉浸查看',
-      img_not_browsing: '未在浏览',
-      img_slideshow: '幻灯片',
-      img_local_path: '本地文件',
-      img_nf_title: '无法打开',
-      img_nf_body: '图片「{n}」格式不受支持或已损坏',
-      img_fs_title: '全屏',
-      img_fs_body: '当前环境不支持浏览器全屏'
-    },
-    en: {
-      doc_title: 'Image',
-      img_prev: 'Previous (←)',
-      img_next: 'Next (→)',
-      img_zoom_out: 'Zoom out (-)',
-      img_zoom_in: 'Zoom in (+)',
-      img_fit: 'Fit window (0)',
-      img_rotate: 'Rotate (R)',
-      img_info: 'Info (I)',
-      img_open: 'Open image file',
-      img_slide: 'Slideshow (P)',
-      img_full: 'Immersive fullscreen (F)',
-      img_empty_title: 'No images yet',
-      img_empty_desc: 'Drag image files here to view<br>Or auto-collected from the "Pictures" folder in Files<br>Ctrl+V to paste images from clipboard',
-      img_pick: 'Choose image',
-      img_drop_hint: 'Release to open image',
-      img_native: 'Browser fullscreen',
-      img_exit: 'Exit immersive (Esc)',
-      img_immersive_label: 'Immersive view',
-      img_not_browsing: 'Not viewing',
-      img_slideshow: 'Slideshow',
-      img_local_path: 'Local files',
-      img_nf_title: 'Cannot open',
-      img_nf_body: 'Image "{n}" is unsupported or corrupted',
-      img_fs_title: 'Fullscreen',
-      img_fs_body: 'Browser fullscreen is not supported here'
-    }
-  };
-  function T(k, a) { var s = N.t(k); if (a != null) s = String(s).replace(/\{n\}/g, a); return s; }
-
-  /* ---------- 状态 ---------- */
-  var images = [];          // { name, path, src, w, h, size }
-  var cur = -1;
-  var scale = 1, rot = 0, panX = 0, panY = 0;
-  var fitMode = true;       // true=适应窗口
-  var showInfo = false;
-
-  var stage = document.getElementById('stage');
-  var img = document.getElementById('mainImg');
-  var imgWrap = document.getElementById('imgWrap');
-  var zoomLabel = document.getElementById('zoomLabel');
-  var infoBar = document.getElementById('infoBar');
-  var filmList = document.getElementById('filmList');
-  var emptyBox = document.getElementById('empty');
-  var dropHint = document.getElementById('dropHint');
-  var loading = document.getElementById('loading');
-  var filePicker = document.getElementById('filePicker');
-
-  var IMG_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico'];
-
-  /* ---------- 文件系统收集 ---------- */
-  function extOf(name) {
-    var m = /\.([a-z0-9]+)$/i.exec(name || '');
-    return m ? m[1].toLowerCase() : '';
-  }
-  function isImgNode(node, name) {
-    if (!node || node.type !== 'file') return false;
-    if (node.isImage) return true;
-    if (node.isVideo || node.isAudio) return false;
-    var c = node.content;
-    if (typeof c === 'string' && /^data:image\//i.test(c)) return true;
-    return IMG_EXT.indexOf(extOf(name)) >= 0;
-  }
-  function srcOf(node) {
-    var c = node.content;
-    if (typeof c === 'string' && /^data:/i.test(c)) return c;
-    return '';
-  }
-  function approxSize(node) {
-    var c = node.content;
-    if (typeof c !== 'string') return 0;
-    if (/^data:/.test(c)) {
-      var i = c.indexOf(',');
-      var b64 = c.slice(i + 1);
-      return Math.floor(b64.length * 0.75);
-    }
-    return c.length;
-  }
-
-  function walk(node, path, out) {
-    if (!node) return;
-    if (node.type === 'drive' || node.type === 'folder') {
-      var ch = node.children || {};
-      Object.keys(ch).forEach(function (k) { walk(ch[k], path ? path + '/' + k : k, out); });
-    } else if (node.type === 'file') {
-      var name = path.split('/').pop();
-      if (isImgNode(node, name)) {
-        out.push({ name: name, path: path, node: node });
-      }
-    }
-  }
-
-  function loadFromFS() {
-    return N.getUserLS('filesystem').then(function (fs) {
-      var found = [];
-      if (fs) walk(fs, '', found);
-      // 图片/Screenshots 优先，再按名称排序，保证顺序稳定
-      found.sort(function (a, b) {
-        var pa = /Screenshots/.test(a.path) ? 0 : 1, pb = /Screenshots/.test(b.path) ? 0 : 1;
-        if (pa !== pb) return pa - pb;
-        return a.path.localeCompare(b.path, 'zh');
-      });
-      found.forEach(function (f) {
-        images.push({ name: f.name, path: f.path, src: srcOf(f.node), w: 0, h: 0, size: approxSize(f.node) });
-      });
-      renderFilm();
-      if (images.length && cur < 0 && !pendingState) show(0);   // v2.9.55：有待恢复的状态时不抢先显示
-      refreshEmpty();
-    }).catch(function () { refreshEmpty(); });
-  }
-
-  /* ---------- 渲染 ---------- */
-  function refreshEmpty() {
-    emptyBox.classList.toggle('show', images.length === 0);
-    document.getElementById('filmstrip').style.display = images.length ? 'flex' : 'none';
-  }
-
-  function renderFilm() {
-    filmList.innerHTML = '';
-    images.forEach(function (im, i) {
-      var t = document.createElement('div');
-      t.className = 'thumb' + (i === cur ? ' active' : '');
-      t.title = im.name;
-      var th = document.createElement('img');
-      th.src = im.src;
-      th.loading = 'lazy';
-      t.appendChild(th);
-      /* v2.9.55：缩略图仅首次错峰进入，之后关掉动画避免切图时整条重播 */
-      if (filmAnimated) t.style.animation = 'none';
-      else t.style.animationDelay = (i * 0.028) + 's';
-      t.onclick = function () { show(i); };
-      filmList.appendChild(t);
-    });
-    filmAnimated = true;
-    var act = filmList.children[cur];
-    if (act && act.scrollIntoView) act.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
-  }
-
-  function show(i) {
-    if (i < 0 || i >= images.length) return;
-    cur = i;
-    var im = images[i];
-    loading.classList.add('show');
-    var probe = new Image();
-    probe.onload = function () {
-      loading.classList.remove('show');
-      im.w = probe.naturalWidth; im.h = probe.naturalHeight;
-      img.classList.remove('hidden');
-      img.src = im.src;
-      /* v2.9.55：切图淡入（强制重排触发动画重播） */
-      img.classList.remove('img-in');
-      void img.offsetWidth;
-      img.classList.add('img-in');
-      resetView();
-      renderFilm();
-      paintImMeta();
-      if (showInfo) updateInfo();
-      broadcastNow(true);
-      saveState();
-      restoring = false;      /* 关窗恢复的异步尾巴结束，之后可正常持久化 */
-      scheduleImHide();
-    };
-    probe.onerror = function () {
-      loading.classList.remove('show');
-      restoring = false;
-      N.notify(T('img_nf_title'), T('img_nf_body', im.name), 'error');
-    };
-    probe.src = im.src;
-  }
-
-  function applyTransform(animate) {
-    img.classList.toggle('snappy', !animate);
-    var base = fitMode ? fitScale() : scale;
-    var tx = fitMode ? 0 : panX, ty = fitMode ? 0 : panY;
-    img.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + base + ') rotate(' + rot + 'deg)';
-    zoomLabel.textContent = Math.round(base * 100) + '%';
-    img.classList.remove('snappy');
-  }
-
-  function fitScale() {
-    if (!img.naturalWidth || !stage.clientWidth) return 1;
-    var pad = 40;
-    var sx = (stage.clientWidth - pad) / img.naturalWidth;
-    var sy = (stage.clientHeight - pad) / img.naturalHeight;
-    var s = Math.min(sx, sy, 1.6);
-    // 旋转 90/270 时宽高互换
-    if (rot % 180 !== 0) {
-      sx = (stage.clientHeight - pad) / img.naturalWidth;
-      sy = (stage.clientWidth - pad) / img.naturalHeight;
-      s = Math.min(sx, sy, 1.6);
-    }
+  function t(key, vars) {
+    var d = window.APP_I18N || {};
+    var lk = (lang || 'zh').indexOf('en') === 0 ? 'en' : (lang.indexOf('ja') === 0 ? 'ja' : 'zh');
+    var s = (d[lk] && d[lk][key]) || (d.en && d.en[key]) || (d.zh && d.zh[key]) || key;
+    if (vars) Object.keys(vars).forEach(function (k) { s = s.split('{' + k + '}').join(vars[k]); });
     return s;
   }
+  window.__imgT = t;
 
-  function resetView() {
-    scale = 1; rot = 0; panX = 0; panY = 0; fitMode = true;
-    document.getElementById('btnFit').classList.add('on');
-    applyTransform(true);
-    if (showInfo) updateInfo();
-  }
-
-  function zoomBy(factor, cx, cy) {
-    fitMode = false;
-    document.getElementById('btnFit').classList.remove('on');
-    var rect = stage.getBoundingClientRect();
-    var px = (cx == null ? rect.width / 2 : cx - rect.left);
-    var py = (cy == null ? rect.height / 2 : cy - rect.top);
-    var old = scale;
-    scale = Math.min(8, Math.max(0.05, scale * factor));
-    // 光标锚定：保持 (px,py) 下的图像点不动
-    var k = scale / old;
-    panX = px - k * (px - panX);
-    panY = py - k * (py - panY);
-    applyTransform(false);
-  }
-
-  function rotate() {
-    rot = (rot + 90) % 360;
-    if (fitMode) { panX = 0; panY = 0; }
-    applyTransform(true);
-    if (showInfo) updateInfo();
-  }
-
-  function updateInfo() {
-    var im = images[cur];
-    if (!im) return;
-    var parts = [im.name];
-    if (im.w) parts.push(im.w + ' × ' + im.h);
-    if (im.size) parts.push(fmtSize(im.size));
-    parts.push(im.path);
-    infoBar.textContent = parts.join('  ·  ');
-  }
-  function fmtSize(b) {
-    if (b < 1024) return b + ' B';
-    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
-    return (b / 1048576).toFixed(2) + ' MB';
-  }
-
-  /* ---------- 交互 ---------- */
-  stage.addEventListener('wheel', function (e) {
-    if (cur < 0) return;
-    e.preventDefault();
-    var f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-    zoomBy(f, e.clientX, e.clientY);
-  }, { passive: false });
-
-  var dragPan = null;
-  stage.addEventListener('mousedown', function (e) {
-    if (cur < 0 || fitMode || e.button !== 0) return;
-    dragPan = { x: e.clientX, y: e.clientY, px: panX, py: panY };
-    stage.classList.add('dragging');
-  });
-  window.addEventListener('mousemove', function (e) {
-    if (!dragPan) return;
-    panX = dragPan.px + (e.clientX - dragPan.x);
-    panY = dragPan.py + (e.clientY - dragPan.y);
-    applyTransform(false);
-  });
-  window.addEventListener('mouseup', function () {
-    dragPan = null;
-    stage.classList.remove('dragging');
-  });
-
-  document.getElementById('btnZoomIn').onclick = function () { zoomBy(1.25); };
-  document.getElementById('btnZoomOut').onclick = function () { zoomBy(1 / 1.25); };
-  document.getElementById('btnFit').onclick = function () {
-    fitMode = true; scale = 1; panX = 0; panY = 0;
-    document.getElementById('btnFit').classList.add('on');
-    applyTransform(true);
-  };
-  document.getElementById('btnRotate').onclick = rotate;
-  document.getElementById('btnPrev').onclick = function () { show(cur - 1); };
-  document.getElementById('btnNext').onclick = function () { show(cur + 1); };
-  document.getElementById('btnFilmPrev').onclick = function () { show(cur - 1); };
-  document.getElementById('btnFilmNext').onclick = function () { show(cur + 1); };
-  document.getElementById('btnInfo').onclick = function () {
-    showInfo = !showInfo;
-    this.classList.toggle('on', showInfo);
-    infoBar.classList.toggle('show', showInfo);
-    if (showInfo) updateInfo();
-  };
-  document.getElementById('btnOpen').onclick = function () { filePicker.click(); };
-  /* v2.9.55：全屏按钮进入沉浸视图（浏览器原生全屏改由沉浸视图内 imNative 提供） */
-  document.getElementById('btnFull').onclick = toggleImmersive;
-  filePicker.onchange = function () {
-    addFiles(filePicker.files);
-    filePicker.value = '';
+  var el = {
+    app: q('#app'), top: q('#topbar'), tbLib: q('#tbLib'), tbView: q('#tbView'),
+    lib: q('#library'), libScroll: q('#libScroll'), libList: q('#libList'), libState: q('#libState'), skeleton: q('#skeleton'),
+    brandCount: q('#brandCount'), searchBox: q('#searchBox'), searchInput: q('#searchInput'), searchClear: q('#searchClear'),
+    btnTimeline: q('#btnTimeline'), btnSort: q('#btnSort'), btnSelect: q('#btnSelect'), btnImport: q('#btnImport'), btnMoreLib: q('#btnMoreLib'),
+    status: q('#statusbar'), stCount: q('#stCount'), stSize: q('#stSize'), stSel: q('#stSel'), stNet: q('#stNet'),
+    bulk: q('#bulkbar'), bulkCount: q('#bulkCount'), bulkAll: q('#bulkAll'), bulkExport: q('#bulkExport'), bulkCancel: q('#bulkCancel'),
+    viewer: q('#viewer'), vStage: q('#vStage'), mainImg: q('#mainImg'), vSpin: q('#vSpin'), vError: q('#vError'), vErrorDesc: q('#vErrorDesc'),
+    btnERetry: q('#btnERetry'), btnESave: q('#btnESave'),
+    vName: q('#vName'), vIndex: q('#vIndex'), zoomLabel: q('#zoomLabel'),
+    btnZoomIn: q('#btnZoomIn'), btnZoomOut: q('#btnZoomOut'), btnFit: q('#btnFit'), btnActual: q('#btnActual'),
+    btnBack: q('#btnBack'), btnRotate: q('#btnRotate'), btnFlip: q('#btnFlip'), btnFav: q('#btnFav'), btnDownload: q('#btnDownload'),
+    btnInfo: q('#btnInfo'), btnMoreView: q('#btnMoreView'),
+    film: q('#vFilm'), vFilm: q('#vFilm'), filmList: q('#filmList'), btnPrev: q('#btnPrev'), btnNext: q('#btnNext'),
+    vInfo: q('#vInfo'), slideProg: q('#slideProg'), slideBar: q('#slideProgBar'),
+    cropLayer: q('#cropLayer'), cropCanvas: q('#cropCanvas'), cropRect: q('#cropRect'), cropInner: q('#cropInner'),
+    btnCropCancel: q('#btnCropCancel'), btnCropApply: q('#btnCropApply'),
+    menu: q('#menu'), toast: q('#toast'), sheet: q('#sheet'), sheetTitle: q('#sheetTitle'), sheetBody: q('#sheetBody'), sheetClose: q('#sheetClose'),
+    filePicker: q('#filePicker'), drop: q('#drop')
   };
 
-  /* ---------- 本地文件 / 拖放 / 粘贴 ---------- */
-  function addFiles(fileList) {
-    var arr = Array.prototype.slice.call(fileList || []).filter(function (f) { return /^image\//.test(f.type); });
-    if (!arr.length) return;
-    var start = images.length;
-    var pending = arr.length;
-    arr.forEach(function (f) {
-      var r = new FileReader();
-      r.onload = function () {
-        images.push({ name: f.name, path: T('img_local_path') + '/' + f.name, src: r.result, w: 0, h: 0, size: f.size });
-        if (--pending === 0) { renderFilm(); refreshEmpty(); show(start); }
-      };
-      r.readAsDataURL(f);
-    });
-  }
-
-  ['dragenter', 'dragover'].forEach(function (ev) {
-    window.addEventListener(ev, function (e) {
-      e.preventDefault();
-      if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0) dropHint.classList.add('show');
-    });
-  });
-  ['dragleave', 'drop'].forEach(function (ev) {
-    window.addEventListener(ev, function (e) {
-      e.preventDefault();
-      if (ev === 'dragleave' && e.relatedTarget) return;
-      dropHint.classList.remove('show');
-    });
-  });
-  window.addEventListener('drop', function (e) {
-    e.preventDefault();
-    if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
-  });
-  window.addEventListener('paste', function (e) {
-    var items = (e.clipboardData || {}).items || [];
-    for (var i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf('image/') === 0) {
-        var f = items[i].getAsFile();
-        if (f) addFiles([f]);
-        break;
-      }
-    }
-  });
-
-  /* ---------- 键盘 ---------- */
-  window.addEventListener('keydown', function (e) {
-    if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
-    switch (e.key) {
-      case 'ArrowLeft': show(cur - 1); e.preventDefault(); break;
-      case 'ArrowRight': show(cur + 1); e.preventDefault(); break;
-      case '+': case '=': zoomBy(1.25); e.preventDefault(); break;
-      case '-': case '_': zoomBy(1 / 1.25); e.preventDefault(); break;
-      case '0': document.getElementById('btnFit').onclick(); e.preventDefault(); break;
-      case '1': fitMode = false; scale = 1; applyTransform(false); e.preventDefault(); break;
-      case 'r': case 'R': rotate(); break;
-      case 'i': case 'I': document.getElementById('btnInfo').onclick(); break;
-      case 'f': case 'F': toggleImmersive(); break;
-      case 'p': case 'P': toggleSlide(); break;
-      case 'Escape': if (immersiveOpen) { closeImmersive(); return; } break;
-    }
-  });
-
-  /* ============================================================
-     v2.9.55：沉浸全屏 / 幻灯片 / 小主页联动 / 状态恢复 / Media Session
-     与 music / video 同款规律。图片没有音轨 →「后台播放」语义 =
-     幻灯片状态持久 + 关窗后桌面「正在播放」部件仍能通过 n26ImageCmd 控制。
-     ============================================================ */
-  var immersiveOpen = false;
-  var immersiveEl = document.getElementById('immersive');
-  var imStage = document.getElementById('imStage');
-  var imBottom = document.getElementById('imBottom');
-  var imName = document.getElementById('imName');
-  var imCount = document.getElementById('imCount');
-  var imProgressFill = document.getElementById('imProgressFill');
+  var photos = [];          // 全部照片
+  var filtered = [];        // 当前筛选结果
+  var viewList = [];        // 查看器序列
+  var cur = -1;             // 查看器索引
+  var filter = 'all';
+  var sortMode = localStorage.getItem('n26ImageSort') || 'date';
+  var query = '';
+  var selectMode = false;
+  var selected = Object.create(null);
+  var lastPickIndex = -1;
+  var favorites = readJSON('n26ImageFav.v1') || {};
+  var fsDone = false, fsError = false, dbDone = false;
+  var offline = false;
+  var mode = 'library';
+  var tileSize = parseInt(localStorage.getItem('n26ImageTile') || '136', 10) || 136;
+  var view = { scale: 1, rot: 0, flip: false, panX: 0, panY: 0, fit: true, loaded: false };
   var slideOn = false, slideTimer = null;
-  var imHideTimer = null;
-  var lastBroadcast = 0;
-  var pendingState = null;
-  var SLIDE_MS = 3500;
-  var filmAnimated = false;
-  var restoring = false;   /* 关窗恢复期间抑制 saveState 回写，避免刚清掉的状态被 onload 写回 */
+  var lastFocusId = null;
+  var loadToken = 0;
+  var crop = { on: false, baked: null, x: 0, y: 0, w: 0, h: 0, ratio: 1, drag: null };
+  var dbp = null;
+  var importing = false;
 
-  /* ---- 沉浸视图：把同一个 imgWrap / filmstrip 移动进来 ---- */
-  function openImmersive() {
-    if (immersiveOpen) return;
-    immersiveOpen = true;
-    immersiveEl.classList.remove('closing');
-    paintImMeta();
-    imStage.appendChild(imgWrap);
-    imBottom.appendChild(document.getElementById('filmstrip'));
-    immersiveEl.style.display = 'flex';
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () { immersiveEl.classList.add('open'); });
-    });
-    document.getElementById('btnFull').classList.add('on');
-    scheduleImHide();
-    broadcastNow(true);
-  }
-  function closeImmersive() {
-    if (!immersiveOpen) return;
-    immersiveOpen = false;
-    immersiveEl.classList.remove('open');
-    immersiveEl.classList.add('closing');
-    document.getElementById('btnFull').classList.remove('on');
-    clearTimeout(imHideTimer);
-    setTimeout(function () {
-      if (immersiveOpen) return;
-      immersiveEl.style.display = 'none';
-      immersiveEl.classList.remove('closing');
-      stage.insertBefore(imgWrap, stage.firstChild);
-      stage.appendChild(document.getElementById('filmstrip'));
-      applyTransform(true);
-    }, 430);
-  }
-  function toggleImmersive() { if (immersiveOpen) closeImmersive(); else openImmersive(); }
-  document.getElementById('imExit').onclick = closeImmersive;
-  document.getElementById('imNative').onclick = function () {
+  function readJSON(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+  function writeJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function rid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function clampNum(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function normLang(l) { l = l || ''; return l.indexOf('en') === 0 ? 'en-US' : 'zh-CN'; }
+  function weekLabel(ms) {
     try {
-      if (document.fullscreenElement) document.exitFullscreen();
-      else if (immersiveEl.requestFullscreen) immersiveEl.requestFullscreen();
-    } catch (e) { N.notify(T('img_fs_title'), T('img_fs_body'), 'warning'); }
-  };
-  /* 沉浸式自动隐藏 UI（幻灯片播放时常驻，方便看进度） */
-  function scheduleImHide() {
-    clearTimeout(imHideTimer);
-    immersiveEl.classList.remove('hide-ui');
-    if (!immersiveOpen || slideOn) return;
-    imHideTimer = setTimeout(function () { immersiveEl.classList.add('hide-ui'); }, 2800);
+      return new Intl.DateTimeFormat(normLang(lang), lang.indexOf('en') === 0 ? { weekday: 'short' } : { weekday: 'long' }).format(new Date(ms));
+    } catch (e) { return ''; }
   }
-  immersiveEl.addEventListener('mousemove', scheduleImHide);
-  immersiveEl.addEventListener('mouseleave', function () { if (!slideOn && immersiveOpen) immersiveEl.classList.add('hide-ui'); });
-  /* 双击图片进入 / 退出沉浸 */
-  stage.addEventListener('dblclick', function () { if (cur >= 0) toggleImmersive(); });
-  immersiveEl.addEventListener('dblclick', function (e) {
-    if (e.target === imgWrap || e.target === img) toggleImmersive();
-  });
-  /* 沉浸式滚轮缩放（转发到现有 zoomBy，stage 与沉浸层 rect 一致） */
-  immersiveEl.addEventListener('wheel', function (e) {
-    if (cur < 0) return;
-    e.preventDefault();
-    zoomBy(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX, e.clientY);
-  }, { passive: false });
+  function dayLabel(ms) {
+    try {
+      return new Intl.DateTimeFormat(normLang(lang), lang.indexOf('en') === 0
+        ? { year: 'numeric', month: 'short', day: 'numeric' }
+        : { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(ms));
+    } catch (e) { return ''; }
+  }
+  function fullDate(ms) {
+    try { return new Intl.DateTimeFormat(normLang(lang), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(ms)); }
+    catch (e) { return '—'; }
+  }
+  function fmtBytes(n) {
+    if (!n || n < 1) return '—';
+    var u = ['B', 'KB', 'MB', 'GB'], i = 0;
+    while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+    return (i === 0 ? Math.round(n) : (n < 10 ? n.toFixed(1) : Math.round(n))) + ' ' + u[i];
+  }
+  function extOf(name) { var m = /\.([a-z0-9]+)$/i.exec(name || ''); return m ? m[1].toUpperCase() : '—'; }
+  function stemOf(name) { return (name || 'image').replace(/\.[a-z0-9]+$/i, ''); }
 
-  /* ---- 沉浸视图元信息 ---- */
-  function paintImMeta() {
-    var im = images[cur];
-    if (imName) imName.textContent = im ? im.name : T('img_not_browsing');
-    if (imCount) imCount.textContent = images.length ? (cur + 1) + ' / ' + images.length : '';
-    var pct = images.length > 1 ? ((cur + 1) / images.length * 100) : 0;
-    if (imProgressFill) imProgressFill.style.width = pct + '%';
+  function toast(msg, ms) {
+    el.toast.textContent = msg;
+    el.toast.classList.add('show');
+    clearTimeout(toast._tm);
+    toast._tm = setTimeout(function () { el.toast.classList.remove('show'); }, ms || 2200);
   }
 
-  /* ---- 幻灯片播放 ---- */
-  function setSlide(on) {
-    slideOn = !!on;
-    clearInterval(slideTimer);
-    var b1 = document.getElementById('btnSlide'), b2 = document.getElementById('imSlide');
-    if (b1) { b1.classList.toggle('on', slideOn); b1.innerHTML = '<i class="fas ' + (slideOn ? 'fa-pause' : 'fa-circle-play') + '"></i>'; }
-    if (b2) { b2.classList.toggle('on', slideOn); b2.innerHTML = '<i class="fas ' + (slideOn ? 'fa-pause' : 'fa-play') + '"></i>'; }
-    if (slideOn && images.length > 1) {
-      slideTimer = setInterval(function () { show((cur + 1) % images.length); }, SLIDE_MS);
+  // —— 主题：宿主晚到也不能把 ?theme=dark 覆盖掉 ——
+  function forceTheme() {
+    if (!forcedDark) return;
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.documentElement.setAttribute('data-mode', 'dark');
+    document.body.classList.add('dark-mode');
+  }
+  forceTheme();
+
+  // —— IndexedDB：本机导入的照片持久化 ——
+  function openDB() {
+    if (dbp) return dbp;
+    dbp = new Promise(function (res, rej) {
+      var r;
+      try { r = indexedDB.open('n26-image-v1', 1); } catch (e) { rej(e); return; }
+      r.onupgradeneeded = function () {
+        var db = r.result;
+        if (!db.objectStoreNames.contains('photos')) db.createObjectStore('photos', { keyPath: 'id' });
+      };
+      r.onsuccess = function () { res(r.result); };
+      r.onerror = function () { rej(r.error); };
+    });
+    return dbp;
+  }
+  function dbPut(rec) {
+    return openDB().then(function (db) {
+      return new Promise(function (res, rej) {
+        var tx = db.transaction('photos', 'readwrite');
+        tx.objectStore('photos').put(rec);
+        tx.oncomplete = function () { res(); };
+        tx.onerror = function () { rej(tx.error); };
+        tx.onabort = function () { rej(tx.error); };
+      });
+    });
+  }
+  function dbAll() {
+    return openDB().then(function (db) {
+      return new Promise(function (res, rej) {
+        var tx = db.transaction('photos', 'readonly');
+        var rq = tx.objectStore('photos').getAll();
+        rq.onsuccess = function () { res(rq.result || []); };
+        rq.onerror = function () { rej(rq.error); };
+      });
+    });
+  }
+
+  // —— 文件系统扫描 ——
+  function isImgNode(node, name) {
+    if (!node) return false;
+    if (node.fileType === 'image') return true;
+    if (/\.(png|jpg|jpeg|webp|gif|bmp|avif|svg)$/i.test(name)) return true;
+    return typeof node.content === 'string' && /^data:image\//i.test(node.content);
+  }
+  function pickDate(node) {
+    if (!node) return 0;
+    var keys = ['modifiedAt', 'mtime', 'updatedAt', 'createdAt', 'created', 'date'];
+    for (var i = 0; i < keys.length; i++) {
+      var v = node[keys[i]];
+      if (v == null || v === '') continue;
+      var n = Number(v);
+      if (!isFinite(n) || n <= 0) continue;
+      if (n < 100000000000) n *= 1000;
+      if (n > 0 && n < 4102444800000) return n;
     }
-    scheduleImHide();
-    broadcastNow(true);
-    setupMediaSession();
+    return 0;
+  }
+  function walkFS(node, path, out) {
+    if (!node || typeof node !== 'object') return;
+    var kids = node.children;
+    if (kids && typeof kids === 'object') {
+      Object.keys(kids).forEach(function (k) {
+        var p = path ? path + '/' + k : k;
+        walkFS(kids[k], p, out);
+      });
+      return;
+    }
+    var name = path.split('/').pop() || '';
+    if (!isImgNode(node, name)) return;
+    var src = node.content;
+    if (typeof src !== 'string') return;
+    if (!/^(data:image|https?:|blob:)/i.test(src)) return;
+    out.push({
+      id: 'fs:' + path, name: name, path: path, src: src, source: 'fs',
+      date: pickDate(node), w: node.width || 0, h: node.height || 0,
+      size: typeof src === 'string' && src.indexOf('data:image') === 0 ? Math.round(src.length * .72) : 0
+    });
+  }
+  function scanFS() {
+    fsDone = false; fsError = false;
+    var timeout;
+    var p = (N.getUserLS ? N.getUserLS('filesystem') : Promise.reject(new Error('no bridge')));
+    return Promise.race([
+      p,
+      new Promise(function (res) { timeout = setTimeout(function () { res('__timeout'); }, 6000); })
+    ]).then(function (fs) {
+      clearTimeout(timeout);
+      fsDone = true;
+      if (fs === '__timeout' || !fs) { fsError = true; offline = true; return []; }
+      var out = [];
+      if (fs.children) {
+        Object.keys(fs.children).forEach(function (k) { walkFS(fs.children[k], k, out); });
+      } else {
+        walkFS(fs, '', out);
+      }
+      return out;
+    }).catch(function () { fsDone = true; fsError = true; return []; });
+  }
+
+  // —— 合并、筛选、分组 ——
+  function isFav(p) { return !!favorites[p.id]; }
+  function totalBytes() {
+    var n = 0;
+    photos.forEach(function (p) { if (p.size) n += p.size; });
+    return n;
+  }
+  function matches(p) {
+    if (filter === 'fav' && !isFav(p)) return false;
+    if (filter === 'local' && p.source !== 'local') return false;
+    if (!query) return true;
+    var ql = query.toLowerCase();
+    return (p.name || '').toLowerCase().indexOf(ql) >= 0 || (p.path || '').toLowerCase().indexOf(ql) >= 0;
+  }
+  function sortItems(a, b) {
+    if (sortMode === 'name') return (a.name || '').localeCompare(b.name || '');
+    if (sortMode === 'size') return (b.size || 0) - (a.size || 0);
+    if (sortMode === 'dateAsc') return (a.date || 0) - (b.date || 0);
+    return (b.date || 0) - (a.date || 0);
+  }
+  function rebuild() {
+    filtered = photos.filter(matches).sort(sortItems);
+    if (sortMode !== 'date' && sortMode !== 'dateAsc') filtered.sort(sortItems);
+    updateCounts();
+  }
+  function groupsOf(items) {
+    if (sortMode !== 'date' && sortMode !== 'dateAsc') {
+      return [{ key: 'all', title: t('group_all'), count: items.length, items: items, date: 0 }];
+    }
+    var map = {}, keys = [];
+    items.forEach(function (p) {
+      var k = p.date ? (function (d) { return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); })(new Date(p.date)) : 'undated';
+      if (!map[k]) { map[k] = []; keys.push(k); }
+      map[k].push(p);
+    });
+    var out = keys.map(function (k) {
+      var items2 = map[k].slice().sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+      var d = k === 'undated' ? 0 : new Date(items2[0].date);
+      var title = k === 'undated' ? t('date_undated') : (dayLabel(items2[0].date) + ' · ' + weekLabel(items2[0].date));
+      return { key: k, title: title, count: items2.length, items: items2, date: d ? d.getTime() : 0 };
+    });
+    out.sort(function (a, b) {
+      if (!a.date && b.date) return 1;
+      if (a.date && !b.date) return -1;
+      return sortMode === 'dateAsc' ? a.date - b.date : b.date - a.date;
+    });
+    return out;
+  }
+
+  function updateCounts() {
+    var all = photos.length, fav = 0, local = 0;
+    photos.forEach(function (p) { if (isFav(p)) fav++; if (p.source === 'local') local++; });
+    qa('[data-count="all"]').forEach(function (n) { n.textContent = all; });
+    qa('[data-count="fav"]').forEach(function (n) { n.textContent = fav; });
+    qa('[data-count="local"]').forEach(function (n) { n.textContent = local; });
+    el.brandCount.textContent = all ? t('count_n', { n: all }) : '';
+    el.stCount.textContent = t('count_n', { n: filtered.length });
+    el.stSize.textContent = fmtBytes(totalBytes());
+    el.stNet.textContent = offline ? t('offline') : t('online');
+    el.stNet.classList.toggle('off', offline);
+    var nsel = Object.keys(selected).length;
+    el.stSel.textContent = nsel ? t('count_selected', { n: nsel }) : '';
+    el.stSel.hidden = !nsel;
+    el.bulkCount.innerHTML = '<b>' + nsel + '</b> / ' + filtered.length;
+    el.bulk.hidden = !nsel;
+    el.btnSelect.classList.toggle('on', selectMode);
+    el.stSel.hidden = !nsel;
+  }
+
+  function setState(kind, title, desc, actions) {
+    el.libState.innerHTML = '';
+    el.libState.hidden = false;
+    var icon = document.createElement('i');
+    icon.className = 'fa-solid ' + (kind === 'error' ? 'fa-triangle-exclamation danger' : kind === 'empty' ? 'fa-images' : 'fa-magnifying-glass');
+    icon.setAttribute('aria-hidden', 'true');
+    var t1 = document.createElement('span'); t1.className = 't'; t1.textContent = title;
+    var d1 = document.createElement('span'); d1.className = 'd'; d1.textContent = desc || '';
+    var acts = document.createElement('div'); acts.className = 'acts';
+    (actions || []).forEach(function (a) {
+      var b = document.createElement('button');
+      b.className = 'fu-btn' + (a.accent ? ' fu-btn--accent' : '');
+      if (a.icon) { var i = document.createElement('i'); i.className = 'fa-solid ' + a.icon; i.setAttribute('aria-hidden', 'true'); b.appendChild(i); }
+      var s = document.createElement('span'); s.textContent = a.label; b.appendChild(s);
+      b.onclick = a.fn; acts.appendChild(b);
+    });
+    el.libState.append(icon, t1);
+    if (desc) el.libState.appendChild(d1);
+    if (actions && actions.length) el.libState.appendChild(acts);
+  }
+
+  function tileNode(p, i) {
+    var b = document.createElement('div');
+    b.className = 'tile' + (selected[p.id] ? ' sel' : '');
+    b.setAttribute('role', 'button');
+    b.tabIndex = 0;
+    b.dataset.id = p.id;
+    b.setAttribute('aria-label', p.name);
+    var img = document.createElement('img');
+    img.src = p.src; img.alt = p.name; img.loading = 'lazy'; img.draggable = false;
+    img.setAttribute('data-n26-pinch', 'emit');
+    img.onload = function () {
+      if (!p.w || !p.h) { p.w = img.naturalWidth; p.h = img.naturalHeight; }
+      b.classList.remove('broken');
+    };
+    img.onerror = function () { b.classList.add('broken'); };
+    b.appendChild(img);
+    var fav = document.createElement('button');
+    fav.className = 'fav' + (isFav(p) ? ' on' : '');
+    fav.setAttribute('aria-label', isFav(p) ? t('fav_remove') : t('fav_add'));
+    fav.innerHTML = '<i class="fa-' + (isFav(p) ? 'solid' : 'regular') + ' fa-heart" aria-hidden="true"></i>';
+    fav.onclick = function (ev) { ev.stopPropagation(); toggleFav(p.id); };
+    b.appendChild(fav);
+    var pick = document.createElement('span');
+    pick.className = 'pick' + (selected[p.id] || selectMode ? ' show' : '');
+    pick.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i>';
+    b.appendChild(pick);
+    var cap = document.createElement('span'); cap.className = 'cap'; cap.textContent = p.name;
+    b.appendChild(cap);
+    var broken = document.createElement('div'); broken.className = 'tile-broken';
+    broken.innerHTML = '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>' + t('preview_fail') + '</span>';
+    b.appendChild(broken);
+    if (i < 9) b.style.animationDelay = (i * 28) + 'ms';
+    b.onclick = function (ev) {
+      if (selectMode || ev.ctrlKey || ev.metaKey || ev.shiftKey) { pickTile(p.id, ev.shiftKey); return; }
+      openViewer(p.id);
+    };
+    b.onkeydown = function (ev) {
+      if (ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault();
+        if (selectMode) pickTile(p.id, false); else openViewer(p.id);
+      } else if (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') {
+        ev.preventDefault();
+        var all = qa('.tile', el.libList);
+        var idx = all.indexOf(b) + (ev.key === 'ArrowRight' ? 1 : -1);
+        if (idx >= 0 && idx < all.length) all[idx].focus();
+      }
+    };
+    return b;
+  }
+
+  function renderLibrary() {
+    var y = el.libScroll.scrollTop;
+    el.skeleton.hidden = fsDone && dbDone;
+    el.libList.innerHTML = '';
+    if (!filtered.length) {
+      el.libState.hidden = false;
+      if (!fsDone || !dbDone) { el.skeleton.hidden = false; el.libState.hidden = true; return; }
+      if (filter === 'fav') {
+        setState('empty', t('fav_none'), t('fav_none_desc'), [
+          { label: t('tab_all'), icon: 'fa-images', fn: function () { setFilter('all'); } }
+        ]);
+      } else if (filter === 'local') {
+        setState('empty', t('local_none'), t('local_none_desc'), [
+          { label: t('empty_import'), icon: 'fa-file-arrow-up', accent: true, fn: pickFiles }
+        ]);
+      } else if (query) {
+        setState('empty', t('no_match', { q: query }), t('empty_filter_desc'), [
+          { label: t('clear_filter'), icon: 'fa-xmark', fn: clearFilters }
+        ]);
+      } else if (fsError) {
+        setState('error', t('fs_error_title'), t('fs_error_desc'), [
+          { label: t('empty_import'), icon: 'fa-file-arrow-up', accent: true, fn: pickFiles },
+          { label: t('retry'), icon: 'fa-rotate', fn: refresh }
+        ]);
+      } else {
+        setState('empty', t('empty_title'), t('empty_desc'), [
+          { label: t('empty_import'), icon: 'fa-file-arrow-up', accent: true, fn: pickFiles },
+          { label: t('empty_shot'), icon: 'fa-camera', fn: openShot }
+        ]);
+      }
+      updateCounts();
+      return;
+    }
+    el.libState.hidden = true;
+    var frag = document.createDocumentFragment();
+    groupsOf(filtered).forEach(function (g) {
+      var sec = document.createElement('section'); sec.className = 'day'; sec.id = 'day-' + g.key.replace(/[^a-z0-9-]/gi, '');
+      var head = document.createElement('div'); head.className = 'day-head';
+      var h = document.createElement('h2'); h.textContent = g.title;
+      var c = document.createElement('span'); c.textContent = '· ' + g.count;
+      head.append(h, c); sec.appendChild(head);
+      var grid = document.createElement('div'); grid.className = 'grid';
+      g.items.forEach(function (p, i) { grid.appendChild(tileNode(p, i)); });
+      sec.appendChild(grid); frag.appendChild(sec);
+    });
+    el.libList.appendChild(frag);
+    el.libScroll.scrollTop = y;
+    updateCounts();
+  }
+
+  function refresh() {
+    el.skeleton.hidden = false;
+    el.libList.innerHTML = '';
+    el.libState.hidden = true;
+    Promise.all([scanFS(), loadLocal()]).then(function (all) {
+      mergeAll(all[0], all[1]);
+      rebuild(); renderLibrary();
+      toast(fsError ? t('scan_fail') : t('rescan_done'), 1600);
+    });
+  }
+  function mergeAll(fsItems, localItems) {
+    var favMap = favorites;
+    photos = (fsItems || []).concat(localItems || []);
+    photos.forEach(function (p) { if (favMap[p.id]) p.fav = true; });
+  }
+  function loadLocal() {
+    return dbAll().then(function (recs) {
+      return recs.map(function (r) {
+        var url = URL.createObjectURL(r.blob);
+        r._url = url;
+        return {
+          id: 'local:' + r.id, name: r.name, path: t('source_local'), src: url, blob: r.blob,
+          w: r.w || 0, h: r.h || 0, size: r.blob.size || 0, date: r.date || 0,
+          exif: r.exif || null, source: 'local', dbId: r.id
+        };
+      });
+    }).catch(function () { return []; }).then(function (items) { dbDone = true; return items; });
+  }
+
+  function toggleFav(id) {
+    if (favorites[id]) delete favorites[id]; else favorites[id] = true;
+    writeJSON('n26ImageFav.v1', favorites);
+    var p = photos.filter(function (x) { return x.id === id; })[0];
+    if (p) p.fav = !!favorites[id];
+    if (mode === 'viewer' && cur >= 0) {
+      syncFavBtn();
+      if (filter === 'fav') { rebuild(); if (!filtered.some(function (x) { return x.id === curPhoto().id; })) next(1); }
+    }
+    qa('.tile[data-id="' + cssEsc(id) + '"] .fav', el.libList).forEach(function (b) {
+      b.classList.toggle('on', !!favorites[id]);
+      b.innerHTML = '<i class="fa-' + (favorites[id] ? 'solid' : 'regular') + ' fa-heart" aria-hidden="true"></i>';
+    });
+    qa('.tile[data-id="' + cssEsc(id) + '"]', el.libList).forEach(function (b) { b.classList.toggle('sel', !!selected[id]); });
+    updateCounts();
+  }
+  function cssEsc(s) { return (window.CSS && CSS.escape) ? CSS.escape(s) : s.replace(/["\\]/g, '\\$&'); }
+
+  function pickTile(id, range) {
+    var list = filtered.map(function (p) { return p.id; });
+    var i = list.indexOf(id);
+    if (range && lastPickIndex >= 0) {
+      var a = Math.min(lastPickIndex, i), b = Math.max(lastPickIndex, i);
+      for (var k = a; k <= b; k++) selected[list[k]] = true;
+    } else {
+      if (selected[id]) delete selected[id]; else selected[id] = true;
+    }
+    lastPickIndex = i;
+    if (!selectMode) selectMode = true;
+    qa('.tile[data-id]', el.libList).forEach(function (n) {
+      var on = !!selected[n.dataset.id];
+      n.classList.toggle('sel', on);
+      var pk = q('.pick', n); if (pk) pk.classList.toggle('show', on || selectMode);
+    });
+    updateCounts();
+  }
+  function exitSelect() {
+    selectMode = false; selected = Object.create(null); lastPickIndex = -1;
+    qa('.tile[data-id]', el.libList).forEach(function (n) {
+      n.classList.remove('sel');
+      var pk = q('.pick', n); if (pk) pk.classList.remove('show');
+    });
+    updateCounts();
+  }
+  function setFilter(f) {
+    filter = f;
+    qa('.tab', el.tbLib).forEach(function (b) {
+      var on = b.dataset.filter === f;
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+      b.tabIndex = on ? 0 : -1;
+    });
+    rebuild(); renderLibrary();
+  }
+  function clearFilters() {
+    query = ''; el.searchInput.value = ''; el.searchClear.hidden = true; setFilter('all');
+  }
+
+  function openShot() {
+    if (!N.openApp) { toast(t('shot_open_fail')); return; }
+    var pr = N.openApp('screenshot');
+    if (pr && pr.catch) pr.catch(function () { toast(t('shot_open_fail')); });
+  }
+  function pickFiles() { el.filePicker.click(); }
+
+  // —— 查看器 ——
+  function curPhoto() { return cur >= 0 && cur < viewList.length ? viewList[cur] : null; }
+  function stageBox() { return { w: el.vStage.clientWidth, h: el.vStage.clientHeight }; }
+  function normRot(r) { r = ((r % 360) + 360) % 360; return r === 90 || r === 270 ? 90 : (r === 180 ? 180 : 0); }
+  function dispDims(w, h, rot) {
+    rot = normRot(rot);
+    return (rot === 90) ? { w: h, h: w } : { w: w, h: h };
+  }
+  function natural() {
+    var p = curPhoto();
+    var w = (el.mainImg.naturalWidth || (p && p.w) || 1);
+    var h = (el.mainImg.naturalHeight || (p && p.h) || 1);
+    return { w: w, h: h };
+  }
+  function fitScale() {
+    var n = natural(), d = dispDims(n.w, n.h, view.rot), s = stageBox();
+    var sx = (Math.max(1, s.w - 40)) / d.w, sy = (Math.max(1, s.h - 40)) / d.h;
+    return clampNum(Math.min(sx, sy), .1, 8);
+  }
+  function clampPan() {
+    var n = natural(), d = dispDims(n.w, n.h, view.rot), s = stageBox();
+    var mx = Math.max(0, (d.w * view.scale - s.w) / 2);
+    var my = Math.max(0, (d.h * view.scale - s.h) / 2);
+    view.panX = clampNum(view.panX, -mx, mx);
+    view.panY = clampNum(view.panY, -my, my);
+  }
+  function applyView() {
+    var p = curPhoto();
+    el.mainImg.style.transform = 'translate3d(' + view.panX.toFixed(2) + 'px,' + view.panY.toFixed(2) + 'px,0) translate(-50%,-50%) rotate(' + view.rot + 'deg) scale(' + (view.flip ? -1 : 1) * view.scale + ',' + view.scale + ')';
+    el.zoomLabel.textContent = Math.round(view.scale * 100) + '%';
+    el.vStage.classList.toggle('zoomed', p && view.scale > fitScale() * 1.02);
+    el.btnFit.classList.toggle('on', !!view.fit);
+    el.btnActual.classList.toggle('on', Math.abs(view.scale - 1) < .002);
+  }
+  function setScale(s, fx, fy) {
+    var st = el.vStage.getBoundingClientRect();
+    var cxp = (fx == null ? st.width / 2 : fx - st.left) - st.width / 2;
+    var cyp = (fy == null ? st.height / 2 : fy - st.top) - st.height / 2;
+    var next = clampNum(s, .1, 8), k = next / (view.scale || 1);
+    view.panX = cxp - k * (cxp - view.panX);
+    view.panY = cyp - k * (cyp - view.panY);
+    view.scale = next; view.fit = false;
+    clampPan(); applyView();
+  }
+  function zoomBy(f, fx, fy) { setScale(view.scale * f, fx, fy); }
+  function doFit() {
+    view.scale = fitScale(); view.fit = true; view.panX = 0; view.panY = 0; applyView();
+  }
+  function doActual() { view.fit = false; view.scale = 1; view.panX = 0; view.panY = 0; clampPan(); applyView(); }
+
+  function openViewer(id) {
+    var list = [];
+    groupsOf(filtered).forEach(function (g) { list = list.concat(g.items); });
+    var i = list.map(function (p) { return p.id; }).indexOf(id);
+    if (i < 0) { list = photos.slice().sort(sortItems); i = list.map(function (p) { return p.id; }).indexOf(id); }
+    if (i < 0) return;
+    viewList = list; cur = i; mode = 'viewer';
+    lastFocusId = id;
+    forceTheme();
+    stopSlide();
+    hideMenu();
+    document.body.classList.add('mode-viewer');
+    document.body.classList.remove('show-info');
+    el.vStage.classList.remove('dragging');
+    resetView();
+    renderViewer();
+    try { el.vStage.focus({ preventScroll: true }); } catch (e) {}
     saveState();
   }
-  function toggleSlide() { setSlide(!slideOn); }
-  document.getElementById('btnSlide').onclick = toggleSlide;
-  document.getElementById('imSlide').onclick = toggleSlide;
-
-  /* ---- 状态广播：n26ImageNow（600ms 节流，★绝不写图片 dataURL 以免爆 localStorage） ---- */
-  function broadcastNow(force) {
-    var now = Date.now();
-    if (!force && now - lastBroadcast < 600) return;
-    lastBroadcast = now;
-    var im = images[cur];
-    var payload = {
-      name: im ? im.name : '',
-      count: images.length,
-      index: cur >= 0 ? cur + 1 : 0,
-      pos: cur >= 0 ? cur + 1 : 0,
-      dur: images.length,
-      playing: slideOn,
-      hue: 200, ts: now
+  function closeViewer() {
+    if (mode !== 'viewer') return;
+    exitCrop(false);
+    stopSlide();
+    hideMenu();
+    document.body.classList.remove('mode-viewer', 'show-info', 'cropping', 'no-film');
+    mode = 'library'; cur = -1; viewList = [];
+    el.mainImg.removeAttribute('src');
+    el.mainImg.hidden = true;
+    el.mainImg.style.transform = '';
+    el.filmList.innerHTML = '';
+    saveState();
+    rebuild(); renderLibrary();
+    var tgt = q('.tile[data-id="' + cssEsc(lastFocusId || '') + '"]', el.libList);
+    if (tgt) { try { tgt.focus({ preventScroll: true }); tgt.scrollIntoView({ block: 'nearest' }); } catch (e) {} }
+    lastFocusId = null;
+  }
+  function resetView() {
+    view = { scale: 1, rot: 0, flip: false, panX: 0, panY: 0, fit: true, loaded: false };
+  }
+  function renderViewer() {
+    var p = curPhoto();
+    if (!p) return;
+    el.vName.textContent = p.name;
+    el.vName.title = p.path || p.name;
+    el.vIndex.textContent = (cur + 1) + ' / ' + viewList.length;
+    document.body.classList.toggle('no-film', viewList.length < 2);
+    el.vFilm.hidden = viewList.length < 2;
+    syncFavBtn();
+    renderFilm();
+    renderInfo();
+    loadImage();
+    applyView();
+    updateMedia();
+    saveState();
+    broadcast();
+  }
+  function syncFavBtn() {
+    var p = curPhoto(), on = p && isFav(p);
+    el.btnFav.classList.toggle('on', !!on);
+    el.btnFav.innerHTML = '<i class="' + (on ? 'fa-solid' : 'fa-regular') + ' fa-heart" aria-hidden="true"></i>';
+    el.btnFav.setAttribute('aria-label', on ? t('fav_remove') : t('fav_add'));
+    el.btnFav.title = on ? t('fav_remove') : t('fav_add');
+  }
+  function loadImage() {
+    var p = curPhoto(); if (!p) return;
+    var tok = ++loadToken;
+    el.vError.hidden = true; el.vSpin.hidden = false; el.mainImg.hidden = true;
+    el.mainImg.classList.remove('n26-fade');
+    var im = el.mainImg;
+    im.onload = function () {
+      if (tok !== loadToken) return;
+      view.loaded = true; el.vSpin.hidden = true; im.hidden = false;
+      im.classList.add('n26-fade');
+      if (!p.w || !p.h) { p.w = im.naturalWidth; p.h = im.naturalHeight; }
+      view.scale = fitScale(); view.fit = true; view.panX = 0; view.panY = 0;
+      applyView(); renderInfo(); maybeExif(p);
     };
-    try { localStorage.setItem('n26ImageNow', JSON.stringify(payload)); } catch (e) {}
+    im.onerror = function () {
+      if (tok !== loadToken) return;
+      el.vSpin.hidden = true; im.hidden = true; showError(p);
+    };
+    im.src = p.src;
+    im.alt = p.name;
   }
-  /* 关窗状态持久（只存索引与开关，不存 src） */
-  function saveState() {
-    if (restoring) return;
-    try { localStorage.setItem('n26ImageState', JSON.stringify({ cur: cur, slide: slideOn, ts: Date.now() })); } catch (e) {}
+  function showError(p) {
+    el.vError.hidden = false;
+    el.vErrorDesc.textContent = (offline && p && /^https?:/i.test(p.src)) ? t('offline') + ' · ' + t('err_desc') : t('err_desc');
   }
-  window.addEventListener('pagehide', saveState);
-  /* 小主页控制命令 */
-  window.addEventListener('storage', function (e) {
-    if (e.key !== 'n26ImageCmd' || !e.newValue) return;
-    var cmd = null;
-    try { cmd = JSON.parse(e.newValue); } catch (er) { return; }
-    if (!cmd) return;
-    if (cmd.act === 'toggle') toggleSlide();
-    else if (cmd.act === 'next') show(cur + 1);
-    else if (cmd.act === 'prev') show(cur - 1);
-    else if (cmd.act === 'fs') openImmersive();
-  });
-  /* ---- 重开恢复（列表来自文件系统，顺序稳定 → 恢复索引即可） ---- */
-  function takeOverState(st) {
-    if (!st) return;
-    /* show() 的 saveState 在图片 onload 里异步执行：恢复期间先抑制回写，
-       否则 removeItem 刚清掉的 n26ImageState 会被随后触发的 onload 重新写回。 */
-    restoring = true;
-    if (typeof st.cur === 'number' && images.length && st.cur >= 0 && st.cur < images.length) show(st.cur);
-    else restoring = false;
-    if (st.slide && images.length > 1) setSlide(true);
-    try { localStorage.removeItem('n26ImageState'); } catch (e) {}
-    /* 兜底：图片解码异常时别把 restoring 永久卡住 */
-    setTimeout(function () { restoring = false; }, 2000);
+  function renderFilm() {
+    if (viewList.length < 2) { el.filmList.innerHTML = ''; return; }
+    var frag = document.createDocumentFragment();
+    viewList.forEach(function (p, i) {
+      var b = document.createElement('button');
+      b.className = 'thumb' + (i === cur ? ' active' : '');
+      b.type = 'button'; b.dataset.i = i;
+      b.setAttribute('aria-label', p.name + ' (' + (i + 1) + '/' + viewList.length + ')');
+      var im = document.createElement('img');
+      im.src = p.src; im.alt = ''; im.loading = 'lazy'; im.draggable = false;
+      im.setAttribute('data-n26-pinch', 'emit');
+      im.onerror = function () { b.classList.add('broken'); im.style.visibility = 'hidden'; };
+      b.appendChild(im);
+      b.onclick = function () { goTo(i); };
+      frag.appendChild(b);
+    });
+    el.filmList.innerHTML = '';
+    el.filmList.appendChild(frag);
+    var act = q('.thumb.active', el.filmList);
+    if (act) try { act.scrollIntoView({ inline: 'center', block: 'nearest' }); } catch (e) {}
   }
-  /* ---- Media Session ---- */
-  function setupMediaSession() {
-    if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
-    var im = images[cur];
+  function updateFilmActive() {
+    qa('.thumb', el.filmList).forEach(function (b, i) { b.classList.toggle('active', i === cur); });
+    var act = q('.thumb.active', el.filmList);
+    if (act) try { act.scrollIntoView({ inline: 'center', block: 'nearest' }); } catch (e) {}
+  }
+  function goTo(i, wrap) {
+    if (!viewList.length) return;
+    if (wrap) i = (i + viewList.length) % viewList.length;
+    if (i < 0 || i >= viewList.length || i === cur) return;
+    cur = i;
+    exitCrop(false);
+    var p = curPhoto();
+    el.vName.textContent = p.name; el.vName.title = p.path || p.name;
+    el.vIndex.textContent = (cur + 1) + ' / ' + viewList.length;
+    syncFavBtn(); updateFilmActive(); renderInfo(); loadImage();
+    applyView(); updateMedia(); saveState(); broadcast(); restartSlideProgress();
+  }
+  function next(step, wrap) { goTo(cur + (step || 1), wrap); }
+
+  function escd(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
+  function renderInfo() {
+    var p = curPhoto(); if (!p) return;
+    var dims = (p.w && p.h) ? (p.w + ' × ' + p.h) : t('unknown');
+    var ex = p.exif || {};
+    var cam = [ex.make, ex.model].filter(Boolean).join(' ');
+    var date = p.date ? fullDate(p.date) : (ex.date ? fullDate(ex.date) : t('unknown'));
+    var rows = [
+      [t('info_dims'), dims],
+      [t('info_size'), p.size ? fmtBytes(p.size) : t('unknown')],
+      [t('info_format'), extOf(p.name)],
+      [t('info_date'), date],
+      [t('info_camera'), cam || t('unknown')],
+      [t('info_source'), p.source === 'local' ? t('source_local') : t('source_fs')],
+      [t('info_path'), (p.source === 'local' || !p.path) ? t('unknown') : p.path]
+    ];
+    var html = '<h3>' + escd(t('info_title')) + '</h3>';
+    rows.forEach(function (r) {
+      html += '<div class="fld"><span class="k">' + escd(r[0]) + '</span><span class="v">' + escd(r[1]) + '</span></div>';
+    });
+    if (p.path && p.source !== 'local') html += '<button class="fu-btn" id="btnCopyPath"><i class="fa-solid fa-copy" aria-hidden="true"></i><span>' + escd(t('copy_path')) + '</span></button>';
+    el.vInfo.innerHTML = html;
+    var cp = q('#btnCopyPath', el.vInfo);
+    if (cp) cp.onclick = function () {
+      var txt = p.path || '';
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(function () { toast(t('copied_path')); }).catch(function () { toast(t('copy_fail')); });
+      } else toast(t('copy_fail'));
+    };
+  }
+
+  // —— EXIF（只读 DateTimeOriginal / Make / Model，失败静默） ——
+  function readAscii(dv, base, off) {
+    var p = base + off, s = '', n = 0;
+    while (p + n < dv.byteLength && n < 80) {
+      var c = dv.getUint8(p + n); if (c === 0) break; s += String.fromCharCode(c); n++;
+    }
+    return s.replace(/[\u0000-\u001f]/g, '').trim();
+  }
+  function parseExifDate(s) {
+    var m = /^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/.exec(s || '');
+    if (!m) return 0;
+    var d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+    return isFinite(d.getTime()) ? d.getTime() : 0;
+  }
+  function readIfd(dv, tiff, off, le, out) {
+    if (off < 4 || off + 2 > dv.byteLength) return;
+    var n = dv.getUint16(off, le);
+    for (var i = 0; i < n && i < 64; i++) {
+      var e = off + 2 + i * 12;
+      if (e + 12 > dv.byteLength) break;
+      var tag = dv.getUint16(e, le), cnt = dv.getUint32(e + 4, le), vo = dv.getUint32(e + 8, le);
+      if (tag === 0x010F || tag === 0x0110) {
+        var s = readAscii(dv, tiff, vo); if (s) out[tag === 0x010F ? 'make' : 'model'] = s.slice(0, 40);
+      } else if (tag === 0x0132) {
+        var s2 = readAscii(dv, tiff, vo); if (s2) out.date = s2;
+      } else if (tag === 0x9003) {
+        var s3 = readAscii(dv, tiff, vo); if (s3) out.date = s3;
+      } else if (tag === 0x8769) {
+        out._exif = tiff + vo;
+      }
+    }
+  }
+  function parseExif(buf) {
     try {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: im ? im.name : T('img_not_browsing'), artist: T('img_slideshow'), album: 'Nexus OS 26'
+      var dv = new DataView(buf), len = dv.byteLength;
+      if (len < 4 || dv.getUint16(0, false) !== 0xFFD8) return null;
+      var off = 2, tiff = -1;
+      while (off + 4 < len) {
+        var m = dv.getUint16(off, false);
+        if ((m & 0xFF00) !== 0xFF00) break;
+        if (m === 0xFFDA) break;
+        var size = dv.getUint16(off + 2, false);
+        if (m === 0xFFE1 && off + 10 < len && dv.getUint32(off + 4, false) === 0x45786966) { tiff = off + 10; break; }
+        if (size < 2) break;
+        off += 2 + size;
+      }
+      if (tiff < 0) return null;
+      var le = dv.getUint16(tiff, false) === 0x4949;
+      if (dv.getUint16(tiff + 2, le) !== 0x2A) return null;
+      var out = {}, first = tiff + dv.getUint32(tiff + 4, le);
+      readIfd(dv, tiff, first, le, out);
+      if (out._exif) { var sub = {}; readIfd(dv, tiff, out._exif, le, sub); if (sub.date) out.date = sub.date; }
+      delete out._exif;
+      var dt = parseExifDate(out.date);
+      return { make: out.make || null, model: out.model || null, date: dt || 0 };
+    } catch (e) { return null; }
+  }
+  function maybeExif(p) {
+    if (!p || p.exif || p._exifTried) return;
+    if (/^https?:/i.test(p.src)) return;
+    p._exifTried = true;
+    var pr;
+    if (p.blob) pr = p.blob.arrayBuffer();
+    else pr = fetch(p.src).then(function (r) { return r.arrayBuffer(); });
+    pr.then(function (buf) {
+      var ex = parseExif(buf);
+      if (!ex) return;
+      p.exif = ex;
+      if (!p.date && ex.date) p.date = ex.date;
+      if (mode === 'viewer' && curPhoto() === p) renderInfo();
+    }).catch(function () {});
+  }
+
+  // —— 编辑产物、导出、复制 ——
+  function edited() { return !!(view.rot || view.flip); }
+  function bakeCanvas() {
+    var p = curPhoto(), im = el.mainImg;
+    var n = natural(); var rot = normRot(view.rot);
+    var cw = rot === 90 ? n.h : n.w, ch = rot === 90 ? n.w : n.h;
+    var c = document.createElement('canvas'); c.width = cw; c.height = ch;
+    var x = c.getContext('2d');
+    x.translate(cw / 2, ch / 2); x.rotate(rot * Math.PI / 180); x.scale(view.flip ? -1 : 1, 1);
+    x.drawImage(im, -n.w / 2, -n.h / 2, n.w, n.h);
+    return c;
+  }
+  function pngBlobOf(p) {
+    if (!edited() && p.blob && /^image\/png$/i.test(p.blob.type)) return Promise.resolve(p.blob);
+    return new Promise(function (res) {
+      var c = edited() ? bakeCanvas() : (function () {
+        var n = natural(), cc = document.createElement('canvas'); cc.width = n.w; cc.height = n.h;
+        cc.getContext('2d').drawImage(el.mainImg, 0, 0, n.w, n.h); return cc;
+      })();
+      c.toBlob(function (b) { res(b); }, 'image/png');
+    });
+  }
+  function originalBlob(p) {
+    if (p.blob) return Promise.resolve(p.blob);
+    return fetch(p.src).then(function (r) { if (!r.ok) throw new Error('http'); return r.blob(); });
+  }
+  function saveBlob(blob, name) {
+    if (!blob) { toast(t('save_fail')); return Promise.resolve(false); }
+    return new Promise(function (res) {
+      var fallback = function () {
+        try {
+          var url = URL.createObjectURL(blob), a = document.createElement('a');
+          a.href = url; a.download = name; a.style.display = 'none';
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
+          toast(t('saved'), 1400); res(true);
+        } catch (e) { toast(t('save_fail')); res(false); }
+      };
+      if (window.showSaveFilePicker) {
+        var mime = blob.type || 'image/png';
+        window.showSaveFilePicker({
+          suggestedName: name,
+          types: [{ description: 'Image', accept: (function () { var o = {}; o[mime] = ['.png', '.jpg', '.jpeg', '.webp', '.gif']; return o; })() }]
+        }).then(function (h) { return h.createWritable(); })
+          .then(function (w) { return w.write(blob).then(function () { return w.close(); }); })
+          .then(function () { toast(t('saved'), 1400); res(true); })
+          .catch(function (e) { if (e && e.name === 'AbortError') { res(false); } else fallback(); });
+      } else fallback();
+    });
+  }
+  function downloadCur() {
+    var p = curPhoto(); if (!p) return;
+    if (!edited()) {
+      originalBlob(p).then(function (b) { saveBlob(b, p.name); }).catch(function () { toast(t('save_fail')); });
+      return;
+    }
+    var name = stemOf(p.name) + '-rotated.png';
+    pngBlobOf(p).then(function (b) { saveBlob(b, name); });
+  }
+  function copyCur() {
+    var p = curPhoto(); if (!p) return;
+    if (!navigator.clipboard || !window.ClipboardItem) { toast(t('copy_fail')); return; }
+    pngBlobOf(p).then(function (b) {
+      return navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]);
+    }).then(function () { toast(t('copied')); }).catch(function () { toast(t('copy_fail')); });
+  }
+  function toggleFull() {
+    try {
+      if (document.fullscreenElement) { document.exitFullscreen(); return; }
+      var pr = document.documentElement.requestFullscreen();
+      if (pr && pr.catch) pr.catch(function () { toast(t('fullscreen_fail')); });
+    } catch (e) { toast(t('fullscreen_fail')); }
+  }
+
+  // —— 裁剪 ——
+  function enterCrop() {
+    var p = curPhoto();
+    if (!p || !view.loaded || crop.on) return;
+    stopSlide(); hideMenu(); exitCrop(false);
+    crop.on = true; document.body.classList.add('cropping');
+    crop.baked = bakeCanvas();
+    var s = stageBox();
+    var sc = Math.min((Math.max(1, s.w - 32)) / crop.baked.width, (Math.max(1, s.h - 32)) / crop.baked.height, 1);
+    var dw = Math.round(crop.baked.width * sc), dh = Math.round(crop.baked.height * sc);
+    el.cropCanvas.width = crop.baked.width; el.cropCanvas.height = crop.baked.height;
+    el.cropCanvas.style.width = dw + 'px'; el.cropCanvas.style.height = dh + 'px';
+    el.cropCanvas.getContext('2d').drawImage(crop.baked, 0, 0);
+    el.cropInner.style.width = dw + 'px'; el.cropInner.style.height = dh + 'px';
+    crop.ratio = dw / crop.baked.width;
+    crop.x = Math.round(crop.baked.width * .1); crop.y = Math.round(crop.baked.height * .1);
+    crop.w = Math.round(crop.baked.width * .8); crop.h = Math.round(crop.baked.height * .8);
+    paintCrop();
+  }
+  function paintCrop() {
+    if (!crop.baked) return;
+    var cw = crop.baked.width, ch = crop.baked.height;
+    el.cropRect.style.left = (crop.x / cw * 100) + '%';
+    el.cropRect.style.top = (crop.y / ch * 100) + '%';
+    el.cropRect.style.width = (crop.w / cw * 100) + '%';
+    el.cropRect.style.height = (crop.h / ch * 100) + '%';
+  }
+  function exitCrop(silent) {
+    if (!crop.on) return;
+    crop.on = false; crop.drag = null; crop.baked = null;
+    document.body.classList.remove('cropping');
+    if (!silent) toast(t('crop_hint'), 900);
+  }
+  function cropStart(e) {
+    if (!crop.on) return;
+    var dir = (e.target && e.target.getAttribute && e.target.getAttribute('data-dir')) || 'move';
+    crop.drag = { dir: dir, sx: e.clientX, sy: e.clientY, x: crop.x, y: crop.y, w: crop.w, h: crop.h };
+    try { el.cropRect.setPointerCapture(e.pointerId); } catch (er) {}
+    e.preventDefault(); e.stopPropagation();
+  }
+  function cropMove(e) {
+    var d = crop.drag;
+    if (!d || !crop.baked) return;
+    var cw = crop.baked.width, ch = crop.baked.height, r = crop.ratio || 1;
+    var dx = (e.clientX - d.sx) / r, dy = (e.clientY - d.sy) / r;
+    var minW = Math.max(24, cw * .06), minH = Math.max(24, ch * .06);
+    var x = d.x, y = d.y, w = d.w, h = d.h;
+    if (d.dir === 'move') {
+      x = clampNum(d.x + dx, 0, cw - w); y = clampNum(d.y + dy, 0, ch - h);
+    } else {
+      if (d.dir.indexOf('e') >= 0) w = clampNum(d.w + dx, minW, cw - x);
+      if (d.dir.indexOf('s') >= 0) h = clampNum(d.h + dy, minH, ch - y);
+      if (d.dir.indexOf('w') >= 0) { var nx = clampNum(d.x + dx, 0, d.x + d.w - minW); w = d.w + (d.x - nx); x = nx; }
+      if (d.dir.indexOf('n') >= 0) { var ny = clampNum(d.y + dy, 0, d.y + d.h - minH); h = d.h + (d.y - ny); y = ny; }
+    }
+    crop.x = Math.round(x); crop.y = Math.round(y); crop.w = Math.round(w); crop.h = Math.round(h);
+    paintCrop();
+  }
+  function cropEnd() { crop.drag = null; }
+  function applyCrop() {
+    if (!crop.on || !crop.baked) return;
+    var p = curPhoto();
+    var src = crop.baked;
+    var cw = Math.max(8, Math.round(crop.w)), ch = Math.max(8, Math.round(crop.h));
+    var out = document.createElement('canvas'); out.width = cw; out.height = ch;
+    out.getContext('2d').drawImage(src, crop.x, crop.y, crop.w, crop.h, 0, 0, cw, ch);
+    out.toBlob(function (b) {
+      if (!b) { toast(t('crop_fail')); return; }
+      exitCrop(true);
+      addLocalBlob(b, stemOf(p.name) + '-crop.png', cw, ch).then(function (np) {
+        toast(t('crop_ok'));
+        if (np) openViewer(np.id);
       });
+    }, 'image/png');
+  }
+
+  // —— 幻灯片 ——
+  function restartSlideProgress() {
+    if (!slideOn) return;
+    el.slideProg.hidden = false;
+    el.slideBar.classList.remove('run');
+    void el.slideBar.offsetWidth;
+    el.slideBar.classList.add('run');
+  }
+  function scheduleSlide() {
+    clearTimeout(slideTimer); slideTimer = null;
+    if (!slideOn) return;
+    slideTimer = setTimeout(function () {
+      if (!slideOn || mode !== 'viewer') { setSlide(false); return; }
+      goTo((cur + 1) % viewList.length);
+      scheduleSlide();
+    }, 5000);
+  }
+  function setSlide(on) {
+    if (on && (mode !== 'viewer' || !viewList.length)) {
+      if (photos.length) { openViewer(filtered[0] && filtered[0].id); }
+      return;
+    }
+    slideOn = !!on;
+    el.slideProg.hidden = !slideOn;
+    if (slideOn) { restartSlideProgress(); scheduleSlide(); }
+    else { clearTimeout(slideTimer); slideTimer = null; el.slideBar.classList.remove('run'); }
+    updateMedia(); saveState(); broadcast();
+  }
+  function stopSlide() { if (slideOn) setSlide(false); }
+
+  // —— 菜单 / 提示 / 快捷键 ——
+  var menuAt = null;
+  function hideMenu() { el.menu.classList.remove('open'); menuAt = null; }
+  function showMenu(anchor, items) {
+    hideMenu();
+    el.menu.innerHTML = '';
+    items.forEach(function (it) {
+      if (it.sep) { var s = document.createElement('div'); s.className = 'menu-sep'; el.menu.appendChild(s); return; }
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'menu-item' + (it.on ? ' on' : '');
+      b.setAttribute('role', 'menuitem');
+      var ic = document.createElement('i'); ic.className = 'fa-solid ' + (it.icon || 'fa-circle-dot'); ic.setAttribute('aria-hidden', 'true');
+      var lb = document.createElement('span'); lb.textContent = it.label;
+      b.append(ic, lb);
+      if (it.tail) { var tl = document.createElement('span'); tl.className = 'tail'; tl.textContent = it.tail; b.appendChild(tl); }
+      if (it.disabled) { b.style.opacity = '.45'; b.style.cursor = 'not-allowed'; }
+      else b.onclick = function (e) { e.stopPropagation(); hideMenu(); it.fn && it.fn(); };
+      el.menu.appendChild(b);
+    });
+    el.menu.classList.add('open');
+    var r = anchor.getBoundingClientRect();
+    var w = el.menu.offsetWidth, h = el.menu.offsetHeight;
+    var left = Math.min(r.right - w, window.innerWidth - w - 8);
+    left = Math.max(8, left);
+    var top = r.bottom + 6;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 6);
+    el.menu.style.left = left + 'px'; el.menu.style.top = top + 'px';
+    menuAt = anchor;
+  }
+  function sortMenu(anchor) {
+    showMenu(anchor, [
+      { icon: 'fa-arrow-down-wide-short', label: t('sort_date'), on: sortMode === 'date', fn: function () { setSort('date'); } },
+      { icon: 'fa-arrow-up-wide-short', label: t('sort_date_asc'), on: sortMode === 'dateAsc', fn: function () { setSort('dateAsc'); } },
+      { icon: 'fa-arrow-down-a-z', label: t('sort_name'), on: sortMode === 'name', fn: function () { setSort('name'); } },
+      { icon: 'fa-arrow-down-wide-short', label: t('sort_size'), on: sortMode === 'size', fn: function () { setSort('size'); } }
+    ]);
+  }
+  function setSort(v) { sortMode = v; try { localStorage.setItem('n26ImageSort', v); } catch (e) {} rebuild(); renderLibrary(); }
+  function timelineMenu(anchor) {
+    var gs = groupsOf(filtered).filter(function (g) { return g.date; });
+    if (!gs.length) { showMenu(anchor, [{ icon: 'fa-clock', label: t('date_undated'), disabled: true }]); return; }
+    showMenu(anchor, gs.map(function (g) {
+      var d = new Date(g.date);
+      var label = new Intl.DateTimeFormat(normLang(lang), { year: 'numeric', month: 'long' }).format(d);
+      return {
+        icon: 'fa-calendar-day', label: label, tail: String(g.count), fn: function () {
+          var sec = q('#day-' + g.key.replace(/[^a-z0-9-]/gi, ''), el.libList);
+          if (sec) el.libScroll.scrollTo({ top: sec.offsetTop - 8, behavior: 'smooth' });
+        }
+      };
+    }));
+  }
+  function gridMenu(anchor) {
+    showMenu(anchor, [
+      { icon: 'fa-table-cells-large', label: t('grid_small'), on: tileSize <= 110, fn: function () { setTileSize(96, true); } },
+      { icon: 'fa-table-cells-large', label: t('grid_medium'), on: tileSize > 110 && tileSize < 170, fn: function () { setTileSize(136, true); } },
+      { icon: 'fa-table-cells-large', label: t('grid_large'), on: tileSize >= 170, fn: function () { setTileSize(200, true); } },
+      { sep: true },
+      { icon: 'fa-rotate', label: t('rescan'), fn: refresh },
+      { icon: 'fa-keyboard', label: t('shortcuts'), fn: openSheet }
+    ]);
+  }
+  function setTileSize(n, persist) {
+    tileSize = Math.round(clampNum(n, 88, 260));
+    el.libScroll.style.setProperty('--tile', tileSize + 'px');
+    if (persist) { try { localStorage.setItem('n26ImageTile', String(tileSize)); } catch (e) {} }
+    else {
+      clearTimeout(setTileSize._tm);
+      setTileSize._tm = setTimeout(function () { try { localStorage.setItem('n26ImageTile', String(tileSize)); } catch (e) {} }, 300);
+    }
+  }
+  function viewMenu(anchor) {
+    showMenu(anchor, [
+      { icon: 'fa-crop', label: t('crop'), tail: 'C', fn: enterCrop },
+      { icon: 'fa-copy', label: t('copy_img'), tail: 'Ctrl C', fn: copyCur },
+      { icon: 'fa-floppy-disk', label: t('save_as'), tail: 'Ctrl S', fn: downloadCur },
+      { icon: 'fa-desktop', label: t('fullscreen'), tail: 'Shift F', fn: toggleFull },
+      { sep: true },
+      { icon: slideOn ? 'fa-pause' : 'fa-play', label: slideOn ? t('stop_slide') : t('slide'), tail: 'Space', on: slideOn, fn: function () { setSlide(!slideOn); } },
+      { icon: 'fa-rotate-right', label: t('rotate'), tail: 'R', fn: rotateCur },
+      { icon: 'fa-arrows-left-right', label: t('flip'), tail: 'M', fn: flipCur },
+      { icon: 'fa-circle-info', label: t('info'), tail: 'I', on: document.body.classList.contains('show-info'), fn: toggleInfo },
+      { sep: true },
+      { icon: 'fa-keyboard', label: t('shortcuts'), fn: openSheet }
+    ]);
+  }
+  var SHORTCUTS_ZH = [
+    ['← / →', '上一张 / 下一张'], ['Space / P', '开始或停止幻灯片（每 5 秒）'], ['+ / −', '放大 / 缩小（10%–800%）'],
+    ['0', '适应窗口'], ['1', '原始尺寸 1:1'], ['拖动 / 双指滑动', '平移图片；双指捏合缩放'], ['R', '顺时针旋转 90°'],
+    ['M', '水平镜像'], ['F', '收藏 / 取消收藏'], ['C', '裁剪'], ['I', '显示或隐藏信息'], ['Ctrl S', '另存为'], ['Ctrl C', '复制图片'],
+    ['Shift F', '浏览器全屏'], ['Esc', '退出查看器 / 取消裁剪'], ['Ctrl A', '全选当前筛选（相册内）'], ['边缘左滑', '从查看器返回相册']
+  ];
+  var SHORTCUTS_EN = [
+    ['← / →', 'Previous / next'], ['Space / P', 'Start or stop slideshow (5 s)'], ['+ / −', 'Zoom in / out (10%–800%)'],
+    ['0', 'Fit window'], ['1', 'Actual size 1:1'], ['Drag / two-finger scroll', 'Pan; pinch to zoom'], ['R', 'Rotate 90° clockwise'],
+    ['M', 'Flip horizontally'], ['F', 'Favorite / unfavorite'], ['C', 'Crop'], ['I', 'Toggle info'], ['Ctrl S', 'Save as'], ['Ctrl C', 'Copy image'],
+    ['Shift F', 'Fullscreen'], ['Esc', 'Close viewer / cancel crop'], ['Ctrl A', 'Select all in current filter'], ['Edge swipe left', 'Back from viewer']
+  ];
+  function openSheet() {
+    hideMenu();
+    el.sheetTitle.textContent = t('shortcuts');
+    el.sheetBody.innerHTML = '';
+    var rows = (lang.indexOf('en') === 0) ? SHORTCUTS_EN : SHORTCUTS_ZH;
+    rows.forEach(function (r) {
+      var d = document.createElement('div'); d.className = 'kbd-row';
+      var a = document.createElement('span'); a.textContent = r[1];
+      var k = document.createElement('span'); k.className = 'kbd'; k.textContent = r[0];
+      d.append(a, k); el.sheetBody.appendChild(d);
+    });
+    el.sheet.classList.add('show');
+  }
+  function closeSheet() { el.sheet.classList.remove('show'); }
+
+  function rotateCur() {
+    if (!curPhoto() || crop.on) return;
+    view.rot = normRot(view.rot + 90);
+    if (view.fit) { view.scale = fitScale(); view.panX = 0; view.panY = 0; } else { clampPan(); }
+    applyView();
+    toast(t('rotate') + ' 90°', 900);
+  }
+  function flipCur() {
+    if (!curPhoto() || crop.on) return;
+    view.flip = !view.flip; applyView();
+  }
+  function toggleInfo() {
+    var on = document.body.classList.toggle('show-info');
+    el.btnInfo.classList.toggle('on', on);
+    if (on) renderInfo();
+  }
+
+  // —— 本机导入 ——
+  var storageWarned = false;
+  function probeFile(file, url) {
+    return new Promise(function (res) {
+      var im = new Image();
+      im.onload = function () { res({ w: im.naturalWidth, h: im.naturalHeight }); };
+      im.onerror = function () { res({ w: 0, h: 0 }); };
+      im.src = url;
+    });
+  }
+  function addImport(file) {
+    var url = URL.createObjectURL(file), part = rid();
+    return probeFile(file, url).then(function (dim) {
+      if (!dim.w) { URL.revokeObjectURL(url); return false; }
+      var p = {
+        id: 'local:' + part, name: file.name || ('image-' + part + '.png'), path: t('source_local'), src: url,
+        blob: file, w: dim.w, h: dim.h, size: file.size || 0, date: (file.lastModified || Date.now()), source: 'local', dbId: part
+      };
+      photos.push(p);
+      return file.arrayBuffer().then(function (buf) {
+        var ex = parseExif(buf);
+        if (ex) { p.exif = ex; if (!p.date && ex.date) p.date = ex.date; }
+      }).catch(function () {}).then(function () {
+        return dbPut({ id: part, name: p.name, blob: file, date: p.date, w: p.w, h: p.h, exif: p.exif || null, type: file.type || 'image/png', added: Date.now() });
+      }).catch(function () {
+        if (!storageWarned) { storageWarned = true; toast(t('storage_fail'), 3200); }
+      }).then(function () { return p; });
+    });
+  }
+  function importFiles(files) {
+    var list = Array.prototype.slice.call(files || []).filter(function (f) {
+      return /^image\//.test(f.type || '') || /\.(png|jpg|jpeg|webp|gif|bmp|avif|svg)$/i.test(f.name || '');
+    });
+    if (!list.length) { toast(t('import_fail')); return Promise.resolve(); }
+    var ok = 0;
+    var chain = Promise.resolve();
+    list.forEach(function (f) {
+      chain = chain.then(function () { return addImport(f).then(function (p) { if (p) ok++; }); });
+    });
+    return chain.then(function () {
+      rebuild(); renderLibrary();
+      if (ok) toast(t('imported_n', { n: ok }), 1600);
+      else toast(t('import_fail'));
+    });
+  }
+  function addLocalBlob(blob, name, w, h) {
+    var part = rid(), url = URL.createObjectURL(blob), p = {
+      id: 'local:' + part, name: name, path: t('source_local'), src: url, blob: blob,
+      w: w, h: h, size: blob.size || 0, date: Date.now(), source: 'local', dbId: part
+    };
+    photos.push(p); rebuild();
+    return dbPut({ id: part, name: name, blob: blob, date: p.date, w: w, h: h, exif: null, type: blob.type || 'image/png', added: Date.now() })
+      .catch(function () { if (!storageWarned) { storageWarned = true; toast(t('storage_fail'), 3200); } })
+      .then(function () { return p; });
+  }
+  function saveBlobQuick(blob, name) {
+    return new Promise(function (res) {
+      try {
+        var url = URL.createObjectURL(blob), a = document.createElement('a');
+        a.href = url; a.download = name; a.style.display = 'none';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 3000); res(true);
+      } catch (e) { res(false); }
+    });
+  }
+  function bulkExport() {
+    var ids = Object.keys(selected);
+    var list = photos.filter(function (p) { return selected[p.id]; });
+    if (!list.length) return;
+    var a = 0, ok = 0;
+    var chain = Promise.resolve();
+    list.forEach(function (p) {
+      chain = chain.then(function () {
+        a++; toast(t('batch_export', { a: a, b: list.length }), 1400);
+        return originalBlob(p).then(function (b) { return saveBlobQuick(b, p.name).then(function (r) { if (r) ok++; }); }).catch(function () {});
+      });
+    });
+    chain.then(function () {
+      toast(ok ? t('imported_n', { n: ok }) : t('save_fail'));
+      exitSelect(); renderLibrary();
+    });
+  }
+
+  // —— 状态广播 / 小组件 / Media Session ——
+  function saveState() {
+    var p = curPhoto();
+    try {
+      localStorage.setItem('n26ImageState', JSON.stringify({ mode: mode, id: p ? p.id : null, cur: cur, slide: slideOn, ts: Date.now() }));
+    } catch (e) {}
+  }
+  var lastBc = 0;
+  function broadcast() {
+    var now = Date.now();
+    if (now - lastBc < 600) { clearTimeout(broadcast._tm); broadcast._tm = setTimeout(broadcast, 600); return; }
+    lastBc = now;
+    var p = curPhoto();
+    try {
+      localStorage.setItem('n26ImageNow', JSON.stringify({
+        name: p ? p.name : '', count: viewList.length, index: Math.max(0, cur), pos: Math.max(0, cur), dur: viewList.length,
+        playing: slideOn, ts: now
+      }));
+    } catch (e) {}
+  }
+  function updateMedia() {
+    if (!('mediaSession' in navigator)) return;
+    try {
+      var p = curPhoto();
+      navigator.mediaSession.metadata = new MediaMetadata({ title: p ? p.name : '相册', artist: 'Nexus OS', album: '相册' });
       navigator.mediaSession.playbackState = slideOn ? 'playing' : 'paused';
-      [
-        ['play', function () { if (!slideOn) setSlide(true); }],
-        ['pause', function () { if (slideOn) setSlide(false); }],
-        ['previoustrack', function () { show(cur - 1); }],
-        ['nexttrack', function () { show(cur + 1); }]
-      ].forEach(function (p) { try { navigator.mediaSession.setActionHandler(p[0], p[1]); } catch (e) {} });
+    } catch (e) {}
+  }
+  function setupMedia() {
+    if (!('mediaSession' in navigator)) return;
+    try {
+      navigator.mediaSession.setActionHandler('play', function () { setSlide(true); });
+      navigator.mediaSession.setActionHandler('pause', function () { setSlide(false); });
+      navigator.mediaSession.setActionHandler('previoustrack', function () { next(-1, true); });
+      navigator.mediaSession.setActionHandler('nexttrack', function () { next(1, true); });
     } catch (e) {}
   }
 
-  /* ---------- 语言热切换：重绘随语言变化的动态内容 ---------- */
-  N.onLanguageChange(function () {
-    paintImMeta();
-    if (showInfo) updateInfo();
-    setupMediaSession();
-  });
+  // —— 手势 ——
+  function bindGestures() {
+    var G = window.N26Gestures;
+    if (!G || !G.on) return;
+    G.on('pinch', function (e) {
+      if (crop.on) return;
+      if (mode === 'viewer') {
+        if (!view.loaded) return;
+        zoomBy(e.factor || 1, e.cx, e.cy);
+      } else {
+        setTileSize(tileSize * (e.factor || 1));
+      }
+    });
+    G.on('edge', function (e) {
+      if (e.side === 'left') {
+        if (crop.on) { exitCrop(false); return; }
+        if (mode === 'viewer') { closeViewer(); return; }
+        if (selectMode) { exitSelect(); return; }
+        if (query) clearFilters();
+      } else if (e.side === 'right' && mode === 'viewer') {
+        next(1, true);
+      }
+    });
+  }
 
-  /* ---------- 启动 ---------- */
-  N.ready(function () {
-    try { pendingState = JSON.parse(localStorage.getItem('n26ImageState') || 'null'); } catch (e) {}
-    loadFromFS().then(function () { takeOverState(pendingState); });
-    broadcastNow(true);   // 即便无图也广播一次，让小部件能显示「未在浏览」
-  });
+  // —— 事件绑定 ——
+  function bindEvents() {
+    qa('.tab', el.tbLib).forEach(function (b) {
+      b.onclick = function () { setFilter(b.dataset.filter); };
+      b.onkeydown = function (e) {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        e.preventDefault();
+        var arr = qa('.tab', el.tbLib), i = arr.indexOf(b), n = arr[(i + (e.key === 'ArrowRight' ? 1 : -1) + arr.length) % arr.length];
+        n.focus(); setFilter(n.dataset.filter);
+      };
+    });
+    var searchTm;
+    el.searchInput.oninput = function () {
+      el.searchClear.hidden = !el.searchInput.value;
+      clearTimeout(searchTm);
+      searchTm = setTimeout(function () { query = el.searchInput.value.trim(); rebuild(); renderLibrary(); }, 150);
+    };
+    el.searchInput.onkeydown = function (e) { if (e.key === 'Escape') { el.searchInput.blur(); } };
+    el.searchClear.onclick = function () { el.searchInput.value = ''; el.searchClear.hidden = true; query = ''; rebuild(); renderLibrary(); el.searchInput.focus(); };
+    el.searchBox.onclick = function () { if (window.innerWidth <= 720) el.searchBox.classList.add('open'); };
+    el.btnTimeline.onclick = function (e) { e.stopPropagation(); timelineMenu(el.btnTimeline); };
+    el.btnSort.onclick = function (e) { e.stopPropagation(); sortMenu(el.btnSort); };
+    el.btnMoreLib.onclick = function (e) { e.stopPropagation(); gridMenu(el.btnMoreLib); };
+    el.btnSelect.onclick = function () {
+      if (selectMode) exitSelect(); else { selectMode = true; qa('.tile[data-id]', el.libList).forEach(function (n) { var pk = q('.pick', n); if (pk) pk.classList.add('show'); }); updateCounts(); }
+    };
+    el.btnImport.onclick = pickFiles;
+    el.filePicker.onchange = function () { importFiles(el.filePicker.files); el.filePicker.value = ''; };
+
+    el.bulkAll.onclick = function () {
+      filtered.forEach(function (p) { selected[p.id] = true; });
+      selectMode = true;
+      qa('.tile[data-id]', el.libList).forEach(function (n) {
+        var on = !!selected[n.dataset.id]; n.classList.toggle('sel', on);
+        var pk = q('.pick', n); if (pk) pk.classList.add('show');
+      });
+      updateCounts();
+    };
+    el.bulkCancel.onclick = function () { exitSelect(); };
+    el.bulkExport.onclick = bulkExport;
+
+    el.btnBack.onclick = closeViewer;
+    el.btnZoomIn.onclick = function () { zoomBy(1.2); };
+    el.btnZoomOut.onclick = function () { zoomBy(1 / 1.2); };
+    el.zoomLabel.onclick = doFit;
+    el.btnFit.onclick = doFit;
+    el.btnActual.onclick = doActual;
+    el.btnRotate.onclick = rotateCur;
+    el.btnFlip.onclick = flipCur;
+    el.btnFav.onclick = function () { var p = curPhoto(); if (p) toggleFav(p.id); };
+    el.btnDownload.onclick = downloadCur;
+    el.btnInfo.onclick = toggleInfo;
+    el.btnMoreView.onclick = function (e) { e.stopPropagation(); viewMenu(el.btnMoreView); };
+    el.btnPrev.onclick = function () { next(-1); };
+    el.btnNext.onclick = function () { next(1); };
+    el.btnERetry.onclick = function () { var p = curPhoto(); if (p) loadImage(); };
+    el.btnESave.onclick = downloadCur;
+    el.btnCropCancel.onclick = function () { exitCrop(false); };
+    el.btnCropApply.onclick = applyCrop;
+    el.cropRect.addEventListener('pointerdown', cropStart);
+    el.cropRect.addEventListener('pointermove', cropMove);
+    el.cropRect.addEventListener('pointerup', cropEnd);
+    el.cropRect.addEventListener('pointercancel', cropEnd);
+    el.sheetClose.onclick = closeSheet;
+    el.sheet.onclick = function (e) { if (e.target === el.sheet) closeSheet(); };
+    el.menu.addEventListener('click', function (e) { e.stopPropagation(); });
+    document.addEventListener('pointerdown', function (e) {
+      if (el.menu.classList.contains('open') && !el.menu.contains(e.target) && !(menuAt && menuAt.contains(e.target))) hideMenu();
+    });
+
+    // 舞台：拖动 / 双指滚动 / 双击
+    var drag = null;
+    el.vStage.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0 || crop.on || !view.loaded) return;
+      if (e.target.closest('.crop-bar,.v-error,.vspin,.crop-layer')) return;
+      drag = { sx: e.clientX, sy: e.clientY, px: view.panX, py: view.panY, id: e.pointerId };
+      try { el.vStage.setPointerCapture(e.pointerId); } catch (er) {}
+      el.vStage.classList.add('dragging');
+    });
+    el.vStage.addEventListener('pointermove', function (e) {
+      if (!drag || crop.on) return;
+      view.panX = drag.px + (e.clientX - drag.sx);
+      view.panY = drag.py + (e.clientY - drag.sy);
+      clampPan(); applyView();
+    });
+    function endDrag(e) {
+      if (!drag) return;
+      drag = null; el.vStage.classList.remove('dragging');
+      try { el.vStage.releasePointerCapture(e.pointerId); } catch (er) {}
+    }
+    el.vStage.addEventListener('pointerup', endDrag);
+    el.vStage.addEventListener('pointercancel', endDrag);
+    el.vStage.addEventListener('dblclick', function (e) {
+      if (crop.on || !view.loaded) return;
+      if (view.scale <= fitScale() * 1.02) setScale(Math.min(2, Math.max(1, fitScale() * 2)), e.clientX, e.clientY);
+      else doFit();
+    });
+    el.vStage.addEventListener('wheel', function (e) {
+      if (mode !== 'viewer' || crop.on) return;
+      if (e.ctrlKey) {
+        if (!window.N26Gestures) { e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.16 : 1 / 1.16, e.clientX, e.clientY); }
+        return;
+      }
+      if (!view.loaded) return;
+      e.preventDefault();
+      view.panX -= e.deltaX; view.panY -= e.deltaY;
+      clampPan(); applyView();
+    }, { passive: false });
+    el.libScroll.addEventListener('wheel', function (e) {
+      if (!e.ctrlKey || mode !== 'library') return;
+      if (window.N26Gestures) return;
+      e.preventDefault();
+      setTileSize(tileSize * (e.deltaY < 0 ? 1.08 : 1 / 1.08));
+    }, { passive: false });
+
+    // 拖入导入
+    var dc = 0;
+    window.addEventListener('dragenter', function (e) { if (e.dataTransfer && e.dataTransfer.types && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0) { dc++; document.body.classList.add('dragging-file'); } });
+    window.addEventListener('dragover', function (e) { e.preventDefault(); });
+    window.addEventListener('dragleave', function () { dc--; if (dc <= 0) { dc = 0; document.body.classList.remove('dragging-file'); } });
+    window.addEventListener('drop', function (e) {
+      e.preventDefault(); dc = 0; document.body.classList.remove('dragging-file');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) importFiles(e.dataTransfer.files);
+    });
+
+    window.addEventListener('resize', function () {
+      if (mode === 'viewer' && view.loaded) {
+        if (view.fit) { view.scale = fitScale(); view.panX = 0; view.panY = 0; } else clampPan();
+        applyView();
+      }
+    });
+    window.addEventListener('online', function () { offline = false; updateCounts(); });
+    window.addEventListener('offline', function () { offline = true; updateCounts(); });
+    window.addEventListener('storage', function (e) { if (e.key === 'n26ImageCmd' && e.newValue) applyCmd(e.newValue); });
+
+    document.addEventListener('keydown', onKey, true);
+  }
+
+  function applyCmd(raw) {
+    var c; try { c = JSON.parse(raw); } catch (e) { return; }
+    if (!c) return;
+    if (c.act === 'toggle') {
+      if (mode === 'viewer') setSlide(!slideOn);
+      else { var p0 = filtered[0] || photos[0]; if (p0) { openViewer(p0.id); setTimeout(function () { setSlide(true); }, 500); } }
+    } else if (c.act === 'next') {
+      if (mode === 'viewer') next(1); else { var p1 = filtered[1] || filtered[0] || photos[0]; if (p1) openViewer(p1.id); }
+    } else if (c.act === 'prev') {
+      if (mode === 'viewer') next(-1); else { var p2 = filtered[0] || photos[0]; if (p2) openViewer(p2.id); }
+    } else if (c.act === 'fs') {
+      if (mode !== 'viewer') { var p3 = filtered[0] || photos[0]; if (p3) openViewer(p3.id); }
+      toggleFull();
+    }
+  }
+
+  function onKey(e) {
+    var tg = e.target;
+    if (tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA' || tg.isContentEditable)) {
+      if (e.key === 'Escape') tg.blur();
+      return;
+    }
+    var k = e.key;
+    if (k === 'Escape') {
+      if (el.sheet.classList.contains('show')) { closeSheet(); e.preventDefault(); return; }
+      if (el.menu.classList.contains('open')) { hideMenu(); e.preventDefault(); return; }
+      if (crop.on) { exitCrop(false); e.preventDefault(); return; }
+      if (mode === 'viewer') { closeViewer(); e.preventDefault(); return; }
+      if (selectMode) { exitSelect(); e.preventDefault(); return; }
+      if (query) { clearFilters(); e.preventDefault(); }
+      return;
+    }
+    if (mode === 'library') {
+      if ((e.ctrlKey || e.metaKey) && (k === 'a' || k === 'A')) {
+        e.preventDefault(); el.bulkAll.onclick();
+      }
+      return;
+    }
+    // 查看器快捷键
+    var mod = e.ctrlKey || e.metaKey;
+    if (mod && (k === 's' || k === 'S')) { e.preventDefault(); downloadCur(); return; }
+    if (mod && (k === 'c' || k === 'C')) { e.preventDefault(); copyCur(); return; }
+    if (mod) return;
+    switch (k) {
+      case 'ArrowLeft': e.preventDefault(); next(-1); break;
+      case 'ArrowRight': e.preventDefault(); next(1); break;
+      case '+': case '=': e.preventDefault(); zoomBy(1.2); break;
+      case '-': case '_': e.preventDefault(); zoomBy(1 / 1.2); break;
+      case '0': e.preventDefault(); doFit(); break;
+      case '1': e.preventDefault(); doActual(); break;
+      case 'r': case 'R': e.preventDefault(); rotateCur(); break;
+      case 'm': case 'M': e.preventDefault(); flipCur(); break;
+      case 'f': case 'F':
+        e.preventDefault();
+        if (e.shiftKey) toggleFull();
+        else { var cp = curPhoto(); if (cp) toggleFav(cp.id); }
+        break;
+      case 'c': case 'C': e.preventDefault(); enterCrop(); break;
+      case 'i': case 'I': e.preventDefault(); toggleInfo(); break;
+      case ' ': case 'p': case 'P': e.preventDefault(); setSlide(!slideOn); break;
+      default: break;
+    }
+  }
+
+  // —— 启动 ——
+  function onReady(ctx) {
+    ctx = ctx || {};
+    lang = (ctx.lang || ctx.language || ctx.locale || 'zh').toLowerCase();
+    if (N.applyLanguage) { try { N.applyLanguage(); } catch (e) {} }
+    forceTheme();
+    if (ctx.dark && forcedDark === false) { /* 宿主主题已由 _app 应用 */ }
+    offline = !!(ctx.offline) || !navigator.onLine;
+    el.libScroll.style.setProperty('--tile', tileSize + 'px');
+    bindEvents();
+    bindGestures();
+    setupMedia();
+    Promise.all([scanFS(), loadLocal()]).then(function (all) {
+      mergeAll(all[0], all[1]);
+      offline = offline || fsError;
+      rebuild();
+      renderLibrary();
+    });
+  }
+  if (N.ready) N.ready(onReady);
+  else setTimeout(function () { onReady({ lang: 'zh' }); }, 0);
+  window.__imgState = function () { return { photos: photos.length, filtered: filtered.length, mode: mode, cur: cur, scale: view.scale, slide: slideOn, crop: crop.on }; };
 })();
 </script>
 </body>

@@ -33,6 +33,7 @@ new_sqlite_classes = ["Room"]
 # —— CORS ——
 ALLOW_ORIGIN = "*"
 # —— MXOS 账户体系（与 OS 互通）。留空 = 开发模式（本库自带账户，仅测试用！）——
-AUTH_API_BASE = ""
+# 生产：指向 Nexus 主 Worker；本 Worker 会调用 POST/GET /api/auth/me（Bearer token）
+AUTH_API_BASE = "https://ai.fanggame.company"
 # —— WS 票据签名密钥（部署时务必改成随机长串）——
 TICKET_SECRET = "942eff88f73ba666401a0d9c3de9403ee2984c128589750e71c07dc1f613a22c"

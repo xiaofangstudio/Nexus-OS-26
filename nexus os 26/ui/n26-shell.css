@@ -27,15 +27,16 @@
 
 .as-rail {
     position: relative;
-    flex: 0 0 66px;
-    width: 66px;
+    /* M-28：侧栏宽 76px / padding 7px 5px / 圆角 16px / 项间距 3px */
+    flex: 0 0 76px;
+    width: 76px;
     overflow-y: auto;
     overflow-x: hidden;
     display: flex;
     flex-direction: column;
     gap: 3px;
     padding: 7px 5px;
-    border-radius: 15px;
+    border-radius: 16px;
     background: rgba(255, 255, 255, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.62);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 6px 18px rgba(20, 40, 70, 0.10);
@@ -53,11 +54,14 @@ body.dark-mode .as-rail {
 }
 
 .as-rail-item {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 3px;
     padding: 7px 0 6px;
+    margin-bottom: 2px;
     border-radius: 11px;
     cursor: pointer;
     color: rgba(30, 52, 78, 0.72);
@@ -66,16 +70,26 @@ body.dark-mode .as-rail {
     transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
     user-select: none;
 }
-.as-rail-item i { font-size: 15px; }
+.as-rail-item i { font-size: 15px; transition: transform .4s cubic-bezier(.3,.7,.3,1), color .15s ease; }
 .as-rail-item:hover { background: rgba(255, 255, 255, 0.85); color: #16324e; }
 .as-rail-item:active { transform: scale(0.95); }
+/* M-30/M-31：选中态交给 docknav 的胶囊指示器，不再整块刷品牌色 */
 .as-rail-item.active {
-    background: var(--primary, #4A9BF5);
-    color: #fff;
-    box-shadow: 0 4px 12px rgba(74, 155, 245, 0.38);
+    background: transparent;
+    color: #1c2b3a;
+    box-shadow: none;
 }
+.as-rail-item.active > i { color: var(--n26dock-accent, #2f7cf6); transform: scale(1.06); }
 body.dark-mode .as-rail-item { color: rgba(255, 255, 255, 0.68); }
 body.dark-mode .as-rail-item:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+body.dark-mode .as-rail-item.active { color: #eef3fa; background: transparent; }
+body.dark-mode .as-rail-item.active > i { color: var(--n26dock-accent, #7fb0ff); }
+/* M-35：窄窗口自动收成 48px 图标栏 */
+@media (max-width: 760px) {
+    .as-rail { flex-basis: 48px; width: 48px; border-radius: 14px; }
+    .as-rail-item { padding: 8px 0; gap: 0; }
+    .as-rail-item > span { display: none; }
+}
 
 .as-main { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding-right: 4px; }
 
@@ -86,6 +100,9 @@ body.dark-mode .as-rail-item:hover { background: rgba(255, 255, 255, 0.12); colo
     letter-spacing: 0.3px;
 }
 body.dark-mode .as-crumb { color: rgba(255, 255, 255, 0.9); }
+/* 分类视图的面包屑：可点回全部分类 */
+.as-crumb-back { cursor: pointer; opacity: .62; font-weight: 600; transition: opacity .15s; }
+.as-crumb-back:hover { opacity: 1; text-decoration: underline; text-underline-offset: 2px; }
 
 /* 工具栏现在是「分类名 + 搜索」，不再横排一堆胶囊 */
 .appstore-toolbar {
@@ -128,18 +145,20 @@ body.dark-mode .settings-sidebar {
 /* FluentOS 式选中态：柔和胶囊 + 内高光，替代整块实色填充 */
 .settings-item.active {
     background: rgba(74, 155, 245, 0.16);
+    background: color-mix(in srgb, var(--primary, #4a9bf5) 16%, transparent);
     color: #0f2233;
     font-weight: 600;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 1px 5px rgba(15, 23, 42, 0.06);
 }
 body.dark-mode .settings-item.active {
     background: rgba(74, 155, 245, 0.26);
+    background: color-mix(in srgb, var(--primary, #4a9bf5) 26%, transparent);
     color: #fff;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
-.settings-item.active i { color: inherit !important; filter: saturate(1.4); }
+.settings-item.active i { color: var(--primary, #4a9bf5) !important; filter: none; }
 
-/* 左栏图标 → 彩色小方块（苹果那种每个设置一个色的图标） */
+/* 左栏图标：统一的 24px 小方块，默认中性色；只有选中态才用系统强调色 */
 .settings-item > i {
     width: 24px;
     height: 24px;
@@ -148,30 +167,26 @@ body.dark-mode .settings-item.active {
     align-items: center;
     justify-content: center;
     font-size: 12px;
-    color: #fff !important;
-    background: #8e8e93;
+    color: rgba(15, 23, 42, 0.60) !important;
+    background: rgba(15, 23, 42, 0.055);
     flex-shrink: 0;
-    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+    box-shadow: none;
 }
-.settings-item.active > i { background: rgba(255, 255, 255, 0.22); box-shadow: none; }
-
-/* 每个 tab 一个颜色（按左栏顺序） */
-.settings-item:nth-child(1) > i  { background: #5b8def; }
-.settings-item:nth-child(2) > i  { background: #8e8e93; }
-.settings-item:nth-child(3) > i  { background: #6b7280; }
-.settings-item:nth-child(4) > i  { background: #f59e0b; }
-.settings-item:nth-child(5) > i  { background: #a855f7; }
-.settings-item:nth-child(6) > i  { background: #10b981; }
-.settings-item:nth-child(7) > i  { background: #14b8a6; }
-.settings-item:nth-child(8) > i  { background: #ec4899; }
-.settings-item:nth-child(9) > i  { background: #64748b; }
-.settings-item:nth-child(10) > i { background: #3b82f6; }
-.settings-item:nth-child(11) > i { background: #ef4444; }
-.settings-item:nth-child(12) > i { background: #6366f1; }
+body.dark-mode .settings-item > i {
+    color: rgba(255, 255, 255, 0.72) !important;
+    background: rgba(255, 255, 255, 0.075);
+}
+.settings-item.active > i {
+    background: color-mix(in srgb, var(--primary, #4a9bf5) 16%, transparent);
+    box-shadow: none;
+}
+body.dark-mode .settings-item.active > i {
+    background: color-mix(in srgb, var(--primary, #4a9bf5) 26%, transparent);
+}
 
 /* 右侧内容：分组白卡 */
 #settingsPanel {
-    padding: 16px 20px 26px !important;
+    padding: 16px 20px 18px !important;
     background: rgba(242, 244, 248, 0.62);
 }
 body.dark-mode #settingsPanel { background: rgba(20, 22, 28, 0.55); }
@@ -366,6 +381,83 @@ img.n26-app-img,
 .dock-item > img,
 .launchpad-icon { corner-shape: squircle; }
 
+/* ★ v2.9.68 图标超椭圆（桌面 / 启动台 / Dock / 开始菜单 / 商店 / 任务栏 / Spotlight）。
+   不再依赖 corner-shape（Gecko/旧内核不支持，且和 22% border-radius 视觉几乎无差）。
+   统一改用主壳内联 SVG 的 #n26Squircle 裁切：|x|^5+|y|^5=1 连续曲率，随尺寸自动缩放。
+   不改任何半径/尺寸/间距；窗口、卡片、按钮、头像不在范围内。
+   注意：clip-path 会裁掉元素自身的 box-shadow，阴影改由父级 filter:drop-shadow 提供。 */
+/* v2.9.72 恢复：所有图标一律超椭圆。裁切留在图标内层，投影统一由外层容器
+   用 filter: drop-shadow() 承载（clip-path 会裁掉元素自身 shadow，故不能同层） */
+img.n26-app-img,
+.n26-app-fallback,
+.app-icon-flat,
+.store-app-icon,
+.store-app-icon.drawn > img,
+.dock-item img,
+.dock-item > img,
+.n26-dock-img,
+.launchpad-icon,
+.dock-icon-wrap[class*="app-icon-"],
+.desktop-icon-img[class*="app-icon-"],
+.desktop-icon-img,
+.win-taskbar-icon-wrap,
+.win-taskbar-icon-wrap[class*="app-icon-"],
+.spotlight-result-icon,
+.spotlight-result-icon[class*="app-icon-"],
+.smt-tile-icon > img,
+.smt-tile-icon > span {
+    -webkit-clip-path: url(#n26Squircle);
+    clip-path: url(#n26Squircle);
+    /* 双保险：若 #n26Squircle 在个别内核/文档里解析失败，仍有原生超椭圆兜底 */
+    corner-shape: squircle;
+}
+
+/* ★ v2.9.81 超椭圆回归：border-radius 与 clip-path 同时作用时，最终轮廓是两者
+   的交集 —— 圆角会把 |x|^5+|y|^5 的连续曲率重新切回普通圆角（Dock 图标变圆角的
+   真正原因）。凡是轮廓由 #n26Squircle 决定的图标层，半径一律归零，只留超椭圆。
+   !important + 提高选择器权重，压过 main 里 .n26-dock-img 的 11px 与
+   body.style-skeuomorphic 的 22% !important。 */
+html body .dock-icon-wrap,
+html body .n26-dock-img,
+html body img.n26-app-img,
+html body .n26-app-fallback,
+html body .app-icon-flat,
+html body .store-app-icon,
+html body .launchpad-icon,
+html body .desktop-icon-img,
+html body .win-taskbar-icon-wrap,
+html body .spotlight-result-icon,
+html body .smt-tile-icon > img,
+html body .smt-tile-icon > span,
+html body.style-skeuomorphic .dock-icon-wrap[class*="app-icon-"],
+html body.style-skeuomorphic .launchpad-icon[class*="app-icon-"],
+html body.style-skeuomorphic .desktop-icon-img[class*="app-icon-"],
+html body.style-skeuomorphic .spotlight-result-icon[class*="app-icon-"],
+#dock .dock-item > .dock-icon-wrap.dock-plate {
+    border-radius: 0 !important;
+}
+
+/* 外层投影：只给「纯图标容器」，避免文字也被投影 */
+.dock-item { filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.22)); }
+/* 任务栏图标本身被 clip-path 裁切，阴影改挂在不裁切的外层 .win-taskbar-app 上 */
+.win-taskbar-app { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.18)); }
+.smt-tile-icon { filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.2)); }
+.appstore-card-icon-wrap,
+.appstore-featured-card-icon { filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2)); }
+/* Spotlight 应用结果：裁切只作用在里层图标砖，外层行图标容器负责投影（否则 shadow 会被裁掉） */
+.spotlight-result-icon.is-app {
+    -webkit-clip-path: none;
+    clip-path: none;
+    background: transparent;
+    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.22));
+}
+
+/* 启动台/开始菜单磁贴：图标被裁切后自身外阴影失效，改在父级投一层等效阴影 */
+.launchpad-item { filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.18)); }
+.launchpad-item:hover { filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.30)); }
+.launchpad-item:active { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.20)); }
+.smt-tile { filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.20)); }
+
 /* ★ v2.9.42 图标垂直对齐统一：图标一律块级、行高归零、等比缩放不溢出。
    根因回顾：行内 <img>/<i> 参与文本基线排版，行高会把图标"顶高一截"；
    与等尺寸方盒（.n26-app-fallback）混排时高差尤其明显。统一块级后彻底对齐。 */
@@ -400,16 +492,8 @@ img.n26-app-img,
      `scale` 是独立属性，与 transform 互不干扰。
    也不加 fill-mode:both —— 会让最后一帧被焊死，动画结束必须干净退出。
    ══════════════════════════════════════════════════════════════════ */
-/* 注意：窗口「打开」已经有 windowOpenGlass、「关闭」已经有 windowCloseApple，
-   这里不重复造一套入场动画（会被 .window.opening 覆盖，纯属无效代码）。
-   这一节只补原来没有的：**切换窗口时的反馈**。 */
-@keyframes n26WinFocus {
-    0%   { scale: 0.992; }
-    100% { scale: 1; }
-}
-.window.n26-win-focus {
-    animation: n26WinFocus 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
-}
+/* 窗口「打开」已经有 windowOpenGlass、「关闭」有统一退场动画。
+   点击 / 聚焦 / 切换窗口不做任何几何缩放——只允许层级与阴影变化。 */
 
 /* ══════════════════════════════════════════════════════════════════
    v2.9.44 · 「关于本机」品牌大卡（HarmonyOS 软件更新页的同款语言）
@@ -903,3 +987,393 @@ body.dark-mode .n26cc-quick button { background: rgba(255, 255, 255, 0.06); bord
     .n26cc-knob { width: 26px; height: 26px; margin-top: -13px; margin-left: -13px; }
     .n26cc-msgs-list { max-height: 130px; }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   v2026.11.07 · Dock 悬停放大（macOS 手感）
+   ------------------------------------------------------------------
+   底板不变量：#dock 胶囊的高度 / top 位置永远不动，只有宽度跟着
+   「放大后的图标总宽 + 间距」一起撑开；图标本体向上溢出底板。
+   --dock-mag 由 initDockMagnification() 逐帧写进每个图标：
+     · 槽位宽度 = 基准尺寸 × mag  → 顶开邻居、整条胶囊真实变宽
+     · 图标本体绝对定位在槽位底部，transform: scale(mag)，只向上长
+   --dock-mag-max = 放大强度（1.00–1.70），由设置页写入。
+   ══════════════════════════════════════════════════════════════════ */
+
+/* — 底部 Dock：槽位 = 图标本体宽 × mag + 固定 2px 内边距；
+     flex gap 6px 之外不再加任何随 mag 变化的 margin，
+     所以相邻图标矩形间隙 = 2 + 6 = 8px，放大前后完全不变，只有整条胶囊变宽 — */
+#dock .dock-item {
+    --n26-dock-icon: calc(var(--dock-item-size, 50px) - 2px);
+    flex: 0 0 auto;
+    position: relative;
+    width: calc(var(--n26-dock-icon) * var(--dock-mag, 1) + 2px);
+    height: var(--dock-item-size, 50px) !important;
+    margin: 0;
+    overflow: visible;
+}
+/* — 图标本体：钉在槽位底部，缩放只向上溢 — */
+#dock .dock-item > img,
+#dock .dock-item > i,
+#dock .dock-item > .dock-icon-wrap,
+#dock .dock-item > span:not(.dock-tooltip) {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: var(--n26-dock-icon, 48px);
+    height: var(--n26-dock-icon, 48px);
+    margin: 0;
+    transform: translateX(-50%) scale(var(--dock-mag, 1));
+    transform-origin: center bottom;
+    will-change: transform;
+}
+/* — 图片淡入只动 opacity：主壳的 imgFadeIn 末尾带 transform:none 且 fill:both，
+     会把上面的 translateX(-50%) 永久覆盖掉，图标整体右移半个身位、间隙全乱 —
+     这里用更高优先级换成纯透明度关键帧，保持淡入观感、保住居中 — */
+#dock .dock-item > img.n26-img-in {
+    animation: n26DockImgFadeIn 0.45s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+@keyframes n26DockImgFadeIn { from { opacity: 0; } to { opacity: 1; } }
+/* — 底板里的品牌图形：按底板尺寸等比缩放、不额外投影（底板已承载视觉效果） — */
+#dock .dock-item > .dock-icon-wrap > img {
+    width: 76%; height: 76%;
+    object-fit: contain;
+    border-radius: 0;
+    box-shadow: none;
+    -webkit-clip-path: none;
+    clip-path: none;
+}
+/* — 搜索 / 开始的统一圆角底板：与其它图标同一 48px 槽位、同一 bottom:0 基线；
+     图形由 .dock-icon-wrap 自带的 flex 居中，底板与图形一起随 mag 缩放 —
+     搜索项之前只有一根悬空白线，波形扫到它就断，这里补齐底板保持视觉连续 — */
+#dock .dock-item > .dock-icon-wrap.dock-plate {
+    border-radius: 22%;
+    -webkit-clip-path: url(#n26Squircle);
+    clip-path: url(#n26Squircle);
+    box-shadow: none;
+}
+#dock .dock-item > .dock-icon-wrap.dock-plate > i,
+#dock .dock-item > .dock-icon-wrap.dock-plate > span {
+    width: auto; height: auto;
+    display: block;
+    margin: 0;
+    line-height: 1;
+    font-size: calc(var(--n26-dock-icon, 48px) * 0.46);
+}
+#dock .dock-plate-search { background: linear-gradient(160deg, #f7fafd 0%, #dce5f0 100%); }
+#dock .dock-plate-search > i { color: #2c3d55; }
+/* v2.9.77：品牌 N 是 Dock 里唯一不需要底板的图标。
+   去掉蓝色渐层与方形裁切后，浅色下只留极淡的冷灰发丝投影，不再用深色描边，
+   避免白 logo 被「黑笔勾一圈」；深色下改用冷白辉光。
+   尺寸放大到 88%，与 48px 的位图图标光学对齐，槽位与基线保持不变。
+   选择器与下方 .dock-plate 基础规则同权重，避免被它覆盖回 squircle 裁切。 */
+#dock .dock-item > .dock-icon-wrap.dock-plate-n {
+    background: none;
+    box-shadow: none;
+    -webkit-clip-path: none;
+    clip-path: none;
+}
+#dock .dock-item > .dock-icon-wrap.dock-plate-n > img {
+    width: 88%; height: 88%;
+    /* 底板无背景不需要裁；图形本身按超椭圆裁，保证逐个图标清单一致（图形内容不触边，无视觉裁切） */
+    -webkit-clip-path: url(#n26Squircle);
+    clip-path: url(#n26Squircle);
+    filter: drop-shadow(0 0 0.5px rgba(255, 255, 255, 0.72)) drop-shadow(0 1px 2px rgba(64, 96, 132, 0.18));
+}
+body.dark-mode #dock .dock-item > .dock-icon-wrap.dock-plate-n > img {
+    filter: drop-shadow(0 0 2px rgba(170, 205, 255, 0.5)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+/* v2.9.76：Dock 固定项恢复品牌原图，不再用「实心底板 + 字形」占位。
+   开始 / 启动台 / 浏览器 / 文件管理 / 应用商城 用本地 PNG，聚焦搜索用白色 FA 字形；
+   都走上面「图标本体」的 48px 槽位，自动带上 -webkit-box-reflect 镜面倒影。
+   原先开始按钮那块蓝紫渐变底板违反「全面禁紫」铁律，一并移除。 */
+#dock .dock-item > i.fas {
+    display: flex; align-items: center; justify-content: center;
+    font-size: calc(var(--n26-dock-icon, 48px) * 0.46);
+    color: #fff;
+}
+
+/* 顶部 Dock：槽位只变宽，图标从顶边向下长 */
+body.dock-top #dock .dock-item > img,
+body.dock-top #dock .dock-item > i,
+body.dock-top #dock .dock-item > .dock-icon-wrap,
+body.dock-top #dock .dock-item > span:not(.dock-tooltip) {
+    top: 0; bottom: auto;
+    transform-origin: center top;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   v2.9.77 · 应用商城深度化：管理视图 / 状态 / 截图 / 评论 / 实时预览
+   ══════════════════════════════════════════════════════════════════ */
+.as-rail { scrollbar-width: thin; overscroll-behavior: contain; scroll-behavior: smooth; }
+.as-rail::-webkit-scrollbar { width: 4px; }
+.as-rail::-webkit-scrollbar-thumb { background: rgba(20, 45, 75, .16); border-radius: 4px; }
+body.dark-mode .as-rail::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .16); }
+.appstore-toolbar { flex-wrap: wrap; row-gap: 8px; }
+@media (max-width: 860px) {
+    .as-toolbar-right { width: 100%; margin-left: 0; justify-content: space-between; }
+    .appstore-search { flex: 1 1 180px; }
+}
+.as-rail-sep {
+    height: 1px; margin: 5px 4px 4px; flex: none;
+    background: rgba(20, 45, 75, .12);
+    position: relative; z-index: 1;
+}
+body.dark-mode .as-rail-sep { background: rgba(255, 255, 255, .14); }
+
+.as-toolbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.as-srv {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 9px; border-radius: 999px; font-size: 11px; white-space: nowrap;
+    border: 1px solid rgba(20, 45, 75, .10); background: rgba(255, 255, 255, .55);
+    color: rgba(20, 45, 75, .62);
+}
+.as-srv > i { font-size: 7px; }
+.as-srv.is-ok { color: #157f3c; border-color: rgba(21, 127, 60, .18); }
+.as-srv.is-ok > i { color: #21a65a; }
+.as-srv.is-error { color: #b45309; border-color: rgba(180, 83, 9, .22); }
+.as-srv.is-error > i { color: #e0811a; }
+.as-srv.is-offline { color: #64748b; border-color: rgba(100, 116, 139, .25); }
+.as-srv.is-offline > i { color: #94a3b8; }
+.as-srv.is-loading > i { color: #3b82f6; animation: n26srvPulse 1.2s infinite; }
+@keyframes n26srvPulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+.as-srv-btn {
+    margin-left: 4px; border: 0; background: rgba(47, 124, 246, .10); color: #2f7cf6;
+    border-radius: 6px; padding: 2px 6px; font-size: 10.5px; cursor: pointer; font-family: inherit;
+}
+.as-srv-btn:disabled { opacity: .5; cursor: default; }
+body.dark-mode .as-srv { background: rgba(255, 255, 255, .07); border-color: rgba(255, 255, 255, .12); color: rgba(255, 255, 255, .7); }
+body.dark-mode .as-srv.is-ok { color: #86efac; }
+body.dark-mode .as-srv.is-error { color: #fcd34d; }
+body.dark-mode .as-srv-btn { background: rgba(127, 176, 255, .16); color: #9fc4ff; }
+
+/* 卡片：高度自适应，绝不写死；最后一行管理按钮不会把内容顶出 */
+.appstore-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); align-items: stretch; }
+.appstore-card {
+    height: auto; min-height: 198px; justify-content: flex-start;
+    overflow: visible; position: relative;
+}
+.appstore-card-name { white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
+.appstore-card-desc { -webkit-line-clamp: 2; line-clamp: 2; min-height: 2.8em; }
+.appstore-card-foot { margin-top: auto; padding-top: 9px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center; width: 100%; }
+.appstore-card-rating { font-size: 9.5px; color: rgba(0, 0, 0, .42); display: inline-flex; align-items: center; gap: 3px; }
+.appstore-card-rating .fa-star { color: #f59e0b; font-size: 9px; }
+body.dark-mode .appstore-card-rating { color: rgba(255, 255, 255, .5); }
+.appstore-card.has-update { border-color: rgba(47, 124, 246, .30); box-shadow: 0 0 0 1px rgba(47, 124, 246, .10) inset; }
+.as-update-dot {
+    display: inline-block; font-size: 9px; padding: 1px 5px; border-radius: 999px;
+    background: rgba(47, 124, 246, .12); color: #2f7cf6; vertical-align: 1px;
+}
+body.dark-mode .as-update-dot { background: rgba(127, 176, 255, .18); color: #9fc4ff; }
+.appstore-download-btn.update { background: rgba(47, 124, 246, .12); color: #2f7cf6; border: 1px solid rgba(47, 124, 246, .28); }
+body.dark-mode .appstore-download-btn.update { background: rgba(127, 176, 255, .18); color: #9fc4ff; border-color: rgba(127, 176, 255, .30); }
+.appstore-card-manage {
+    display: flex; gap: 6px; width: 100%; margin-top: 9px; padding-top: 9px;
+    border-top: 1px solid rgba(0, 0, 0, .06); justify-content: center; flex-wrap: wrap;
+}
+body.dark-mode .appstore-card-manage { border-top-color: rgba(255, 255, 255, .10); }
+.as-manage-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 9px; border-radius: 8px; cursor: pointer; font-family: inherit;
+    border: 1px solid rgba(0, 0, 0, .10); background: rgba(255, 255, 255, .62);
+    font-size: 11px; color: rgba(0, 0, 0, .68); transition: background .15s ease;
+}
+.as-manage-btn:hover { background: rgba(255, 255, 255, .95); }
+.as-manage-btn.is-danger { color: #b91c1c; border-color: rgba(185, 28, 28, .22); }
+.as-manage-btn.is-danger:hover { background: rgba(185, 28, 28, .08); }
+.as-manage-sys { font-size: 10.5px; color: rgba(0, 0, 0, .38); align-self: center; }
+body.dark-mode .as-manage-btn { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .14); color: rgba(255, 255, 255, .78); }
+body.dark-mode .as-manage-btn:hover { background: rgba(255, 255, 255, .16); }
+body.dark-mode .as-manage-sys { color: rgba(255, 255, 255, .42); }
+
+.appstore-empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
+    padding: 48px 22px; grid-column: 1 / -1; text-align: center;
+}
+.appstore-empty-state > i { font-size: 30px; opacity: .38; margin-bottom: 4px; }
+.appstore-empty-state > b { font-size: 14px; color: rgba(0, 0, 0, .72); }
+.appstore-empty-state > span { font-size: 12px; line-height: 1.65; max-width: 420px; color: rgba(0, 0, 0, .46); }
+body.dark-mode .appstore-empty-state > b { color: rgba(255, 255, 255, .78); }
+body.dark-mode .appstore-empty-state > span { color: rgba(255, 255, 255, .48); }
+
+/* 分类/已安装/可更新视图的空态（n26-store.js 使用 .appstore-empty） */
+.appstore-empty {
+    grid-column: 1 / -1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; padding: 56px 22px; text-align: center;
+    font-size: 14px; font-weight: 650; color: rgba(20, 40, 70, .70);
+    border: 1px dashed rgba(20, 45, 75, .14); border-radius: 16px;
+    background: rgba(255, 255, 255, .34);
+}
+.appstore-empty small { font-size: 11.5px; font-weight: 500; line-height: 1.7; color: rgba(20, 40, 70, .48); }
+body.dark-mode .appstore-empty { color: rgba(255, 255, 255, .78); border-color: rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .05); }
+body.dark-mode .appstore-empty small { color: rgba(255, 255, 255, .48); }
+
+/* 卡片脚标：可更新徽标 / 本机评分 / 版本号 */
+.as-card-upd {
+    display: inline-block; margin-left: 6px; vertical-align: 1px;
+    font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 999px;
+    background: rgba(47, 124, 246, .12); color: #2f7cf6;
+}
+body.dark-mode .as-card-upd { background: rgba(127, 176, 255, .18); color: #9fc4ff; }
+.appstore-card-star { font-size: 9.5px; color: rgba(0, 0, 0, .45); display: inline-flex; align-items: center; gap: 3px; }
+.appstore-card-star .fa-star { color: #f59e0b; font-size: 9px; }
+body.dark-mode .appstore-card-star { color: rgba(255, 255, 255, .52); }
+.appstore-card-ver { font-size: 9.5px; color: rgba(0, 0, 0, .38); }
+body.dark-mode .appstore-card-ver { color: rgba(255, 255, 255, .44); }
+
+/* 详情页：真实截图 / 空态 / 实机预览 / 信息表 / 评论 */
+.appstore-detail-panel { overflow-y: auto; overflow-x: hidden; }
+.appstore-detail-screenshots { display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 10px; scrollbar-width: thin; }
+.appstore-detail-screenshot {
+    flex: 0 0 auto; width: 220px; aspect-ratio: 16 / 10; border-radius: 12px; overflow: hidden;
+    padding: 0; border: 1px solid rgba(0, 0, 0, .08); background: rgba(0, 0, 0, .04);
+    cursor: zoom-in; transition: transform .18s ease, box-shadow .18s ease;
+}
+.appstore-detail-screenshot:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 0, 0, .14); }
+.appstore-detail-screenshot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+body.dark-mode .appstore-detail-screenshot { border-color: rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .05); }
+.appstore-shot-empty {
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    padding: 26px 16px; margin-bottom: 12px; border-radius: 12px;
+    border: 1px dashed rgba(0, 0, 0, .16); color: rgba(0, 0, 0, .42); font-size: 12.5px;
+}
+body.dark-mode .appstore-shot-empty { border-color: rgba(255, 255, 255, .16); color: rgba(255, 255, 255, .46); }
+.appstore-live { margin: 4px 0 14px; }
+.appstore-live-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.as-live-btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px;
+    border: 1px solid rgba(47, 124, 246, .22); background: rgba(47, 124, 246, .09);
+    color: #2f7cf6; font-size: 11.5px; cursor: pointer; font-family: inherit;
+}
+.as-live-wrap { height: 0; overflow: hidden; border-radius: 12px; border: 1px solid rgba(0, 0, 0, .08); transition: height .25s ease; background: rgba(0, 0, 0, .03); }
+.as-live-wrap.on { height: 360px; }
+.as-live-wrap iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
+.appstore-live-note { margin-top: 7px; font-size: 11px; line-height: 1.6; color: rgba(0, 0, 0, .42); }
+body.dark-mode .appstore-live-note { color: rgba(255, 255, 255, .46); }
+body.dark-mode .as-live-wrap { border-color: rgba(255, 255, 255, .12); background: rgba(255, 255, 255, .04); }
+
+.appstore-info-table {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;
+    margin: 12px 0 16px;
+}
+.appstore-info-table > div {
+    padding: 9px 11px; border-radius: 10px;
+    border: 1px solid rgba(0, 0, 0, .06); background: rgba(0, 0, 0, .03);
+}
+.appstore-info-table small { display: block; font-size: 10.5px; color: rgba(0, 0, 0, .42); margin-bottom: 3px; }
+.appstore-info-table b { font-size: 12.5px; color: rgba(0, 0, 0, .82); font-weight: 600; overflow-wrap: anywhere; }
+body.dark-mode .appstore-info-table > div { background: rgba(255, 255, 255, .05); border-color: rgba(255, 255, 255, .10); }
+body.dark-mode .appstore-info-table small { color: rgba(255, 255, 255, .46); }
+body.dark-mode .appstore-info-table b { color: rgba(255, 255, 255, .86); }
+
+.as-detail-secondary, .as-detail-danger {
+    margin-left: 7px; padding: 7px 13px; border-radius: 999px; font-size: 12px; cursor: pointer;
+    font-family: inherit; border: 1px solid rgba(0, 0, 0, .12); background: rgba(255, 255, 255, .6);
+    color: rgba(0, 0, 0, .7);
+}
+.as-detail-danger { color: #b91c1c; border-color: rgba(185, 28, 28, .20); }
+.as-latest { margin-left: 8px; font-size: 11px; color: rgba(0, 0, 0, .38); align-self: center; }
+body.dark-mode .as-detail-secondary { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .16); color: rgba(255, 255, 255, .8); }
+body.dark-mode .as-latest { color: rgba(255, 255, 255, .42); }
+
+.appstore-reviews { margin-top: 6px; }
+.appstore-review {
+    padding: 10px 12px; margin-bottom: 8px; border-radius: 10px;
+    border: 1px solid rgba(0, 0, 0, .06); background: rgba(0, 0, 0, .03);
+}
+.appstore-review-head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
+.appstore-review-head b { font-size: 12px; }
+.appstore-review-head .stars { font-size: 9.5px; color: #f59e0b; letter-spacing: 1px; }
+.appstore-review-date { font-size: 10.5px; color: rgba(0, 0, 0, .38); }
+.appstore-review-head .as-review-del { margin-left: auto; border: 0; background: transparent; cursor: pointer; color: rgba(0, 0, 0, .35); padding: 2px 4px; }
+.appstore-review p { font-size: 12px; line-height: 1.65; color: rgba(0, 0, 0, .68); margin: 0; overflow-wrap: anywhere; }
+.appstore-review-empty { padding: 18px; text-align: center; font-size: 12px; color: rgba(0, 0, 0, .42); border: 1px dashed rgba(0, 0, 0, .12); border-radius: 10px; }
+body.dark-mode .appstore-review { background: rgba(255, 255, 255, .05); border-color: rgba(255, 255, 255, .10); }
+body.dark-mode .appstore-review p { color: rgba(255, 255, 255, .7); }
+body.dark-mode .appstore-review-date,
+body.dark-mode .appstore-review-empty { color: rgba(255, 255, 255, .44); }
+body.dark-mode .appstore-review-head .as-review-del { color: rgba(255, 255, 255, .4); }
+.appstore-review-form { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.appstore-review-form select,
+.appstore-review-form input {
+    height: 30px; padding: 0 9px; border-radius: 8px; font-family: inherit; font-size: 12px;
+    border: 1px solid rgba(0, 0, 0, .12); background: rgba(255, 255, 255, .7); color: inherit; outline: none;
+}
+.appstore-review-form input { flex: 1 1 180px; min-width: 140px; }
+.appstore-review-form .glass-btn { height: 30px; padding: 0 13px; }
+body.dark-mode .appstore-review-form select,
+body.dark-mode .appstore-review-form input { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .14); color: #eef2f8; }
+
+.as-shot-viewer {
+    position: fixed; inset: 0; z-index: 9000; display: none; place-items: center;
+    background: rgba(6, 14, 24, .72); backdrop-filter: blur(8px); cursor: zoom-out;
+}
+.as-shot-viewer.show { display: grid; }
+.as-shot-viewer img { max-width: 86vw; max-height: 84vh; border-radius: 14px; box-shadow: 0 24px 60px rgba(0, 0, 0, .4); }
+.as-install-cancel {
+    margin-top: 7px; border: 1px solid rgba(0, 0, 0, .12); background: rgba(255, 255, 255, .6);
+    border-radius: 7px; font-family: inherit; font-size: 11px; padding: 2px 9px; cursor: pointer; color: inherit;
+}
+body.dark-mode .as-install-cancel { background: rgba(255, 255, 255, .1); border-color: rgba(255, 255, 255, .16); }
+
+/* 左侧 / 右侧 Dock：槽位只变高（图标本体高 × mag + 固定 2px），图标横向向外长 */
+body.dock-left #dock .dock-item,
+body.dock-right #dock .dock-item {
+    width: var(--dock-item-size, 50px) !important;
+    height: calc(var(--n26-dock-icon) * var(--dock-mag, 1) + 2px);
+    margin: 0;
+}
+body.dock-left #dock .dock-item > img,
+body.dock-left #dock .dock-item > i,
+body.dock-left #dock .dock-item > .dock-icon-wrap,
+body.dock-left #dock .dock-item > span:not(.dock-tooltip) {
+    left: 0; top: 50%; bottom: auto;
+    transform: translateY(-50%) scale(var(--dock-mag, 1));
+    transform-origin: left center;
+}
+body.dock-right #dock .dock-item > img,
+body.dock-right #dock .dock-item > i,
+body.dock-right #dock .dock-item > .dock-icon-wrap,
+body.dock-right #dock .dock-item > span:not(.dock-tooltip) {
+    left: auto; right: 0; top: 50%; bottom: auto;
+    transform: translateY(-50%) scale(var(--dock-mag, 1));
+    transform-origin: right center;
+}
+
+/* 提示气泡贴着「放大后」的图标外沿，不会被图标盖住 */
+#dock .dock-item .dock-tooltip {
+    bottom: calc(100% + 8px + var(--dock-item-size, 50px) * (var(--dock-mag, 1) - 1));
+}
+body.dock-top #dock .dock-item .dock-tooltip {
+    bottom: auto; top: calc(100% + 8px + var(--dock-item-size, 50px) * (var(--dock-mag, 1) - 1));
+}
+body.dock-left #dock .dock-item .dock-tooltip {
+    bottom: auto; left: calc(100% + 8px + var(--dock-item-size, 50px) * (var(--dock-mag, 1) - 1)); top: 50%;
+}
+body.dock-right #dock .dock-item .dock-tooltip {
+    bottom: auto; left: auto; right: calc(100% + 8px + var(--dock-item-size, 50px) * (var(--dock-mag, 1) - 1)); top: 50%;
+}
+
+/* 统一窗口退场：180ms，缩放 0.94 + 淡出，锚点在标题栏方向（顶部中心） */
+body .window.exit-n26 {
+    animation: windowCloseN26 0.18s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+    transform-origin: top center !important;
+    pointer-events: none;
+}
+@keyframes windowCloseN26 {
+    from { opacity: 1; transform: scale(1); }
+    to   { opacity: 0; transform: scale(0.94); }
+}
+body.reduce-motion .window.exit-n26 {
+    animation: windowFadeOnly 0.1s linear forwards !important;
+}
+@keyframes windowFadeOnly {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
+/* 移除卡片 / 面板 / 列表行按下时的整体缩放（按钮自身按压反馈保留） */
+.n26news-card:active, .n26st-card:active, .n26st-ct:active,
+.widget-panel-card:active, .fm-item:active, .album-thumb:active,
+.appstore-card:active { scale: 1 !important; transform: none !important; }
+.finder-window-dropdown .mini-win-item:active { transform: none !important; }

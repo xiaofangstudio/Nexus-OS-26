@@ -11,6 +11,8 @@
  *   POST /api/chat   —— OpenAI 兼容转发（用户自带 Key；支持 tools/流式/多供应商）
  *   GET  /api/health —— 服务状态与支持的供应商列表（无任何密钥信息）
  *   ALL  /api/mx/*   —— MX 应用商店反向代理（补 CORS、绕 http 混合内容）
+ *   POST /api/translate        —— 字幕逐句翻译中转（Google，KV 缓存 30 天）
+ *   GET  /api/translate?selftest=1 —— 探测 Google 出口是否可达
  *
  * 鉴权：请求头二选一
  *   Authorization: Bearer sk-xxxx        （推荐，兼容 OpenAI SDK 习惯）
@@ -20,7 +22,16 @@
 
 import { handleAccount } from './account.js';
 import { handleStore } from './store.js';
+import { handleStoreV1 } from './store_v1.js';
 import { handleMusic } from './music.js';
+import { handleNexusAdmin } from './admin.js';
+import { handleBili } from './bili.js';
+import { handleTranslate } from './translate.js';
+import { handleWeather } from './weather.js';
+import { handleMap } from './map.js';
+import { handleNews } from './news.js';
+import { handleV1 } from './v1/index.js';
+import { corsHeaders as corsBase } from './http.js';
 
 /** 内置供应商（只含地址与默认模型，绝不含密钥） */
 const PROVIDERS = {
@@ -34,13 +45,9 @@ const PROVIDERS = {
   ollama:     { name: '本地 Ollama', baseUrl: 'http://127.0.0.1:11434/v1',                          model: 'qwen2.5:7b' },
 };
 
-function corsHeaders(env) {
-  return {
-    'Access-Control-Allow-Origin': env.ALLOW_ORIGIN || '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-AI-Key, X-Requested-With',
-    'Access-Control-Max-Age': '86400',
-  };
+/** CORS 白名单：ALLOW_ORIGIN 支持 "*" 或逗号分隔的来源列表（见 http.js） */
+function corsHeaders(env, request) {
+  return corsBase(env, request);
 }
 
 function json(data, status, env) {
@@ -245,104 +252,47 @@ async function handleMx(request, env, url) {
   return new Response(request.method === 'HEAD' ? null : upstream.body, { status: upstream.status, headers });
 }
 
-/** B站 API 反向代理：/api/bili/* -> https://api.bilibili.com/*，补 CORS + 风控头
- *  浏览器直连 B站 API 会被 CORS 拦 + 无 Referer/UA 会触发 -412 风控；本代理补齐两者。
- *  可选请求头 X-Bili-Cookie：透传用户自己的 B站 Cookie（搜索等需登录态的接口用）。 */
-// —— B站设备指纹（buvid3/buvid4）自动获取 + 模块级缓存 ——
-// 无 cookie 的云 IP 访问 B站 web API 会被风控 -412；带上 buvid3 即可放行。
-let BILI_BUVID = null;          // 'buvid3=...; buvid4=...'
-let BILI_BUVID_TS = 0;          // 获取时间戳
-async function getBiliBuvid() {
-  if (BILI_BUVID && Date.now() - BILI_BUVID_TS < 24 * 3600 * 1000) return BILI_BUVID;
-  try {
-    const r = await fetch('https://api.bilibili.com/x/frontend/finger/spi', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-        'Referer': 'https://www.bilibili.com/',
-      },
-    });
-    const j = await r.json();
-    const b3 = j && j.data && j.data.b_3, b4 = j && j.data && j.data.b_4;
-    if (b3) {
-      BILI_BUVID = 'buvid3=' + b3 + (b4 ? '; buvid4=' + b4 : '') + '; b_nut=' + Date.now();
-      BILI_BUVID_TS = Date.now();
-    }
-  } catch (e) { /* 获取失败则不带，尽力而为 */ }
-  return BILI_BUVID;
-}
+/* B站代理已拆分到 src/bili.js（WBI 签名 / 播放地址 / 图片与视频流代理 / KV 缓存）：
+   /api/bili/feed|search|video|play|related|danmaku|subtitle|img|stream|health
+   字幕翻译中转在 src/translate.js：POST /api/translate（GET ?selftest=1 自检） */
 
-/* 方哩方哩短路由表：前端只记 /api/popular 这种好读的名字，
-   这里翻译成 B站真实路径。原来前端拼出来的地址和 B站接口对不上，
-   等于代理永远 404 —— 这是「配了 Worker 也看不了」的第二个坑。 */
-const BILI_SHORTCUT = {
-  '/popular': '/x/web-interface/popular',
-  '/ranking': '/x/web-interface/ranking/v2',
-  '/rank': '/x/web-interface/ranking/v2',
-  '/search': '/x/web-interface/search/type'
-};
+/**
+ * 方聊（N聊）认证桥：/api/auth/me
+ * nliao Worker 以 AUTH_API_BASE=https://ai.fanggame.company 调用本端点；
+ * 这里把 Authorization: Bearer <Nexus 账号 token> 转给 /api/acc/me 校验，
+ * 再摊平成 nliao 期望的 { ok, user:{ id, displayName, avatar, email } }。
+ * 账号 token 只做校验，不落盘、不打日志。
+ */
+async function handleAuthMe(request, env) {
+  const auth = request.headers.get('Authorization') || '';
+  const token = /^Bearer\s+/i.test(auth)
+    ? auth.replace(/^Bearer\s+/i, '').trim()
+    : (new URL(request.url).searchParams.get('token') || '');
+  if (!token) return json({ ok: false, code: 'NO_TOKEN', error: '缺少会话令牌' }, 401, env);
 
-async function handleBili(request, env, url) {
-  let sub = url.pathname.replace(/^\/api\/bili/, '') || '/';
-  // 兼容前端多拼一层 /api：/api/bili/api/popular → /popular
-  if (/^\/api\//.test(sub)) sub = sub.slice(4);
+  const u = new URL(request.url);
+  u.pathname = '/api/acc/me';
+  u.search = '?token=' + encodeURIComponent(token);
+  let res;
+  try { res = await handleAccount(request, env, u); }
+  catch (e) { return json({ ok: false, code: 'AUTH_UPSTREAM', error: '账号服务不可用' }, 502, env); }
 
-  const params = new URLSearchParams(url.search || '');
-  if (BILI_SHORTCUT[sub]) {
-    sub = BILI_SHORTCUT[sub];
-    // 搜索接口必须带 search_type，否则 B站返回 -400
-    if (sub === '/x/web-interface/search/type' && !params.get('search_type')) {
-      params.set('search_type', 'video');
-    }
+  const j = await res.json().catch(() => null);
+  if (!j || !j.ok || !j.account) {
+    return json({ ok: false, code: 'BAD_TOKEN', error: (j && j.error) || '登录已过期，请重新登录' }, 401, env);
   }
-  const qs = params.toString();
-  const target = 'https://api.bilibili.com' + sub + (qs ? '?' + qs : '');
-
-  const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-    'Referer': 'https://www.bilibili.com/',
-    'Origin': 'https://www.bilibili.com',
-    'Accept': 'application/json, text/plain, */*',
-  };
-  const cookie = request.headers.get('X-Bili-Cookie')
-    // ★ 服务器级兜底：wrangler.toml [vars] 里配 BILI_COOKIE = "buvid3=...; SESSDATA=..."
-    //   （从你自己浏览器拷 B站 Cookie，住宅身份基本必过风控；不配则用自动设备指纹）
-    || (env.BILI_COOKIE ? String(env.BILI_COOKIE) : '');
-  if (cookie) {
-    headers['Cookie'] = cookie; // 用户/站长自带，服务器不额外落盘
-  } else {
-    const buvid = await getBiliBuvid(); // 无 cookie 时带设备指纹过风控
-    if (buvid) headers['Cookie'] = buvid;
-  }
-
-  const init = { method: request.method, headers };
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
-    try { init.body = await request.arrayBuffer(); } catch (e) { /* ignore */ }
-  }
-
-  /** 发一次请求；云 IP 被风控时 B站回 412，这种情况换一把新 buvid 再试一次 */
-  const go = async () => {
-    let up;
-    try { up = await fetch(target, init); } catch (e) { return { err: 'bili upstream unreachable: ' + (e && e.message) }; }
-    return { up };
-  };
-
-  let r1 = await go();
-  if (r1.err) return json({ ok: false, error: r1.err }, 502, env);
-  // 412 = 风控。若带的是自动 buvid，刷新指纹重试一次（若用户自带 cookie 则重试无意义，直接回）
-  if (r1.up.status === 412 && !cookie && !env.BILI_COOKIE) {
-    BILI_BUVID = null;   // 强制重新取
-    const b2 = await getBiliBuvid();
-    if (b2) headers['Cookie'] = b2;
-    r1 = await go();
-    if (r1.err) return json({ ok: false, error: r1.err }, 502, env);
-  }
-  const upstream = r1.up;
-
-  const out = corsHeaders(env);
-  const upCt = upstream.headers.get('Content-Type');
-  if (upCt) out['Content-Type'] = upCt;
-  out['X-Bili-Upstream-Status'] = String(upstream.status);
-  return new Response(request.method === 'HEAD' ? null : upstream.body, { status: upstream.status, headers: out });
+  const a = j.account;
+  return json({
+    ok: true,
+    user: {
+      id: a.accountName,
+      displayName: a.userName || a.accountName,
+      avatar: a.avatar || '',
+      email: a.email || '',
+      uid: a.uid,
+      accountName: a.accountName,
+    },
+  }, 200, env);
 }
 
 /**
@@ -351,7 +301,7 @@ async function handleBili(request, env, url) {
  * 只返回元信息（图片 URL / 标题 / 版权），不代存图片，不落任何用户数据。
  */
 async function handleBingDaily(request, env) {
-  const cors = corsHeaders(env);
+  const cors = corsHeaders(env, request);
   const mkt = new URL(request.url).searchParams.get('mkt') || 'zh-CN';
   try {
     const upstream = await fetch(
@@ -380,16 +330,16 @@ async function handleBingDaily(request, env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(env) });
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(env, request) });
 
     if (url.pathname === '/api/health' || url.pathname === '/healthz') {
       return json({
         ok: true,
         service: 'nexus-os-ai',
-        version: '2.0.0-byok',
+        version: '3.2.0-review',
         mode: 'byok',
         ownerKey: false, // 明确：服务器不持有任何人的 Key
         providers: Object.keys(PROVIDERS).map(id => ({ id, name: PROVIDERS[id].name, model: PROVIDERS[id].model })),
@@ -402,34 +352,63 @@ export default {
     }
 
     if (url.pathname === '/api/chat') return handleChat(request, env, false);
+    // 方聊（N聊）认证桥：nliao Worker 用 Bearer token 换取用户信息
+    if (url.pathname === '/api/auth/me') return handleAuthMe(request, env);
     // OpenAI 兼容端点：Base URL 填 https://ai.fanggame.company/v1 即可直接用
     if (url.pathname === '/v1/chat/completions' || url.pathname === '/chat/completions') return handleChat(request, env, true);
     if (url.pathname === '/v1/models') {
       return json({ object: 'list', data: Object.keys(PROVIDERS).map(id => ({ id: PROVIDERS[id].model, object: 'model', owned_by: id })) }, 200, env);
+    }
+    // v3.1：Nexus Cloud API v1（开发者 / 应用 / 版本 / 审核 / CDN / 遥测）
+    if (url.pathname.startsWith('/api/v1')) {
+      const res = await handleV1(request, env, ctx, url);
+      const h = new Headers(res.headers);
+      Object.entries(corsHeaders(env, request)).forEach(([k, v]) => h.set(k, v));
+      if (request.method === 'HEAD') return new Response(null, { status: res.status, headers: h });
+      return new Response(res.body, { status: res.status, headers: h });
     }
     // v2.9.47：Nexus 账号服务（注册 / 登录 / 查重 / 改资料 / 加好友查询）
     if (url.pathname.startsWith('/api/acc')) {
       const res = await handleAccount(request, env, url);
       // 统一补 CORS（account.js 里只写了 Content-Type）
       const h = new Headers(res.headers);
-      Object.entries(corsHeaders(env)).forEach(([k, v]) => h.set(k, v));
+      Object.entries(corsHeaders(env, request)).forEach(([k, v]) => h.set(k, v));
       return new Response(res.body, { status: res.status, headers: h });
     }
     if (url.pathname.startsWith('/api/mx')) return handleMx(request, env, url);
+    if (url.pathname.startsWith('/api/translate')) return handleTranslate(request, env, url);
     if (url.pathname.startsWith('/api/bili')) return handleBili(request, env, url);
+    // v3.2：和风天气 / 高德地图 / 新闻 RSS（key 只走 Worker secrets）
+    if (url.pathname.startsWith('/api/weather')) return handleWeather(request, env, url);
+    if (url.pathname.startsWith('/api/map')) return handleMap(request, env, url);
+    if (url.pathname.startsWith('/api/news')) return handleNews(request, env, url);
     // v2.9.61：必应每日壁纸（前端走同源反代，失败自动降级到内置壁纸）
     if (url.pathname === '/api/bing/daily') return handleBingDaily(request, env);
+    // 开发者工坊 v1：稳定 appId / releaseId、版本、原始资源、预览令牌
+    if (url.pathname.startsWith('/api/store/v1')) {
+      const res = await handleStoreV1(request, env, url);
+      const h = new Headers(res.headers);
+      Object.entries(corsHeaders(env, request)).forEach(([k, v]) => h.set(k, v));
+      return new Response(res.body, { status: res.status, headers: h });
+    }
     // v2.9.52：应用/插件市场（上传 → 审核 → 上架 → 下载 → 后台管理）
     if (url.pathname.startsWith('/api/store')) {
       const res = await handleStore(request, env, url);
       const h = new Headers(res.headers);
-      Object.entries(corsHeaders(env)).forEach(([k, v]) => h.set(k, v));
+      Object.entries(corsHeaders(env, request)).forEach(([k, v]) => h.set(k, v));
       return new Response(res.body, { status: res.status, headers: h });
     }
     // v2.9.53：音乐聚合层（网易/Deezer/iTunes；KV 复用 STORE_KV，键空间 music:* 隔离）
     if (url.pathname.startsWith('/api/music')) {
       env.MUSIC_KV = env.MUSIC_KV || env.STORE_KV;
       return handleMusic(request, env, url);
+    }
+    // v3.0：控制台管理接口（账号列表 / 注销 / 概览 / 内置应用清单）
+    if (url.pathname.startsWith('/api/admin')) {
+      const res = await handleNexusAdmin(request, env, url);
+      const h = new Headers(res.headers);
+      Object.entries(corsHeaders(env, request)).forEach(([k, v]) => h.set(k, v));
+      return new Response(res.body, { status: res.status, headers: h });
     }
 
     if (url.pathname === '/' || url.pathname === '') {

@@ -23,6 +23,7 @@
 | `colorlab.html` | ✓ | ✗ | ✗ | 🔸 仅接总线，待补 |
 | `duolingo.html` | ✓ | ✗ | ✗ | 🔸 仅接总线，待补 |
 | `fangwork.html` | ✓ | ✗ | ✗ | 🔸 仅接总线，待补 |
+| `float/.build/out/web.html` | ✗ | ✗ | ✗ | ⚪ 未接运行时 |
 | `float/index.html` | ✓ | ✗ | ✗ | 🔸 仅接总线，待补 |
 | `floatapp/index.html` | ✓ | ✗ | ✗ | 🔸 仅接总线，待补 |
 | `focus.html` | ✓ | ✗ | ✗ | 🔸 仅接总线，待补 |
@@ -37,7 +38,7 @@
 | `quicknote.html` | ✓ | ✗ | ✗ | 🔸 仅接总线，待补 |
 | `reelix/index.html` | ✓ | ✗ | ✗ | 🔸 仅接总线，待补 |
 | `screenshot.html` | ✓ | ✗ | ✗ | 🔸 仅接总线，待补 |
-| `strata/index.html` | ✓ | ✗ | ✗ | 🔸 仅接总线，待补 |
+| `strata/index.html` | ✓ | ✗ | ✓ | 🔸 仅接总线，待补 |
 | `terminal.html` | ✓ | ✗ | ✗ | 🔸 仅接总线，待补 |
 | `tips.html` | ✓ | ✗ | ✗ | 🔸 仅接总线，待补 |
 | `video.html` | ✓ | ✓ | ✓ | ✅ 全量 |

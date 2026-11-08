@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>相机</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<link rel="stylesheet" href="../ui/n26-ui.css">
+<link rel="stylesheet" href="_polish.css">
+<link rel="stylesheet" href="_office.css">
+<style>
+/* ===== Nexus 相机 ===== */
+html,body{height:100%;margin:0}
+body{background:transparent;overflow:hidden;-webkit-font-smoothing:antialiased}
+
+.of-app.cam{
+  --of-accent:hsl(199 89% 46%);
+  --of-accent-press:hsl(199 89% 38%);
+  --of-accent-ink:hsl(199 86% 32%);
+  --of-accent-weak:color-mix(in srgb,var(--of-accent) 12%,transparent);
+  --of-accent-weak2:color-mix(in srgb,var(--of-accent) 32%,transparent);
+  --of-on-accent:rgb(255 255 255 / .96);
+  --cam-stage:hsl(220 18% 7%);
+  --cam-stage-2:hsl(220 16% 13%);
+  --cam-ink:rgb(255 255 255 / .92);
+  --cam-ink-2:rgb(255 255 255 / .64);
+}
+html[data-mode="dark"] .of-app.cam,html[data-theme="dark"] .of-app.cam,body.dark-mode .of-app.cam{
+  --of-accent:hsl(199 92% 60%);
+  --of-accent-press:hsl(199 92% 52%);
+  --of-accent-ink:hsl(199 96% 76%);
+  --of-on-accent:rgb(6 22 32 / .92);
+}
+
+.cam-top-spacer{flex:1;min-width:8px}
+.cam-dev{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:var(--r-full);
+  font-size:11px;color:var(--text-2);background:rgba(15,23,42,.05);white-space:nowrap;max-width:230px;overflow:hidden}
+html[data-mode="dark"] .cam-dev,body.dark-mode .cam-dev{background:rgba(255,255,255,.07)}
+.cam-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:rgba(100,116,139,.55);
+  transition:background-color var(--dur-base) var(--ease-out-expo),box-shadow var(--dur-base) var(--ease-out-expo)}
+.cam-dot[data-s="opening"]{background:hsl(38 92% 52%);box-shadow:0 0 0 3px hsl(38 92% 52% / .18)}
+.cam-dot[data-s="ready"]{background:hsl(152 62% 44%);box-shadow:0 0 0 3px hsl(152 62% 44% / .18)}
+.cam-dot[data-s="error"]{background:var(--danger);box-shadow:0 0 0 3px color-mix(in srgb,var(--danger) 22%,transparent)}
+
+/* ---------- 取景 ---------- */
+.cam-shoot{height:100%;min-height:0;display:flex;flex-direction:column;background:var(--cam-stage)}
+.cam-stage{position:relative;flex:1;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(90% 80% at 50% 0%,var(--cam-stage-2),var(--cam-stage) 72%)}
+.cam-video{display:block;width:100%;height:100%;object-fit:cover;background:var(--cam-stage);opacity:0;
+  transition:opacity var(--dur-slow) var(--ease-out-expo)}
+.cam-video.live{opacity:1}
+.cam-video.mirror{transform:scaleX(-1)}
+
+.cam-grid{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity var(--dur-base) var(--ease-out-expo)}
+.cam-grid.on{opacity:1}
+.cam-grid i{position:absolute;background:rgba(255,255,255,.22);display:block}
+.cam-grid .v{top:0;bottom:0;width:1px}
+.cam-grid .h{left:0;right:0;height:1px}
+.cam-grid .v1{left:33.333%}
+.cam-grid .v2{left:66.666%}
+.cam-grid .h1{top:33.333%}
+.cam-grid .h2{top:66.666%}
+
+.cam-hud{position:absolute;left:12px;right:12px;top:10px;display:flex;align-items:center;gap:8px;pointer-events:none}
+.cam-chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:var(--r-full);
+  font-size:10.5px;letter-spacing:.3px;color:var(--cam-ink);background:rgba(10,14,20,.52);
+  border:1px solid rgba(255,255,255,.14);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  white-space:nowrap;max-width:70%;overflow:hidden;text-overflow:ellipsis}
+.cam-chip .rec{width:6px;height:6px;border-radius:50%;background:hsl(0 78% 58%);animation:camPulse 2s var(--ease-out-expo) infinite}
+.cam-chip .rec[data-off="1"]{background:hsl(38 92% 52%);animation:none}
+@keyframes camPulse{0%,100%{opacity:1}50%{opacity:.32}}
+.cam-hud .cam-chip.grow{flex:1}
+
+.cam-fallback{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+  gap:9px;padding:26px;text-align:center;color:var(--cam-ink);z-index:3;
+  background:radial-gradient(90% 80% at 50% 0%,var(--cam-stage-2),var(--cam-stage) 70%)}
+.cam-fallback.show{display:flex}
+.cam-fallback .ico{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;font-size:23px;
+  color:var(--cam-ink);background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 10px 30px rgba(0,0,0,.28)}
+.cam-fallback b{font-size:15.5px;font-weight:600;letter-spacing:.2px}
+.cam-fallback p{margin:0;max-width:390px;font-size:12.5px;line-height:1.75;color:var(--cam-ink-2)}
+.cam-fallback .note{font-size:11px;line-height:1.7;max-width:390px;color:rgba(255,255,255,.46)}
+.cam-fallback-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+.cam-cta{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 16px;border:0;border-radius:var(--r-full);
+  font-family:inherit;font-size:12px;font-weight:600;color:var(--of-on-accent);background:var(--of-accent);cursor:pointer;
+  box-shadow:0 4px 16px color-mix(in srgb,var(--of-accent) 30%,transparent);
+  transition:transform var(--dur-fast) var(--ease-out-expo),background-color var(--dur-fast) var(--ease-out-expo)}
+.cam-cta:hover{background:var(--of-accent-press)}
+.cam-cta:active{transform:scale(.97)}
+.cam-cta.ghost{color:var(--cam-ink);background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20);box-shadow:none}
+.cam-cta.ghost:hover{background:rgba(255,255,255,.16)}
+
+/* 倒计时 / 快门闪光 */
+.cam-count{position:absolute;inset:0;display:none;place-items:center;z-index:4;pointer-events:none;
+  background:rgba(4,8,12,.30)}
+.cam-count.show{display:grid}
+.cam-count span{font-size:64px;font-weight:700;line-height:1;color:rgb(255 255 255 / .96);
+  text-shadow:0 4px 30px rgba(0,0,0,.55);animation:camCountIn .34s var(--ease-out-expo)}
+@keyframes camCountIn{from{opacity:0;transform:scale(1.35)}to{opacity:1;transform:scale(1)}}
+.cam-flash{position:absolute;inset:0;z-index:5;pointer-events:none;opacity:0;background:rgb(255 255 255)}
+.cam-flash.fire{animation:camFlash .46s var(--ease-out-expo)}
+@keyframes camFlash{0%{opacity:.82}100%{opacity:0}}
+
+/* 控制条 */
+.cam-bar{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:20px;height:92px;padding:0 18px;
+  background:hsl(220 18% 9%);border-top:1px solid rgba(255,255,255,.07)}
+.cam-side{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  width:46px;height:52px;border:0;background:transparent;color:var(--cam-ink);cursor:pointer;border-radius:10px;
+  transition:background-color var(--dur-fast) var(--ease-out-expo)}
+.cam-side:hover{background:rgba(255,255,255,.08)}
+.cam-side > i{font-size:16px;line-height:1}
+.cam-side > span{font-size:9.5px;color:var(--cam-ink-2);line-height:1;letter-spacing:.2px}
+.cam-side.on{color:var(--of-accent);background:rgba(255,255,255,.06)}
+.cam-side.on > span{color:color-mix(in srgb,var(--of-accent) 70%,rgb(255 255 255 / .8))}
+.cam-side:disabled{opacity:.4;cursor:default}
+.cam-thumb{width:48px;height:48px;padding:0;border:1px solid rgba(255,255,255,.22);border-radius:10px;overflow:hidden;
+  background:rgba(255,255,255,.06);cursor:pointer;display:grid;place-items:center;color:var(--cam-ink-2);
+  transition:border-color var(--dur-fast) var(--ease-out-expo)}
+.cam-thumb:hover{border-color:var(--of-accent)}
+.cam-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.cam-thumb > i{font-size:15px}
+
+.cam-shutter{position:relative;width:70px;height:70px;padding:0;border:0;border-radius:50%;background:transparent;cursor:pointer;flex-shrink:0}
+.cam-shutter::before{content:"";position:absolute;inset:0;border-radius:50%;border:3px solid rgb(255 255 255 / .82);
+  transition:transform var(--dur-base) var(--ease-out-expo),border-color var(--dur-base) var(--ease-out-expo)}
+.cam-shutter::after{content:"";position:absolute;inset:9px;border-radius:50%;background:rgb(255 255 255 / .94);
+  box-shadow:0 2px 14px rgba(0,0,0,.35);transition:transform var(--dur-fast) var(--ease-out-expo),background-color var(--dur-fast) var(--ease-out-expo)}
+.cam-shutter:hover::after{background:rgb(255 255 255)}
+.cam-shutter:active::after{transform:scale(.9)}
+.cam-shutter:disabled{opacity:.38;cursor:default}
+.cam-shutter:focus-visible{outline:2px solid var(--of-accent);outline-offset:4px}
+
+/* 胶卷条 */
+.cam-strip{flex:0 0 auto;display:flex;align-items:center;gap:7px;height:58px;padding:0 12px;overflow-x:auto;overflow-y:hidden;
+  background:hsl(220 18% 8%);border-top:1px solid rgba(255,255,255,.055);scrollbar-width:thin}
+.cam-strip:empty{display:none}
+.cam-strip button{flex:0 0 auto;width:62px;height:44px;padding:0;border:1px solid rgba(255,255,255,.14);border-radius:8px;
+  overflow:hidden;background:rgba(255,255,255,.05);cursor:pointer;transition:border-color var(--dur-fast) var(--ease-out-expo),transform var(--dur-fast) var(--ease-out-expo)}
+.cam-strip button:hover{border-color:var(--of-accent);transform:translateY(-1px)}
+.cam-strip img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* ---------- 相簿 ---------- */
+.cam-roll{height:100%;min-height:0;display:flex;flex-direction:column;background:transparent}
+.cam-roll-head{flex:0 0 auto;display:flex;align-items:flex-end;gap:12px;padding:20px 22px 12px}
+.cam-roll-head .t{flex:1;min-width:0}
+.cam-roll-head b{display:block;font-size:19px;font-weight:600;letter-spacing:-.2px;color:var(--text-1)}
+.cam-roll-head span{display:block;margin-top:3px;font-size:11.5px;color:var(--text-3)}
+.cam-roll-head .a{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.cam-roll-grid{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));
+  gap:12px;padding:4px 22px 24px;align-content:start}
+.cam-g-card{position:relative;aspect-ratio:1;border-radius:12px;overflow:hidden;background:rgba(15,23,42,.06);
+  border:1px solid rgba(15,23,42,.08);cursor:zoom-in;outline:none;
+  transition:transform var(--dur-base) var(--ease-out-expo),box-shadow var(--dur-base) var(--ease-out-expo),border-color var(--dur-base) var(--ease-out-expo)}
+html[data-mode="dark"] .cam-g-card,body.dark-mode .cam-g-card{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.10)}
+.cam-g-card:hover,.cam-g-card:focus-visible{transform:translateY(-2px);border-color:var(--of-accent);
+  box-shadow:0 8px 24px rgba(15,23,42,.14)}
+.cam-g-card img{width:100%;height:100%;object-fit:cover;display:block;
+  transition:transform var(--dur-slow) var(--ease-out-expo)}
+.cam-g-card:hover img{transform:scale(1.035)}
+.cam-g-meta{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:flex-end;justify-content:space-between;gap:8px;
+  padding:20px 9px 8px;color:rgb(255 255 255 / .92);font-size:10.5px;
+  background:linear-gradient(to top,rgba(4,8,12,.76),rgba(4,8,12,0))}
+.cam-g-meta b{font-weight:600;font-size:10.5px}
+.cam-g-tools{position:absolute;top:7px;right:7px;display:flex;gap:5px;opacity:0;transform:translateY(-3px);
+  transition:opacity var(--dur-fast) var(--ease-out-expo),transform var(--dur-fast) var(--ease-out-expo)}
+.cam-g-card:hover .cam-g-tools,.cam-g-card:focus-within .cam-g-tools{opacity:1;transform:none}
+.cam-g-tools button{width:26px;height:26px;padding:0;border:1px solid rgba(255,255,255,.24);border-radius:7px;
+  display:grid;place-items:center;font-size:11px;color:rgb(255 255 255 / .92);background:rgba(10,14,20,.64);
+  cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.cam-g-tools button:hover{background:var(--of-accent);border-color:transparent;color:var(--of-on-accent)}
+.cam-g-tools button[data-act="del"]:hover{background:var(--danger)}
+
+/* ---------- 设置 ---------- */
+.cam-set{height:100%;min-height:0;overflow:auto;padding:20px 22px 40px}
+.cam-set-head b{display:block;font-size:19px;font-weight:600;letter-spacing:-.2px;color:var(--text-1)}
+.cam-set-head span{display:block;margin-top:3px;font-size:11.5px;color:var(--text-3)}
+.cam-section{margin-top:16px;border-radius:14px;border:1px solid rgba(15,23,42,.09);background:rgba(255,255,255,.62);
+  box-shadow:0 1px 2px var(--sh-card);overflow:hidden}
+html[data-mode="dark"] .cam-section,body.dark-mode .cam-section{background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.10)}
+.cam-section-title{padding:11px 16px 9px;font-size:11px;font-weight:600;letter-spacing:.6px;color:var(--text-3);
+  text-transform:uppercase;border-bottom:1px solid rgba(15,23,42,.06)}
+html[data-mode="dark"] .cam-section-title,body.dark-mode .cam-section-title{border-bottom-color:rgba(255,255,255,.08)}
+.cam-row{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:52px;padding:8px 16px;
+  border-bottom:1px solid rgba(15,23,42,.055)}
+html[data-mode="dark"] .cam-row,body.dark-mode .cam-row{border-bottom-color:rgba(255,255,255,.07)}
+.cam-row:last-child{border-bottom:0}
+.cam-row .lbl{min-width:0}
+.cam-row .lbl b{display:block;font-size:12.5px;font-weight:600;color:var(--text-1)}
+.cam-row .lbl span{display:block;margin-top:2px;font-size:11px;line-height:1.5;color:var(--text-3)}
+.cam-row .ctl{flex-shrink:0;display:flex;align-items:center;gap:8px}
+.cam-row code{font-family:var(--font-mono,ui-monospace,monospace);font-size:11px;padding:3px 7px;border-radius:6px;
+  background:rgba(15,23,42,.06);color:var(--text-2)}
+html[data-mode="dark"] .cam-row code,body.dark-mode .cam-row code{background:rgba(255,255,255,.08)}
+
+.cam-sw{position:relative;width:42px;height:24px;padding:0;border:0;border-radius:var(--r-full);cursor:pointer;
+  background:rgba(15,23,42,.16);transition:background-color var(--dur-base) var(--ease-out-expo)}
+html[data-mode="dark"] .cam-sw,body.dark-mode .cam-sw{background:rgba(255,255,255,.18)}
+.cam-sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
+  background:rgb(255 255 255 / .96);box-shadow:0 1px 3px rgba(15,23,42,.28);
+  transition:transform var(--dur-base) var(--ease-out-expo)}
+.cam-sw[aria-checked="true"]{background:var(--of-accent)}
+.cam-sw[aria-checked="true"]::after{transform:translateX(18px)}
+.cam-sw:focus-visible{outline:2px solid var(--of-accent);outline-offset:3px}
+
+.cam-seg{display:inline-flex;padding:2px;border-radius:10px;background:rgba(15,23,42,.06)}
+html[data-mode="dark"] .cam-seg,body.dark-mode .cam-seg{background:rgba(255,255,255,.075)}
+.cam-seg button{height:26px;padding:0 11px;border:0;border-radius:8px;background:transparent;font-family:inherit;
+  font-size:11.5px;color:var(--text-2);cursor:pointer;transition:background-color var(--dur-fast) var(--ease-out-expo),color var(--dur-fast) var(--ease-out-expo)}
+.cam-seg button[aria-pressed="true"]{background:rgba(255,255,255,.94);color:var(--text-1);box-shadow:0 1px 3px rgba(15,23,42,.14);font-weight:600}
+html[data-mode="dark"] .cam-seg button[aria-pressed="true"],body.dark-mode .cam-seg button[aria-pressed="true"]{background:rgba(255,255,255,.16);box-shadow:none}
+
+/* ---------- 照片查看 ---------- */
+.cam-view{position:fixed;inset:0;z-index:40;display:none;flex-direction:column;background:hsl(220 20% 5%)}
+.cam-view.show{display:flex}
+.cam-view-top{flex:0 0 auto;display:flex;align-items:center;gap:10px;height:52px;padding:0 14px;
+  color:var(--cam-ink);background:rgba(10,14,20,.72);border-bottom:1px solid rgba(255,255,255,.08);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.cam-view-top .nm{flex:1;min-width:0;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cam-view-top .sub{font-size:10.5px;color:var(--cam-ink-2);white-space:nowrap}
+.cam-view-btn{width:32px;height:32px;padding:0;border:1px solid rgba(255,255,255,.16);border-radius:9px;
+  display:grid;place-items:center;font-size:13px;color:var(--cam-ink);background:rgba(255,255,255,.08);cursor:pointer;
+  transition:background-color var(--dur-fast) var(--ease-out-expo)}
+.cam-view-btn:hover{background:rgba(255,255,255,.16)}
+.cam-view-btn[data-danger]:hover{background:var(--danger)}
+.cam-view-btn:disabled{opacity:.35;cursor:default}
+.cam-view-btn:disabled:hover{background:rgba(255,255,255,.08)}
+.cam-view-stage{flex:1;min-height:0;display:grid;place-items:center;padding:16px;overflow:auto}
+.cam-view-stage img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;box-shadow:0 20px 60px rgba(0,0,0,.5);
+  background:rgba(255,255,255,.04)}
+.cam-view-foot{flex:0 0 auto;display:flex;align-items:center;gap:8px;height:44px;padding:0 16px;
+  font-size:10.5px;color:var(--cam-ink-2);background:rgba(10,14,20,.72);border-top:1px solid rgba(255,255,255,.08)}
+.cam-view-foot .grow{flex:1}
+
+@media (max-width:720px){
+  .cam-bar{gap:12px;padding:0 10px}
+  .cam-side{width:40px}
+  .cam-roll-grid{grid-template-columns:repeat(auto-fill,minmax(126px,1fr));padding:4px 14px 20px}
+  .cam-roll-head{padding:16px 14px 10px}
+  .cam-set{padding:16px 14px 32px}
+}
+@media (prefers-reduced-motion:reduce){
+  .cam-chip .rec{animation:none}
+  .cam-flash.fire{animation-duration:.18s}
+}
+</style>
+</head>
+<body>
+<div class="of-app cam" id="app">
+  <header class="of-top">
+    <div class="of-brand"><i class="fa-solid fa-camera" aria-hidden="true"></i><b>相机</b></div>
+    <div class="cam-dev" title="摄像头状态"><span class="cam-dot" id="devDot" data-s="opening"></span><span id="devText">正在准备…</span></div>
+    <div class="cam-top-spacer"></div>
+    <button class="of-btn" id="topStop" title="暂停取景"><i class="fa-solid fa-video" aria-hidden="true"></i><span id="topStopLabel">暂停</span></button>
+    <button class="of-btn" id="topAlbum" title="打开系统相册"><i class="fa-solid fa-images" aria-hidden="true"></i><span>相册</span></button>
+  </header>
+  <div class="of-body" id="shellMount"></div>
+</div>
+<div class="of-toasts" aria-live="polite"></div>
+
+<script src="../ui/motion.js"></script>
+<script src="_bridge.js"></script>
+<script src="_app.js?v=2.9.57"></script>
+<script src="../ui/n26-gestures.js"></script>
+<script src="../ui/n26-ui.js"></script>
+<script src="_office.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var hasBridge = !!(window.Nexus && window.Nexus.getUserLS);
+  var LOCAL_KEY = 'n26CameraLocalRoll';
+  var RES = {
+    '1080': { w: 1920, h: 1080, label: '1080P' },
+    '720': { w: 1280, h: 720, label: '720P' },
+    '480': { w: 640, h: 480, label: '480P' }
+  };
+
+  var state = {
+    stream: null,
+    facing: 'user',
+    deviceId: '',
+    devices: [],
+    mirror: true,
+    grid: false,
+    timer: 0,
+    res: '720',
+    ready: false,
+    opening: false,
+    photos: [],
+    counting: false,
+    lastShot: '',
+    viewName: ''
+  };
+
+  var shell = null;
+  var saveChain = Promise.resolve();
+  var prefsStore = OF.store('n26CameraPrefs');
+
+  /* ================= 存储 ================= */
+  function readFs() {
+    if (!hasBridge) return Promise.resolve(null);
+    var timer;
+    return Promise.race([
+      Promise.resolve(window.Nexus.getUserLS('filesystem')),
+      new Promise(function (res) { timer = setTimeout(function () { res('__timeout'); }, 6000); })
+    ]).then(function (fs) {
+      clearTimeout(timer);
+      return (fs === '__timeout') ? null : (fs || null);
+    }).catch(function () { return null; });
+  }
+
+  function photoDir(fs, create) {
+    if (!fs || typeof fs !== 'object') return null;
+    if (!fs.C) {
+      if (!create) return null;
+      fs.C = { type: 'folder', children: {} };
+    }
+    var C = fs.C;
+    if (!C.children) {
+      if (!create) return null;
+      C.children = {};
+    }
+    if (!C.children.Photo || C.children.Photo.type !== 'folder') {
+      if (!create) return null;
+      C.children.Photo = { type: 'folder', children: {} };
+    }
+    var P = C.children.Photo;
+    if (!P.children) {
+      if (!create) return null;
+      P.children = {};
+    }
+    if (!P.children['相机'] || P.children['相机'].type !== 'folder') {
+      if (!create) return null;
+      P.children['相机'] = { type: 'folder', children: {} };
+    }
+    var D = P.children['相机'];
+    if (!D.children) {
+      if (!create) return null;
+      D.children = {};
+    }
+    return D;
+  }
+
+  function scanPhotos(fs) {
+    var dir = photoDir(fs, false);
+    if (!dir || !dir.children) return [];
+    var out = [];
+    Object.keys(dir.children).forEach(function (name) {
+      var n = dir.children[name];
+      if (!n || n.type !== 'file') return;
+      var src = n.content;
+      if (typeof src !== 'string') return;
+      if (!/^data:image\//i.test(src) && !/^(https?:|blob:)/i.test(src)) return;
+      out.push({
+        name: name,
+        src: src,
+        created: n.created || 0,
+        size: n.size || (src.indexOf('data:image') === 0 ? Math.round(src.length * .72) : 0),
+        path: 'C:/Photo/相机/' + name
+      });
+    });
+    out.sort(function (a, b) {
+      return (b.created || 0) - (a.created || 0) || (a.name < b.name ? 1 : -1);
+    });
+    return out;
+  }
+
+  function localRead() {
+    try {
+      var arr = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+  function localWrite(arr) {
+    try {
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(arr));
+      return true;
+    } catch (e) {
+      // 容量不足时只保留最近两张
+      try { localStorage.setItem(LOCAL_KEY, JSON.stringify(arr.slice(0, 2))); } catch (e2) { }
+      return false;
+    }
+  }
+
+  function stamp() {
+    var d = new Date(), p = function (n) { return n < 10 ? '0' + n : '' + n; };
+    return '' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+  }
+
+  function uniqueName(dir, base, ext) {
+    var name = base + ext, i = 1;
+    while (dir.children[name]) { name = base + ' (' + i + ')' + ext; i++; }
+    return name;
+  }
+
+  function persistShot(shot) {
+    return readFs().then(function (fs) {
+      if (!fs || !hasBridge) {
+        var arr = localRead();
+        arr.unshift(shot);
+        var ok = localWrite(arr.slice(0, 8));
+        if (!ok) OF.toast('浏览器本地存储空间不足，照片只保留了最近几张', 'warning');
+        return { ok: true, local: true };
+      }
+      var dir = photoDir(fs, true);
+      if (!dir) throw new Error('相册目录不可用');
+      var name = uniqueName(dir, '照片_' + stamp(), '.jpg');
+      shot.name = name;
+      shot.path = 'C:/Photo/相机/' + name;
+      dir.children[name] = {
+        type: 'file',
+        fileType: 'image',
+        content: shot.src,
+        created: shot.created,
+        size: shot.size,
+        width: shot.w,
+        height: shot.h
+      };
+      return Promise.resolve(window.Nexus.setUserLS('filesystem', fs)).then(function () {
+        return { ok: true, local: false, name: name };
+      });
+    }).catch(function (e) {
+      var arr = localRead();
+      arr.unshift(shot);
+      localWrite(arr.slice(0, 8));
+      return { ok: false, local: true, error: e };
+    });
+  }
+
+  function loadPhotos() {
+    return readFs().then(function (fs) {
+      if (fs) return scanPhotos(fs);
+      return localRead();
+    }).then(function (list) {
+      state.photos = list;
+      renderStrip();
+      renderRoll();
+      renderStats();
+      return list;
+    });
+  }
+  var refreshPhotos = OF.debounce(function () { loadPhotos(); }, 220);
+
+  /* ================= 摄像头 ================= */
+  function setCamState(kind, text) {
+    var dot = $('devDot'), label = $('devText');
+    if (dot) dot.dataset.s = kind;
+    if (label) label.textContent = text;
+    var hud = $('hudStatus'), rec = $('hudRec');
+    if (hud) hud.textContent = text;
+    if (rec) rec.dataset.off = kind === 'ready' ? '0' : '1';
+  }
+
+  function showFallback(info) {
+    var wrap = $('camFallback');
+    if (!wrap) return;
+    $('camErrIcon').className = 'fa-solid ' + (info.icon || 'fa-video-slash');
+    $('camErrTitle').textContent = info.title || '摄像头不可用';
+    $('camErrDesc').textContent = info.desc || '';
+    var note = $('camErrNote');
+    note.textContent = info.note || '';
+    note.style.display = info.note ? '' : 'none';
+    wrap.classList.add('show');
+  }
+  function hideFallback() {
+    var wrap = $('camFallback');
+    if (wrap) wrap.classList.remove('show');
+  }
+
+  function errorInfo(err) {
+    var name = (err && err.name) || '';
+    var map = {
+      NotAllowedError: {
+        icon: 'fa-lock', title: '相机权限未开启',
+        desc: '系统和浏览器拦截了摄像头访问。请在系统设置 → 隐私与安全 → 相机中允许访问，然后回到这里点「重新尝试」。',
+        note: '如果地址栏左侧出现摄像头图标，点它选择「允许」也能恢复。'
+      },
+      PermissionDeniedError: {
+        icon: 'fa-lock', title: '相机权限被拒绝',
+        desc: '你之前拒绝过摄像头权限。请在上方地址栏或系统设置中重新允许，再点「重新尝试」。',
+        note: '重新授权后通常需要重新打开本窗口。'
+      },
+      NotFoundError: {
+        icon: 'fa-camera-slash', title: '没有找到摄像头',
+        desc: '这台设备上没有可用的摄像头，或摄像头已在系统中被停用。接上外接摄像头后点「重新尝试」。',
+        note: ''
+      },
+      DevicesNotFoundError: {
+        icon: 'fa-camera-slash', title: '没有找到摄像头',
+        desc: '系统没有识别到视频输入设备。检查设备连接或系统摄像头开关后再试。',
+        note: ''
+      },
+      NotReadableError: {
+        icon: 'fa-circle-exclamation', title: '摄像头被其他程序占用',
+        desc: '摄像头正被视频会议或其他应用使用。关闭占用它的程序，再点「重新尝试」。',
+        note: '同一时间只能有一个程序读取摄像头画面。'
+      },
+      TrackStartError: {
+        icon: 'fa-circle-exclamation', title: '摄像头启动失败',
+        desc: '硬件或驱动没能开始推流。关闭其他占用摄像头的程序后重试。',
+        note: ''
+      },
+      OverconstrainedError: {
+        icon: 'fa-sliders', title: '摄像头不支持当前分辨率',
+        desc: '已自动尝试兼容模式；如果仍然失败，请在「设置 → 分辨率」里换一档再试。',
+        note: ''
+      },
+      SecurityError: {
+        icon: 'fa-shield-halved', title: '安全策略阻止了摄像头',
+        desc: '当前页面不是安全上下文。请通过 Nexus 系统窗口打开相机（HTTPS 或 localhost 才允许摄像头）。',
+        note: '直接以 file:// 打开页面时，浏览器会禁用 getUserMedia。'
+      },
+      AbortError: {
+        icon: 'fa-rotate', title: '摄像头启动被中断',
+        desc: '系统没能完成初始化，通常是驱动短暂忙碌。点「重新尝试」即可。',
+        note: ''
+      }
+    };
+    if (name === 'TypeError' || name === 'NotSupportedError') {
+      return {
+        icon: 'fa-video-slash', title: '当前环境不支持摄像头',
+        desc: '浏览器没有提供可用的 getUserMedia 接口。请更新浏览器，或改用 Nexus 系统窗口打开。',
+        note: '独立以 file:// 打开时也会出现这个提示。'
+      };
+    }
+    return map[name] || {
+      icon: 'fa-triangle-exclamation', title: '摄像头启动失败',
+      desc: '系统返回了未识别的错误' + (name ? '（' + name + '）' : '') + '。点「重新尝试」，或换一个摄像头。',
+      note: ''
+    };
+  }
+
+  function stopStream() {
+    if (state.stream) {
+      try { state.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) { }
+      state.stream = null;
+    }
+    var v = $('camVideo');
+    if (v) {
+      try { v.srcObject = null; } catch (e) { }
+      v.classList.remove('live');
+    }
+    state.ready = false;
+    state.opening = false;
+  }
+
+  function fail(err) {
+    state.opening = false;
+    state.ready = false;
+    setCamState('error', '不可用');
+    if ($('camShutter')) $('camShutter').disabled = true;
+    showFallback(errorInfo(err));
+    var v = $('camVideo');
+    if (v) v.classList.remove('live');
+    renderStats();
+  }
+
+  function onStream(stream) {
+    state.stream = stream;
+    state.opening = false;
+    state.ready = true;
+    var v = $('camVideo');
+    if (!v) { stopStream(); return; }
+    v.srcObject = stream;
+    v.classList.add('live');
+    applyMirror();
+    var p = v.play(); if (p && p.catch) p.catch(function () { });
+    hideFallback();
+    setCamState('ready', state.facing === 'user' ? '前置摄像头 · 就绪' : '后置摄像头 · 就绪');
+    if ($('camShutter')) $('camShutter').disabled = false;
+    updateHud();
+    enumerateCameras();
+    renderStats();
+    stream.getVideoTracks().forEach(function (t) {
+      t.addEventListener('ended', function () {
+        if (state.stream === stream) {
+          state.stream = null;
+          state.ready = false;
+          setCamState('error', '取景已断开');
+          showFallback({
+            icon: 'fa-plug-circle-xmark', title: '取景已中断',
+            desc: '摄像头连接被系统或硬件断开。点「重新尝试」重新建立取景。', note: ''
+          });
+        }
+      });
+    });
+  }
+
+  function startCamera() {
+    stopStream();
+    state.opening = true;
+    hideFallback();
+    setCamState('opening', '正在唤醒摄像头…');
+    if ($('camShutter')) $('camShutter').disabled = true;
+    if ($('topStopLabel')) $('topStopLabel').textContent = '暂停';
+    renderStats();
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      fail({ name: 'NotSupportedError' });
+      return;
+    }
+
+    var r = RES[state.res] || RES['720'];
+    var vc = { width: { ideal: r.w }, height: { ideal: r.h } };
+    if (state.deviceId) vc.deviceId = { exact: state.deviceId };
+    else vc.facingMode = { ideal: state.facing };
+
+    navigator.mediaDevices.getUserMedia({ audio: false, video: vc }).then(onStream).catch(function (err) {
+      var n = err && err.name;
+      if (n === 'OverconstrainedError' || n === 'ConstraintNotSatisfiedError') {
+        navigator.mediaDevices.getUserMedia({ audio: false, video: true }).then(onStream).catch(fail);
+        return;
+      }
+      if ((n === 'NotFoundError' || n === 'DevicesNotFoundError') && state.deviceId) {
+        state.deviceId = '';
+        var retry = { width: { ideal: r.w }, height: { ideal: r.h }, facingMode: { ideal: state.facing } };
+        navigator.mediaDevices.getUserMedia({ audio: false, video: retry }).then(onStream).catch(fail);
+        return;
+      }
+      fail(err);
+    });
+  }
+
+  function enumerateCameras() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    navigator.mediaDevices.enumerateDevices().then(function (list) {
+      state.devices = list.filter(function (d) { return d.kind === 'videoinput'; });
+      renderDeviceSelect();
+    }).catch(function () { });
+  }
+
+  function trackInfo() {
+    if (!state.stream) return null;
+    var t = state.stream.getVideoTracks()[0];
+    if (!t) return null;
+    var s = t.getSettings ? t.getSettings() : {};
+    return { w: s.width || 0, h: s.height || 0, label: t.label || '', deviceId: s.deviceId || '' };
+  }
+
+  function updateHud() {
+    var info = trackInfo();
+    var v = $('camVideo');
+    var w = (info && info.w) || (v && v.videoWidth) || 0;
+    var h = (info && info.h) || (v && v.videoHeight) || 0;
+    var res = $('hudRes');
+    if (res) res.textContent = w && h ? (w + '×' + h) : '—';
+    var dev = $('devText');
+    if (dev && state.ready) {
+      var label = (info && info.label) ? info.label.replace(/\(.*?\)/g, '').trim() : '';
+      if (label) dev.textContent = label.length > 26 ? label.slice(0, 26) + '…' : label;
+    }
+  }
+
+  function applyMirror() {
+    var v = $('camVideo');
+    if (!v) return;
+    v.classList.toggle('mirror', !!(state.mirror && state.facing === 'user'));
+  }
+
+  function flipCamera() {
+    if (state.devices.length > 1) {
+      var info = trackInfo();
+      var cur = (info && info.deviceId) || state.deviceId;
+      var idx = -1;
+      for (var i = 0; i < state.devices.length; i++) {
+        if (state.devices[i].deviceId === cur) { idx = i; break; }
+      }
+      var next = state.devices[(idx + 1) % state.devices.length];
+      state.deviceId = next.deviceId;
+      var lab = (next.label || '').toLowerCase();
+      state.facing = /back|rear|environment|后置/.test(lab) ? 'environment' : 'user';
+    } else {
+      state.facing = state.facing === 'user' ? 'environment' : 'user';
+      state.deviceId = '';
+    }
+    savePrefs();
+    startCamera();
+  }
+
+  /* ================= 拍摄 ================= */
+  function flashScreen() {
+    var f = $('camFlash');
+    if (!f) return;
+    f.classList.remove('fire');
+    void f.offsetWidth;
+    f.classList.add('fire');
+    setTimeout(function () { f.classList.remove('fire'); }, 500);
+  }
+
+  function snap() {
+    var v = $('camVideo');
+    if (!v || !v.videoWidth || !v.videoHeight) {
+      OF.toast('取景还没准备好，稍等一下再按快门', 'warning');
+      return;
+    }
+    var w = v.videoWidth, h = v.videoHeight;
+    var cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    var ctx = cv.getContext('2d');
+    if (state.mirror && state.facing === 'user') {
+      ctx.translate(w, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(v, 0, 0, w, h);
+    var src;
+    try { src = cv.toDataURL('image/jpeg', .92); }
+    catch (e) { OF.toast('照片编码失败：' + (e && e.message ? e.message : e), 'error'); return; }
+
+    flashScreen();
+    state.lastShot = src;
+
+    var shot = {
+      name: '',
+      src: src,
+      created: Date.now(),
+      size: Math.round(src.length * .72),
+      w: w,
+      h: h,
+      path: ''
+    };
+
+    var thumb = $('camThumb');
+    if (thumb) {
+      thumb.innerHTML = '<img alt="最近一张照片" src="' + src + '">';
+    }
+
+    saveChain = saveChain.then(function () { return persistShot(shot); }).then(function (r) {
+      if (r && r.ok && !r.local) {
+        OF.toast('已保存到相簿 · C:/Photo/相机/' + r.name, 'success');
+        try { window.Nexus.notify('相机', '照片已保存到相簿', 'success'); } catch (e) { }
+      } else if (r && r.local) {
+        OF.toast(hasBridge ? '系统存储暂不可用，照片暂存在本窗口' : '当前为独立预览，照片保存在浏览器本地，进入系统后存入相簿', 'warning');
+      } else {
+        OF.toast('保存失败：' + (r && r.error ? r.error.message : '未知错误'), 'error');
+      }
+      refreshPhotos();
+    }).catch(function (e) {
+      OF.toast('保存失败：' + (e && e.message ? e.message : e), 'error');
+    });
+  }
+
+  function requestShot() {
+    if (!state.ready) {
+      if (state.opening) OF.toast('摄像头正在启动，稍等一下', 'info');
+      else OF.toast('摄像头不可用，请先点「重新尝试」', 'warning');
+      return;
+    }
+    if (state.timer > 0) {
+      runCountdown(state.timer);
+    } else {
+      snap();
+    }
+  }
+
+  function runCountdown(sec) {
+    if (state.counting) return;
+    state.counting = true;
+    var overlay = $('camCount');
+    var num = $('camCountNum');
+    var left = sec;
+    overlay.classList.add('show');
+    num.textContent = left;
+    var timer = setInterval(function () {
+      left--;
+      if (left <= 0) {
+        clearInterval(timer);
+        overlay.classList.remove('show');
+        state.counting = false;
+        snap();
+        return;
+      }
+      num.textContent = left;
+      num.style.animation = 'none';
+      void num.offsetWidth;
+      num.style.animation = '';
+    }, 1000);
+    overlay._cancelTimer = timer;
+  }
+
+  /* ================= 界面：取景 ================= */
+  function buildShoot() {
+    var root = document.createElement('div');
+    root.className = 'cam-shoot';
+    root.innerHTML =
+      '<div class="cam-stage">' +
+        '<video class="cam-video" id="camVideo" playsinline autoplay muted aria-label="摄像头实时画面"></video>' +
+        '<div class="cam-grid" id="camGrid" aria-hidden="true"><i class="v v1"></i><i class="v v2"></i><i class="h h1"></i><i class="h h2"></i></div>' +
+        '<div class="cam-hud">' +
+          '<span class="cam-chip"><i class="rec" id="hudRec" data-off="1"></i><span id="hudStatus">等待授权</span></span>' +
+          '<span class="cam-chip grow" id="hudRes">—</span>' +
+        '</div>' +
+        '<div class="cam-fallback" id="camFallback">' +
+          '<div class="ico"><i class="fa-solid fa-video-slash" id="camErrIcon" aria-hidden="true"></i></div>' +
+          '<b id="camErrTitle">摄像头不可用</b>' +
+          '<p id="camErrDesc"></p>' +
+          '<div class="cam-fallback-actions">' +
+            '<button class="cam-cta" id="camRetry" type="button"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i>重新尝试</button>' +
+            '<button class="cam-cta ghost" id="camToRoll" type="button"><i class="fa-solid fa-images" aria-hidden="true"></i>查看相簿</button>' +
+          '</div>' +
+          '<div class="note" id="camErrNote"></div>' +
+        '</div>' +
+        '<div class="cam-count" id="camCount"><span id="camCountNum">3</span></div>' +
+        '<div class="cam-flash" id="camFlash"></div>' +
+      '</div>' +
+      '<div class="cam-bar">' +
+        '<button class="cam-thumb" id="camThumb" type="button" title="最近一张照片"><i class="fa-solid fa-image" aria-hidden="true"></i></button>' +
+        '<button class="cam-side" id="camTimerBtn" type="button" title="快门倒计时"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i><span id="camTimerLabel">关</span></button>' +
+        '<button class="cam-shutter" id="camShutter" type="button" title="拍照（空格）" aria-label="拍照" disabled></button>' +
+        '<button class="cam-side" id="camFlipBtn" type="button" title="切换摄像头"><i class="fa-solid fa-camera-rotate" aria-hidden="true"></i><span>切换</span></button>' +
+        '<button class="cam-side" id="camGridBtn" type="button" title="三分构图网格"><i class="fa-solid fa-table-cells" aria-hidden="true"></i><span>网格</span></button>' +
+      '</div>' +
+      '<div class="cam-strip" id="camStrip"></div>';
+
+    // 事件
+    root.querySelector('#camShutter').addEventListener('click', requestShot);
+    root.querySelector('#camFlipBtn').addEventListener('click', flipCamera);
+    root.querySelector('#camGridBtn').addEventListener('click', function () {
+      state.grid = !state.grid;
+      syncGrid();
+      savePrefs();
+    });
+    root.querySelector('#camTimerBtn').addEventListener('click', function () {
+      state.timer = state.timer === 0 ? 3 : (state.timer === 3 ? 10 : 0);
+      syncTimer();
+      savePrefs();
+    });
+    root.querySelector('#camThumb').addEventListener('click', function () {
+      if (state.photos.length) openView(state.photos[0]);
+      else if (state.lastShot) openView({ name: '刚刚拍摄的照片', src: state.lastShot, created: Date.now(), size: 0 });
+      else OF.toast('还没有照片，按下快门拍第一张', 'info');
+    });
+    root.querySelector('#camRetry').addEventListener('click', startCamera);
+    root.querySelector('#camToRoll').addEventListener('click', function () { shell.select('roll'); });
+
+    var v = root.querySelector('#camVideo');
+    v.addEventListener('loadedmetadata', updateHud);
+    v.addEventListener('resize', updateHud);
+
+    syncGrid();
+    syncTimer();
+    return root;
+  }
+
+  function syncGrid() {
+    var g = $('camGrid'), b = $('camGridBtn');
+    if (g) g.classList.toggle('on', state.grid);
+    if (b) {
+      b.classList.toggle('on', state.grid);
+      b.setAttribute('aria-pressed', state.grid ? 'true' : 'false');
+    }
+  }
+
+  function syncTimer() {
+    var b = $('camTimerBtn'), lab = $('camTimerLabel');
+    if (!b) return;
+    b.classList.toggle('on', state.timer > 0);
+    b.setAttribute('aria-pressed', state.timer > 0 ? 'true' : 'false');
+    if (lab) lab.textContent = state.timer ? (state.timer + '秒') : '关';
+    if (b) b.title = state.timer ? ('倒计时 ' + state.timer + ' 秒（点击切换）') : '快门倒计时：关';
+  }
+
+  /* ================= 界面：相簿 ================= */
+  function fmtSize(n) {
+    if (!n) return '—';
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+    return (n / 1024 / 1024).toFixed(1) + ' MB';
+  }
+
+  function buildRoll() {
+    var root = document.createElement('div');
+    root.className = 'cam-roll';
+    root.innerHTML =
+      '<div class="cam-roll-head">' +
+        '<div class="t"><b>相簿</b><span id="rollSub">正在读取照片…</span></div>' +
+        '<div class="a">' +
+          '<button class="of-btn" id="rollRefresh" type="button" title="刷新相簿"><i class="fa-solid fa-rotate" aria-hidden="true"></i></button>' +
+          '<button class="of-btn" id="rollAlbum" type="button"><i class="fa-solid fa-images" aria-hidden="true"></i><span>系统相册</span></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="cam-roll-grid" id="rollGrid"></div>';
+    root.querySelector('#rollRefresh').addEventListener('click', function () {
+      loadPhotos().then(function () { OF.toast('相簿已刷新', 'info'); });
+    });
+    root.querySelector('#rollAlbum').addEventListener('click', function () {
+      if (hasBridge && window.Nexus.openApp) window.Nexus.openApp('album');
+      else OF.toast('独立预览模式无法打开系统相册', 'warning');
+    });
+    bindRollGrid(root.querySelector('#rollGrid'));
+    return root;
+  }
+
+  function bindRollGrid(grid) {
+    grid.addEventListener('click', function (e) {
+      var card = e.target.closest ? e.target.closest('.cam-g-card') : null;
+      if (!card) return;
+      var photo = photoByName(card.dataset.name);
+      if (!photo) return;
+      var btn = e.target.closest ? e.target.closest('button[data-act]') : null;
+      if (btn) {
+        e.stopPropagation();
+        if (btn.dataset.act === 'del') removePhoto(photo);
+        else if (btn.dataset.act === 'dl') downloadPhoto(photo);
+        return;
+      }
+      openView(photo);
+    });
+    grid.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      var card = e.target.closest ? e.target.closest('.cam-g-card') : null;
+      if (!card) return;
+      e.preventDefault();
+      var photo = photoByName(card.dataset.name);
+      if (photo) openView(photo);
+    });
+  }
+
+  function photoByName(name) {
+    for (var i = 0; i < state.photos.length; i++) {
+      if (state.photos[i].name === name) return state.photos[i];
+    }
+    return null;
+  }
+
+  function renderRoll() {
+    var grid = $('rollGrid'), sub = $('rollSub');
+    if (!grid) return;
+    if (sub) {
+      sub.textContent = state.photos.length
+        ? (state.photos.length + ' 张照片 · ' + fmtSize(totalSize()) + ' · 保存在 C:/Photo/相机')
+        : '还没有照片';
+    }
+    if (!state.photos.length) {
+      grid.innerHTML =
+        '<div class="of-empty" style="grid-column:1/-1">' +
+          '<i class="fa-solid fa-camera" aria-hidden="true"></i>' +
+          '<b>相簿还是空的</b>' +
+          '<span>回到「拍摄」按一下快门，照片会自动存进这里。</span>' +
+          '<button class="of-btn primary" id="rollGoShoot" type="button"><i class="fa-solid fa-camera" aria-hidden="true"></i>去拍摄</button>' +
+        '</div>';
+      var b = grid.querySelector('#rollGoShoot');
+      if (b) b.addEventListener('click', function () { shell.select('shoot'); });
+      return;
+    }
+    grid.innerHTML = state.photos.map(function (p) {
+      return '<div class="cam-g-card" role="button" tabindex="0" data-name="' + OF.esc(p.name) + '" aria-label="' + OF.esc(p.name) + '">' +
+        '<img loading="lazy" decoding="async" alt="' + OF.esc(p.name) + '" src="' + p.src + '">' +
+        '<span class="cam-g-meta"><b>' + OF.esc(OF.fmtTime(p.created)) + '</b><span>' + fmtSize(p.size) + '</span></span>' +
+        '<span class="cam-g-tools">' +
+          '<button type="button" data-act="dl" title="下载"><i class="fa-solid fa-download" aria-hidden="true"></i></button>' +
+          '<button type="button" data-act="del" title="删除"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>' +
+        '</span></div>';
+    }).join('');
+  }
+
+  function totalSize() {
+    var n = 0;
+    state.photos.forEach(function (p) { n += (p.size || 0); });
+    return n;
+  }
+
+  function renderStrip() {
+    var strip = $('camStrip');
+    if (!strip) return;
+    if (!state.photos.length) {
+      strip.innerHTML = '';
+      return;
+    }
+    strip.innerHTML = state.photos.slice(0, 12).map(function (p) {
+      return '<button type="button" data-name="' + OF.esc(p.name) + '" title="' + OF.esc(OF.fmtTime(p.created)) + '">' +
+        '<img loading="lazy" alt="' + OF.esc(p.name) + '" src="' + p.src + '"></button>';
+    }).join('');
+  }
+
+  function bindStrip() {
+    var strip = $('camStrip');
+    if (!strip || strip.dataset.bound) return;
+    strip.dataset.bound = '1';
+    strip.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('button[data-name]') : null;
+      if (!b) return;
+      var p = photoByName(b.dataset.name);
+      if (p) openView(p);
+    });
+  }
+
+  function downloadPhoto(p) {
+    try {
+      var a = document.createElement('a');
+      a.href = p.src;
+      a.download = p.name || ('照片_' + stamp() + '.jpg');
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { a.remove(); }, 300);
+      OF.toast('已开始下载 ' + (p.name || '照片'), 'success');
+    } catch (e) {
+      OF.toast('下载失败：' + (e && e.message ? e.message : e), 'error');
+    }
+  }
+
+  function removePhoto(p) {
+    if (!p) return;
+    OF.confirm({
+      title: '删除照片',
+      message: '确定删除「' + (p.name || '这张照片') + '」？删除后无法恢复。',
+      okText: '删除',
+      danger: true
+    }).then(function (ok) {
+      if (!ok) return;
+      if (!hasBridge) {
+        var arr = localRead().filter(function (x) { return x.name !== p.name; });
+        localWrite(arr);
+        loadPhotos();
+        if (state.viewName === p.name) closeView();
+        OF.toast('已从本地相簿删除', 'success');
+        return;
+      }
+      readFs().then(function (fs) {
+        var dir = photoDir(fs, false);
+        if (!dir || !dir.children || !dir.children[p.name]) {
+          OF.toast('文件不存在，可能已被删除', 'warning');
+          loadPhotos();
+          return;
+        }
+        delete dir.children[p.name];
+        return Promise.resolve(window.Nexus.setUserLS('filesystem', fs)).then(function () {
+          loadPhotos();
+          if (state.viewName === p.name) closeView();
+          OF.toast('已删除 ' + p.name, 'success');
+        });
+      }).catch(function (e) {
+        OF.toast('删除失败：' + (e && e.message ? e.message : e), 'error');
+      });
+    });
+  }
+
+  /* ================= 界面：设置 ================= */
+  function buildSettings() {
+    var root = document.createElement('div');
+    root.className = 'cam-set';
+    root.innerHTML =
+      '<div class="cam-set-head"><b>相机设置</b><span>设备、画面与保存位置。修改后会立即生效并记住。</span></div>' +
+
+      '<div class="cam-section">' +
+        '<div class="cam-section-title">设备</div>' +
+        '<div class="cam-row"><div class="lbl"><b>摄像头</b><span>有多颗摄像头时可在这里指定</span></div>' +
+          '<div class="ctl"><select class="of-select" id="setDevice" aria-label="选择摄像头"></select></div></div>' +
+        '<div class="cam-row"><div class="lbl"><b>朝向</b><span>前置适合自拍，后置适合拍景物</span></div>' +
+          '<div class="ctl"><div class="cam-seg" id="setFacing">' +
+            '<button type="button" data-f="user">前置</button><button type="button" data-f="environment">后置</button>' +
+          '</div></div></div>' +
+        '<div class="cam-row"><div class="lbl"><b>分辨率</b><span>越高越清晰，也越占存储空间</span></div>' +
+          '<div class="ctl"><select class="of-select" id="setRes" aria-label="分辨率">' +
+            '<option value="1080">1080P（1920×1080）</option><option value="720">720P（1280×720）</option><option value="480">480P（640×480）</option>' +
+          '</select></div></div>' +
+      '</div>' +
+
+      '<div class="cam-section">' +
+        '<div class="cam-section-title">拍摄</div>' +
+        '<div class="cam-row"><div class="lbl"><b>前置镜像</b><span>前置取景左右翻转，更符合照镜子的直觉</span></div>' +
+          '<div class="ctl"><button class="cam-sw" id="setMirror" type="button" role="switch" aria-checked="true" aria-label="前置镜像"></button></div></div>' +
+        '<div class="cam-row"><div class="lbl"><b>构图网格</b><span>三分线辅助把主体放在交叉点</span></div>' +
+          '<div class="ctl"><button class="cam-sw" id="setGrid" type="button" role="switch" aria-checked="false" aria-label="构图网格"></button></div></div>' +
+        '<div class="cam-row"><div class="lbl"><b>快门倒计时</b><span>避免按快门时的抖动</span></div>' +
+          '<div class="ctl"><div class="cam-seg" id="setTimer">' +
+            '<button type="button" data-t="0">关</button><button type="button" data-t="3">3 秒</button><button type="button" data-t="10">10 秒</button>' +
+          '</div></div></div>' +
+      '</div>' +
+
+      '<div class="cam-section">' +
+        '<div class="cam-section-title">保存</div>' +
+        '<div class="cam-row"><div class="lbl"><b>保存位置</b><span>照片直接写入系统磁盘，并出现在相册应用的「相机」分组</span></div>' +
+          '<div class="ctl"><code>C:/Photo/相机</code></div></div>' +
+        '<div class="cam-row"><div class="lbl"><b>相簿占用</b><span id="setStats">正在统计…</span></div>' +
+          '<div class="ctl"><button class="of-btn" id="setOpenRoll" type="button"><i class="fa-solid fa-images" aria-hidden="true"></i>查看相簿</button></div></div>' +
+        '<div class="cam-row"><div class="lbl"><b>系统相册</b><span>打开系统自带相册应用查看全部分组</span></div>' +
+          '<div class="ctl"><button class="of-btn" id="setOpenAlbum" type="button"><i class="fa-solid fa-folder-open" aria-hidden="true"></i>打开相册应用</button></div></div>' +
+      '</div>' +
+
+      '<div class="cam-section">' +
+        '<div class="cam-section-title">关于</div>' +
+        '<div class="cam-row"><div class="lbl"><b>取景方式</b><span>优先使用 getUserMedia 真实摄像头；不可用时给出明确原因，不显示黑屏</span></div>' +
+          '<div class="ctl" id="setEngineState"><span class="of-save" data-state="saved">实时取景</span></div></div>' +
+        '<div class="cam-row"><div class="lbl"><b>快捷键</b><span>空格拍照 · Esc 关闭照片预览</span></div>' +
+          '<div class="ctl"><code>Space / Esc</code></div></div>' +
+      '</div>';
+
+    root.querySelector('#setDevice').addEventListener('change', function () {
+      var val = this.value;
+      state.deviceId = val;
+      var lab = '';
+      for (var i = 0; i < state.devices.length; i++) {
+        if (state.devices[i].deviceId === val) lab = state.devices[i].label || '';
+      }
+      var low = lab.toLowerCase();
+      if (/back|rear|environment|后置/.test(low)) state.facing = 'environment';
+      else if (lab) state.facing = 'user';
+      savePrefs();
+      syncSettings();
+      startCamera();
+    });
+    root.querySelector('#setRes').addEventListener('change', function () {
+      state.res = this.value in RES ? this.value : '720';
+      savePrefs();
+      if (state.ready || state.opening) startCamera();
+    });
+    root.querySelector('#setFacing').addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('button[data-f]') : null;
+      if (!b) return;
+      state.facing = b.dataset.f;
+      state.deviceId = '';
+      savePrefs();
+      syncSettings();
+      startCamera();
+    });
+    root.querySelector('#setTimer').addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('button[data-t]') : null;
+      if (!b) return;
+      state.timer = Number(b.dataset.t) || 0;
+      savePrefs();
+      syncSettings();
+      syncTimer();
+    });
+    root.querySelector('#setMirror').addEventListener('click', function () {
+      state.mirror = !state.mirror;
+      applyMirror();
+      savePrefs();
+      syncSettings();
+    });
+    root.querySelector('#setGrid').addEventListener('click', function () {
+      state.grid = !state.grid;
+      syncGrid();
+      savePrefs();
+      syncSettings();
+    });
+    root.querySelector('#setOpenRoll').addEventListener('click', function () { shell.select('roll'); });
+    root.querySelector('#setOpenAlbum').addEventListener('click', function () {
+      if (hasBridge && window.Nexus.openApp) window.Nexus.openApp('album');
+      else OF.toast('独立预览模式无法打开系统相册', 'warning');
+    });
+    return root;
+  }
+
+  function renderDeviceSelect() {
+    var sel = $('setDevice');
+    if (!sel) return;
+    if (!state.devices.length) {
+      sel.innerHTML = '<option value="">默认摄像头</option>';
+      sel.value = '';
+      return;
+    }
+    sel.innerHTML = '<option value="">自动选择</option>' + state.devices.map(function (d, i) {
+      var label = d.label || ('摄像头 ' + (i + 1));
+      return '<option value="' + OF.esc(d.deviceId) + '">' + OF.esc(label) + '</option>';
+    }).join('');
+    var has = false;
+    for (var i = 0; i < state.devices.length; i++) if (state.devices[i].deviceId === state.deviceId) has = true;
+    sel.value = has ? state.deviceId : '';
+  }
+
+  function syncSettings() {
+    var sel = $('setDevice');
+    if (sel) {
+      if (state.deviceId) sel.value = state.deviceId; else sel.value = '';
+    }
+    var res = $('setRes');
+    if (res) res.value = state.res;
+    var facing = $('setFacing');
+    if (facing) {
+      Array.prototype.forEach.call(facing.querySelectorAll('button'), function (b) {
+        b.setAttribute('aria-pressed', b.dataset.f === state.facing ? 'true' : 'false');
+      });
+    }
+    var mirror = $('setMirror');
+    if (mirror) mirror.setAttribute('aria-checked', state.mirror ? 'true' : 'false');
+    var grid = $('setGrid');
+    if (grid) grid.setAttribute('aria-checked', state.grid ? 'true' : 'false');
+    var timer = $('setTimer');
+    if (timer) {
+      Array.prototype.forEach.call(timer.querySelectorAll('button'), function (b) {
+        b.setAttribute('aria-pressed', Number(b.dataset.t) === state.timer ? 'true' : 'false');
+      });
+    }
+  }
+
+  function renderStats() {
+    var s = $('setStats');
+    if (s) {
+      s.textContent = state.photos.length
+        ? (state.photos.length + ' 张 · 占用 ' + fmtSize(totalSize()))
+        : '暂无照片';
+    }
+    var eng = $('setEngineState');
+    if (eng) {
+      eng.innerHTML = state.ready
+        ? '<span class="of-save" data-state="saved">实时取景</span>'
+        : '<span class="of-save" data-state="' + (state.opening ? 'dirty' : 'error') + '">' + (state.opening ? '启动中' : '未取景') + '</span>';
+    }
+  }
+
+  function refreshSettings() {
+    renderDeviceSelect();
+    syncSettings();
+    renderStats();
+  }
+
+  /* ================= 照片查看 ================= */
+  function buildView() {
+    var el = document.createElement('div');
+    el.className = 'cam-view';
+    el.id = 'camView';
+    el.innerHTML =
+      '<div class="cam-view-top">' +
+        '<button class="cam-view-btn" id="viewClose" type="button" title="关闭（Esc）"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>' +
+        '<div class="nm" id="viewName">照片</div>' +
+        '<div class="sub" id="viewSub"></div>' +
+        '<button class="cam-view-btn" id="viewDl" type="button" title="下载"><i class="fa-solid fa-download" aria-hidden="true"></i></button>' +
+        '<button class="cam-view-btn" id="viewDel" type="button" title="删除" data-danger><i class="fa-solid fa-trash" aria-hidden="true"></i></button>' +
+      '</div>' +
+      '<div class="cam-view-stage"><img id="viewImg" alt="照片预览"></div>' +
+      '<div class="cam-view-foot"><span id="viewMeta"></span><span class="grow"></span><span>← → 切换 · Esc 关闭</span></div>';
+    document.body.appendChild(el);
+
+    el.querySelector('#viewClose').addEventListener('click', closeView);
+    el.querySelector('#viewDl').addEventListener('click', function () {
+      var p = photoByName(state.viewName);
+      if (p) downloadPhoto(p);
+    });
+    el.querySelector('#viewDel').addEventListener('click', function () {
+      var p = photoByName(state.viewName);
+      if (p) removePhoto(p);
+    });
+    el.addEventListener('click', function (e) {
+      if (e.target === el) closeView();
+    });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { e.preventDefault(); closeView(); }
+      if (e.key === 'ArrowLeft') stepView(-1);
+      if (e.key === 'ArrowRight') stepView(1);
+    });
+    return el;
+  }
+
+  function openView(p) {
+    var el = $('camView');
+    if (!el || !p) return;
+    state.viewName = p.name || '';
+    $('viewName').textContent = p.name || '照片';
+    $('viewSub').textContent = OF.fmtTime(p.created);
+    $('viewImg').src = p.src;
+    $('viewMeta').textContent = [
+      fmtSize(p.size),
+      p.name ? ('C:/Photo/相机/' + p.name) : '刚刚拍摄 · 尚未保存'
+    ].filter(Boolean).join(' · ');
+    $('viewDel').disabled = !p.name;
+    $('viewDl').disabled = !p.name;
+    el.classList.add('show');
+    el.setAttribute('tabindex', '-1');
+    el.focus();
+  }
+  function closeView() {
+    var el = $('camView');
+    if (!el) return;
+    el.classList.remove('show');
+    $('viewImg').src = '';
+  }
+  function stepView(dir) {
+    if (!state.photos.length) return;
+    var idx = -1;
+    for (var i = 0; i < state.photos.length; i++) {
+      if (state.photos[i].name === state.viewName) { idx = i; break; }
+    }
+    if (idx < 0) return;
+    var next = (idx + dir + state.photos.length) % state.photos.length;
+    openView(state.photos[next]);
+  }
+
+  /* ================= 偏好 / 快捷键 / 引导 ================= */
+  function applyPrefs(p) {
+    if (!p || typeof p !== 'object') return;
+    if (typeof p.mirror === 'boolean') state.mirror = p.mirror;
+    if (typeof p.grid === 'boolean') state.grid = p.grid;
+    if (typeof p.timer === 'number') state.timer = p.timer === 3 || p.timer === 10 ? p.timer : 0;
+    if (typeof p.res === 'string' && p.res in RES) state.res = p.res;
+    if (p.facing === 'user' || p.facing === 'environment') state.facing = p.facing;
+  }
+
+  function savePrefs() {
+    return prefsStore.write({
+      mirror: state.mirror,
+      grid: state.grid,
+      timer: state.timer,
+      res: state.res,
+      facing: state.facing
+    }).catch(function () { });
+  }
+
+  function onKey(e) {
+    if (e.key === 'Escape') {
+      var view = $('camView');
+      if (view && view.classList.contains('show')) { e.preventDefault(); closeView(); return; }
+      var count = $('camCount');
+      if (count && count.classList.contains('show')) {
+        e.preventDefault();
+        if (count._cancelTimer) clearInterval(count._cancelTimer);
+        count.classList.remove('show');
+        state.counting = false;
+        return;
+      }
+    }
+    if (e.code === 'Space' || e.key === ' ') {
+      var t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      var view = $('camView');
+      if (view && view.classList.contains('show')) return;
+      e.preventDefault();
+      requestShot();
+    }
+  }
+
+  function toggleStop() {
+    if (state.stream) {
+      stopStream();
+      setCamState('error', '取景已暂停');
+      if ($('camShutter')) $('camShutter').disabled = true;
+      showFallback({
+        icon: 'fa-video-slash', title: '取景已暂停',
+        desc: '摄像头已释放，不会继续占用设备。点「重新尝试」恢复实时取景。',
+        note: '暂停后其他应用可以使用摄像头。'
+      });
+      if ($('topStopLabel')) $('topStopLabel').textContent = '启动';
+      renderStats();
+    } else {
+      if ($('topStopLabel')) $('topStopLabel').textContent = '暂停';
+      startCamera();
+    }
+  }
+
+  function boot() {
+    shell = N26UI.createShell($('shellMount'), {
+      defaultId: 'shoot',
+      sidebar: [
+        { id: 'shoot', icon: 'fa-camera', label: '拍摄', render: buildShoot },
+        { id: 'roll', icon: 'fa-images', label: '相簿', render: buildRoll },
+        { id: 'settings', icon: 'fa-sliders', label: '设置', render: buildSettings }
+      ],
+      onSelect: function (id) {
+        if (id === 'roll') { loadPhotos(); bindStrip(); }
+        else if (id === 'settings') refreshSettings();
+        else if (id === 'shoot') {
+          syncGrid();
+          syncTimer();
+          updateHud();
+          if (!state.stream && !state.opening && !$('camFallback').classList.contains('show')) startCamera();
+        }
+      }
+    });
+
+    buildView();
+    bindStrip();
+    syncGrid();
+    syncTimer();
+    refreshSettings();
+
+    $('topStop').addEventListener('click', toggleStop);
+    $('topAlbum').addEventListener('click', function () {
+      if (hasBridge && window.Nexus.openApp) window.Nexus.openApp('album');
+      else OF.toast('独立预览模式无法打开系统相册', 'warning');
+    });
+
+    document.addEventListener('keydown', onKey);
+
+    if (OF.isDark()) { /* 配色全部走 CSS 变量，无需额外处理 */ }
+    OF.onTheme(function () { updateHud(); });
+
+    startCamera();
+    loadPhotos();
+  }
+
+  prefsStore.read().then(function (p) {
+    applyPrefs(p);
+  }).catch(function () { }).then(function () {
+    boot();
+  });
+})();
+</script>
+</body>
+</html>

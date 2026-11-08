@@ -31,7 +31,7 @@
       //   注册表里只有 music/video 带 ?v=，其余 20 个应用都会请求 ?v=1 ——
       //   若沿用应用版本号，改了 _polish.css 后这 20 个应用永远吃缓存旧样式。
       //   ★ 每次修改 _polish.css 必须同步 bump 这个值，否则改动不生效。
-      var _v = '2.9.54';
+      var _v = '2.9.61';
       // ★ v2.9.54：基于「本脚本自身 URL」解析，而不是基于文档 URL。
       //   子目录应用（apps/necta/、apps/floatapp/ 引 ../_app.js）若用相对路径，
       //   会错找成 apps/<子目录>/_polish.css → 404 → 共享层静默失效。
@@ -164,18 +164,106 @@
   }
 
   var _currentGlass = null;
-  // 把玻璃材质真值落到本 iframe（液态/磨砂/固态 + 模糊强度）
+
+  function _clamp(v, lo, hi, d) {
+    v = (typeof v === 'number' && isFinite(v)) ? v : d;
+    return Math.max(lo, Math.min(hi, v));
+  }
+  // 材质系数：与宿主 ui/n26-polish.css 的 body.mat-* 完全一致
+  var _MAT_K = {
+    liquid: [1, 1, 1],
+    mica:   [0.5, 0.86, 1.35],
+    frost:  [0.6, 0.78, 1.05],
+    solid:  [0, 1, 1.7]
+  };
+
+  /* 把玻璃材质真值落到本 iframe（液态/云母/磨砂/固态 + 全部六个参数）。
+     来源有二：① nexus:ready 的 settings.glass（完整）；
+              ② nexus:glass 广播（宿主只带 material + blur）——
+                 缺参时由 hydrateGlass() 走同源桥接回读 settings.glass。
+     参数写进 :root，由 _polish.css 的侧栏白名单统一消费。 */
   function applyGlass(g) {
     if (!g || !g.material) return;
     var root = document.documentElement;
-    root.setAttribute('data-glass', g.material);
     var b = document.body;
-    b.classList.remove('mat-liquid', 'mat-frost', 'mat-solid');
-    b.classList.add('mat-' + g.material);
-    var px = (g.material === 'solid') ? 0 : (typeof g.blur === 'number' ? g.blur : 26);
+    var mat = (g.material === 'frost' || g.material === 'mica' || g.material === 'solid')
+      ? g.material : 'liquid';
+    var liquid = mat === 'liquid';
+    var k = _MAT_K[mat] || _MAT_K.liquid;
+    var px = (mat === 'solid') ? 0 : _clamp(g.blur, 0, 40, 26);
+    var alpha = _clamp(g.opacity, 20, 90, 55) / 100;
+    var sat = _clamp(g.saturation, 100, 200, 148);
+    var hi = _clamp(g.highlight, 0, 100, 35) / 100;
+    var refr = liquid ? _clamp(g.refraction, 0, 100, 0) : 0;
+    var noise = liquid ? _clamp(g.noise, 0, 100, 0) : 0;
+
+    root.setAttribute('data-glass', mat);
+    b.classList.remove('mat-liquid', 'mat-frost', 'mat-mica', 'mat-solid');
+    b.classList.add('mat-' + mat);
+
     root.style.setProperty('--glass-blur', px + 'px');
     root.style.setProperty('--n26-blur', px + 'px');
-    _currentGlass = { material: g.material, blur: px };
+    root.style.setProperty('--n26-glass-alpha', alpha.toFixed(3));
+    root.style.setProperty('--n26-glass-sat', sat + '%');
+    root.style.setProperty('--n26-glass-hi', hi.toFixed(3));
+    // 液态专属：非液态一律撤成 0（用户存值在宿主里保留，切回液态再恢复）
+    root.style.setProperty('--n26-refr', String(refr));
+    root.style.setProperty('--n26-noise', String(noise));
+    root.style.setProperty('--n26-k', String(k[0]));
+    root.style.setProperty('--n26-sat-k', String(k[1]));
+    root.style.setProperty('--n26-alpha-k', String(k[2]));
+    // 非液态不能留空值：Chrome 会把空 var() 当成未定义，整条 backdrop-filter 变 none
+    root.style.setProperty('--n26-grain-fn', 'opacity(1)');
+
+    _currentGlass = {
+      material: mat, blur: px,
+      opacity: Math.round(alpha * 100), saturation: sat, highlight: Math.round(hi * 100),
+      refraction: refr, noise: noise
+    };
+  }
+
+  /* 方案 B 的取值通道：宿主广播只带 material + blur。
+     与其回读（settings 落盘值在拖动期间还是旧的），不如直接读
+     同源父窗口 :root 上的 CSS 变量——宿主每帧先写变量再广播，
+     所以这里拿到的就是「当前生效值」，不用等落盘、也没有一帧延迟。
+     跨源 / 独立打开时读不到，返回 null，由 hydrateGlass() 兜底。 */
+  function readHostGlass() {
+    try {
+      var p = window.parent;
+      if (!p || p === window || !p.document || !p.document.documentElement) return null;
+      var mat = (p.document.body.getAttribute('data-n26-glass') || '').trim();
+      if (!mat) return null;
+      var cs = p.getComputedStyle(p.document.documentElement);
+      var num = function (name, dft) {
+        var v = parseFloat(cs.getPropertyValue(name));
+        return isFinite(v) ? v : dft;
+      };
+      return {
+        material: mat,
+        blur: num('--n26-blur', 18),
+        opacity: Math.round(num('--n26-glass-alpha', 0.55) * 100),
+        saturation: num('--n26-glass-sat', 148),
+        highlight: Math.round(num('--n26-glass-hi', 0.35) * 100),
+        refraction: num('--n26-refr', 0),
+        noise: num('--n26-noise', 0)
+      };
+    } catch (e) { return null; }
+  }
+
+  /* 读不到父窗口变量时（跨源/独立打开）才走的兜底：同源桥接回读落盘值。
+     用 rAF 合并，拖动滑杆时每帧最多一次。 */
+  var _glassRAF = 0;
+  function hydrateGlass() {
+    if (_glassRAF) return;
+    var run = function () {
+      _glassRAF = 0;
+      if (!window.Nexus || !Nexus.getSettings) return;
+      Promise.resolve(Nexus.getSettings()).then(function (s) {
+        if (s && s.glass) { applyGlass(s.glass); _fire(_glassCbs, _currentGlass); }
+      }).catch(function () { /* 桥不可用时保持广播值 */ });
+    };
+    _glassRAF = (typeof requestAnimationFrame === 'function')
+      ? requestAnimationFrame(run) : setTimeout(run, 16);
   }
 
   var _langCbs = [], _glassCbs = [];
@@ -191,8 +279,11 @@
   // 监听宿主玻璃材质切换广播
   window.addEventListener('nexus:glass', function (e) {
     var g = (e.detail) || {};
-    applyGlass(g);
+    var live = readHostGlass();
+    applyGlass(live || g);
     _fire(_glassCbs, _currentGlass);
+    // 广播只有 material + blur；读不到父窗口变量时再回读一次落盘值
+    if (!live && typeof g.opacity !== 'number') hydrateGlass();
   });
 
   // 若脚本加载晚于 nexus:ready（context 已就绪），直接应用一次
@@ -221,6 +312,10 @@
       if (ctx.language) { _currentLang = ctx.language; applyAppLanguage(); }
       if (ctx.settings && ctx.settings.glass) applyGlass(ctx.settings.glass);
       else if (ctx.glass) applyGlass(ctx.glass);
+      else hydrateGlass();
+      // 首屏若宿主变量已就绪，用「当前生效值」再覆盖一次（避免先闪落盘旧值）
+      var bootLive = readHostGlass();
+      if (bootLive) applyGlass(bootLive);
     }
     injectEnterAnim();
     _readyCbs.forEach(function (cb) { try { cb(ctx); } catch (err) { console.error('[Nexus app] ready cb error', err); } });

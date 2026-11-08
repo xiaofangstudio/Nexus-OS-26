@@ -1,0 +1,74 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>uifix-contrast</title>
+<style>body{font:12px/1.5 Consolas,monospace;background:#fff;color:#111;padding:10px}iframe{width:340px;height:200px;border:1px solid #ccc}pre{white-space:pre-wrap}</style>
+</head><body>
+<pre id="out">loading…</pre><div id="host"></div>
+<script>
+var apps = [
+  ['monitor',  'apps/monitor.html',   '.app-sub',      0.55],
+  ['duolingo', 'apps/duolingo.html',  '.dl-hero-sub',  0.56]
+];
+function parse(c) {
+  var m = String(c).match(/rgba?\(([^)]+)\)/);
+  if (!m) return null;
+  var p = m[1].split(',').map(Number);
+  return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+}
+function over(fg, bg) {
+  return { r: fg.r * fg.a + bg.r * (1 - fg.a), g: fg.g * fg.a + bg.g * (1 - fg.a), b: fg.b * fg.a + bg.b * (1 - fg.a), a: 1 };
+}
+function lum(c) {
+  function f(v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+  return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+}
+function ratio(a, b) {
+  var l1 = lum(a), l2 = lum(b);
+  if (l1 < l2) { var t = l1; l1 = l2; l2 = t; }
+  return (l1 + 0.05) / (l2 + 0.05);
+}
+function effBg(el) {
+  var chain = [], n = el;
+  while (n && n.nodeType === 1) { chain.unshift(n); n = n.parentElement; }
+  var acc = { r: 255, g: 255, b: 255, a: 1 };
+  chain.forEach(function (e) {
+    var c = parse(getComputedStyle(e).backgroundColor);
+    if (c && c.a > 0) acc = over(c, acc);
+  });
+  return acc;
+}
+var frames = [];
+apps.forEach(function (a) {
+  var f = document.createElement('iframe');
+  f.src = a[1]; f.dataset.name = a[0]; f.dataset.sel = a[2]; f.dataset.old = a[3];
+  document.getElementById('host').appendChild(f);
+  frames.push(f);
+});
+setTimeout(function () {
+  var lines = [];
+  frames.forEach(function (f) {
+    var row = { app: f.dataset.name, sel: f.dataset.sel };
+    try {
+      var d = f.contentDocument;
+      var el = d.querySelector(f.dataset.sel);
+      if (!el) {
+        var want = f.dataset.name === 'monitor' ? 'rgba(30, 41, 59, 0.66)' : 'rgba(20, 32, 46, 0.64)';
+        el = Array.prototype.slice.call(d.querySelectorAll('*')).filter(function (e) { return getComputedStyle(e).color.replace(/\s/g, '') === want; })[0];
+      }
+      if (!el) { row.error = 'no text element'; }
+      else {
+        var bg = effBg(el);
+        var col = parse(getComputedStyle(el).color);
+        row.fontSize = getComputedStyle(el).fontSize;
+        row.alpha = col.a;
+        row.bg = 'rgb(' + Math.round(bg.r) + ',' + Math.round(bg.g) + ',' + Math.round(bg.b) + ')';
+        row.after = Math.round(ratio(over(col, bg), bg) * 100) / 100;
+        col.a = Number(f.dataset.old);
+        row.before = Math.round(ratio(over(col, bg), bg) * 100) / 100;
+      }
+    } catch (e) { row.error = String(e); }
+    lines.push(JSON.stringify(row));
+  });
+  document.getElementById('out').textContent = 'RESULT\n' + lines.join('\n');
+}, 3000);
+</script>
+</body></html>

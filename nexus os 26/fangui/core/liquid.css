@@ -79,21 +79,142 @@
 }
 [data-ui="liquid"] .fu-input:focus { box-shadow: 0 -4px 10px inset rgba(0, 0, 0, 0.10), 0 0 0 3px var(--accent-ring); }
 
-[data-ui="liquid"] .fu-switch {
-  width: 40px; height: 22px; border-radius: 11px;
-  background: rgba(255, 255, 255, 0.16);
-  border: none;
-  position: relative; cursor: pointer;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 -4px 8px inset rgba(0, 0, 0, 0.12);
+/* ===== v2.9.68 统一开关 n26-switch：灰轨(关) / 绿轨(开) + 白色胶囊滑块 =====
+   四段动效由 ui/n26-switch.js 驱动：胀大 90ms → 液态玻璃 60ms → 水滴滑行 260ms → 变绿+收回 260ms。
+   静态态（含状态色、滑块落位）全部由 CSS 交付：脚本未加载也照常可点、状态正确。
+   legacy 类名（.toggle-switch / .widget-alarm-toggle-btn / .alarm-toggle）迁移期共用同一套实现。 */
+.fu-switch,
+.toggle-switch,
+.widget-alarm-toggle-btn,
+.alarm-toggle {
+    --fu-sw-w: 36px;
+    --fu-sw-h: 20px;
+    --fu-sw-kw: 18px;
+    --fu-sw-kh: 15px;
+    --fu-sw-pad: 2px;
+    --fu-sw-travel: 14px;
+    --fu-sw-off: #d7d9de;
+    /* v2.9.71 系统统一：开态用强调色（--accent 由 --fu-h/s/l 推导），不再用 iOS 绿 */
+    --fu-sw-on: var(--accent);
+    --fu-sw-on-dark: var(--accent);
+    position: relative;
+    display: inline-block;
+    flex: 0 0 auto;
+    width: var(--fu-sw-w);
+    height: var(--fu-sw-h);
+    padding: 0;
+    box-sizing: border-box;
+    appearance: none;
+    -webkit-appearance: none;
+    border: none;
+    border-radius: 999px;
+    background-color: var(--fu-sw-off);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.10);
+    cursor: pointer;
+    outline: none;
+    vertical-align: middle;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color .18s ease 0s, box-shadow .3s ease;
 }
-[data-ui="liquid"] .fu-switch::after {
-  content: ""; position: absolute; top: 1px; left: 1px;
-  width: 18px; height: 18px; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  transition: transform var(--t-move) var(--ease-spring);
+.fu-switch::after,
+.toggle-switch::after,
+.widget-alarm-toggle-btn::after,
+.alarm-toggle::after {
+    content: '';
+    position: absolute;
+    top: calc((var(--fu-sw-h) - var(--fu-sw-kh)) / 2);
+    left: var(--fu-sw-pad);
+    width: var(--fu-sw-kw);
+    height: var(--fu-sw-kh);
+    border-radius: 999px;
+    background: #f2f2f0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18), inset 0 0 0 .5px rgba(0, 0, 0, 0.04);
+    transition: transform .18s cubic-bezier(.34, 1.4, .64, 1), background .12s ease, box-shadow .12s ease;
 }
-[data-ui="liquid"] .fu-switch[aria-checked="true"] { background: hsl(var(--fu-h) var(--fu-s) var(--fu-l) / 0.7); }
-[data-ui="liquid"] .fu-switch[aria-checked="true"]::after { transform: translateX(18px); }
+/* 打开：强调色轨 + 滑块滑到右端；v2.9.71 去掉 .2s 延迟，100ms 内必须看得出状态 */
+.fu-switch.on, .fu-switch.active, .fu-switch[aria-checked="true"],
+.toggle-switch.on, .toggle-switch.active,
+.widget-alarm-toggle-btn.on,
+.alarm-toggle.on {
+    background-color: var(--fu-sw-on);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+    transition-delay: .04s, 0s;
+}
+.fu-switch.on::after, .fu-switch.active::after, .fu-switch[aria-checked="true"]::after,
+.toggle-switch.on::after, .toggle-switch.active::after,
+.widget-alarm-toggle-btn.on::after,
+.alarm-toggle.on::after {
+    transform: translateX(var(--fu-sw-travel));
+}
+.fu-switch:focus-visible,
+.toggle-switch:focus-visible,
+.widget-alarm-toggle-btn:focus-visible,
+.alarm-toggle:focus-visible {
+    box-shadow: 0 0 0 3px var(--accent-ring);
+}
+/* 深色模式：轨道转半透明白（特异性抬到 (0,3,1)，压住上面的 .on） */
+body.dark-mode .fu-switch,
+body.dark-mode .toggle-switch,
+body.dark-mode .widget-alarm-toggle-btn,
+body.dark-mode .alarm-toggle {
+    background-color: rgba(255, 255, 255, 0.20);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28);
+}
+body.dark-mode .fu-switch.on, body.dark-mode .fu-switch.active, body.dark-mode .fu-switch[aria-checked="true"],
+body.dark-mode .toggle-switch.on, body.dark-mode .toggle-switch.active,
+body.dark-mode .widget-alarm-toggle-btn.on,
+body.dark-mode .alarm-toggle.on {
+    background-color: var(--fu-sw-on-dark);
+}
+/* 动效层：动效期间隐藏 CSS 静息滑块，改用真实 .fu-knob（WAAPI 才能做形变与液态玻璃） */
+.fu-switch.fu-anim::after,
+.toggle-switch.fu-anim::after,
+.widget-alarm-toggle-btn.fu-anim::after,
+.alarm-toggle.fu-anim::after { opacity: 0; }
+.fu-switch .fu-knob,
+.toggle-switch .fu-knob,
+.widget-alarm-toggle-btn .fu-knob,
+.alarm-toggle .fu-knob { display: none; }
+.fu-switch.fu-anim .fu-knob,
+.toggle-switch.fu-anim .fu-knob,
+.widget-alarm-toggle-btn.fu-anim .fu-knob,
+.alarm-toggle.fu-anim .fu-knob {
+    display: block;
+    position: absolute;
+    box-sizing: border-box;
+    top: calc((var(--fu-sw-h) - var(--fu-sw-kh)) / 2);
+    left: var(--fu-sw-pad);
+    width: var(--fu-sw-kw);
+    height: var(--fu-sw-kh);
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+    transform-origin: 50% 50%;
+    pointer-events: none;
+    will-change: transform;
+    z-index: 1;
+}
+/* 液态玻璃：复用 ui/n26-docknav.css 的 .travel 配方（模糊 + 饱和 + 描边 + 顶高光） */
+.fu-switch.fu-liquid .fu-knob,
+.toggle-switch.fu-liquid .fu-knob,
+.widget-alarm-toggle-btn.fu-liquid .fu-knob,
+.alarm-toggle.fu-liquid .fu-knob {
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.56));
+    border: 1px solid rgba(255, 255, 255, 0.90);
+    backdrop-filter: blur(14px) saturate(1.5);
+    -webkit-backdrop-filter: blur(14px) saturate(1.5);
+    box-shadow: 0 8px 18px rgba(20, 40, 70, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.90);
+}
+.fu-switch.fu-liquid .fu-knob::after,
+.toggle-switch.fu-liquid .fu-knob::after,
+.widget-alarm-toggle-btn.fu-liquid .fu-knob::after,
+.alarm-toggle.fu-liquid .fu-knob::after {
+    content: '';
+    position: absolute; inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.75) 47%, transparent 62%);
+    background-size: 240% 100%;
+    animation: n26SwGloss 0.34s ease both;
+    pointer-events: none;
+}
+@keyframes n26SwGloss { from { background-position: 130% 0; } to { background-position: -70% 0; } }

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-ui="liquid" data-mode="light" data-theme="light">
+<!-- ============================================================
+  apps/_ui-demo.html · N26UI 侧边栏组件示例（自包含，可直接双击打开）
+  演示：4 个 Tab（首页 / 列表 / 设置 / 关于）
+        · content（HTML 字符串）与 render（返回节点）两种注入
+        · 深浅色切换（body.dark-mode + html data-theme/data-mode）
+        · 键盘 ← → ↑ ↓ / Home / End 切换，aria-selected 与焦点环
+        · 折叠 / 窄屏（≤760px 自动只留图标）
+  依赖全部为本地文件：ui/tokens.css · ui/glass.css · ui/n26-ui.css ·
+  ui/n26-ui.js · ui/n26-switch.js · fangui/core/*.css · vendor/fontawesome
+  ============================================================ -->
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>N26 UI · 侧边栏组件示例</title>
+<link rel="stylesheet" href="../fangui/core/tokens.css">
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<link rel="stylesheet" href="../ui/n26-ui.css">
+<link rel="stylesheet" href="../fangui/core/flat.css">
+<link rel="stylesheet" href="../fangui/core/neu.css">
+<link rel="stylesheet" href="../fangui/core/liquid.css">
+<link rel="stylesheet" href="../vendor/fontawesome/all.min.css">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    box-sizing: border-box;
+    overflow: hidden;
+    background: var(--bg, #f0f1ee);
+    color: var(--text, #26262a);
+    font-family: var(--font-sans, -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif);
+    transition: background .18s var(--ease-out-expo, cubic-bezier(.16, 1, .3, 1));
+  }
+
+  /* 顶栏：只用令牌 + 现有玻璃层，不写死颜色 */
+  .demo-topbar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2, 8px);
+    padding: 8px 12px;
+    border-radius: var(--r-md, 14px);
+    color: var(--text-1, rgba(15, 23, 42, .92));
+  }
+  .demo-topbar .t { font-size: var(--fs-14, 14px); font-weight: 600; margin-right: auto; }
+  .demo-topbar .s { font-size: var(--fs-12, 12px); font-weight: 500; color: var(--text-muted, #6d6d72); }
+  .demo-topbar .sep { width: 1px; height: 18px; background: var(--divider, rgba(0, 0, 0, .08)); }
+
+  #demoShell { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+  #demoShell > .n26ui-shell { flex: 1 1 auto; height: auto; min-height: 0; }
+
+  /* 示例内容：间距走 4/8 栅格，圆角走 --r-md，不加自创视觉 */
+  .demo-stack { display: flex; flex-direction: column; gap: var(--sp-3, 12px); }
+  .demo-card {
+    background: var(--surface, #f8f8f6);
+    border: 1px solid var(--border, #e4e4e2);
+    border-radius: var(--r-md, 14px);
+    padding: var(--sp-4, 16px);
+    box-shadow: var(--sh-card, 0 1px 2px rgba(0, 0, 0, .05), 0 2px 8px rgba(0, 0, 0, .05));
+  }
+  .demo-hero h1 { margin: 6px 0 8px; font-size: var(--fs-22, 22px); font-weight: 600; letter-spacing: -.2px; }
+  .demo-hero p { margin: 0; font-size: var(--fs-13, 13px); line-height: 1.6; color: var(--text-muted, #6d6d72); }
+  .demo-eyebrow {
+    font-size: var(--fs-11, 11px);
+    font-weight: 600;
+    letter-spacing: .8px;
+    color: var(--primary, #3b82f6);
+  }
+  .demo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3, 12px); margin-top: var(--sp-3, 12px); }
+  .demo-kpi { font-size: var(--fs-12, 12px); color: var(--text-muted, #6d6d72); }
+  .demo-kpi b { display: block; margin-top: 2px; font-size: var(--fs-16, 16px); font-weight: 600; color: var(--text, #26262a); font-variant-numeric: tabular-nums; }
+  .demo-kpi i { color: var(--primary, #3b82f6); margin-right: 6px; }
+
+  .demo-section-title { margin: 0 0 10px; font-size: var(--fs-14, 14px); font-weight: 600; }
+  .demo-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .demo-table th {
+    text-align: left; font-size: 10.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .5px;
+    padding: 6px 8px;
+    color: var(--text-muted, #6d6d72);
+    border-bottom: 1px solid var(--divider, rgba(0, 0, 0, .06));
+  }
+  .demo-table td {
+    padding: 8px;
+    border-bottom: 1px solid var(--divider, rgba(0, 0, 0, .06));
+    font-variant-numeric: tabular-nums;
+  }
+  .demo-table tr:last-child td { border-bottom: none; }
+  .demo-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 9px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 600;
+    background: rgba(34, 197, 94, .14);
+    color: var(--ok, #22c55e);
+  }
+
+  .demo-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--sp-3, 12px);
+    padding: 9px 0;
+    border-bottom: 1px solid var(--divider, rgba(0, 0, 0, .06));
+    font-size: var(--fs-13, 13px);
+  }
+  .demo-row:last-child { border-bottom: none; }
+  .demo-row .lbl { font-weight: 500; }
+  .demo-row .sub { display: block; margin-top: 2px; font-size: var(--fs-11, 11px); color: var(--text-muted, #6d6d72); }
+  .demo-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2, 8px); margin-top: var(--sp-3, 12px); }
+  .demo-input { width: 100%; box-sizing: border-box; }
+
+  .demo-empty {
+    display: flex; flex-direction: column; align-items: center; gap: var(--sp-3, 12px);
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-muted, #6d6d72);
+  }
+  .demo-empty i { font-size: 42px; opacity: .35; }
+  .demo-empty .t { font-size: var(--fs-14, 14px); font-weight: 600; color: var(--text, #26262a); }
+  .demo-empty .d { font-size: var(--fs-12, 12px); line-height: 1.6; }
+
+  .demo-code {
+    margin: 10px 0 0;
+    padding: var(--sp-3, 12px);
+    border-radius: var(--r-sm, 10px);
+    background: var(--surface-3, #ebebe9);
+    color: var(--text, #26262a);
+    font-family: var(--font-mono, "Cascadia Code", Consolas, monospace);
+    font-size: var(--fs-12, 12px);
+    line-height: 1.6;
+    overflow: auto;
+    white-space: pre;
+  }
+
+  @media (max-width: 760px) {
+    .demo-grid { grid-template-columns: 1fr; }
+    .demo-topbar .s, .demo-topbar .sep { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="demo-topbar glass">
+  <span class="t">N26UI · 侧边栏组件示例</span>
+  <span class="s" id="demoStatus">当前：首页</span>
+  <span class="sep" aria-hidden="true"></span>
+  <button type="button" class="fu-btn" id="btnTheme" aria-label="切换深浅色">
+    <i class="fa-solid fa-moon" aria-hidden="true"></i><span id="btnThemeText">深色</span>
+  </button>
+  <button type="button" class="fu-btn" id="btnCollapse" aria-label="折叠侧边栏">
+    <i class="fa-solid fa-table-columns" aria-hidden="true"></i><span>折叠</span>
+  </button>
+</header>
+
+<div id="demoShell"></div>
+
+<script src="../ui/n26-switch.js"></script>
+<script src="../ui/n26-ui.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- 深浅色：body.dark-mode 驱动 tokens/玻璃，data-mode 驱动 FangUI ---------- */
+  function setTheme(dark) {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-mode', dark ? 'dark' : 'light');
+    document.body.classList.toggle('dark-mode', dark);
+    document.getElementById('btnThemeText').textContent = dark ? '浅色' : '深色';
+    var ic = document.querySelector('#btnTheme i');
+    ic.className = dark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+    var sw = document.getElementById('swDark');
+    if (sw) {
+      sw.classList.toggle('on', dark);
+      sw.setAttribute('aria-checked', dark ? 'true' : 'false');
+    }
+  }
+  var params = new URLSearchParams(location.search);
+  var dark = params.get('theme') === 'dark';
+  setTheme(dark);
+  document.getElementById('btnTheme').addEventListener('click', function () {
+    setTheme(!document.body.classList.contains('dark-mode'));
+  });
+
+  /* ---------- 首页：content（HTML 字符串） ---------- */
+  var homeHTML =
+    '<div class="demo-stack">' +
+      '<div class="demo-card demo-hero">' +
+        '<div class="demo-eyebrow">NEXUS OS 26 · UI HARD STANDARD</div>' +
+        '<h1>侧边栏已抽成可复用 API</h1>' +
+        '<p>调用方只给 icon + 内容；胶囊、滑动、图标尺寸、深浅色、键盘全部由 N26UI 负责。' +
+        '本页 4 个 Tab 都由 <b>N26UI.createShell</b> 生成，没有手写侧栏 HTML。</p>' +
+        '<div class="demo-grid">' +
+          '<div class="demo-kpi"><i class="fa-solid fa-layer-group" aria-hidden="true"></i>组件档位<b>3 档玻璃</b></div>' +
+          '<div class="demo-kpi"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i>动效档位<b>180 / 260 / 420</b></div>' +
+          '<div class="demo-kpi"><i class="fa-solid fa-keyboard" aria-hidden="true"></i>键盘可达<b>方向键 + Home/End</b></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="demo-card">' +
+        '<h2 class="demo-section-title">两种内容注入方式</h2>' +
+        '<div class="demo-row"><span class="lbl">content: \'&lt;div&gt;…&lt;/div&gt;\'</span>' +
+          '<span class="demo-pill">字符串</span></div>' +
+        '<div class="demo-row"><span class="lbl">render: function () { return node; }</span>' +
+          '<span class="demo-pill">DOM 节点</span></div>' +
+          '<div class="demo-row"><span class="lbl">默认选中 defaultId<span class="sub">切换后回调 onSelect(id)</span></span>' +
+          '<span class="demo-pill">幂等</span></div>' +
+      '</div>' +
+    '</div>';
+
+  /* ---------- 列表：render（返回节点） ---------- */
+  function renderList() {
+    var rows = [
+      ['Nexus OS 26.html', '主壳', '运行中', '32.4 MB'],
+      ['apps/music.html', '音乐', '运行中', '18.7 MB'],
+      ['apps/video.html', '视频', '已休眠', '12.1 MB'],
+      ['apps/terminal.html', '终端', '运行中', '4.2 MB'],
+      ['apps/monitor.html', '资源监视', '运行中', '2.6 MB']
+    ];
+    var wrap = document.createElement('div');
+    wrap.className = 'demo-stack';
+    wrap.innerHTML =
+      '<div class="demo-card">' +
+        '<h2 class="demo-section-title">运行中的应用</h2>' +
+        '<table class="demo-table">' +
+          '<thead><tr><th>应用</th><th>类型</th><th>状态</th><th>内存</th></tr></thead>' +
+          '<tbody>' + rows.map(function (r) {
+            return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td>' +
+              '<td><span class="demo-pill">' + r[2] + '</span></td><td>' + r[3] + '</td></tr>';
+          }).join('') + '</tbody>' +
+        '</table>' +
+      '</div>' +
+      '<div class="demo-card">' +
+        '<h2 class="demo-section-title">空态参考</h2>' +
+        '<div class="demo-empty">' +
+          '<i class="fa-solid fa-inbox" aria-hidden="true"></i>' +
+          '<span class="t">没有可显示的项目</span>' +
+          '<span class="d">空态必须给图标 + 一句解释 + 一个下一步动作，不允许留白。</span>' +
+          '<button type="button" class="fu-btn fu-btn--accent"><i class="fa-solid fa-plus" aria-hidden="true"></i>新建项目</button>' +
+        '</div>' +
+      '</div>';
+    return wrap;
+  }
+
+  /* ---------- 设置：render（返回节点；开关绑定业务状态） ---------- */
+  function renderSettings() {
+    var wrap = document.createElement('div');
+    wrap.className = 'demo-stack';
+    wrap.innerHTML =
+      '<div class="demo-card">' +
+        '<h2 class="demo-section-title">外观</h2>' +
+        '<div class="demo-row">' +
+          '<span class="lbl">深色模式<span class="sub">跟随 body.dark-mode 与 data-theme</span></span>' +
+          '<button type="button" class="fu-switch" id="swDark" role="switch" aria-checked="false" aria-label="深色模式"></button>' +
+        '</div>' +
+        '<div class="demo-row">' +
+          '<span class="lbl">胶囊滑动动效<span class="sub">400ms · cubic-bezier(.3,.7,.3,1)</span></span>' +
+          '<button type="button" class="fu-switch on" role="switch" aria-checked="true" aria-label="胶囊滑动动效"></button>' +
+        '</div>' +
+        '<div class="demo-row">' +
+          '<span class="lbl">紧凑列表<span class="sub">行高 1.3 · 行距 var(--sp-1)</span></span>' +
+          '<button type="button" class="fu-switch" role="switch" aria-checked="false" aria-label="紧凑列表"></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="demo-card">' +
+        '<h2 class="demo-section-title">搜索</h2>' +
+        '<input class="fu-input demo-input" type="search" placeholder="输入关键字…" aria-label="搜索">' +
+        '<div class="demo-actions">' +
+          '<button type="button" class="fu-btn fu-btn--accent"><i class="fa-solid fa-check" aria-hidden="true"></i>保存</button>' +
+          '<button type="button" class="fu-btn">重置</button>' +
+        '</div>' +
+      '</div>';
+
+    // 业务状态仍由调用方切换类名/aria；n26-switch.js 只负责四段动效
+    wrap.querySelectorAll('.fu-switch').forEach(function (sw) {
+      if (sw.id === 'swDark') {
+        var isDark = document.body.classList.contains('dark-mode');
+        sw.setAttribute('aria-checked', isDark ? 'true' : 'false');
+        sw.classList.toggle('on', isDark);
+      }
+      sw.addEventListener('click', function () {
+        var on = sw.classList.toggle('on');
+        sw.setAttribute('aria-checked', on ? 'true' : 'false');
+        if (sw.id === 'swDark') setTheme(on);
+      });
+    });
+    return wrap;
+  }
+
+  /* ---------- 关于：content ---------- */
+  var aboutHTML =
+    '<div class="demo-stack">' +
+      '<div class="demo-card">' +
+        '<h2 class="demo-section-title">N26UI 1.0.0</h2>' +
+        '<div class="demo-row"><span class="lbl">令牌来源</span><span>ui/tokens.css</span></div>' +
+        '<div class="demo-row"><span class="lbl">玻璃来源</span><span>ui/glass.css</span></div>' +
+        '<div class="demo-row"><span class="lbl">侧栏基线</span><span>ui/n26-docknav.css / n26-shell.css</span></div>' +
+        '<div class="demo-row"><span class="lbl">焦点环</span><span>apps/_polish.css</span></div>' +
+      '</div>' +
+      '<div class="demo-card">' +
+        '<h2 class="demo-section-title">新应用接入只需 3 步</h2>' +
+        '<pre class="demo-code">1. 引入 ui/tokens.css + ui/glass.css + ui/n26-ui.css + ui/n26-ui.js\n' +
+        '2. N26UI.createShell(document.getElementById(\'app\'), { sidebar: [...] })\n' +
+        '3. 内容只写业务 HTML / render 节点，样式只用 var(--…) 与 fu-* 类</pre>' +
+        '<div class="demo-empty" style="padding:var(--sp-4) 0 0">' +
+          '<span class="d">完整条款见 docs/UI硬标准.md，提交前逐条自查。</span>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  /* ---------- 创建壳 ---------- */
+  var shell = N26UI.createShell(document.getElementById('demoShell'), {
+    ariaLabel: '示例应用导航',
+    defaultId: 'home',
+    sidebar: [
+      { id: 'home', icon: 'fa-house', label: '首页', content: homeHTML },
+      { id: 'list', icon: 'fa-table-list', label: '列表', render: renderList },
+      { id: 'settings', icon: 'fa-gear', label: '设置', render: renderSettings },
+      { id: 'about', icon: 'fa-circle-info', label: '关于', content: aboutHTML }
+    ],
+    onSelect: function (id, item) {
+      document.getElementById('demoStatus').textContent = '当前：' + item.label;
+    }
+  });
+
+  /* 折叠按钮 */
+  document.getElementById('btnCollapse').addEventListener('click', function () {
+    var collapsed = !shell.isCollapsed();
+    shell.setCollapsed(collapsed);
+    this.querySelector('span').textContent = collapsed ? '展开' : '折叠';
+    this.setAttribute('aria-label', collapsed ? '展开侧边栏' : '折叠侧边栏');
+  });
+})();
+</script>
+</body>
+</html>

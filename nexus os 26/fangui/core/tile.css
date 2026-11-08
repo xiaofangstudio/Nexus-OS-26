@@ -175,7 +175,7 @@
 [data-ui="tile"] .fu-tile[data-hue="8"] { --t-c1: hsl(330 88% 66%); --t-c2: hsl(336 88% 50%); }  /* 粉 */
 
 [data-ui="tile"] .fu-tile:hover { filter: saturate(1.05) brightness(1.05); transform: translateY(-2px); }
-[data-ui="tile"] .fu-tile:active { transform: scale(0.97); cursor: grabbing; }
+[data-ui="tile"] .fu-tile:active { transform: none; cursor: grabbing; }
 
 [data-ui="tile"] .fu-tile.is-pressed { cursor: grabbing; }
 [data-ui="tile"] .fu-tile.is-dragging {

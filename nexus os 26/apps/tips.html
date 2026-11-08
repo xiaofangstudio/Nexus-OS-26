@@ -197,7 +197,7 @@
     FEATURED.forEach(function (f) {
       if (state.cat !== 'all' && state.cat !== f.cat) return;
       if (q && (f.title + f.desc).toLowerCase().indexOf(q) < 0) return;
-      cards += '<div class="tip-card" onclick="n26TipOpen(\'' + f.id + '\')">'
+      cards += '<div class="tip-card" role="button" tabindex="0" onclick="n26TipOpen(\'' + f.id + '\')">'
         + '<div class="tip-card-t">' + iconHtml(f.id, f.icon) + '<span>' + esc(f.title) + '</span></div>'
         + '<div class="tip-card-d">' + esc(f.desc) + '</div></div>';
     });
@@ -206,7 +206,7 @@
     state.apps.forEach(function (a) {
       if (state.cat !== 'all' && state.cat !== (a.category || 'other')) return;
       if (q && (a.name + a.id).toLowerCase().indexOf(q) < 0) return;
-      cards += '<div class="tip-card" onclick="n26TipLaunch(\'' + a.id + '\')">'
+      cards += '<div class="tip-card" role="button" tabindex="0" onclick="n26TipLaunch(\'' + a.id + '\')">'
         + '<div class="tip-card-t">' + iconHtml(a.id, a.icon) + '<span>' + esc(a.name) + '</span></div>'
         + '<div class="tip-card-d">' + esc(APP_TIPS[a.id] || '双击桌面图标或在这里点一下就能打开。') + '</div></div>';
     });
@@ -216,7 +216,7 @@
     }
 
     var catsHtml = CATS.map(function (c) {
-      return '<div class="tips-cat' + (state.cat === c.k ? ' on' : '') + '" onclick="n26TipCat(\'' + c.k + '\')">'
+      return '<div class="tips-cat' + (state.cat === c.k ? ' on' : '') + '" role="button" tabindex="0" onclick="n26TipCat(\'' + c.k + '\')">'
         + '<i class="fas ' + c.i + '"></i> ' + esc(c.n) + '</div>';
     }).join('');
 
@@ -288,7 +288,7 @@
       + '<div class="tips-search"><i class="fas fa-magnifying-glass"></i>'
       + '<input id="tipsQ" placeholder="搜索技巧或应用…" oninput="n26TipSearch(this.value)"></div>'
       + '<div class="tips-cats">' + CATS.map(function (cc) {
-        return '<div class="tips-cat' + (cc.k === 'all' ? ' on' : '') + '" onclick="n26TipCat(\'' + cc.k + '\')">'
+        return '<div class="tips-cat' + (cc.k === 'all' ? ' on' : '') + '" role="button" tabindex="0" onclick="n26TipCat(\'' + cc.k + '\')">'
           + '<i class="fas ' + cc.i + '"></i> ' + esc(cc.n) + '</div>';
       }).join('') + '</div></div>'
       + '<div class="tips-stat" id="tipsStat"></div>'
@@ -305,6 +305,16 @@
     });
   });
 })();
+</script>
+<script>
+/* 键盘可达：div[role="button"] 的 Enter / Space 等价于点击 */
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  var t = e.target;
+  if (!t || t.getAttribute('role') !== 'button' || !t.hasAttribute('tabindex')) return;
+  e.preventDefault();
+  t.click();
+});
 </script>
 </body>
 </html>

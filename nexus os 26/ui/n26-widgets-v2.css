@@ -1,0 +1,1214 @@
+/* ==========================================================================
+   Nexus OS 26 · 小组件 v2 尺寸分层布局
+   —— 与 n26-widgets.css 的旧内容样式并行；旧类名仅在需要保持实时更新的
+      数据节点上保留（w-bat-n / w-bat-fill / w-net-m / w-net-bar /
+      widget-todo-check / widget-todo-count / widget-clock-time 的 hh·mm）
+   —— 只用 --w-* 中性玻璃变量 + 单一强调色（--w-accent / --nx-acc-text）
+   ========================================================================== */
+
+.nx {
+    /* 卡片级 --w-accent 在旧通用规则里是白色（透明按钮场景），这里必须重新声明，
+       否则所有图标/进度条都会变成不可见的白色 */
+    --w-accent: #3b82f6;
+    --nx-acc-text: #1d4ed8;
+    --nx-acc-tint: rgba(59, 130, 246, .13);
+    --nx-acc-line: rgba(59, 130, 246, .34);
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+    color: var(--w-text);
+    font-size: 12px;
+    line-height: 1.25;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+}
+body.dark-mode .nx {
+    --w-accent: #7cb2ff;
+    --nx-acc-text: #a8c9ff;
+    --nx-acc-tint: rgba(124, 178, 255, .20);
+    --nx-acc-line: rgba(124, 178, 255, .42);
+}
+.nx i { line-height: 1; }
+.nx-accent { color: var(--w-accent); }
+.nx-t-l { gap: 8px; }
+.nx-t-m3 { gap: 6px; }
+.nx-t-bar {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+/* ---------- 通用件 ---------- */
+.nx-hd {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: none;
+    min-width: 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--w-text-soft);
+}
+.nx-hd > i { font-size: 11px; color: var(--w-accent); }
+.nx-hd > span { color: var(--w-text); font-weight: 650; white-space: nowrap; }
+.nx-hd-sub {
+    margin-left: auto;
+    font-weight: 500;
+    color: var(--w-text-soft);
+    white-space: nowrap;
+}
+.nx-hd .nx-icon-btn { margin-left: 2px; }
+.nx-sub {
+    font-size: 10.5px;
+    line-height: 1.3;
+    color: var(--w-text-soft);
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.nx-bar {
+    height: 3px;
+    flex: none;
+    border-radius: 3px;
+    background: var(--w-well);
+    overflow: hidden;
+}
+.nx-bar > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--w-accent);
+    transition: width .2s var(--ease-out, ease);
+}
+.nx-empty {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    text-align: center;
+    color: var(--w-text-soft);
+}
+.nx-empty > i { font-size: 22px; color: var(--w-accent); opacity: .9; }
+.nx-empty > b { font-size: 12px; font-weight: 650; color: var(--w-text); }
+.nx-empty small { font-size: 10px; color: var(--w-text-soft); }
+.nx-center {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    text-align: center;
+}
+.nx-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 0;
+    min-width: 0;
+}
+.nx-li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    min-height: 22px;
+}
+.nx-btn {
+    height: 22px;
+    padding: 0 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex: none;
+    border: 1px solid var(--w-hair);
+    border-radius: 8px;
+    background: var(--w-well);
+    color: var(--w-text);
+    font-family: inherit;
+    font-size: 10.5px;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+}
+.nx-btn i { font-size: 10px; }
+.nx-btn:hover { background: var(--nx-acc-tint); border-color: var(--nx-acc-line); }
+.nx-btn-accent {
+    background: var(--nx-acc-tint);
+    border-color: var(--nx-acc-line);
+    color: var(--nx-acc-text);
+    font-weight: 600;
+}
+.nx-icon-btn {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--w-text-soft);
+    cursor: pointer;
+}
+.nx-icon-btn i { font-size: 10px; }
+.nx-icon-btn:hover { background: var(--w-well); color: var(--w-text); }
+.nx-tile {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 6px;
+    border: 1px solid var(--w-hair);
+    border-radius: 12px;
+    background: var(--w-well);
+    color: var(--w-text);
+    font-family: inherit;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+}
+.nx-tile:hover { background: var(--nx-acc-tint); border-color: var(--nx-acc-line); }
+.nx-tile b { font-size: 13px; font-weight: 650; color: var(--w-text); }
+.nx-tile span { font-size: 9.5px; color: var(--w-text-soft); }
+.nx-dot { font-size: 4px; color: var(--w-accent); flex: none; }
+.nx-wx-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    color: var(--w-text-soft);
+    white-space: nowrap;
+}
+.nx-wx-chip i { font-size: 9px; }
+.nx-wx-kv {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+}
+.nx-wx-kv span { font-size: 10px; color: var(--w-text-soft); flex: none; }
+.nx-wx-kv b {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--w-text);
+    text-align: right;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.nx-t-bar .nx-btn { height: 20px; padding: 0 7px; font-size: 10px; }
+.nx-t-bar .nx-icon-btn { width: 20px; height: 20px; }
+.nx-t-bar .nx-sub { white-space: nowrap; }
+
+/* ======================================================================
+   ① 时钟
+   ====================================================================== */
+.nx-hero {
+    display: inline-flex;
+    align-items: baseline;
+    font-weight: 650;
+    letter-spacing: -.02em;
+    line-height: normal;
+    color: var(--w-text-strong);
+    font-size: 42px;
+}
+/* 旧表用 !important 把时钟锁成 46px / .95 行高，会在字形上下溢出；同权重覆盖 */
+html body .desktop-widget-card[data-wtype] .nx .widget-clock-time {
+    font-size: 42px !important;
+    line-height: normal !important;
+    letter-spacing: -.02em !important;
+}
+html body .desktop-widget-card[data-wtype] .nx.nx-t-m2 .widget-clock-time { font-size: 44px !important; }
+html body .desktop-widget-card[data-wtype] .nx.nx-t-m3 .widget-clock-time { font-size: 52px !important; }
+html body .desktop-widget-card[data-wtype] .nx.nx-t-l .widget-clock-time { font-size: 64px !important; }
+html body .desktop-widget-card[data-wtype] .nx.nx-t-bar .widget-clock-time { font-size: 26px !important; }
+.nx-colon { padding: 0 1px; }
+.nx-t-m2 .nx-hero { font-size: 44px; }
+.nx-t-m3 .nx-hero { font-size: 52px; }
+.nx-t-l .nx-hero { font-size: 64px; }
+.nx-t-bar .nx-hero { font-size: 26px; }
+.nx-clk-date { font-size: 10.5px; }
+.nx-clk-split {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.nx-clk-left { display: flex; flex-direction: column; gap: 5px; flex: none; }
+.nx-clk-right {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start;
+}
+.nx-clk-right .nx-bar { width: 100%; }
+.nx-clk-kv { display: flex; align-items: baseline; gap: 4px; }
+.nx-clk-kv b { font-size: 14px; font-weight: 650; color: var(--nx-acc-text); }
+.nx-clk-kv span { font-size: 10px; color: var(--w-text-soft); }
+.nx-clk-mid { display: flex; align-items: flex-end; gap: 8px; flex: none; }
+.nx-clk-sec {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding-bottom: 4px;
+    font-size: 10px;
+    color: var(--w-text-soft);
+}
+.nx-clk-sec b { font-size: 11px; color: var(--w-text); }
+.nx-clk-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    flex: none;
+}
+.nx-clk-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 4px 0;
+    border-radius: 8px;
+    background: var(--w-well);
+    font-size: 9px;
+    color: var(--w-text-soft);
+}
+.nx-clk-day b { font-size: 12px; font-weight: 600; color: var(--w-text); }
+.nx-clk-day.on { background: var(--nx-acc-tint); color: var(--nx-acc-text); }
+.nx-clk-day.on b { color: var(--nx-acc-text); }
+.nx-clk-mini { flex: 1; min-width: 40px; }
+.nx-clk-bar-date { flex: none; }
+.nx-clk-pct { flex: none; }
+.nx-clk-l { display: flex; align-items: flex-end; gap: 10px; flex: none; }
+.nx-clk-tl {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: none;
+    padding: 7px 9px 5px;
+    border: 1px solid var(--w-hair);
+    border-radius: 10px;
+    background: var(--w-well);
+}
+.nx-clk-tl-hd {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 10px;
+    color: var(--w-text-soft);
+}
+.nx-clk-tl-hd > span:last-child { color: var(--nx-acc-text); font-weight: 650; }
+.nx-clk-tl-track {
+    position: relative;
+    height: 4px;
+    margin: 3px 0 2px;
+    border-radius: 3px;
+    background: var(--w-hair);
+}
+.nx-clk-tl-track > span {
+    position: absolute;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    margin: -3.5px 0 0 -3.5px;
+    border-radius: 50%;
+    background: var(--w-accent);
+}
+.nx-clk-tl-ax {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    color: var(--w-text-soft);
+}
+.nx-clk-foot { display: flex; justify-content: space-between; gap: 8px; flex: none; }
+.nx-clk-yr { display: flex; align-items: center; gap: 8px; flex: none; }
+.nx-clk-yr .nx-sub { flex: none; }
+.nx-clk-yr-bar { flex: 1; }
+.nx-t-m3 .nx-clock, .nx-t-l .nx-clock { justify-content: flex-start; }
+
+/* ======================================================================
+   ② 天气
+   ====================================================================== */
+.nx-wx-ic { font-size: 18px; color: var(--w-accent); flex: none; line-height: 1.2; }
+.nx-t-s .nx-wx-ic { font-size: 22px; }
+.nx-t-bar .nx-wx-ic { font-size: 13px; }
+.nx-wx-city { font-size: 11px; font-weight: 650; color: var(--w-text); white-space: nowrap; }
+.nx-wx-temp {
+    font-size: 32px;
+    font-weight: 650;
+    line-height: normal;
+    color: var(--w-text-strong);
+    letter-spacing: -.02em;
+}
+.nx-t-s .nx-wx-temp, .nx-t-m2 .nx-wx-temp, .nx-t-m3 .nx-wx-temp { font-size: 34px; }
+.nx-t-l .nx-wx-temp { font-size: 38px; }
+.nx-wx-temp-sm { font-size: 15px; font-weight: 650; color: var(--nx-acc-text); }
+.nx-wx-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    flex: none;
+}
+.nx-t-s.nx-weather { justify-content: center; gap: 2px; }
+.nx-wx-m2 { flex: 1; min-height: 0; display: flex; gap: 12px; }
+.nx-wx-left {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    flex: none;
+    max-width: 54%;
+    min-width: 0;
+}
+.nx-wx-right {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+}
+.nx-wx-left .nx-wx-ic { align-self: flex-start; line-height: 1.2; }
+.nx-wx-m3-top { display: flex; align-items: center; gap: 10px; flex: none; }
+.nx-wx-chips { display: flex; flex-wrap: wrap; gap: 3px 8px; min-width: 0; }
+.nx-wx-chips span {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    color: var(--w-text-soft);
+    white-space: nowrap;
+}
+.nx-wx-hours {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    gap: 4px;
+    flex: none;
+}
+.nx-wx-hour {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 4px 0;
+    border-radius: 9px;
+    background: var(--w-well);
+    min-width: 0;
+}
+.nx-wx-hour i { font-size: 12px; color: var(--w-text-soft); }
+.nx-wx-hour b { font-size: 11px; font-weight: 600; color: var(--w-text); }
+.nx-wx-hour span { font-size: 9px; color: var(--w-text-soft); }
+.nx-wx-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px 6px;
+    flex: none;
+}
+.nx-wx-cell {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+    min-width: 0;
+    padding: 3px 7px;
+    border-radius: 8px;
+    background: var(--w-well);
+}
+.nx-wx-cell > span { font-size: 9.5px; color: var(--w-text-soft); flex: none; }
+.nx-wx-cell > b {
+    font-size: 10.5px;
+    font-weight: 650;
+    color: var(--w-text);
+    text-align: right;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.nx-wx-push { flex: 1; min-width: 0; }
+.nx-wx-nofc {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 9px 0;
+    border-radius: 9px;
+    background: var(--w-well);
+    text-align: center;
+}
+.nx-wx-days { display: flex; flex-direction: column; gap: 2px; flex: none; }
+.nx-t-l .nx-wx-days { flex: 1; gap: 6px; justify-content: center; }
+.nx-t-l .nx-wx-day {
+    min-height: 32px;
+    padding: 0 8px;
+    border-radius: 9px;
+    background: var(--w-well);
+}
+.nx-wx-day {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 22px;
+    font-size: 11px;
+}
+.nx-wx-day span { width: 34px; flex: none; font-size: 10px; color: var(--w-text-soft); }
+.nx-wx-day i { width: 16px; text-align: center; font-size: 12px; color: var(--w-accent); }
+.nx-wx-day b { margin-left: auto; font-size: 11px; color: var(--w-text); }
+.nx-wx-day small { width: 28px; text-align: right; font-size: 10px; color: var(--w-text-soft); }
+.nx-t-l.nx-weather { gap: 7px; }
+
+/* ======================================================================
+   ③ 日历
+   ====================================================================== */
+.nx-cal-bar-y { font-size: 11px; color: var(--w-text-soft); }
+.nx-cal-bar-d { font-size: 20px; font-weight: 650; color: var(--nx-acc-text); line-height: 1.2; }
+.nx-cal-s {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+}
+.nx-cal-s-d { font-size: 44px; line-height: normal; font-weight: 650; color: var(--w-text-strong); }
+.nx-cal-week {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    flex: none;
+}
+.nx-cal-wd {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 3px 0;
+    border-radius: 8px;
+    background: var(--w-well);
+    font-size: 9px;
+    color: var(--w-text-soft);
+}
+.nx-cal-wd b { font-size: 12px; font-weight: 600; color: var(--w-text); }
+.nx-cal-wd.on { background: var(--nx-acc-tint); }
+.nx-cal-wd.on span, .nx-cal-wd.on b { color: var(--nx-acc-text); }
+.nx-t-m2.nx-calendar { justify-content: flex-start; gap: 8px; }
+.nx-t-m2 .nx-cal-week { flex: 1; }
+.nx-t-m2 .nx-cal-wd { justify-content: center; }
+.nx-t-m2 .nx-cal-m2f { flex: 1; }
+.nx-cal-hd {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    font-size: 11px;
+    font-weight: 650;
+    color: var(--w-text);
+}
+.nx-cal-hd span { flex: 1; text-align: center; white-space: nowrap; }
+.nx-cal-nav {
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--w-text-soft);
+    cursor: pointer;
+}
+.nx-cal-nav:hover { background: var(--w-well); color: var(--w-text); }
+.nx-cal-nav i { font-size: 9px; }
+.nx-cal-wdr {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    flex: none;
+    font-size: 9px;
+    color: var(--w-text-soft);
+    text-align: center;
+}
+.nx-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px 2px;
+    flex: none;
+}
+.nx-t-m3 .nx-cal-grid { grid-auto-rows: 22px; }
+.nx-t-l .nx-cal-grid { grid-auto-rows: 21px; }
+.nx-cal-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 10px;
+    color: var(--w-text);
+}
+.nx-cal-cell.other { color: var(--w-text-soft); opacity: .72; }
+.nx-cal-cell.on { background: var(--nx-acc-tint); color: var(--nx-acc-text); font-weight: 650; }
+.nx-cal-ag {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding-top: 4px;
+    border-top: 1px solid var(--w-hair);
+}
+.nx-cal-ag-h {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--w-text-soft);
+}
+.nx-cal-ai { min-height: 18px; }
+.nx-cal-none { font-size: 10px; }
+.nx-cal-emp {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex: 1;
+    min-height: 34px;
+    border-radius: 9px;
+    background: var(--w-well);
+    font-size: 10px;
+    color: var(--w-text-soft);
+}
+.nx-cal-emp i { font-size: 11px; color: var(--nx-acc-text); }
+.nx-cal-m2f {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    min-height: 0;
+    padding-top: 5px;
+    border-top: 1px solid var(--w-hair);
+}
+.nx-cal-foot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    padding-top: 5px;
+    border-top: 1px solid var(--w-hair);
+}
+.nx-cal-foot .nx-sub { flex: none; }
+.nx-cal-foot .nx-bar { flex: 1; }
+.nx-cal-foot b { font-size: 10.5px; font-weight: 650; color: var(--nx-acc-text); flex: none; }
+.nx-cal-chips { display: flex; gap: 5px; flex: none; }
+.nx-cal-chips > span {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 6px;
+    border-radius: 8px;
+    background: var(--w-well);
+    font-size: 9.5px;
+    color: var(--w-text-soft);
+    text-align: center;
+    white-space: nowrap;
+}
+.nx-cal-chips b { font-weight: 650; color: var(--w-text); }
+
+/* ======================================================================
+   ④ 系统
+   ====================================================================== */
+.nx-sys-hero { display: flex; flex-direction: column; gap: 2px; flex: none; }
+.nx-sys-hero b { font-size: 32px; line-height: normal; font-weight: 650; color: var(--w-text-strong); }
+.nx-sys-hero span { font-size: 10px; color: var(--w-text-soft); }
+.nx-sys-cols {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    align-items: center;
+    min-height: 0;
+}
+.nx-sys-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+}
+.nx-sys-col i { font-size: 15px; color: var(--w-accent); }
+.nx-sys-col b { font-size: 13px; font-weight: 650; color: var(--w-text); white-space: nowrap; }
+.nx-sys-col span { font-size: 9px; color: var(--w-text-soft); }
+.nx-sys-col .nx-bar { width: 100%; height: 3px; margin-top: 2px; }
+.nx-sys-row { display: flex; align-items: center; gap: 7px; min-height: 26px; flex: none; }
+.nx-t-m3 .nx-sys-row, .nx-t-l .nx-sys-row { flex: 1 1 0; min-height: 26px; }
+.nx-sys-row i { width: 14px; text-align: center; font-size: 12px; color: var(--w-accent); flex: none; }
+.nx-sys-lb { width: 64px; flex: none; font-size: 10.5px; color: var(--w-text-soft); }
+.nx-sys-vl {
+    flex: 1;
+    min-width: 0;
+    text-align: right;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--w-text);
+    overflow-wrap: anywhere;
+}
+.nx-sys-row .nx-sys-bar { width: 46px; flex: none; height: 3px; }
+.nx-sys-scr { color: var(--w-text-soft); }
+
+/* ======================================================================
+   ⑤ 小游戏
+   ====================================================================== */
+.nx-mg-2 { flex: 1; min-height: 0; display: flex; gap: 8px; }
+.nx-mg-ic { font-size: 22px; color: var(--w-accent); }
+.nx-mg-big .nx-mg-ic { font-size: 26px; }
+.nx-mg-tile { gap: 2px; }
+.nx-mg-tile b { font-size: 13px; }
+.nx-mg-best {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 10px;
+    background: var(--w-well);
+    flex: none;
+}
+.nx-mg-best i { font-size: 15px; color: var(--w-accent); }
+.nx-mg-best b { font-size: 16px; font-weight: 650; color: var(--w-text); }
+.nx-mg-best span { font-size: 10px; color: var(--w-text-soft); }
+.nx-mg-bar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 22px;
+    padding: 0 9px;
+    border: 1px solid var(--w-hair);
+    border-radius: 9px;
+    background: var(--w-well);
+    color: var(--w-text);
+    font-family: inherit;
+    font-size: 10.5px;
+    cursor: pointer;
+}
+.nx-mg-bar-btn i { font-size: 10px; color: var(--w-accent); }
+.nx-mg-bar-btn:hover { background: var(--nx-acc-tint); border-color: var(--nx-acc-line); }
+.nx-mg-div { width: 1px; height: 14px; flex: none; background: var(--w-hair); }
+.nx-t-l .nx-mg-2 { flex: none; height: 150px; }
+.nx-mg-tips { display: flex; flex-direction: column; gap: 2px; flex: none; }
+.nx-mg-tips > div {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 15px;
+    font-size: 9.5px;
+    line-height: 15px;
+    color: var(--w-text-soft);
+}
+.nx-mg-tips i { width: 12px; text-align: center; flex: none; color: var(--nx-acc-text); font-size: 10px; }
+
+/* ======================================================================
+   ⑥ 双区时间
+   ====================================================================== */
+.nx-dual-bar-city { font-size: 10px; color: var(--w-text-soft); }
+.nx-dual-bar-t { font-size: 16px; font-weight: 650; color: var(--w-text); }
+.nx-dual-s { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+.nx-dual-s-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.nx-dual-s-row span { font-size: 10px; color: var(--w-text-soft); }
+.nx-dual-s-row b { font-size: 24px; font-weight: 650; color: var(--w-text); }
+.nx-dual-2 { flex: 1; display: flex; gap: 12px; min-height: 0; }
+.nx-dual-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+}
+.nx-dual-col span {
+    font-size: 10px;
+    color: var(--w-text-soft);
+    overflow-wrap: anywhere;
+}
+.nx-dual-col b { font-size: 26px; font-weight: 650; color: var(--w-text); }
+.nx-dual-col small { font-size: 9.5px; color: var(--w-text-soft); }
+.nx-t-bar .nx-dual-col b { font-size: 20px; }
+.nx-dual-r { display: flex; align-items: baseline; gap: 8px; min-height: 32px; }
+.nx-dual-r span { width: 52px; flex: none; font-size: 10px; color: var(--w-text-soft); }
+.nx-dual-r b { font-size: 24px; font-weight: 650; color: var(--w-text); }
+.nx-dual-r small { margin-left: auto; font-size: 9.5px; color: var(--w-text-soft); }
+.nx-dual-pick { cursor: pointer; border-radius: 8px; }
+.nx-dual-pick:hover { background: var(--w-well); }
+.nx-dual-foot { display: flex; gap: 5px; flex: none; }
+.nx-dual-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+    padding: 4px 6px;
+    border-radius: 8px;
+    background: var(--w-well);
+    font-size: 9.5px;
+    color: var(--w-text-soft);
+    white-space: nowrap;
+}
+.nx-dual-chip i { font-size: 10px; color: var(--nx-acc-text); flex: none; }
+.nx-t-m3 .nx-dual-r { flex: 1; min-height: 0; align-items: center; }
+
+/* ======================================================================
+   ⑦ 快捷启动
+   ====================================================================== */
+.nx-ql-bar { display: flex; align-items: center; gap: 6px; width: 100%; height: 100%; }
+.nx-ql-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+    min-height: 0;
+    padding: 4px;
+    border: 1px solid var(--w-hair);
+    border-radius: 10px;
+    background: var(--w-well);
+    color: var(--w-text);
+    font-family: inherit;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+}
+.nx-ql-btn:hover { background: var(--nx-acc-tint); border-color: var(--nx-acc-line); }
+.nx-ql-ic { font-size: 16px; color: var(--w-accent); }
+.nx-ql-nm {
+    font-size: 9px;
+    line-height: 1.15;
+    text-align: center;
+    color: var(--w-text-soft);
+    white-space: normal;
+    overflow-wrap: anywhere;
+    max-width: 100%;
+}
+.nx-ql-grid { display: grid; gap: 6px; flex: 1; min-height: 0; }
+.nx-ql-g2 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
+.nx-ql-g3 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); }
+.nx-ql-g4 { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, 1fr); }
+.nx-ql-icons .nx-ql-nm { display: none; }
+.nx-ql-icons .nx-ql-ic { font-size: 22px; }
+.nx-t-bar .nx-ql-btn { flex: 1; height: 26px; flex-direction: row; gap: 3px; padding: 0 3px; min-width: 0; }
+.nx-t-bar .nx-ql-nm { display: inline-block; font-size: 9px; letter-spacing: 0; white-space: nowrap; line-height: 1.2; }
+.nx-t-bar .nx-ql-ic { font-size: 14px; }
+.nx-ql-lead { flex: none; font-size: 14px; }
+.nx-t-m2 .nx-ql-btn { flex-direction: row; gap: 6px; padding: 4px 6px; }
+.nx-t-m2 .nx-ql-nm { font-size: 9.5px; text-align: left; }
+.nx-t-m2.nx-quicklaunch { gap: 4px; }
+.nx-t-m2 .nx-ql-grid { gap: 4px; }
+.nx-t-m3 .nx-ql-grid { gap: 7px; }
+.nx-ql-big .nx-ql-ic { font-size: 20px; }
+.nx-ql-big .nx-ql-nm { font-size: 10px; }
+.nx-ql-foot { display: none; }
+.nx-t-l .nx-ql-foot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 24px;
+    flex: none;
+    border: 1px dashed var(--w-hair);
+    border-radius: 9px;
+    background: transparent;
+    color: var(--w-text-soft);
+    font-family: inherit;
+    font-size: 10px;
+    cursor: pointer;
+}
+.nx-t-l .nx-ql-foot:hover { border-color: var(--nx-acc-line); color: var(--nx-acc-text); }
+
+/* ======================================================================
+   ⑧ 作息
+   ====================================================================== */
+.nx-sch-li { min-height: 24px; padding: 1px 4px; border-radius: 7px; cursor: pointer; }
+.nx-sch-li.next { background: var(--nx-acc-tint); }
+.nx-sch-li.done { opacity: .62; }
+.nx-sch-ic { width: 14px; text-align: center; font-size: 11px; color: var(--w-text-soft); flex: none; }
+.nx-sch-t { width: 30px; flex: none; font-size: 10px; color: var(--w-text-soft); }
+.nx-sch-n { flex: 1; min-width: 0; font-size: 10.5px; color: var(--w-text); overflow-wrap: anywhere; }
+.nx-sch-ck { font-size: 9px; color: var(--w-text-soft); opacity: 0; flex: none; }
+.nx-sch-li.done .nx-sch-ck { opacity: 1; color: var(--w-accent); }
+.nx-sch-foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    flex: none;
+    padding-top: 5px;
+    border-top: 1px solid var(--w-hair);
+    font-size: 9.5px;
+    color: var(--w-text-soft);
+}
+.nx-sch-foot > span { min-width: 0; overflow-wrap: anywhere; }
+.nx-sch-li.done .nx-sch-t, .nx-sch-li.done .nx-sch-n { text-decoration: line-through; }
+.nx-sch-mini { flex: 1; min-width: 40px; }
+
+/* ======================================================================
+   ⑨ 秒表
+   ====================================================================== */
+.nx-sw-time {
+    font-size: 30px;
+    font-weight: 650;
+    line-height: normal;
+    color: var(--w-text-strong);
+    letter-spacing: -.01em;
+}
+.nx-t-m2 .nx-sw-time { font-size: 34px; }
+.nx-t-m3 .nx-sw-time { font-size: 40px; }
+.nx-t-bar .nx-sw-time { font-size: 20px; }
+.nx-sw-top { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--w-text-soft); }
+.nx-sw-top i { font-size: 12px; color: var(--w-text-soft); }
+.nx-sw-btns { display: flex; gap: 4px; flex-wrap: wrap; flex: none; }
+.nx-sw-hd2 { display: flex; align-items: baseline; gap: 10px; flex: none; }
+.nx-sw-laps { flex: 1; min-height: 0; gap: 0; }
+.nx-sw-lap { font-size: 10px; font-weight: 500; color: var(--w-text-soft); }
+.nx-sw-emp {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 100%;
+    border-radius: 9px;
+    background: var(--w-well);
+    font-size: 10px;
+    color: var(--w-text-soft);
+    text-align: center;
+}
+.nx-sw-emp i { font-size: 15px; color: var(--nx-acc-text); }
+.nx-sw-foot { display: flex; justify-content: space-between; gap: 8px; flex: none; font-size: 9.5px; color: var(--w-text-soft); }
+.nx-t-m2.nx-stopwatch { justify-content: center; gap: 7px; }
+.nx-t-s .nx-sw-btns .nx-btn { padding: 0 6px; }
+
+/* ======================================================================
+   ⑩ 壁纸
+   ====================================================================== */
+.nx-wp-g { display: grid; gap: 5px; flex: 1; min-height: 0; }
+.nx-wp-g4 { grid-template-columns: repeat(4, 1fr); grid-template-rows: 1fr; }
+.nx-wp-g6 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); }
+.nx-wp-g9 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
+.nx-t-s .nx-wp-g4 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
+.nx-wp-i {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: linear-gradient(140deg, rgba(59, 130, 246, .18), rgba(255, 255, 255, 0) 62%), var(--w-well);
+    cursor: pointer;
+}
+.nx-wp-ph {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: var(--w-text-soft);
+}
+.nx-wp-img {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+.nx-wp-i:hover { outline: 1px solid var(--nx-acc-line); outline-offset: -1px; }
+.nx-wp-ck {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--w-accent);
+    color: #fff;
+    font-size: 7px;
+    opacity: 0;
+}
+.nx-wp-on .nx-wp-ck { opacity: 1; }
+.nx-wp-on { outline: 1px solid var(--nx-acc-line); outline-offset: -1px; }
+.nx-wp-bar { display: flex; gap: 5px; flex: 1; min-width: 0; height: 100%; align-items: center; }
+.nx-wp-bar .nx-wp-i { flex: 1; height: 26px; min-width: 0; }
+
+/* ======================================================================
+   ⑪ 倒计时
+   ====================================================================== */
+.nx-cd-hero { display: flex; align-items: baseline; gap: 4px; }
+.nx-cd-hero b { font-size: 32px; line-height: normal; font-weight: 650; color: var(--w-text-strong); }
+.nx-cd-hero span { font-size: 11px; color: var(--w-text-soft); }
+.nx-t-s .nx-cd-hero b, .nx-t-m2 .nx-cd-hero b { font-size: 36px; }
+.nx-t-l .nx-cd-big b { font-size: 46px; }
+.nx-cd-l { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--w-text-soft); }
+.nx-cd-l i { font-size: 11px; color: var(--w-accent); }
+.nx-cd-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
+.nx-cd-bar-n { font-size: 20px; font-weight: 650; color: var(--w-text); }
+.nx-cd-kv { display: flex; gap: 6px; flex: none; }
+.nx-cd-kv > .nx-wx-kv { flex: 1; min-width: 0; }
+.nx-t-l .nx-cd-kv { flex-direction: column; }
+.nx-t-m3 .nx-cd-kv { flex-direction: column; }
+.nx-cd-m3b b { font-size: 46px; }
+.nx-cd-set { align-self: flex-start; }
+.nx-t-m2.nx-countdown { flex-direction: row; align-items: center; gap: 14px; }
+.nx-t-m2.nx-countdown .nx-cd-hero { flex-direction: column; align-items: flex-start; gap: 0; flex: none; }
+
+/* ======================================================================
+   ⑫ 剪贴板
+   ====================================================================== */
+.nx-cb-s { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.nx-cb-s b { font-size: 32px; line-height: normal; font-weight: 650; color: var(--w-text-strong); }
+.nx-cb-s > span { font-size: 10px; color: var(--w-text-soft); }
+.nx-cb-list { flex: 1; min-height: 0; gap: 2px; }
+.nx-cb-i {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    flex: none;
+    padding: 3px 6px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: var(--w-well);
+    color: var(--w-text);
+    font-family: inherit;
+    font-size: 10px;
+    text-align: left;
+    cursor: pointer;
+}
+.nx-cb-i:hover { border-color: var(--nx-acc-line); }
+.nx-cb-i span { min-width: 0; line-height: 1.25; overflow-wrap: anywhere; }
+.nx-cb-ic { font-size: 9px; color: var(--w-accent); flex: none; }
+
+/* ======================================================================
+   ⑬ 电池
+   ====================================================================== */
+.nx-bat-n {
+    display: inline-flex;
+    align-items: baseline;
+    font-weight: 650;
+    line-height: normal;
+    color: var(--w-text-strong);
+    font-size: 34px;
+}
+.nx-bat-n small { font-size: 14px; font-weight: 500; margin-left: 1px; color: var(--w-text-soft); }
+.nx-bat-hero { display: flex; flex-direction: column; gap: 3px; flex: none; }
+.nx-bat-hero > span { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: var(--w-text-soft); }
+.nx-bat-hero > span i { font-size: 10px; color: var(--w-text-soft); }
+.nx-bat-m2 { flex: 1; display: flex; align-items: center; gap: 14px; min-height: 0; }
+.nx-bat-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.nx-bat-lg .nx-bat-n { font-size: 40px; }
+.nx-bat-kv { display: flex; gap: 6px; flex: none; }
+.nx-bat-kv > .nx-wx-kv { flex: 1; min-width: 0; }
+.nx-t-l .nx-bat-kv { flex-direction: column; }
+.nx-t-bar .nx-bat-n { font-size: 18px; }
+.nx-t-bar .nx-bat-n small { font-size: 9px; }
+/* 旧样式给 .w-bat-n 锁过字号，这里只让颜色继承、字号交回各档位规则 */
+.nx .w-bat-n { color: inherit; }
+.nx .nx-bar.w-bat-bar { flex: 1; min-width: 34px; height: 4px; }
+.nx:not(.nx-t-bar) .nx-bar.w-bat-bar { flex: none; width: 100%; min-width: 0; }
+.nx .w-bat-fill.low { background: #ef4444; }
+
+/* ======================================================================
+   ⑭ 网络
+   ====================================================================== */
+.nx-net-b { font-size: 14px; font-weight: 650; color: var(--w-text); }
+.nx-net-bars { display: flex; align-items: flex-end; gap: 2px; height: 16px; }
+.nx-net-bar { width: 3px; border-radius: 2px; background: var(--w-hair); }
+.nx-net-bar.on { background: var(--w-accent); }
+.nx-net-ic { font-size: 20px; color: var(--w-accent); }
+.nx-net-ic.off { color: var(--w-text-soft); }
+.nx-net-bars-s { justify-content: center; height: 14px; margin: 2px 0; }
+.nx-net-s { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-align: center; }
+.nx-net-m2 { flex: 1; display: flex; gap: 14px; min-height: 0; }
+.nx-net-left { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; flex: none; }
+.nx-net-right { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 7px; }
+.nx-net-big { display: flex; align-items: center; gap: 8px; flex: none; }
+.nx-net-big b { font-size: 13px; color: var(--w-text); }
+.nx .w-net-m { display: inline; }
+.nx .w-net-m span { font-size: inherit; color: inherit; }
+.nx-t-bar .nx-net-bars { height: 14px; }
+
+/* ======================================================================
+   ⑮ 相册
+   ====================================================================== */
+.nx-ph-thumb { width: 28px; height: 28px; flex: none; border-radius: 6px; background-size: cover; background-position: center; }
+.nx-ph-s {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: flex-end;
+    border-radius: 10px;
+    background-size: cover;
+    background-position: center;
+    overflow: hidden;
+}
+.nx-ph-cap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    width: 100%;
+    padding: 3px 6px;
+    background: rgba(16, 22, 31, .62);
+    color: #fff;
+    font-size: 9px;
+}
+.nx-ph-cap .nx-sub { color: #fff; opacity: .86; }
+.nx-ph-cap .nx-icon-btn { width: 18px; height: 18px; color: #fff; }
+.nx-ph-nav { display: flex; gap: 2px; }
+.nx-ph-m2 { flex: 1; display: flex; gap: 10px; min-height: 0; }
+.nx-ph-img { flex: 1; min-width: 0; border-radius: 10px; background-size: cover; background-position: center; }
+.nx-ph-side { width: 42%; flex: none; display: flex; flex-direction: column; justify-content: center; gap: 5px; }
+.nx-ph-side b { font-size: 12px; color: var(--w-text); }
+.nx-ph-btns { display: flex; gap: 4px; margin-top: 2px; }
+.nx-ph-img3 { height: 120px; flex: none; }
+.nx-ph-img-l { height: 160px; flex: none; }
+.nx-ph-row { display: flex; align-items: center; gap: 6px; flex: none; }
+.nx-ph-row b { font-size: 12px; color: var(--w-text); }
+.nx-ph-row .nx-sub { margin-left: auto; }
+.nx-ph-meta { display: flex; gap: 6px; flex-direction: column; flex: none; min-height: 0; }
+.nx-t-m3 .nx-ph-meta { flex-direction: row; }
+.nx-t-m3 .nx-ph-meta .nx-sub { min-width: 0; overflow-wrap: anywhere; }
+
+/* ======================================================================
+   ⑯ 音量
+   ====================================================================== */
+.nx-vol-pct { margin-left: auto; font-size: 13px; font-weight: 650; color: var(--nx-acc-text); }
+.nx-t-bar .nx-vol-pct { margin-left: 0; font-size: 11px; }
+.nx-vol-hd { display: flex; align-items: center; gap: 6px; flex: none; }
+.nx-vol-hd > i { font-size: 15px; color: var(--w-accent); }
+.nx-vol-big .nx-vol-pct { display: block; margin: 0; text-align: center; font-size: 30px; }
+.nx-vol-range { width: 100%; height: 16px; margin: 0; flex: none; accent-color: var(--w-accent); }
+.nx-t-bar .nx-vol-range { flex: 1; min-width: 60px; height: 14px; }
+.nx-vol-presets { display: flex; gap: 4px; flex-wrap: wrap; flex: none; }
+
+/* ======================================================================
+   ⑰ 睡眠
+   ====================================================================== */
+.nx-sl-time { font-size: 30px; font-weight: 650; line-height: normal; color: var(--w-text-strong); letter-spacing: -.01em; }
+.nx-t-s .nx-sl-time { font-size: 34px; }
+.nx-t-m3 .nx-sl-time { font-size: 40px; }
+.nx-t-bar .nx-sl-time { font-size: 18px; }
+.nx-sl-moon { font-size: 16px; color: var(--w-accent); }
+.nx-sl-hero { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.nx-sl-hero-l { flex: none; gap: 6px; }
+.nx-sl-hd { display: flex; align-items: center; gap: 5px; flex: none; font-size: 10.5px; color: var(--w-text-soft); }
+.nx-sl-hd > span { color: var(--w-text); font-weight: 600; }
+.nx-sl-hd .nx-hd-sub { margin-left: auto; }
+.nx-sl-btns { display: flex; gap: 4px; flex-wrap: wrap; flex: none; }
+
+/* ======================================================================
+   ⑱ 专注
+   ====================================================================== */
+.nx-fo-ring { position: relative; flex: none; display: flex; align-items: center; justify-content: center; }
+.nx-fo-ring svg { width: 60px; height: 60px; display: block; }
+.nx-fo-ring b {
+    position: absolute;
+    font-size: 13px;
+    font-weight: 650;
+    color: var(--w-text-strong);
+}
+.nx-t-m2 .nx-fo-ring svg { width: 76px; height: 76px; }
+.nx-t-m2 .nx-fo-ring b { font-size: 16px; }
+.nx-t-m3 .nx-fo-ring svg { width: 88px; height: 88px; }
+.nx-t-m3 .nx-fo-ring b { font-size: 18px; }
+.nx-t-bar .nx-fo-ring svg { width: 26px; height: 26px; }
+.nx-t-bar .nx-fo-ring b { font-size: 9px; }
+.nx-fo-btns { display: flex; gap: 4px; flex: none; }
+.nx-fo-m2 { flex: 1; display: flex; align-items: center; gap: 14px; min-height: 0; }
+.nx-fo-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.nx-fo-l { flex: 1; display: flex; align-items: center; justify-content: center; }
+.nx-t-s.nx-focus { gap: 3px; }
+
+/* ======================================================================
+   ⑲ 待办
+   ====================================================================== */
+.nx-td-bar-n { font-size: 16px; font-weight: 650; color: var(--w-text); }
+.nx-td-mini { flex: 1; min-width: 40px; }
+.nx-td-s { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.nx-td-s b { font-size: 32px; line-height: normal; font-weight: 650; color: var(--w-text-strong); }
+.nx-td-s > span { font-size: 10px; color: var(--w-text-soft); }
+.nx-td-s-foot { display: flex; align-items: center; gap: 6px; flex: none; }
+.nx-td-s-foot .nx-bar { flex: 1; }
+.nx-td-row { min-height: 28px; gap: 6px; }
+.nx .nx-td-ck {
+    position: relative;
+    width: 14px;
+    height: 14px;
+    padding: 0;
+    flex: none;
+    border: 1px solid var(--w-hair);
+    border-radius: 50%;
+    background: var(--w-well);
+    cursor: pointer;
+}
+.nx .nx-td-ck.done { background: var(--nx-acc-tint); border-color: var(--w-accent); }
+.nx .nx-td-ck.done::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 6px;
+    border-right: 1.5px solid var(--nx-acc-text);
+    border-bottom: 1.5px solid var(--nx-acc-text);
+    transform: rotate(40deg);
+}
+.nx .nx-td-tx {
+    flex: 1;
+    min-width: 0;
+    font-size: 10.5px;
+    line-height: 1.25;
+    color: var(--w-text);
+    overflow-wrap: anywhere;
+}
+.nx-td-row.done .nx-td-tx { color: var(--w-text-soft); text-decoration: line-through; }
+.nx .nx-td-del {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    padding: 0;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--w-text-soft);
+    cursor: pointer;
+}
+.nx .nx-td-del i { font-size: 9px; }
+.nx .nx-td-del:hover { background: var(--w-well); color: var(--w-text); }
+.nx-td-prog { flex: none; }
+.nx-td-list { flex: 1; min-height: 0; gap: 1px; }
+.nx .widget-todo-count { margin-left: auto; }
+
+/* 减少动态效果 */
+@media (prefers-reduced-motion: reduce) {
+    .nx * { transition: none !important; }
+}

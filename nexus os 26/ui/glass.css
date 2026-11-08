@@ -11,8 +11,9 @@
 /* ---------- L1 结构面：主玻璃（窗口 / Dock / 菜单 / 通知 / 启动台） ---------- */
 .glass {
   background: var(--glass-tint);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+  /* 不加 brightness：增亮会把壁纸洗成乳白 */
+  -webkit-backdrop-filter: blur(var(--glass-blur-window)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur-window)) saturate(var(--glass-saturate));
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow), var(--glass-inner);
   /* 顶部高光边（specular）由内影 + 渐变描边共同模拟，避免廉价白卡 */
@@ -21,8 +22,8 @@
 /* L1 加强：启动台 / 大面板 / 模态 —— 更强磨砂与抬升阴影 */
 .glass-strong {
   background: var(--glass-tint-2);
-  -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
-  backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturate));
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow-lift), var(--glass-inner);
 }
@@ -46,8 +47,8 @@ body.dark-mode .glass-strong--specular::before { opacity: 0.22; }
 /* ---------- L2 内容面：列表 / 表单 / 卡片 / 应用内部 ---------- */
 .glass-content {
   background: var(--glass-tint-2);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
-  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(145%);
+  backdrop-filter: blur(10px) saturate(145%);
   border: 1px solid var(--glass-border-2);
   box-shadow: var(--shadow-2), var(--glass-inner);
 }
@@ -62,8 +63,8 @@ body.dark-mode .glass-strong--specular::before { opacity: 0.22; }
 /* ---------- L0 英雄面：位移折射 + 强磨砂 + 流体（仅英雄级使用） ---------- */
 .glass-hero {
   background: var(--glass-tint);
-  -webkit-backdrop-filter: blur(var(--glass-hero-blur)) saturate(var(--glass-hero-saturate)) brightness(1.08);
-  backdrop-filter: blur(var(--glass-hero-blur)) saturate(var(--glass-hero-saturate)) brightness(1.08);
+  -webkit-backdrop-filter: blur(var(--glass-hero-blur)) saturate(var(--glass-hero-saturate));
+  backdrop-filter: blur(var(--glass-hero-blur)) saturate(var(--glass-hero-saturate));
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow-lift), var(--glass-inner);
 }

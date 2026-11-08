@@ -51,23 +51,32 @@ body.dark-mode #covi-hud-bar {
     border-color: rgba(255, 255, 255, 0.12);
     box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
 }
-/* 黄/蓝/绿三色跑马灯边框（与边缘光带同色调） */
+/* 一条镜面高光边 + 低透明度品牌色晕：呼吸，不跑马灯
+   —— 与边缘光带同色调，但不再用 conic 匀速转（那会读成"玩具边框"）。
+   彩色只做极淡的色晕（≤0.28），白色高光占主，才像光而不是涂色。 */
 #covi-hud-bar::before {
     content: '';
     position: absolute;
-    inset: -2px;
-    border-radius: 24px;
-    padding: 2px;
-    background: conic-gradient(from var(--covi-a, 0deg),
-        transparent 0deg,
-        rgba(255, 214, 10, 0.9) 14deg, rgba(255, 179, 0, 0.3) 36deg, transparent 66deg,
-        rgba(10, 132, 255, 0.9) 106deg, rgba(100, 210, 255, 0.3) 128deg, transparent 158deg,
-        rgba(48, 209, 88, 0.9) 198deg, rgba(163, 247, 191, 0.3) 220deg, transparent 250deg);
+    inset: -1px;
+    border-radius: 23px;
+    padding: 1px;
+    background: linear-gradient(100deg,
+        rgba(255, 255, 255, 0.92) 0%,
+        rgba(255, 255, 255, 0.20) 18%,
+        rgba(255, 214, 10, 0.26) 34%,
+        rgba(10, 132, 255, 0.22) 52%,
+        rgba(48, 209, 88, 0.24) 68%,
+        rgba(255, 255, 255, 0.26) 84%,
+        rgba(255, 255, 255, 0.92) 100%);
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
-    animation: coviSpin 4.6s linear infinite;
+    animation: coviHudBreath 3.4s ease-in-out infinite alternate;
     pointer-events: none;
+}
+@keyframes coviHudBreath {
+    from { opacity: 0.40; }
+    to   { opacity: 0.74; }
 }
 #covi-hud-avatar {
     width: 34px;
@@ -154,7 +163,7 @@ body.dark-mode #covi-hud-close { background: rgba(255, 255, 255, 0.1); color: rg
 body.dark-mode #covi-hud-pill-text { color: #f0f0f0; }
 #covi-hud.covi-hud-pill #covi-hud-pill-text { display: flex; }
 #covi-hud.covi-hud-pill { width: auto; }
-#covi-hud.covi-hud-pill #covi-hud-bar::before { animation-duration: 1.6s; opacity: 0.9; }
+#covi-hud.covi-hud-pill #covi-hud-bar::before { animation-duration: 2.4s; opacity: 0.85; }
 #covi-hud-pill-dot {
     width: 8px;
     height: 8px;

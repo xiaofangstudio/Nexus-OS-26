@@ -37,6 +37,9 @@
   .app-icon { width: 34px; height: 34px; border-radius: 10px;
     background: linear-gradient(135deg, #fb923c, #f97316); display: flex; align-items: center;
     justify-content: center; color: #fff; font-size: 15px; box-shadow: 0 4px 14px rgba(249, 115, 22, 0.4); }
+  /* 超椭圆：改用与主壳 #n26Squircle 同源的 clip-path（apps/_squircle.js 注入定义） */
+  html.n26-squircle-ready .app-icon { border-radius: 0;
+    -webkit-clip-path: url(#n26Squircle); clip-path: url(#n26Squircle); }
   .app-title { font-size: 15px; font-weight: 700; }
   .app-sub { font-size: 11px; color: var(--sub); margin-top: 1px; }
   .count { margin-left: auto; font-size: 12px; color: var(--sub); }
@@ -66,7 +69,7 @@
     min-height: 116px; }
   @keyframes gi { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: none; } }
   .game:hover { transform: translateY(-5px); box-shadow: 0 12px 28px rgba(0,0,0,0.14); }
-  .game:active { transform: translateY(-2px) scale(0.985); }
+  .game:active { transform: none; }
   /* emoji 当图标用必须套固定方盒：不同 emoji 的字形高度/宽度差别很大，
      直接当文本渲染会让卡片看着一排高一排低（和启动台图标那个坑同源）。 */
   .game .em {
@@ -126,6 +129,8 @@
     opacity: 0; transition: all 0.35s var(--ease-spring); z-index: 99; backdrop-filter: blur(14px); }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
+<link rel="stylesheet" href="../ui/n26-docknav.css?v=2965">
+<script src="../ui/n26-docknav.js?v=2965"></script>
 </head>
 <body>
   <div class="topbar">
@@ -137,7 +142,7 @@
   <div class="controls">
     <div class="search"><i class="fas fa-search" style="color:var(--sub)"></i>
       <input id="q" placeholder="搜索游戏…" oninput="applyFilter()"></div>
-    <div class="chips" id="chips"></div>
+    <div class="chips" id="chips" data-n26dock="h"></div>
     <button class="btn-rand" onclick="randomGame()"><i class="fas fa-dice"></i>随机一局</button>
   </div>
 
@@ -257,7 +262,7 @@
     $('empty').style.display = list.length ? 'none' : 'block';
     $('grid').innerHTML = list.map(function (g, i) {
       var isRecent = recent.indexOf(g.id) >= 0;
-      return '<div class="game" style="animation-delay:' + Math.min(i * 0.025, 0.4) + 's" onclick="play(\'' + g.id + '\')">' +
+      return '<div class="game" role="button" tabindex="0" style="animation-delay:' + Math.min(i * 0.025, 0.4) + 's" onclick="play(\'' + g.id + '\')">' +
         (isRecent ? '<span class="recent">最近</span>' : '') +
         '<div class="em">' + g.em + '</div><div class="nm">' + esc(g.name) + '</div><div class="cat">' + g.cat + '</div></div>';
     }).join('');
@@ -329,5 +334,16 @@
   });
 })();
 </script>
+<script>
+/* 键盘可达：div[role="button"] 的 Enter / Space 等价于点击 */
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  var t = e.target;
+  if (!t || t.getAttribute('role') !== 'button' || !t.hasAttribute('tabindex')) return;
+  e.preventDefault();
+  t.click();
+});
+</script>
+<script src="_squircle.js"></script>
 </body>
 </html>

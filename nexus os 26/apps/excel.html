@@ -1,0 +1,2152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>表格</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
+<link rel="stylesheet" href="../ui/n26-ui.css">
+<link rel="stylesheet" href="_polish.css">
+<link rel="stylesheet" href="_office.css">
+<style>
+/* ===== Nexus 表格 · 电子表格（Excel） ===== */
+html,body{height:100%;margin:0}
+body{background:transparent;overflow:hidden;-webkit-font-smoothing:antialiased}
+
+.of-app.xl{
+  --of-accent:hsl(145 64% 36%);
+  --of-accent-press:hsl(145 64% 29%);
+  --of-accent-ink:hsl(145 58% 27%);
+  --of-accent-weak:color-mix(in srgb,var(--of-accent) 11%,transparent);
+  --of-accent-weak2:color-mix(in srgb,var(--of-accent) 30%,transparent);
+  --of-on-accent:rgb(255 255 255 / .96);
+}
+html[data-mode="dark"] .of-app.xl,html[data-theme="dark"] .of-app.xl,body.dark-mode .of-app.xl{
+  --of-accent:hsl(145 66% 52%);
+  --of-accent-press:hsl(145 66% 45%);
+  --of-accent-ink:hsl(145 74% 74%);
+  --of-on-accent:rgb(6 24 14 / .92);
+}
+
+.xl{height:100%;min-height:0;display:flex;flex-direction:column}
+/* 公式栏 */
+.xl-fx{flex:0 0 34px;display:flex;align-items:center;gap:6px;padding:0 8px;border-bottom:1px solid rgba(15,23,42,.075);background:rgba(255,255,255,.52)}
+html[data-mode="dark"] .xl-fx,body.dark-mode .xl-fx{border-bottom-color:rgba(255,255,255,.08);background:rgba(255,255,255,.04)}
+.xl-name{width:76px;height:26px;border:1px solid rgba(15,23,42,.12);border-radius:6px;background:rgba(255,255,255,.72);color:var(--text-1);font-family:var(--font-mono);font-size:11px;text-align:center;outline:none}
+html[data-mode="dark"] .xl-name,body.dark-mode .xl-name{border-color:rgba(255,255,255,.15);background:rgba(255,255,255,.08)}
+.xl-name:focus{border-color:var(--of-accent)}
+.xl-fx > i{font-size:12px;color:var(--of-accent-ink);width:18px;text-align:center;font-style:italic;font-family:Georgia,serif}
+.xl-fx input#xlFx{flex:1;min-width:0;height:26px;padding:0 8px;border:1px solid rgba(15,23,42,.12);border-radius:6px;background:rgba(255,255,255,.72);color:var(--text-1);font-family:var(--font-mono);font-size:12px;outline:none}
+html[data-mode="dark"] .xl-fx input#xlFx,body.dark-mode .xl-fx input#xlFx{border-color:rgba(255,255,255,.15);background:rgba(255,255,255,.08)}
+.xl-fx input#xlFx:focus{border-color:var(--of-accent);box-shadow:0 0 0 3px var(--of-accent-weak)}
+
+/* 网格 */
+.xl-scroll{position:relative;flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;background:rgba(246,248,250,.78);padding:0}
+html[data-mode="dark"] .xl-scroll,body.dark-mode .xl-scroll{background:rgba(16,20,29,.72)}
+.xl-stage{position:relative;display:inline-block;min-width:100%;min-height:100%}
+.xl-table{border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:12px;font-variant-numeric:tabular-nums;color:var(--text-1);background:rgb(255 255 255)}
+html[data-mode="dark"] .xl-table,body.dark-mode .xl-table{background:rgb(27 32 42)}
+.xl-table th,.xl-table td{box-sizing:border-box;height:24px;padding:0 5px;border-right:1px solid rgba(15,23,42,.10);border-bottom:1px solid rgba(15,23,42,.10);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;vertical-align:middle}
+html[data-mode="dark"] .xl-table th,html[data-mode="dark"] .xl-table td,body.dark-mode .xl-table th,body.dark-mode .xl-table td{border-color:rgba(255,255,255,.10)}
+.xl-table thead th{position:sticky;top:0;z-index:3;height:26px;background:rgb(240 243 247);color:var(--text-2);font-weight:500;font-size:11.5px;text-align:center;user-select:none}
+html[data-mode="dark"] .xl-table thead th,body.dark-mode .xl-table thead th{background:rgb(37 43 55)}
+.xl-table tbody th{position:sticky;left:0;z-index:2;width:42px;min-width:42px;background:rgb(244 246 250);color:var(--text-3);font-weight:500;font-size:11px;text-align:center;user-select:none}
+html[data-mode="dark"] .xl-table tbody th,body.dark-mode .xl-table tbody th{background:rgb(36 42 54)}
+.xl-table thead th.corner{left:0;z-index:4;width:42px;min-width:42px}
+.xl-table td{cursor:cell;position:relative}
+.xl-table td.num{text-align:right}
+.xl-table td.err{color:var(--danger);font-size:11px}
+.xl-table td.wrap{white-space:normal;line-height:1.45;height:auto;min-height:24px}
+.xl-table td[aria-selected="true"]{background:color-mix(in srgb,var(--of-accent) 9%,transparent)}
+.xl-table td.editing{overflow:visible;padding:0}
+.xl-table td.editing input{position:absolute;left:0;top:0;width:100%;height:100%;box-sizing:border-box;border:0;outline:0;padding:0 4px;font:inherit;color:inherit;background:inherit;z-index:5}
+.xl-selbox{position:absolute;pointer-events:none;border:1.5px solid var(--of-accent);background:color-mix(in srgb,var(--of-accent) 7%,transparent);z-index:1;border-radius:1px;display:none}
+.xl-fill{position:absolute;width:9px;height:9px;box-sizing:border-box;border:1.5px solid var(--of-accent);background:var(--of-accent);border-radius:2px;z-index:7;cursor:crosshair;display:none;pointer-events:auto}
+.xl-fill:active{background:var(--of-accent-press)}
+.xl-fillprev{position:absolute;display:none;pointer-events:none;z-index:5;border:1.5px dashed var(--of-accent);background:color-mix(in srgb,var(--of-accent) 9%,transparent);border-radius:1px}
+/* 冻结窗格：粘性单元格 */
+.xl-table td.frozen{background:rgb(255 255 255)}
+html[data-mode="dark"] .xl-table td.frozen,html[data-theme="dark"] .xl-table td.frozen,body.dark-mode .xl-table td.frozen{background:rgb(27 32 42)}
+.xl-table th.sel{background:var(--of-accent-weak);color:var(--of-accent-ink)}
+
+/* 浮动图表 */
+.xl-chart{position:absolute;z-index:6;display:flex;flex-direction:column;border:1px solid rgba(15,23,42,.14);border-radius:10px;background:rgba(255,255,255,.94);box-shadow:var(--sh-pop);overflow:hidden;min-width:220px;min-height:150px}
+html[data-mode="dark"] .xl-chart,body.dark-mode .xl-chart{border-color:rgba(255,255,255,.16);background:rgba(32 38 50,.96)}
+.xl-chart-head{height:26px;flex:0 0 26px;display:flex;align-items:center;gap:6px;padding:0 7px;font-size:11px;font-weight:600;color:var(--text-2);cursor:move;background:rgba(15,23,42,.04);border-bottom:1px solid rgba(15,23,42,.08)}
+html[data-mode="dark"] .xl-chart-head,body.dark-mode .xl-chart-head{background:rgba(255,255,255,.05);border-bottom-color:rgba(255,255,255,.08)}
+.xl-chart-plot{flex:1;min-height:0;padding:4px 4px 2px}
+.xl-chart-close{width:20px;height:20px;border:0;border-radius:5px;background:transparent;color:var(--text-3);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.xl-chart-close:hover{background:rgba(239,68,68,.14);color:var(--danger)}
+
+/* 工作表标签 */
+.xl-tabs{flex:0 0 32px;display:flex;align-items:center;gap:3px;padding:0 8px;border-top:1px solid rgba(15,23,42,.07);background:rgba(255,255,255,.42);overflow-x:auto}
+html[data-mode="dark"] .xl-tabs,body.dark-mode .xl-tabs{border-top-color:rgba(255,255,255,.08);background:rgba(255,255,255,.035)}
+.xl-tab{height:24px;padding:0 10px;border:1px solid transparent;border-radius:6px 6px 0 0;background:transparent;color:var(--text-2);font-family:inherit;font-size:11.5px;cursor:pointer;white-space:nowrap}
+.xl-tab:hover{background:rgba(15,23,42,.05)}
+html[data-mode="dark"] .xl-tab:hover,body.dark-mode .xl-tab:hover{background:rgba(255,255,255,.08)}
+.xl-tab.on{background:rgba(255,255,255,.9);border-color:rgba(15,23,42,.10);border-bottom-color:transparent;color:var(--text-1);font-weight:600}
+html[data-mode="dark"] .xl-tab.on,body.dark-mode .xl-tab.on{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.14)}
+.xl-tab .tab-del{opacity:0;margin-left:4px;font-size:9px;padding:1px 3px;border-radius:3px}
+.xl-tab:hover .tab-del,.xl-tab.on .tab-del{opacity:.6}
+.xl-tab .tab-del:hover{opacity:1;background:rgba(239,68,68,.15);color:var(--danger)}
+.xl-add{width:22px;height:22px;border:0;border-radius:5px;background:transparent;color:var(--text-2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.xl-add:hover{background:var(--of-accent-weak);color:var(--of-accent-ink)}
+
+/* 函数面板 */
+.xl-func{height:100%;overflow:auto;padding:18px 20px}
+.xl-func h3{margin:0 0 3px;font-size:18px;font-weight:600}
+.xl-func .sub{font-size:11.5px;color:var(--text-3);margin-bottom:14px}
+.xl-fn{display:flex;gap:11px;padding:9px 10px;border:1px solid rgba(15,23,42,.08);border-radius:9px;background:rgba(255,255,255,.58);margin-bottom:7px;cursor:pointer;transition:border-color var(--dur-fast) var(--ease-out-expo),background-color var(--dur-fast) var(--ease-out-expo)}
+html[data-mode="dark"] .xl-fn,body.dark-mode .xl-fn{border-color:rgba(255,255,255,.09);background:rgba(255,255,255,.045)}
+.xl-fn:hover{border-color:var(--of-accent-weak2);background:rgba(255,255,255,.78)}
+html[data-mode="dark"] .xl-fn:hover,body.dark-mode .xl-fn:hover{background:rgba(255,255,255,.075)}
+.xl-fn code{flex-shrink:0;font-family:var(--font-mono);font-size:11.5px;font-weight:600;color:var(--of-accent-ink);min-width:92px}
+.xl-fn div{font-size:11.5px;line-height:1.55;color:var(--text-2)}
+.xl-fn div b{color:var(--text-1);font-weight:600}
+.xl-fn small{display:block;color:var(--text-3);margin-top:2px;font-family:var(--font-mono)}
+.xl-tpl{height:100%;overflow:auto;padding:18px 20px}
+.xl-tpl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-top:14px}
+</style>
+</head>
+<body>
+<div id="app" class="of-app xl">
+  <header class="of-top">
+    <div class="of-brand"><i class="fa-solid fa-file-excel" aria-hidden="true"></i><b>表格</b></div>
+    <input id="xlTitle" class="of-top-title" aria-label="工作簿标题" placeholder="未命名工作簿" spellcheck="false">
+    <span id="xlSave" class="of-save" data-state="idle">已保存</span>
+    <button class="of-btn wide" id="xlSaveBtn"><i class="fa-solid fa-floppy-disk"></i>保存</button>
+    <button class="of-btn wide" id="xlExport"><i class="fa-solid fa-arrow-up-from-bracket"></i>导出 CSV</button>
+  </header>
+  <div class="of-body"><div id="xlShell"></div></div>
+</div>
+
+<script src="../ui/motion.js"></script>
+<script src="_bridge.js"></script>
+<script src="_app.js?v=2.9.57"></script>
+<script src="../ui/n26-gestures.js"></script>
+<script src="../ui/n26-ui.js"></script>
+<script src="_office.js"></script>
+<script>
+(function () {
+'use strict';
+
+var COLS = 20, ROWS = 60;
+var COLS_LETTER = (function () {
+  var a = [];
+  for (var i = 0; i < COLS; i++) a.push(String.fromCharCode(65 + i));
+  return a;
+})();
+
+var store = OF.store('n26ExcelBooks');
+var state = { v: 1, currentId: null, books: [] };
+var book = null, sheet = null;
+var shell = null;
+var sel = { r: 0, c: 0, ar: 0, ac: 0 };
+var editing = false;
+var drag = false;
+var rowDrag = false, colDrag = false;
+var zoom = 1;
+var saveTimer = null, booted = false;
+var hist = { undo: [], redo: [] };
+var calcCache = {};
+
+var el = { title: document.getElementById('xlTitle'), save: document.getElementById('xlSave') };
+var cards, libCount;
+var gridScroll, stage, tableBody, tableHead, selbox, fxInput, nameBox, chartsLayer;
+var fillHandle = null, fillPrev = null;
+var fillDrag = null;
+var statusCell, statusStat, statusSheets;
+
+/* ================= 数据模型 ================= */
+function colLetter(c) { return COLS_LETTER[c] || '?'; }
+function addr(r, c) { return colLetter(c) + (r + 1); }
+function parseAddr(s) {
+  var m = String(s || '').toUpperCase().match(/^([A-Z]+)([0-9]+)$/);
+  if (!m) return null;
+  return { c: m[1].charCodeAt(0) - 65, r: parseInt(m[2], 10) - 1 };
+}
+
+/* 公式引用重映射：mapRef(r,c) 返回新坐标，返回 null 表示引用失效 → #REF! */
+function remapFormula(src, mapRef) {
+  if (typeof src !== 'string' || src.charAt(0) !== '=') return src;
+  var body = src.slice(1), out = '', i = 0;
+  var re = /^(\$?)([A-Za-z]{1,3})(\$?)([0-9]{1,4})/;
+  while (i < body.length) {
+    var ch = body[i];
+    if (ch === '"') {
+      var j = i + 1;
+      while (j < body.length) {
+        if (body[j] === '"') { if (body[j + 1] === '"') { j += 2; continue; } break; }
+        j++;
+      }
+      out += body.slice(i, j + 1); i = j + 1; continue;
+    }
+    if (/[A-Za-z$]/.test(ch)) {
+      var m = body.slice(i).match(re);
+      if (m) {
+        var after = body.charAt(i + m[0].length);
+        var prev = i > 0 ? body.charAt(i - 1) : '';
+        if (after !== '(' && !/[A-Za-z0-9_]/.test(prev)) {
+          var p = parseAddr(m[2] + m[4]);
+          var absC = m[1] === '$', absR = m[3] === '$';
+          var mp = p ? mapRef(p.r, p.c, body.charAt(i + m[0].length) === ':' ? 'start' : 'single', absC, absR) : null;
+          if (!mp) { out += '#REF!'; i += m[0].length; continue; }
+          out += m[1] + colLetter(mp.c) + m[3] + (mp.r + 1);
+          i += m[0].length;
+          if (body.charAt(i) === ':') {
+            var rm = body.slice(i + 1).match(re);
+            if (rm) {
+              var p2 = parseAddr(rm[2] + rm[4]);
+              var mp2 = p2 ? mapRef(p2.r, p2.c, 'end', rm[1] === '$', rm[3] === '$') : null;
+              out += ':' + (mp2 ? (rm[1] + colLetter(mp2.c) + rm[3] + (mp2.r + 1)) : '#REF!');
+              i += 1 + rm[0].length;
+            }
+          }
+          continue;
+        }
+      }
+    }
+    out += ch; i++;
+  }
+  return '=' + out;
+}
+
+function shiftFormula(src, dr, dc) {
+  return remapFormula(src, function (r, c, kind, absC, absR) {
+    var nr = absR ? r : r + dr;
+    var nc = absC ? c : c + dc;
+    if (nr < 0 || nc < 0 || nr >= ROWS || nc >= COLS) return null;
+    return { r: nr, c: nc };
+  });
+}
+
+function remapAllFormulas(mapRef) {
+  if (!sheet) return;
+  Object.keys(sheet.cells).forEach(function (k) {
+    var c = sheet.cells[k];
+    if (c && typeof c.v === 'string' && c.v.charAt(0) === '=') c.v = remapFormula(c.v, mapRef);
+  });
+}
+function bookNew(title, seedFn) {
+  var now = Date.now();
+  var b = {
+    id: OF.uid('xl'), title: title || '未命名工作簿',
+    sheets: [{ name: 'Sheet1', cells: {}, w: {}, merges: [], charts: [], active: true }],
+    active: 0, created: now, updated: now
+  };
+  if (seedFn) seedFn(b.sheets[0]);
+  return b;
+}
+function newSheet(name) {
+  return { name: name || ('Sheet' + (book.sheets.length + 1)), cells: {}, w: {}, merges: [], charts: [] };
+}
+function findBook(id) { return state.books.find(function (b) { return b.id === id; }) || null; }
+function setSaveState(s) {
+  el.save.dataset.state = s;
+  el.save.textContent = s === 'dirty' ? '正在保存…' : s === 'error' ? '保存失败' : ('已保存 ' + OF.fmtClock());
+}
+function serialize() { return { v: 1, currentId: state.currentId, books: state.books }; }
+function scheduleSave() {
+  if (!booted) return;
+  setSaveState('dirty');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, 650);
+}
+function flush() {
+  if (!book) return Promise.resolve(true);
+  book.title = (el.title.value || '').trim() || '未命名工作簿';
+  book.updated = Date.now();
+  var i = state.books.findIndex(function (b) { return b.id === book.id; });
+  if (i >= 0) state.books[i] = book;
+  return store.write(serialize()).then(function (ok) {
+    setSaveState(ok ? 'saved' : 'error');
+    renderLibrary();
+    return ok;
+  });
+}
+
+function cellsAll() { return sheet ? sheet.cells : {}; }
+function rawOf(r, c) {
+  var cell = cellsAll()[addr(r, c)];
+  return cell && typeof cell.v === 'string' ? cell.v : '';
+}
+function styleOf(r, c) { return (cellsAll()[addr(r, c)] || {}).s || {}; }
+function ensureCell(r, c) {
+  var k = addr(r, c);
+  if (!sheet.cells[k]) sheet.cells[k] = { v: '' };
+  return sheet.cells[k];
+}
+function isNumLike(raw) {
+  if (raw === '' || raw == null) return false;
+  if (typeof raw === 'number') return true;
+  return !/^=/.test(raw) && isFinite(parseFloat(raw)) && /^[-+]?[0-9.,%hslrgb() ]*$/.test(String(raw));
+}
+
+/* ================= 公式引擎 ================= */
+function tokenize(src) {
+  var t = [], i = 0, s = src;
+  while (i < s.length) {
+    var ch = s[i];
+    if (/\s/.test(ch)) { i++; continue; }
+    if (ch === '"') {
+      var j = i + 1, str = '';
+      while (j < s.length) {
+        if (s[j] === '"') { if (s[j + 1] === '"') { str += '"'; j += 2; continue; } break; }
+        str += s[j++];
+      }
+      if (j >= s.length) throw new FErr('#VALUE!');
+      t.push({ t: 'str', v: str }); i = j + 1; continue;
+    }
+    if (ch === '#') {
+      var errm = s.slice(i).match(/^#[A-Z0-9\/!?]+/);
+      if (errm) { t.push({ t: 'err', v: errm[0] }); i += errm[0].length; continue; }
+      throw new FErr('#VALUE!');
+    }
+    if (/[0-9]/.test(ch) || (ch === '.' && /[0-9]/.test(s[i + 1] || ''))) {
+      var m = s.slice(i).match(/^[0-9]+(\.[0-9]+)?/);
+      t.push({ t: 'num', v: parseFloat(m[0]) }); i += m[0].length; continue;
+    }
+    if (/[A-Za-z$]/.test(ch)) {
+      var cell = s.slice(i).match(/^\$?([A-Za-z]{1,3})\$?([0-9]{1,4})/);
+      if (cell) {
+        var a = cell[0]; i += a.length;
+        var rng = s.slice(i).match(/^:\$?([A-Za-z]{1,3})\$?([0-9]{1,4})/);
+        if (rng) {
+          i += rng[0].length;
+          t.push({ t: 'range', a: a.replace(/\$/g, '').toUpperCase(), b: rng[0].slice(1).replace(/\$/g, '').toUpperCase() });
+        } else {
+          t.push({ t: 'cell', a: a.replace(/\$/g, '').toUpperCase() });
+        }
+        continue;
+      }
+      var fn = s.slice(i).match(/^[A-Za-z][A-Za-z0-9_.]*/);
+      if (fn) { i += fn[0].length; t.push({ t: 'fn', name: fn[0].toUpperCase() }); continue; }
+      throw new FErr('#NAME?');
+    }
+    var two = s.substr(i, 2);
+    if (two === '<=' || two === '>=' || two === '<>') { t.push({ t: 'op', v: two }); i += 2; continue; }
+    if ('+-*/^%&(),<>='.indexOf(ch) >= 0) { t.push({ t: 'op', v: ch }); i++; continue; }
+    throw new FErr('#VALUE!');
+  }
+  return t;
+}
+
+function FErr(code) { this.code = code; }
+FErr.prototype.toString = function () { return this.code; };
+
+function calcGet(r, c, stack) {
+  var key = addr(r, c);
+  if (stack.indexOf(key) >= 0) return new FErr('#CIRC!');
+  if (Object.prototype.hasOwnProperty.call(calcCache, key)) return calcCache[key];
+  var raw = rawOf(r, c);
+  var v;
+  if (raw === '' || raw == null) v = '';
+  else if (typeof raw === 'string' && raw.charAt(0) === '=') {
+    var ns = stack.concat([key]);
+    try { v = evaluate(raw.slice(1), ns); }
+    catch (e) { v = e instanceof FErr ? e : new FErr('#VALUE!'); }
+  } else if (isFinite(parseFloat(raw)) && /^[-+]?[0-9.]+$/.test(String(raw).trim())) {
+    v = parseFloat(raw);
+  } else if (/^[-+]?[0-9.]+%$/.test(String(raw).trim())) {
+    v = parseFloat(raw) / 100;
+  } else {
+    v = String(raw);
+  }
+  calcCache[key] = v;
+  return v;
+}
+
+function rangeVals(a, b, stack) {
+  var p1 = parseAddr(a), p2 = parseAddr(b);
+  if (!p1 || !p2) throw new FErr('#REF!');
+  var r1 = Math.min(p1.r, p2.r), r2 = Math.max(p1.r, p2.r);
+  var c1 = Math.min(p1.c, p2.c), c2 = Math.max(p1.c, p2.c);
+  var out = [];
+  for (var r = r1; r <= r2; r++) for (var c = c1; c <= c2; c++) out.push(calcGet(r, c, stack));
+  return out;
+}
+
+function numify(v) {
+  if (typeof v === 'number') return v;
+  if (v === '' || v == null) return null;
+  if (typeof v === 'string' && isFinite(parseFloat(v))) return parseFloat(v);
+  if (v instanceof FErr) throw v;
+  return null;
+}
+function flatten(args) {
+  var out = [];
+  args.forEach(function (a) { if (Array.isArray(a)) out = out.concat(a); else out.push(a); });
+  return out;
+}
+function textOf(v) {
+  if (v instanceof FErr) throw v;
+  if (v == null) return '';
+  if (typeof v === 'number') return String(Math.round(v * 1e10) / 1e10);
+  return String(v);
+}
+
+function evaluate(src, stack) {
+  var toks = tokenize(src);
+  var p = 0;
+  function peek() { return toks[p]; }
+  function eat() { return toks[p++]; }
+  function expect(v) {
+    var t = toks[p];
+    if (!t || t.t !== 'op' || t.v !== v) throw new FErr('#VALUE!');
+    p++;
+  }
+  function expr() { return compare(); }
+  function compare() {
+    var v = concat();
+    var t = peek();
+    if (t && t.t === 'op' && ['=', '<', '>', '<=', '>=', '<>'].indexOf(t.v) >= 0) {
+      eat();
+      var b = concat();
+      var na = numify(v), nb = numify(b);
+      var a = na != null && nb != null ? na : textOf(v);
+      var z = nb != null && na != null ? nb : textOf(b);
+      switch (t.v) {
+        case '=': return a === z;
+        case '<': return a < z;
+        case '>': return a > z;
+        case '<=': return a <= z;
+        case '>=': return a >= z;
+        case '<>': return a !== z;
+      }
+    }
+    return v;
+  }
+  function concat() {
+    var v = add();
+    while (peek() && peek().t === 'op' && peek().v === '&') {
+      eat(); v = textOf(v) + textOf(add());
+    }
+    return v;
+  }
+  function add() {
+    var v = term();
+    while (peek() && peek().t === 'op' && (peek().v === '+' || peek().v === '-')) {
+      var op = eat().v;
+      var b = term();
+      var a = numify(v), c = numify(b);
+      if (a == null || c == null) throw new FErr('#VALUE!');
+      v = op === '+' ? a + c : a - c;
+    }
+    return v;
+  }
+  function term() {
+    var v = power();
+    while (peek() && peek().t === 'op' && (peek().v === '*' || peek().v === '/')) {
+      var op = eat().v;
+      var b = power();
+      var a = numify(v), c = numify(b);
+      if (a == null || c == null) throw new FErr('#VALUE!');
+      if (op === '/' && c === 0) throw new FErr('#DIV/0!');
+      v = op === '*' ? a * c : a / c;
+    }
+    return v;
+  }
+  function power() {
+    var v = unary();
+    while (peek() && peek().t === 'op' && peek().v === '^') {
+      eat();
+      var b = unary();
+      var a = numify(v), c = numify(b);
+      if (a == null || c == null) throw new FErr('#VALUE!');
+      v = Math.pow(a, c);
+    }
+    return v;
+  }
+  function unary() {
+    var t = peek();
+    if (t && t.t === 'op' && (t.v === '+' || t.v === '-')) {
+      eat();
+      var v = numify(unary());
+      if (v == null) throw new FErr('#VALUE!');
+      return t.v === '-' ? -v : v;
+    }
+    return postfix();
+  }
+  function postfix() {
+    var v = primary();
+    while (peek() && peek().t === 'op' && peek().v === '%') {
+      eat();
+      var n = numify(v);
+      if (n == null) throw new FErr('#VALUE!');
+      v = n / 100;
+    }
+    return v;
+  }
+  function primary() {
+    var t = eat();
+    if (!t) throw new FErr('#VALUE!');
+    if (t.t === 'num') return t.v;
+    if (t.t === 'str') return t.v;
+    if (t.t === 'err') throw new FErr(t.v);
+    if (t.t === 'cell') {
+      var a = parseAddr(t.a);
+      if (!a) throw new FErr('#REF!');
+      if (a.r < 0 || a.c < 0 || a.r >= ROWS || a.c >= COLS) throw new FErr('#REF!');
+      return calcGet(a.r, a.c, stack);
+    }
+    if (t.t === 'range') {
+      return rangeVals(t.a, t.b, stack);
+    }
+    if (t.t === 'fn') {
+      var args = [];
+      expect('(');
+      if (!(peek() && peek().t === 'op' && peek().v === ')')) {
+        args.push(expr());
+        while (peek() && peek().t === 'op' && peek().v === ',') { eat(); args.push(expr()); }
+      }
+      expect(')');
+      return callFn(t.name, args);
+    }
+    if (t.t === 'op' && t.v === '(') {
+      var v = expr();
+      expect(')');
+      return v;
+    }
+    throw new FErr('#VALUE!');
+  }
+  var out = expr();
+  if (p < toks.length) throw new FErr('#VALUE!');
+  return out;
+}
+
+function callFn(name, args) {
+  var flat = flatten(args);
+  var nums = function () {
+    return flat.filter(function (v) { if (v instanceof FErr) throw v; return typeof v === 'number'; });
+  };
+  switch (name) {
+    case 'SUM': return nums().reduce(function (a, b) { return a + b; }, 0);
+    case 'AVERAGE': {
+      var n = nums(); if (!n.length) throw new FErr('#DIV/0!');
+      return n.reduce(function (a, b) { return a + b; }, 0) / n.length;
+    }
+    case 'COUNT': return nums().length;
+    case 'COUNTA': return flat.filter(function (v) { return v !== '' && v != null; }).length;
+    case 'MIN': { var n1 = nums(); return n1.length ? Math.min.apply(null, n1) : 0; }
+    case 'MAX': { var n2 = nums(); return n2.length ? Math.max.apply(null, n2) : 0; }
+    case 'MEDIAN': {
+      var n3 = nums().slice().sort(function (a, b) { return a - b; });
+      if (!n3.length) throw new FErr('#DIV/0!');
+      var mid = Math.floor(n3.length / 2);
+      return n3.length % 2 ? n3[mid] : (n3[mid - 1] + n3[mid]) / 2;
+    }
+    case 'IF': {
+      var cond = args[0] instanceof FErr ? args[0] : args[0];
+      var truth = Array.isArray(cond) ? cond[0] : cond;
+      var yes = truth === true || (typeof truth === 'number' && truth !== 0) || (typeof truth === 'string' && truth !== '');
+      return yes ? args[1] : (args.length > 2 ? args[2] : false);
+    }
+    case 'ROUND': {
+      var x = numify(args[0]); if (x == null) throw new FErr('#VALUE!');
+      var d = args.length > 1 ? (numify(args[1]) || 0) : 0;
+      var f = Math.pow(10, d);
+      return Math.round(x * f) / f;
+    }
+    case 'ABS': { var a1 = numify(args[0]); if (a1 == null) throw new FErr('#VALUE!'); return Math.abs(a1); }
+    case 'SQRT': { var a2 = numify(args[0]); if (a2 == null || a2 < 0) throw new FErr('#VALUE!'); return Math.sqrt(a2); }
+    case 'POWER': {
+      var a3 = numify(args[0]), a4 = numify(args[1]);
+      if (a3 == null || a4 == null) throw new FErr('#VALUE!');
+      return Math.pow(a3, a4);
+    }
+    case 'MOD': {
+      var a5 = numify(args[0]), a6 = numify(args[1]);
+      if (a5 == null || a6 == null || a6 === 0) throw new FErr('#DIV/0!');
+      return a5 % a6;
+    }
+    case 'CONCAT':
+    case 'CONCATENATE': return flat.map(textOf).join('');
+    case 'LEN': return textOf(args[0]).length;
+    case 'LEFT': return textOf(args[0]).slice(0, args.length > 1 ? (numify(args[1]) || 0) : 1);
+    case 'RIGHT': {
+      var s = textOf(args[0]), n = args.length > 1 ? (numify(args[1]) || 0) : 1;
+      return n <= 0 ? '' : s.slice(-n);
+    }
+    case 'MID': {
+      var s2 = textOf(args[0]);
+      var start = (numify(args[1]) || 1) - 1;
+      var len = numify(args[2]) || 0;
+      return s2.substr(start, len);
+    }
+    case 'UPPER': return textOf(args[0]).toUpperCase();
+    case 'LOWER': return textOf(args[0]).toLowerCase();
+    case 'TRIM': return textOf(args[0]).trim().replace(/\s+/g, ' ');
+    case 'TODAY': {
+      var d0 = new Date(); return d0.getFullYear() + '-' + pad2(d0.getMonth() + 1) + '-' + pad2(d0.getDate());
+    }
+    case 'NOW': {
+      var d1 = new Date(); return d1.getFullYear() + '-' + pad2(d1.getMonth() + 1) + '-' + pad2(d1.getDate()) + ' ' + pad2(d1.getHours()) + ':' + pad2(d1.getMinutes());
+    }
+    case 'PI': return Math.PI;
+    case 'SUMIF': {
+      var rng = Array.isArray(args[0]) ? args[0] : [];
+      var crit = args[1];
+      var sumRng = Array.isArray(args[2]) ? args[2] : rng;
+      var total = 0;
+      rng.forEach(function (v, i) {
+        if (v === crit || textOf(v) === textOf(crit)) total += (numify(sumRng[i]) || 0);
+      });
+      return total;
+    }
+    default: throw new FErr('#NAME?');
+  }
+}
+function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+/* ================= 显示值 ================= */
+function formatValue(v, nf) {
+  if (v instanceof FErr) return v.code;
+  if (v === '' || v == null) return '';
+  if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+  if (typeof v === 'string') return v;
+  var n = v;
+  switch (nf) {
+    case 'int': return Math.round(n).toLocaleString('zh-CN');
+    case 'number': return n.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+    case 'dec1': return n.toFixed(1);
+    case 'dec2': return n.toFixed(2);
+    case 'currency': return '¥' + n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    case 'percent': return (n * 100).toFixed(1) + '%';
+    default:
+      if (Math.abs(n) >= 1e11) return n.toExponential(4);
+      return (Math.round(n * 1e10) / 1e10).toString();
+  }
+}
+
+function displayOf(r, c) {
+  var raw = rawOf(r, c), st = styleOf(r, c);
+  var v, err = false;
+  if (raw === '') v = '';
+  else if (raw.charAt(0) === '=') {
+    try { v = evaluate(raw.slice(1), []); } catch (e) { v = e instanceof FErr ? e : new FErr('#VALUE!'); err = true; }
+    if (v instanceof FErr) err = true;
+  } else if (/^[-+]?[0-9.]+%$/.test(raw.trim())) v = parseFloat(raw) / 100;
+  else if (isFinite(parseFloat(raw)) && /^[-+]?[0-9.]+$/.test(raw.trim())) v = parseFloat(raw);
+  else v = raw;
+  return { text: formatValue(v, st.nf), isNum: typeof v === 'number', err: err };
+}
+
+/* ================= 选区 / 网格渲染 ================= */
+function normalizeCell(r, c) {
+  if (!sheet) return { r: r, c: c };
+  for (var i = 0; i < sheet.merges.length; i++) {
+    var m = sheet.merges[i];
+    if (r >= m.r1 && r <= m.r2 && c >= m.c1 && c <= m.c2) return { r: m.r1, c: m.c1 };
+  }
+  return { r: r, c: c };
+}
+function selRect() {
+  var a = normalizeCell(sel.ar, sel.ac), f = normalizeCell(sel.r, sel.c);
+  return { r1: Math.min(a.r, f.r), r2: Math.max(a.r, f.r), c1: Math.min(a.c, f.c), c2: Math.max(a.c, f.c) };
+}
+function selAddress() {
+  var q = selRect();
+  return q.r1 === q.r2 && q.c1 === q.c2 ? addr(q.r1, q.c1) : addr(q.r1, q.c1) + ':' + addr(q.r2, q.c2);
+}
+function cellEl(r, c) { return tableBody ? tableBody.querySelector('td[data-r="' + r + '"][data-c="' + c + '"]') : null; }
+function isMergedCover(r, c) {
+  for (var i = 0; i < sheet.merges.length; i++) {
+    var m = sheet.merges[i];
+    if (r >= m.r1 && r <= m.r2 && c >= m.c1 && c <= m.c2 && !(r === m.r1 && c === m.c1)) return true;
+  }
+  return false;
+}
+function mergeAt(r, c) {
+  for (var i = 0; i < sheet.merges.length; i++) {
+    var m = sheet.merges[i];
+    if (r >= m.r1 && r <= m.r2 && c >= m.c1 && c <= m.c2) return m;
+  }
+  return null;
+}
+
+var ERR_HINT = {
+  '#DIV/0!': '除数为 0，检查公式里的除数',
+  '#VALUE!': '参数类型不对，文本不能参与运算',
+  '#REF!': '引用的单元格已不存在（可能被删除）',
+  '#NAME?': '函数名或区域名无法识别',
+  '#CIRC!': '存在循环引用，公式指向了自己',
+  '#N/A': '找不到匹配值',
+  '#NUM!': '数值超出可计算范围'
+};
+
+function renderGrid() {
+  if (!tableBody || !sheet) return;
+  calcCache = {};
+  tableBody.innerHTML = '';
+  for (var r = 0; r < ROWS; r++) {
+    var tr = document.createElement('tr');
+    var rh = document.createElement('th');
+    rh.textContent = r + 1;
+    rh.dataset.r = r;
+    tr.appendChild(rh);
+    for (var c = 0; c < COLS; c++) {
+      if (isMergedCover(r, c)) continue;
+      var m = mergeAt(r, c);
+      var td = document.createElement('td');
+      td.dataset.r = r; td.dataset.c = c;
+      if (m && (r === m.r1 && c === m.c1)) {
+        td.rowSpan = m.r2 - m.r1 + 1;
+        td.colSpan = m.c2 - m.c1 + 1;
+      }
+      var d = displayOf(r, c);
+      var st = styleOf(r, c);
+      var raw0 = rawOf(r, c);
+      td.textContent = d.text;
+      td.title = d.err ? ((raw0 || d.text) + '\n' + (ERR_HINT[d.text] || '公式错误')) : (raw0 || '');
+      if (d.isNum && !st.al) td.classList.add('num');
+      if (d.err) td.classList.add('err');
+      if (st.al) td.style.textAlign = st.al;
+      if (st.b) td.style.fontWeight = '700';
+      if (st.i) td.style.fontStyle = 'italic';
+      if (st.u) td.style.textDecoration = 'underline';
+      if (st.fill) td.style.background = st.fill;
+      if (st.fc) td.style.color = st.fc;
+      if (st.f && st.f !== 'auto') td.style.fontFamily = st.f;
+      if (st.fs) td.style.fontSize = st.fs + 'px';
+      if (st.wrap) td.classList.add('wrap');
+      tr.appendChild(td);
+    }
+    tableBody.appendChild(tr);
+  }
+  renderColWidths();
+  applyFreeze();
+  applySelectionUI();
+  renderCharts();
+  updateStatus();
+}
+
+function renderColWidths() {
+  var cg = document.getElementById('xlColgroup');
+  if (!cg) return;
+  cg.innerHTML = '<col style="width:42px">';
+  for (var c = 0; c < COLS; c++) {
+    var w = (sheet && sheet.w && sheet.w[colLetter(c)]) || 84;
+    cg.innerHTML += '<col style="width:' + w + 'px">';
+  }
+}
+
+function applySelectionUI() {
+  if (!tableBody || !selbox) return;
+  var q = selRect();
+  tableBody.querySelectorAll('td[aria-selected], th.sel').forEach(function (n) { n.removeAttribute('aria-selected'); n.classList.remove('sel'); });
+  var a = cellEl(q.r1, q.c1);
+  var b = cellEl(q.r2, q.c2);
+  if (!a) a = cellEl(sel.r, sel.c);
+  if (!b) b = cellEl(sel.r, sel.c);
+  if (a && b) {
+    var sr = stage.getBoundingClientRect();
+    var ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+    selbox.style.display = 'block';
+    selbox.style.left = (ra.left - sr.left) + 'px';
+    selbox.style.top = (ra.top - sr.top) + 'px';
+    selbox.style.width = (rb.right - ra.left) + 'px';
+    selbox.style.height = (rb.bottom - ra.top) + 'px';
+    if (fillHandle) {
+      fillHandle.style.display = 'block';
+      fillHandle.style.left = (rb.right - sr.left - 4) + 'px';
+      fillHandle.style.top = (rb.bottom - sr.top - 4) + 'px';
+    }
+  } else {
+    selbox.style.display = 'none';
+    if (fillHandle) fillHandle.style.display = 'none';
+  }
+  if (q.r1 === 0 && q.r2 === ROWS - 1) {
+    for (var c = q.c1; c <= q.c2; c++) {
+      var h = tableHead.querySelector('th[data-c="' + c + '"]');
+      if (h) h.classList.add('sel');
+    }
+  }
+  if (q.c1 === 0 && q.c2 === COLS - 1) {
+    for (var rr = q.r1; rr <= q.r2; rr++) {
+      var rowEl = tableBody.rows[rr];
+      if (rowEl && rowEl.children[0]) rowEl.children[0].classList.add('sel');
+    }
+  }
+  if (nameBox) nameBox.value = selAddress();
+  if (fxInput && !editing) fxInput.value = rawOf(sel.r, sel.c);
+  updateStatus();
+}
+
+function setSel(r, c, keepAnchor) {
+  r = OF.clamp(r, 0, ROWS - 1); c = OF.clamp(c, 0, COLS - 1);
+  var n = normalizeCell(r, c);
+  sel.r = n.r; sel.c = n.c;
+  if (!keepAnchor) { sel.ar = n.r; sel.ac = n.c; }
+  applySelectionUI();
+  scrollIntoView(n.r, n.c);
+}
+function scrollIntoView(r, c) {
+  var td = cellEl(r, c);
+  if (!td || !gridScroll) return;
+  var tr = td.getBoundingClientRect(), sr = gridScroll.getBoundingClientRect();
+  if (tr.top < sr.top + 26) gridScroll.scrollTop -= (sr.top + 26 - tr.top);
+  else if (tr.bottom > sr.bottom) gridScroll.scrollTop += (tr.bottom - sr.bottom);
+  if (tr.left < sr.left + 42) gridScroll.scrollLeft -= (sr.left + 42 - tr.left);
+  else if (tr.right > sr.right) gridScroll.scrollLeft += (tr.right - sr.right);
+}
+
+/* ---------- 冻结窗格 ---------- */
+function adjustFreezeRows(mode, at, count) {
+  if (!sheet || !sheet.freeze || !sheet.freeze.r) return;
+  var fr = sheet.freeze.r;
+  if (mode === 'insert') {
+    if (at < fr) sheet.freeze.r = Math.min(ROWS, fr + count);
+  } else {
+    var overlap = Math.max(0, Math.min(fr - 1, at + count - 1) - Math.max(0, at) + 1);
+    sheet.freeze.r = Math.max(0, fr - overlap);
+  }
+}
+function adjustFreezeCols(mode, at, count) {
+  if (!sheet || !sheet.freeze || !sheet.freeze.c) return;
+  var fc = sheet.freeze.c;
+  if (mode === 'insert') {
+    if (at < fc) sheet.freeze.c = Math.min(COLS, fc + count);
+  } else {
+    var overlap = Math.max(0, Math.min(fc - 1, at + count - 1) - Math.max(0, at) + 1);
+    sheet.freeze.c = Math.max(0, fc - overlap);
+  }
+}
+function applyFreeze() {
+  if (!sheet || !tableBody || !tableHead) return;
+  var f = sheet.freeze || {};
+  var fr = Math.min(ROWS, Math.max(0, f.r || 0));
+  var fc = Math.min(COLS, Math.max(0, f.c || 0));
+  if (!fr && !fc) return;
+  var headH = tableHead.getBoundingClientRect().height || 26;
+  var tops = [], y = headH, r, c;
+  for (r = 0; r < fr; r++) {
+    tops[r] = y;
+    var rowEl = tableBody.rows[r];
+    y += rowEl ? rowEl.getBoundingClientRect().height : 24;
+  }
+  var lefts = [], x = 42;
+  for (c = 0; c < fc; c++) {
+    lefts[c] = x;
+    var thEl = tableHead.querySelector('th[data-c="' + c + '"]');
+    x += thEl ? thEl.getBoundingClientRect().width : 84;
+  }
+  for (r = 0; r < fr; r++) {
+    var tr = tableBody.rows[r];
+    if (!tr) break;
+    var rh = tr.children[0];
+    if (rh) { rh.style.position = 'sticky'; rh.style.top = tops[r] + 'px'; rh.style.zIndex = '2'; }
+    Array.prototype.forEach.call(tr.children, function (cell) {
+      if (!cell.dataset || cell.dataset.c == null) return;
+      var cc = parseInt(cell.dataset.c, 10);
+      cell.classList.add('frozen');
+      cell.style.position = 'sticky';
+      cell.style.top = tops[r] + 'px';
+      if (cc < fc) { cell.style.left = lefts[cc] + 'px'; cell.style.zIndex = '3'; }
+      else cell.style.zIndex = '2';
+    });
+  }
+  for (r = fr; r < ROWS; r++) {
+    var tr2 = tableBody.rows[r];
+    if (!tr2) break;
+    for (c = 0; c < fc; c++) {
+      var td2 = tr2.querySelector('td[data-c="' + c + '"]');
+      if (!td2) continue;
+      td2.classList.add('frozen');
+      td2.style.position = 'sticky';
+      td2.style.left = lefts[c] + 'px';
+      td2.style.zIndex = '2';
+    }
+  }
+  for (c = 0; c < fc; c++) {
+    var th2 = tableHead.querySelector('th[data-c="' + c + '"]');
+    if (th2) { th2.style.position = 'sticky'; th2.style.left = lefts[c] + 'px'; th2.style.zIndex = '4'; }
+  }
+}
+function setFreeze() {
+  if (!sheet) return;
+  var q = selRect();
+  if (q.r1 === 0 && q.c1 === 0) { OF.toast('已在 A1，没有可冻结的行或列', 'error'); return; }
+  sheet.freeze = { r: q.r1, c: q.c1 };
+  renderGrid(); scheduleSave();
+  OF.toast('已冻结上方 ' + q.r1 + ' 行、左侧 ' + q.c1 + ' 列', 'success');
+}
+function clearFreeze() {
+  if (!sheet || !sheet.freeze) { OF.toast('当前没有冻结窗格', 'error'); return; }
+  sheet.freeze = null;
+  renderGrid(); scheduleSave();
+  OF.toast('已取消冻结', 'success');
+}
+
+/* ---------- 拖拽填充 ---------- */
+function hitCell(x, y) {
+  var el = document.elementFromPoint(x, y);
+  if (!el || !el.closest) return null;
+  var td = el.closest('td[data-r]');
+  if (td && tableBody.contains(td)) return td;
+  var th = el.closest('th[data-r]');
+  if (th && tableBody.contains(th)) return th;
+  return null;
+}
+function fillTargetRect(fd) {
+  var q = fd.q;
+  if (fd.tc > q.c2) return { r1: q.r1, r2: q.r2, c1: q.c1, c2: fd.tc, dir: 'h', sign: 1 };
+  if (fd.tc < q.c1) return { r1: q.r1, r2: q.r2, c1: fd.tc, c2: q.c2, dir: 'h', sign: -1 };
+  if (fd.tr > q.r2) return { r1: q.r1, r2: fd.tr, c1: q.c1, c2: q.c2, dir: 'v', sign: 1 };
+  if (fd.tr < q.r1) return { r1: fd.tr, r2: q.r2, c1: q.c1, c2: q.c2, dir: 'v', sign: -1 };
+  return null;
+}
+function updateFillPreview() {
+  if (!fillDrag || !fillPrev) return;
+  var q = fillDrag.q, t = fillTargetRect(fillDrag);
+  if (!t) { fillPrev.style.display = 'none'; return; }
+  var a, b;
+  if (t.dir === 'h' && t.sign > 0) { a = cellEl(q.r1, q.c2 + 1); b = cellEl(q.r2, t.c2); }
+  else if (t.dir === 'h') { a = cellEl(q.r1, t.c1); b = cellEl(q.r2, q.c1 - 1); }
+  else if (t.sign > 0) { a = cellEl(q.r2 + 1, q.c1); b = cellEl(t.r2, q.c2); }
+  else { a = cellEl(t.r1, q.c1); b = cellEl(q.r1 - 1, q.c2); }
+  if (!a || !b) { fillPrev.style.display = 'none'; return; }
+  var sr = stage.getBoundingClientRect();
+  var ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+  fillPrev.style.display = 'block';
+  fillPrev.style.left = (ra.left - sr.left) + 'px';
+  fillPrev.style.top = (ra.top - sr.top) + 'px';
+  fillPrev.style.width = (rb.right - ra.left) + 'px';
+  fillPrev.style.height = (rb.bottom - ra.top) + 'px';
+}
+function bindFillHandle() {
+  if (!fillHandle) return;
+  fillHandle.addEventListener('mousedown', function (e) {
+    if (editing || !sheet) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var q = selRect();
+    fillDrag = { q: q, tr: q.r2, tc: q.c2 };
+    fillHandle.style.pointerEvents = 'none';
+    updateFillPreview();
+  });
+  window.addEventListener('mousemove', function (e) {
+    if (!fillDrag) return;
+    var td = hitCell(e.clientX, e.clientY);
+    if (!td) return;
+    var r = parseInt(td.dataset.r, 10), c = td.dataset.c != null ? parseInt(td.dataset.c, 10) : fillDrag.tc;
+    if (r !== fillDrag.tr || c !== fillDrag.tc) {
+      fillDrag.tr = r; fillDrag.tc = c;
+      updateFillPreview();
+    }
+  });
+  window.addEventListener('mouseup', function () {
+    if (!fillDrag) return;
+    var fd = fillDrag;
+    fillDrag = null;
+    fillHandle.style.pointerEvents = 'auto';
+    if (fillPrev) fillPrev.style.display = 'none';
+    var t = fillTargetRect(fd);
+    if (t) applyFill(fd.q, t);
+    applySelectionUI();
+  });
+}
+function numRaw(raw) {
+  return typeof raw === 'string' && /^[-+]?[0-9]*\.?[0-9]+$/.test(raw.trim()) ? parseFloat(raw) : null;
+}
+function applyFill(q, t) {
+  if (!sheet) return;
+  pushHistory();
+  calcCache = {};
+  if (t.dir === 'h') {
+    for (var r = q.r1; r <= q.r2; r++) fillRow(r, q.c1, q.c2, t.c1, t.c2);
+  } else {
+    for (var c = q.c1; c <= q.c2; c++) fillCol(c, q.r1, q.r2, t.r1, t.r2);
+  }
+  renderGrid(); scheduleSave();
+  OF.toast('已填充 ' + addr(t.r1, t.c1) + ':' + addr(t.r2, t.c2), 'success');
+}
+function writeFill(r, c, srcRaw, srcStyle, dr, dc) {
+  if (isMergedCover(r, c)) return;
+  var val = srcRaw;
+  if (typeof srcRaw === 'string' && srcRaw.charAt(0) === '=') val = shiftFormula(srcRaw, dr, dc);
+  var k = addr(r, c);
+  var cell = sheet.cells[k];
+  if (!cell) { cell = { v: '' }; sheet.cells[k] = cell; }
+  cell.v = val;
+  if (srcStyle && Object.keys(srcStyle).length) cell.s = JSON.parse(JSON.stringify(srcStyle));
+  else delete cell.s;
+  if (!cell.v && !cell.s) delete sheet.cells[k];
+}
+function numStr(v) { return String(Math.round(v * 1e10) / 1e10); }
+function fillRow(r, s1, s2, d1, d2) {
+  var w = s2 - s1 + 1;
+  var vals = [], i, c;
+  for (i = 0; i < w; i++) vals.push(numRaw(rawOf(r, s1 + i)));
+  var numeric = vals.every(function (v) { return v != null; });
+  for (c = d1; c <= d2; c++) {
+    if (c >= s1 && c <= s2) continue;
+    var off = c - s1;
+    var srcC = s1 + ((off % w) + w) % w;
+    if (numeric && c > s2) {
+      var step = w >= 2 ? vals[w - 1] - vals[w - 2] : 0;
+      writeFill(r, c, numStr(vals[w - 1] + step * (c - s2)), styleOf(r, s2), 0, c - s2);
+    } else if (numeric && c < s1) {
+      var step2 = w >= 2 ? vals[0] - vals[1] : 0;
+      writeFill(r, c, numStr(vals[0] - step2 * (s1 - c)), styleOf(r, s1), 0, c - s1);
+    } else {
+      writeFill(r, c, rawOf(r, srcC), styleOf(r, srcC), 0, c - srcC);
+    }
+  }
+}
+function fillCol(c, s1, s2, d1, d2) {
+  var h = s2 - s1 + 1;
+  var vals = [], i, r;
+  for (i = 0; i < h; i++) vals.push(numRaw(rawOf(s1 + i, c)));
+  var numeric = vals.every(function (v) { return v != null; });
+  for (r = d1; r <= d2; r++) {
+    if (r >= s1 && r <= s2) continue;
+    var off = r - s1;
+    var srcR = s1 + ((off % h) + h) % h;
+    if (numeric && r > s2) {
+      var step = h >= 2 ? vals[h - 1] - vals[h - 2] : 0;
+      writeFill(r, c, numStr(vals[h - 1] + step * (r - s2)), styleOf(s2, c), r - s2, 0);
+    } else if (numeric && r < s1) {
+      var step2 = h >= 2 ? vals[0] - vals[1] : 0;
+      writeFill(r, c, numStr(vals[0] - step2 * (s1 - r)), styleOf(s1, c), r - s1, 0);
+    } else {
+      writeFill(r, c, rawOf(srcR, c), styleOf(srcR, c), r - srcR, 0);
+    }
+  }
+}
+
+
+/* ================= 编辑 ================= */
+function beginEdit(r, c, initial) {
+  if (editing) return;
+  var td = cellEl(r, c);
+  if (!td) return;
+  editing = true;
+  setSel(r, c, false);
+  var raw = rawOf(r, c);
+  td.classList.add('editing');
+  var input = document.createElement('input');
+  input.value = initial != null ? initial : raw;
+  input.setAttribute('aria-label', addr(r, c) + ' 单元格');
+  td.appendChild(input);
+  input.focus();
+  if (initial == null) input.select(); else input.setSelectionRange(input.value.length, input.value.length);
+  function done(commit, move) {
+    if (!editing) return;
+    editing = false;
+    var val = input.value;
+    input.remove();
+    td.classList.remove('editing');
+    if (commit) commitCell(r, c, val);
+    else { renderGrid(); }
+    if (move) setSel(r + (move === 'down' ? 1 : 0), c + (move === 'right' ? 1 : 0), false);
+  }
+  input.addEventListener('keydown', function (e) {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); done(true, 'down'); }
+    else if (e.key === 'Tab') { e.preventDefault(); done(true, e.shiftKey ? 'left' : 'right'); }
+    else if (e.key === 'Escape') { e.preventDefault(); done(false); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      if (e.altKey) { e.preventDefault(); done(true, e.key === 'ArrowDown' ? 'down' : 'up'); }
+    }
+  });
+  input.addEventListener('blur', function () { if (editing) done(true); });
+  fxInput.value = input.value;
+  input.addEventListener('input', function () { fxInput.value = input.value; });
+}
+
+function pushHistory() {
+  if (!sheet) return;
+  hist.undo.push(JSON.stringify({ cells: sheet.cells, merges: sheet.merges, w: sheet.w }));
+  if (hist.undo.length > 40) hist.undo.shift();
+  hist.redo = [];
+}
+function undo() {
+  if (!hist.undo.length) { OF.toast('没有可撤销的操作'); return; }
+  hist.redo.push(JSON.stringify({ cells: sheet.cells, merges: sheet.merges, w: sheet.w }));
+  var s = JSON.parse(hist.undo.pop());
+  sheet.cells = s.cells; sheet.merges = s.merges; sheet.w = s.w;
+  renderGrid(); scheduleSave();
+}
+function redo() {
+  if (!hist.redo.length) { OF.toast('没有可重做的操作'); return; }
+  hist.undo.push(JSON.stringify({ cells: sheet.cells, merges: sheet.merges, w: sheet.w }));
+  var s = JSON.parse(hist.redo.pop());
+  sheet.cells = s.cells; sheet.merges = s.merges; sheet.w = s.w;
+  renderGrid(); scheduleSave();
+}
+
+function commitCell(r, c, val) {
+  pushHistory();
+  var k = addr(r, c);
+  if (val === '') {
+    if (sheet.cells[k]) {
+      if (sheet.cells[k].s && Object.keys(sheet.cells[k].s).length) sheet.cells[k].v = '';
+      else delete sheet.cells[k];
+    }
+  } else {
+    ensureCell(r, c).v = val;
+  }
+  renderGrid();
+  scheduleSave();
+}
+
+function clearSelection(mode) {
+  var q = selRect();
+  pushHistory();
+  for (var r = q.r1; r <= q.r2; r++) for (var c = q.c1; c <= q.c2; c++) {
+    if (isMergedCover(r, c)) continue;
+    var k = addr(r, c);
+    if (!sheet.cells[k]) continue;
+    if (mode === 'content') sheet.cells[k].v = '';
+    else if (mode === 'format') delete sheet.cells[k].s;
+    else if (mode === 'all') delete sheet.cells[k];
+  }
+  renderGrid(); scheduleSave();
+}
+
+function applyStyle(patch) {
+  var q = selRect();
+  pushHistory();
+  for (var r = q.r1; r <= q.r2; r++) for (var c = q.c1; c <= q.c2; c++) {
+    if (isMergedCover(r, c)) continue;
+    var cell = ensureCell(r, c);
+    cell.s = cell.s || {};
+    Object.keys(patch).forEach(function (k) {
+      if (patch[k] === null || patch[k] === undefined || patch[k] === '') delete cell.s[k];
+      else cell.s[k] = patch[k];
+    });
+  }
+  renderGrid(); scheduleSave();
+}
+
+function formatPatch(nf) { applyStyle({ nf: nf === 'general' ? null : nf }); }
+
+/* 合并 */
+function mergeSelection() {
+  var q = selRect();
+  if (q.r1 === q.r2 && q.c1 === q.c2) { OF.toast('先选中至少两个单元格'); return; }
+  pushHistory();
+  var keep = rawOf(q.r1, q.c1);
+  for (var r = q.r1; r <= q.r2; r++) for (var c = q.c1; c <= q.c2; c++) {
+    var k = addr(r, c);
+    if (r === q.r1 && c === q.c1) continue;
+    if (sheet.cells[k]) {
+      delete sheet.cells[k];
+    }
+  }
+  sheet.merges.push({ r1: q.r1, c1: q.c1, r2: q.r2, c2: q.c2 });
+  ensureCell(q.r1, q.c1).v = keep;
+  renderGrid(); scheduleSave();
+}
+function unmergeSelection() {
+  var q = selRect();
+  var before = sheet.merges.length;
+  sheet.merges = sheet.merges.filter(function (m) {
+    return !(m.r1 === q.r1 && m.c1 === q.c1 && m.r2 === q.r2 && m.c2 === q.c2) &&
+      !(m.r1 >= q.r1 && m.r2 <= q.r2 && m.c1 >= q.c1 && m.c2 <= q.c2);
+  });
+  if (sheet.merges.length === before) { OF.toast('所选区域没有合并单元格'); return; }
+  renderGrid(); scheduleSave();
+}
+
+/* 行列操作 */
+function insertRow(where) {
+  var q = selRect();
+  var at = where === 'above' ? q.r1 : q.r2 + 1;
+  if (at >= ROWS) { OF.toast('已在最后一行，无法再插入', 'error'); return; }
+  pushHistory();
+  var cells = {};
+  Object.keys(sheet.cells).forEach(function (k) {
+    var a = parseAddr(k);
+    if (!a) { cells[k] = sheet.cells[k]; return; }
+    var nr = a.r >= at ? a.r + 1 : a.r;
+    if (nr >= ROWS) return;
+    cells[addr(nr, a.c)] = sheet.cells[k];
+  });
+  sheet.cells = cells;
+  remapAllFormulas(function (r, c) { return { r: r >= at ? r + 1 : r, c: c }; });
+  adjustFreezeRows('insert', at, 1);
+  sheet.merges = sheet.merges.map(function (m) {
+    if (m.r1 >= at) m.r1++; if (m.r2 >= at) m.r2++;
+    return m;
+  }).filter(function (m) { return m.r2 < ROWS; });
+  renderGrid(); scheduleSave();
+}
+function insertCol(where) {
+  var q = selRect();
+  var at = where === 'left' ? q.c1 : q.c2 + 1;
+  if (at >= COLS) { OF.toast('已在最后一列，无法再插入', 'error'); return; }
+  pushHistory();
+  var cells = {};
+  Object.keys(sheet.cells).forEach(function (k) {
+    var a = parseAddr(k);
+    if (!a) { cells[k] = sheet.cells[k]; return; }
+    var nc = a.c >= at ? a.c + 1 : a.c;
+    if (nc >= COLS) return;
+    cells[addr(a.r, nc)] = sheet.cells[k];
+  });
+  sheet.cells = cells;
+  remapAllFormulas(function (r, c) { return { r: r, c: c >= at ? c + 1 : c }; });
+  adjustFreezeCols('insert', at, 1);
+  sheet.merges = sheet.merges.map(function (m) {
+    if (m.c1 >= at) m.c1++; if (m.c2 >= at) m.c2++;
+    return m;
+  }).filter(function (m) { return m.c2 < COLS; });
+  renderGrid(); scheduleSave();
+}
+function deleteRow() {
+  pushHistory();
+  var q = selRect();
+  var cells = {};
+  Object.keys(sheet.cells).forEach(function (k) {
+    var a = parseAddr(k);
+    if (!a) { cells[k] = sheet.cells[k]; return; }
+    if (a.r >= q.r1 && a.r <= q.r2) return;
+    var nr = a.r > q.r2 ? a.r - (q.r2 - q.r1 + 1) : a.r;
+    if (nr < 0) return;
+    cells[addr(nr, a.c)] = sheet.cells[k];
+  });
+  sheet.cells = cells;
+  remapAllFormulas(function (r, c, kind) {
+    if (r >= q.r1 && r <= q.r2) {
+      if (kind === 'single') return null;
+      if (kind === 'end') { var rr = q.r1 - 1; return rr >= 0 ? { r: rr, c: c } : { r: 0, c: c }; }
+      return { r: q.r1, c: c };
+    }
+    return { r: r > q.r2 ? r - (q.r2 - q.r1 + 1) : r, c: c };
+  });
+  adjustFreezeRows('delete', q.r1, q.r2 - q.r1 + 1);
+  sheet.merges = sheet.merges.filter(function (m) {
+    return !(m.r1 >= q.r1 && m.r2 <= q.r2);
+  });
+  renderGrid(); scheduleSave();
+}
+function deleteCol() {
+  pushHistory();
+  var q = selRect();
+  var cells = {};
+  Object.keys(sheet.cells).forEach(function (k) {
+    var a = parseAddr(k);
+    if (!a) { cells[k] = sheet.cells[k]; return; }
+    if (a.c >= q.c1 && a.c <= q.c2) return;
+    var nc = a.c > q.c2 ? a.c - (q.c2 - q.c1 + 1) : a.c;
+    if (nc < 0) return;
+    cells[addr(a.r, nc)] = sheet.cells[k];
+  });
+  sheet.cells = cells;
+  remapAllFormulas(function (r, c, kind) {
+    if (c >= q.c1 && c <= q.c2) {
+      if (kind === 'single') return null;
+      if (kind === 'end') { var cc = q.c1 - 1; return cc >= 0 ? { r: r, c: cc } : { r: r, c: 0 }; }
+      return { r: r, c: q.c1 };
+    }
+    return { r: r, c: c > q.c2 ? c - (q.c2 - q.c1 + 1) : c };
+  });
+  adjustFreezeCols('delete', q.c1, q.c2 - q.c1 + 1);
+  sheet.merges = sheet.merges.filter(function (m) { return !(m.c1 >= q.c1 && m.c2 <= q.c2); });
+  renderGrid(); scheduleSave();
+}
+
+/* ================= 图表 ================= */
+function chartDataFromSelection() {
+  var q = selRect();
+  var labels = [], values = [];
+  var single = (q.r1 === q.r2 || q.c1 === q.c2);
+  if (q.c1 !== q.c2) {
+    for (var r = q.r1; r <= q.r2; r++) {
+      var lab = rawOf(r, q.c1);
+      var val = displayOf(r, q.c1 + 1);
+      var n = parseFloat(String(val.text).replace(/[^0-9.\-]/g, ''));
+      if (isFinite(n)) { labels.push(lab || ('行 ' + (r + 1))); values.push(n); }
+    }
+  } else {
+    for (var rr = q.r1; rr <= q.r2; rr++) {
+      var d = displayOf(rr, q.c1);
+      var n2 = parseFloat(String(d.text).replace(/[^0-9.\-]/g, ''));
+      if (isFinite(n2)) { labels.push('行 ' + (rr + 1)); values.push(n2); }
+    }
+  }
+  return { labels: labels, values: values };
+}
+function insertChart(type) {
+  var data = chartDataFromSelection();
+  if (!data.values.length) { OF.toast('先选中包含数字的单元格区域'); return; }
+  var title = '图表 · ' + selAddress();
+  var ch = {
+    id: OF.uid('ch'), type: type, title: title,
+    labels: data.labels, values: data.values,
+    x: 60 + (sheet.charts.length % 3) * 22, y: 40 + (sheet.charts.length % 3) * 20,
+    w: 360, h: 240
+  };
+  sheet.charts.push(ch);
+  renderCharts();
+  scheduleSave();
+}
+
+function renderCharts() {
+  if (!chartsLayer || !sheet) return;
+  chartsLayer.innerHTML = '';
+  sheet.charts.forEach(function (ch) {
+    var box = document.createElement('div');
+    box.className = 'xl-chart';
+    box.style.left = ch.x + 'px'; box.style.top = ch.y + 'px';
+    box.style.width = ch.w + 'px'; box.style.height = ch.h + 'px';
+    box.innerHTML = '<div class="xl-chart-head"><i class="fa-solid fa-chart-simple"></i><span></span>' +
+      '<span class="of-spacer"></span><button class="xl-chart-close" title="删除图表"><i class="fa-solid fa-xmark"></i></button></div>' +
+      '<div class="xl-chart-plot"></div>';
+    box.querySelector('.xl-chart-head span').textContent = ch.title;
+    box.querySelector('.xl-chart-plot').innerHTML = OF.svgChart({
+      type: ch.type, labels: ch.labels, values: ch.values, w: 440, h: 270, dark: OF.isDark()
+    });
+    box.querySelector('.xl-chart-close').addEventListener('click', function () {
+      sheet.charts = sheet.charts.filter(function (x) { return x.id !== ch.id; });
+      renderCharts(); scheduleSave();
+    });
+    // 拖动标题栏
+    var head = box.querySelector('.xl-chart-head');
+    head.addEventListener('mousedown', function (e) {
+      if (e.target.closest('.xl-chart-close')) return;
+      e.preventDefault();
+      var sx = e.clientX, sy = e.clientY, ox = ch.x, oy = ch.y;
+      function mv(ev) {
+        ch.x = Math.max(0, ox + ev.clientX - sx);
+        ch.y = Math.max(0, oy + ev.clientY - sy);
+        box.style.left = ch.x + 'px'; box.style.top = ch.y + 'px';
+      }
+      function up() {
+        window.removeEventListener('mousemove', mv);
+        window.removeEventListener('mouseup', up);
+        scheduleSave();
+      }
+      window.addEventListener('mousemove', mv);
+      window.addEventListener('mouseup', up);
+    });
+    box.addEventListener('mousedown', function () { box.style.zIndex = 7 + sheet.charts.indexOf(ch); });
+    chartsLayer.appendChild(box);
+  });
+}
+
+/* ================= 状态栏 ================= */
+function updateStatus() {
+  if (!statusCell) return;
+  statusCell.textContent = selAddress() + ' · ' + (sheet ? sheet.name : '');
+  var q = selRect();
+  var count = 0, sum = 0, numCount = 0, errHit = null;
+  for (var r = q.r1; r <= q.r2; r++) for (var c = q.c1; c <= q.c2; c++) {
+    if (isMergedCover(r, c)) continue;
+    var d = displayOf(r, c);
+    count++;
+    var n = parseFloat(String(d.text).replace(/[^0-9.\-]/g, ''));
+    if (d.isNum && isFinite(n)) { numCount++; sum += n; }
+    if (d.err && !errHit) errHit = d.text;
+  }
+  var txt = '';
+  if (count > 1) {
+    txt = '选中 ' + count + ' 格';
+    if (numCount > 0) txt += ' · 数值 ' + numCount + ' · 求和 ' + (Math.round(sum * 100) / 100);
+  }
+  if (errHit) txt = (txt ? txt + ' · ' : '') + errHit + '：' + (ERR_HINT[errHit] || '公式错误');
+  statusStat.textContent = txt;
+  statusSheets.textContent = (book ? book.sheets.length : 0) + ' 张工作表';
+}
+
+/* ================= 工作表标签 ================= */
+function renderTabs() {
+  var bar = document.getElementById('xlTabbar');
+  if (!bar || !book) return;
+  bar.innerHTML = '';
+  book.sheets.forEach(function (s, i) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'xl-tab' + (i === book.active ? ' on' : '');
+    b.innerHTML = '<span></span><span class="tab-del" title="删除工作表"><i class="fa-solid fa-xmark"></i></span>';
+    b.querySelector('span').textContent = s.name;
+    b.addEventListener('click', function (e) {
+      if (e.target.closest('.tab-del')) { deleteSheet(i); return; }
+      switchSheet(i);
+    });
+    b.addEventListener('dblclick', function (e) {
+      e.preventDefault(); renameSheet(i);
+    });
+    bar.appendChild(b);
+  });
+  var add = document.createElement('button');
+  add.className = 'xl-add';
+  add.type = 'button';
+  add.title = '新建工作表';
+  add.innerHTML = '<i class="fa-solid fa-plus"></i>';
+  add.addEventListener('click', function () {
+    flushBookState();
+    book.sheets.push(newSheet());
+    switchSheet(book.sheets.length - 1);
+    scheduleSave();
+  });
+  bar.appendChild(add);
+}
+function flushBookState() {
+  if (!sheet) return;
+}
+function switchSheet(i) {
+  if (!book) return;
+  if (i < 0 || i >= book.sheets.length) return;
+  editing = false;
+  book.active = i;
+  sheet = book.sheets[i];
+  calcCache = {};
+  hist = { undo: [], redo: [] };
+  renderGrid(); renderTabs(); renderLibrary();
+  setSel(0, 0, false);
+}
+function renameSheet(i) {
+  var s = book.sheets[i];
+  if (!s) return;
+  OF.prompt({ title: '重命名工作表', label: '名称', value: s.name, okText: '重命名' }).then(function (n) {
+    if (n == null) return;
+    n = n.trim().slice(0, 14);
+    if (!n) return;
+    s.name = n;
+    renderTabs(); scheduleSave();
+  });
+}
+function deleteSheet(i) {
+  if (book.sheets.length <= 1) { OF.toast('至少保留一张工作表'); return; }
+  OF.confirm({ title: '删除工作表', message: '「' + book.sheets[i].name + '」及其中的全部数据会被删除。', okText: '删除' }).then(function (ok) {
+    if (!ok) return;
+    book.sheets.splice(i, 1);
+    if (book.active >= book.sheets.length) book.active = book.sheets.length - 1;
+    switchSheet(book.active);
+    scheduleSave();
+  });
+}
+
+/* ================= 工作簿库 ================= */
+function renderLibrary() {
+  if (!cards) return;
+  var q = ((document.getElementById('xlSearchInput') || {}).value || '').trim().toLowerCase();
+  var list = state.books.slice().sort(function (a, b) { return (b.updated || 0) - (a.updated || 0); });
+  if (q) list = list.filter(function (b) { return (b.title || '').toLowerCase().indexOf(q) >= 0; });
+  if (libCount) libCount.textContent = state.books.length + ' 个工作簿 · 自动保存';
+  cards.innerHTML = '';
+  var add = document.createElement('button');
+  add.className = 'of-card of-card-new';
+  add.type = 'button';
+  add.innerHTML = '<i class="fa-solid fa-file-circle-plus"></i><b>新建空白工作簿</b><span style="font-size:11px;color:var(--text-3)">20 列 × 60 行，带公式</span>';
+  add.addEventListener('click', function () { createBook('未命名工作簿'); });
+  cards.appendChild(add);
+  if (!list.length) {
+    var empty = document.createElement('div');
+    empty.className = 'of-empty';
+    empty.style.gridColumn = '1/-1';
+    empty.innerHTML = '<i class="fa-solid fa-folder-open"></i><b>没有匹配的工作簿</b><span>换个关键词试试，或新建一个。</span>';
+    cards.appendChild(empty);
+    return;
+  }
+  list.forEach(function (b) {
+    var card = document.createElement('div');
+    card.className = 'of-card';
+    card.tabIndex = 0;
+    var filled = b.sheets.reduce(function (n, s) { return n + Object.keys(s.cells || {}).length; }, 0);
+    card.innerHTML = '<div class="of-card-thumb"><i class="fa-solid fa-table-cells-large"></i></div>' +
+      '<div class="of-card-name"></div>' +
+      '<div class="of-card-sub"><span></span><span>' + filled + ' 个非空单元格</span></div>' +
+      '<div class="of-card-tools">' +
+      '<button class="of-btn" data-act="rename" title="重命名"><i class="fa-solid fa-pen"></i></button>' +
+      '<button class="of-btn danger" data-act="del" title="删除"><i class="fa-solid fa-trash"></i></button></div>';
+    card.querySelector('.of-card-name').textContent = b.title;
+    card.querySelector('.of-card-sub span').textContent = (b.sheets.length) + ' 表 · ' + OF.fmtTime(b.updated);
+    card.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-act]');
+      if (btn) {
+        e.stopPropagation();
+        if (btn.dataset.act === 'rename') renameBook(b.id);
+        else deleteBook(b.id);
+        return;
+      }
+      openBook(b.id);
+    });
+    cards.appendChild(card);
+  });
+}
+
+function buildLibrary() {
+  var root = document.createElement('div');
+  root.className = 'of-lib';
+  root.innerHTML = '<div class="of-lib-head">' +
+    '<div class="of-lib-title"><b>我的工作簿</b><span id="xlLibCount"></span></div><div class="of-spacer"></div>' +
+    '<label class="of-search"><i class="fa-solid fa-magnifying-glass"></i><input id="xlSearchInput" type="search" placeholder="搜索工作簿"></label>' +
+    '<button class="of-btn primary wide" id="xlNew"><i class="fa-solid fa-plus"></i>新建</button></div>' +
+    '<div class="of-cards" id="xlCards"></div>';
+  cards = root.querySelector('#xlCards');
+  libCount = root.querySelector('#xlLibCount');
+  root.querySelector('#xlSearchInput').addEventListener('input', OF.debounce(renderLibrary, 120));
+  root.querySelector('#xlNew').addEventListener('click', function () { createBook('未命名工作簿'); });
+  renderLibrary();
+  return root;
+}
+
+function createBook(title, seed) {
+  flush();
+  var b = bookNew(title, seed);
+  state.books.unshift(b);
+  state.currentId = b.id;
+  book = b; sheet = b.sheets[0]; book.active = 0;
+  el.title.value = b.title;
+  hist = { undo: [], redo: [] };
+  renderGrid(); renderTabs(); renderLibrary();
+  if (shell) shell.select('edit');
+  setSel(0, 0, false);
+  scheduleSave();
+}
+function openBook(id) {
+  if (book && book.id !== id) flush();
+  var b = findBook(id);
+  if (!b) return;
+  book = b;
+  state.currentId = id;
+  el.title.value = b.title;
+  book.active = OF.clamp(b.active || 0, 0, b.sheets.length - 1);
+  sheet = b.sheets[book.active];
+  hist = { undo: [], redo: [] };
+  renderGrid(); renderTabs(); renderLibrary();
+  if (shell) shell.select('edit');
+  setSel(0, 0, false);
+  scheduleSave();
+}
+function renameBook(id) {
+  var b = findBook(id);
+  if (!b) return;
+  OF.prompt({ title: '重命名工作簿', label: '名称', value: b.title, okText: '重命名' }).then(function (n) {
+    if (n == null || !n.trim()) return;
+    b.title = n.trim(); b.updated = Date.now();
+    if (book && book.id === id) el.title.value = b.title;
+    flush(); renderLibrary();
+  });
+}
+function deleteBook(id) {
+  var b = findBook(id);
+  if (!b) return;
+  OF.confirm({ title: '删除工作簿', message: '「' + b.title + '」的全部工作表和公式都会被删除。', okText: '删除' }).then(function (ok) {
+    if (!ok) return;
+    state.books = state.books.filter(function (x) { return x.id !== id; });
+    if (!state.books.length) state.books = [bookNew('未命名工作簿')];
+    if (!findBook(state.currentId)) {
+      state.currentId = state.books[0].id;
+      book = null;
+      openBook(state.currentId);
+    }
+    flush(); renderLibrary();
+  });
+}
+
+/* ================= 编辑器面板 ================= */
+function buildEditor() {
+  var root = document.createElement('div');
+  root.className = 'xl';
+  root.innerHTML =
+    '<div class="of-ribbon">' +
+      grp('文件', '<button class="of-btn" data-cmd="new" title="新建工作簿 (Ctrl+N)"><i class="fa-solid fa-file-circle-plus"></i></button>' +
+        '<button class="of-btn" data-cmd="save" title="保存 (Ctrl+S)"><i class="fa-solid fa-floppy-disk"></i></button>' +
+        '<button class="of-btn" data-cmd="export" title="导出 CSV"><i class="fa-solid fa-arrow-up-from-bracket"></i></button>') +
+      grp('历史', '<button class="of-btn" data-cmd="undo" title="撤销 (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>' +
+        '<button class="of-btn" data-cmd="redo" title="重做 (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>') +
+      grp('字体',
+        '<span class="of-grp-row">' +
+          '<select class="of-select" id="xlFont" title="字体"><option value="">默认</option><option value="PingFang SC, Microsoft YaHei, sans-serif">苹方 / 雅黑</option><option value="SimSun, serif">宋体</option><option value="Georgia, serif">Georgia</option><option value="var(--font-mono)">等宽</option></select>' +
+          '<select class="of-select compact" id="xlSize" title="字号"><option value="">字号</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="14">14</option><option value="16">16</option><option value="18">18</option><option value="22">22</option></select>' +
+        '</span>' +
+        '<span class="of-grp-row">' + btn('bold', 'fa-bold', '加粗 (Ctrl+B)') + btn('italic', 'fa-italic', '斜体 (Ctrl+I)') + btn('underline', 'fa-underline', '下划线 (Ctrl+U)') +
+          '<input class="of-color" type="color" id="xlFc" value="rgb(28,34,44)" title="字体颜色">' +
+          '<input class="of-color" type="color" id="xlFill" value="rgb(232,244,235)" title="单元格填充">' +
+        '</span>') +
+      grp('对齐',
+        '<span class="of-grp-row">' + btn('left', 'fa-align-left', '左对齐') + btn('center', 'fa-align-center', '居中') + btn('right', 'fa-align-right', '右对齐') + btn('wrap', 'fa-text-width', '自动换行') + '</span>' +
+        '<span class="of-grp-row">' + btn('merge', 'fa-object-group', '合并单元格') + btn('unmerge', 'fa-object-ungroup', '取消合并') + '</span>') +
+      grp('数字',
+        '<span class="of-grp-row"><select class="of-select" id="xlNumFmt" title="数字格式" style="max-width:104px">' +
+          '<option value="general">常规</option><option value="number">数值</option><option value="currency">货币 ¥</option>' +
+          '<option value="percent">百分比</option><option value="int">整数</option><option value="dec1">1 位小数</option><option value="dec2">2 位小数</option>' +
+        '</select>' + btn('dec+', 'fa-plus', '增加小数位', false, '+.') + btn('dec-', 'fa-minus', '减少小数位', false, '-.') + '</span>' +
+        '<span class="of-grp-row">' + btn('clearContent', 'fa-delete-left', '清除内容') + btn('clearFormat', 'fa-eraser', '清除格式') + '</span>') +
+      grp('插入',
+        '<span class="of-grp-row">' + btn('rowAbove', 'fa-arrow-up', '在上方插入行') + btn('rowBelow', 'fa-arrow-down', '在下方插入行') +
+          btn('colLeft', 'fa-arrow-left', '在左侧插入列') + btn('colRight', 'fa-arrow-right', '在右侧插入列') + '</span>' +
+        '<span class="of-grp-row">' + btn('rowDel', 'fa-minus', '删除行', false, '行-') + btn('colDel', 'fa-minus', '删除列', false, '列-') + btn('newSheet', 'fa-file-circle-plus', '新建工作表') + '</span>') +
+      grp('公式',
+        '<span class="of-grp-row"><button class="of-btn wide" data-cmd="autosum" title="对选区自动求和"><span style="font-size:11px;font-weight:700">Σ</span> 自动求和</button>' +
+          '<select class="of-select" id="xlFn" title="插入函数"><option value="">插入函数…</option><option value="SUM">SUM 求和</option><option value="AVERAGE">AVERAGE 平均</option><option value="COUNT">COUNT 计数</option><option value="MAX">MAX 最大</option><option value="MIN">MIN 最小</option><option value="IF">IF 条件</option><option value="ROUND">ROUND 四舍五入</option></select></span>' +
+        '<span class="of-grp-row">' + btn('recalc', 'fa-arrows-rotate', '重新计算全部公式') + '</span>') +
+      grp('图表',
+        '<span class="of-grp-row">' + btn('chart-bar', 'fa-chart-column', '按选区插入柱状图') + btn('chart-line', 'fa-chart-line', '折线图') + btn('chart-pie', 'fa-chart-pie', '饼图') + '</span>' +
+        '<span class="of-grp-row">' + btn('fit', 'fa-arrows-left-right', '适应窗口') + '</span>') +
+      grp('视图',
+        '<span class="of-grp-row">' + btn('freeze', 'fa-snowflake', '冻结窗格（冻结到当前单元格的上方与左侧）') +
+          btn('unfreeze', 'fa-fire', '取消冻结', false, '解冻') + '</span>') +
+    '</div>' +
+    '<div class="xl-fx">' +
+      '<input class="xl-name" id="xlName" aria-label="名称框" spellcheck="false">' +
+      '<i aria-hidden="true">fx</i>' +
+      '<input id="xlFx" aria-label="公式栏" spellcheck="false" placeholder="输入值或以 = 开头的公式">' +
+      '<button class="of-btn" data-fx="ok" title="确认输入"><i class="fa-solid fa-check"></i></button>' +
+      '<button class="of-btn" data-fx="cancel" title="取消输入"><i class="fa-solid fa-xmark"></i></button>' +
+    '</div>' +
+    '<div class="xl-scroll" id="xlScroll" tabindex="0">' +
+      '<div class="xl-stage" id="xlStage">' +
+        '<table class="xl-table"><colgroup id="xlColgroup"></colgroup><thead id="xlHead"></thead><tbody id="xlBody"></tbody></table>' +
+        '<div class="xl-selbox" id="xlSelbox"></div>' +
+        '<div class="xl-fillprev" id="xlFillPrev"></div>' +
+        '<div class="xl-fill" id="xlFill"></div>' +
+        '<div id="xlCharts"></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="xl-tabs" id="xlTabbar"></div>' +
+    '<div class="of-status"><span id="xlStatusCell">A1</span><span id="xlStatusStat"></span><span class="of-spacer"></span><span id="xlStatusSheets"></span></div>';
+
+  gridScroll = root.querySelector('#xlScroll');
+  stage = root.querySelector('#xlStage');
+  tableBody = root.querySelector('#xlBody');
+  tableHead = root.querySelector('#xlHead');
+  selbox = root.querySelector('#xlSelbox');
+  fillHandle = root.querySelector('#xlFill');
+  fillPrev = root.querySelector('#xlFillPrev');
+  fxInput = root.querySelector('#xlFx');
+  nameBox = root.querySelector('#xlName');
+  chartsLayer = root.querySelector('#xlCharts');
+  statusCell = root.querySelector('#xlStatusCell');
+  statusStat = root.querySelector('#xlStatusStat');
+  statusSheets = root.querySelector('#xlStatusSheets');
+
+  buildHead();
+
+  root.querySelector('.of-ribbon').addEventListener('mousedown', function (e) {
+    if (e.target.closest('button,select,input')) e.preventDefault();
+  });
+  root.querySelector('.of-ribbon').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-cmd]');
+    if (b) { e.preventDefault(); cmd(b.dataset.cmd); }
+  });
+  root.querySelector('#xlFont').addEventListener('change', function () {
+    applyStyle({ f: this.value || null });
+  });
+  root.querySelector('#xlSize').addEventListener('change', function () {
+    applyStyle({ fs: this.value ? parseInt(this.value, 10) : null });
+  });
+  root.querySelector('#xlNumFmt').addEventListener('change', function () { formatPatch(this.value); });
+  root.querySelector('#xlFc').addEventListener('input', function () { applyStyle({ fc: this.value }); });
+  root.querySelector('#xlFill').addEventListener('input', function () { applyStyle({ fill: this.value }); });
+  root.querySelector('#xlFn').addEventListener('change', function () {
+    if (this.value) insertFunction(this.value);
+    this.value = '';
+  });
+
+  fxInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitCell(sel.r, sel.c, fxInput.value);
+      setSel(sel.r + 1, sel.c, false);
+      gridScroll.focus();
+    } else if (e.key === 'Escape') {
+      fxInput.value = rawOf(sel.r, sel.c);
+      gridScroll.focus();
+    }
+  });
+  nameBox.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    var s = nameBox.value.trim().toUpperCase();
+    var m = s.match(/^([A-Z]+)([0-9]+)(?::([A-Z]+)([0-9]+))?$/);
+    if (!m) { nameBox.value = selAddress(); return; }
+    var a = parseAddr(m[1] + m[2]);
+    if (a) {
+      sel.ar = a.r; sel.ac = a.c;
+      if (m[3]) {
+        var b = parseAddr(m[3] + m[4]);
+        if (b) setSel(b.r, b.c, true);
+      } else setSel(a.r, a.c, false);
+    }
+  });
+  root.querySelectorAll('[data-fx]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (b.dataset.fx === 'ok') commitCell(sel.r, sel.c, fxInput.value);
+      else fxInput.value = rawOf(sel.r, sel.c);
+      gridScroll.focus();
+    });
+  });
+
+  // 鼠标选区
+  gridScroll.addEventListener('mousedown', function (e) {
+    if (e.target.tagName === 'INPUT') return;
+    var td = e.target.closest('td[data-r]');
+    var rowHead = e.target.closest('tbody th[data-r]');
+    var colHead = e.target.closest('thead th[data-c]');
+    if (!td && !rowHead && !colHead) return;
+    drag = !!td;
+    rowDrag = !td && !!rowHead;
+    colDrag = !td && !rowHead && !!colHead;
+    try { gridScroll.focus({ preventScroll: true }); } catch (err) { gridScroll.focus(); }
+    if (td) {
+      setSel(parseInt(td.dataset.r, 10), parseInt(td.dataset.c, 10), e.shiftKey);
+    } else if (rowDrag) {
+      var rr0 = parseInt(rowHead.dataset.r, 10);
+      sel.ar = rr0; sel.ac = 0; sel.r = rr0; sel.c = COLS - 1;
+      applySelectionUI(); scrollIntoView(rr0, 0);
+    } else {
+      var cc0 = parseInt(colHead.dataset.c, 10);
+      sel.ar = 0; sel.ac = cc0; sel.r = ROWS - 1; sel.c = cc0;
+      applySelectionUI(); scrollIntoView(0, cc0);
+    }
+    e.preventDefault();
+  });
+  gridScroll.addEventListener('mousemove', function (e) {
+    if (rowDrag) {
+      var rh2 = e.target.closest('tbody th[data-r]') || e.target.closest('td[data-r]');
+      if (!rh2) return;
+      var rr2 = parseInt(rh2.dataset.r, 10);
+      if (rr2 !== sel.r) { sel.r = rr2; applySelectionUI(); }
+      return;
+    }
+    if (colDrag) {
+      var ch2 = e.target.closest('thead th[data-c]');
+      if (!ch2) return;
+      var cc2 = parseInt(ch2.dataset.c, 10);
+      if (cc2 !== sel.c) { sel.c = cc2; applySelectionUI(); }
+      return;
+    }
+    if (!drag) return;
+    var td = e.target.closest('td[data-r]');
+    if (!td) return;
+    var r = parseInt(td.dataset.r, 10), c = parseInt(td.dataset.c, 10);
+    if (r !== sel.r || c !== sel.c) setSel(r, c, true);
+  });
+  window.addEventListener('mouseup', function () { drag = false; rowDrag = false; colDrag = false; });
+  bindFillHandle();
+  gridScroll.addEventListener('dblclick', function (e) {
+    var td = e.target.closest('td[data-r]');
+    if (!td) return;
+    beginEdit(parseInt(td.dataset.r, 10), parseInt(td.dataset.c, 10), null);
+  });
+  gridScroll.addEventListener('keydown', onGridKey);
+  window.addEventListener('resize', function () { applySelectionUI(); });
+
+  gridScroll.addEventListener('paste', function (e) {
+    if (!sheet) return;
+    var text = (e.clipboardData || window.clipboardData).getData('text/plain');
+    if (!text) return;
+    e.preventDefault();
+    pushHistory();
+    var lines = text.replace(/\r/g, '').split('\n');
+    lines.forEach(function (line, ri) {
+      var cols = line.split('\t');
+      cols.forEach(function (v, ci) {
+        var r = sel.r + ri, c = sel.c + ci;
+        if (r < ROWS && c < COLS && v !== '') ensureCell(r, c).v = v;
+      });
+    });
+    renderGrid(); scheduleSave();
+    OF.toast('已粘贴 ' + lines.length + ' 行数据', 'success');
+  });
+
+  document.addEventListener('keydown', onGlobalKey);
+
+  return root;
+}
+
+function buildHead() {
+  if (!tableHead) return;
+  var tr = document.createElement('thead');
+  tr.innerHTML = '<tr><th class="corner" aria-label="全选"></th></tr>';
+  var row = tr.querySelector('tr');
+  for (var c = 0; c < COLS; c++) {
+    var th = document.createElement('th');
+    th.dataset.c = c;
+    th.textContent = colLetter(c);
+    row.appendChild(th);
+  }
+  var old = tableHead;
+  old.parentNode.replaceChild(tr, old);
+  tableHead = tr;
+  tableHead.querySelector('.corner').addEventListener('click', function () {
+    sel.ar = 0; sel.ac = 0; setSel(ROWS - 1, COLS - 1, true);
+  });
+}
+
+function grp(label, inner) {
+  return '<div class="of-grp">' + inner + '<div class="of-grp-label">' + label + '</div></div>';
+}
+function btn(cmd, icon, title, toggle, text) {
+  return '<button class="of-btn" data-cmd="' + cmd + '" title="' + title + '">' +
+    (text ? '<span style="font-size:10.5px;font-weight:700">' + text + '</span>' : '<i class="fa-solid ' + icon + '"></i>') + '</button>';
+}
+
+/* ================= 交互命令 ================= */
+function cmd(c) {
+  switch (c) {
+    case 'new': createBook('未命名工作簿'); return;
+    case 'save': flush().then(function (ok) { OF.toast(ok ? '已保存到系统存储' : '保存失败', ok ? 'success' : 'error'); }); return;
+    case 'export': exportCsv(); return;
+    case 'undo': undo(); return;
+    case 'redo': redo(); return;
+    case 'bold': applyStyle({ b: styleOf(sel.r, sel.c).b ? null : 1 }); return;
+    case 'italic': applyStyle({ i: styleOf(sel.r, sel.c).i ? null : 1 }); return;
+    case 'underline': applyStyle({ u: styleOf(sel.r, sel.c).u ? null : 1 }); return;
+    case 'left': applyStyle({ al: 'left' }); return;
+    case 'center': applyStyle({ al: 'center' }); return;
+    case 'right': applyStyle({ al: 'right' }); return;
+    case 'wrap': applyStyle({ wrap: styleOf(sel.r, sel.c).wrap ? null : 1 }); return;
+    case 'merge': mergeSelection(); return;
+    case 'unmerge': unmergeSelection(); return;
+    case 'clearContent': clearSelection('content'); return;
+    case 'clearFormat': clearSelection('format'); return;
+    case 'rowAbove': insertRow('above'); return;
+    case 'rowBelow': insertRow('below'); return;
+    case 'colLeft': insertCol('left'); return;
+    case 'colRight': insertCol('right'); return;
+    case 'rowDel': deleteRow(); return;
+    case 'colDel': deleteCol(); return;
+    case 'newSheet':
+      book.sheets.push(newSheet());
+      switchSheet(book.sheets.length - 1);
+      scheduleSave(); return;
+    case 'autosum':
+      autoSum(); return;
+    case 'recalc': calcCache = {}; renderGrid(); OF.toast('公式已重新计算', 'success'); return;
+    case 'chart-bar': insertChart('bar'); return;
+    case 'chart-line': insertChart('line'); return;
+    case 'chart-pie': insertChart('pie'); return;
+    case 'fit': fitWidth(); return;
+    case 'freeze': setFreeze(); return;
+    case 'unfreeze': clearFreeze(); return;
+    case 'dec+': stepDecimals(1); return;
+    case 'dec-': stepDecimals(-1); return;
+    default: return;
+  }
+}
+
+function stepDecimals(delta) {
+  var q = selRect();
+  var cur = styleOf(q.r1, q.c1).nf || 'general';
+  var n = cur === 'dec1' ? 1 : cur === 'dec2' ? 2 : 0;
+  n = OF.clamp(n + delta, 0, 4);
+  applyStyle({ nf: n === 0 ? null : n === 1 ? 'dec1' : 'dec2' });
+}
+
+function autoSum() {
+  var q = selRect();
+  if (q.r1 !== q.r2 || q.c1 !== q.c2) {
+    // 选中区域：把合计写到区域正下方
+    var target = { r: q.r2 + 1, c: q.c1 };
+    if (target.r < ROWS) {
+      commitCell(target.r, target.c, '=SUM(' + addr(q.r1, q.c1) + ':' + addr(q.r2, q.c2) + ')');
+      setSel(target.r, target.c, false);
+      return;
+    }
+    OF.toast('下方没有空行了', 'error');
+    return;
+  }
+  // 单个单元格：向上寻找连续数字求和
+  var top = q.r1, bottom = q.r1 - 1;
+  while (bottom >= 0) {
+    var d = displayOf(bottom, q.c1);
+    if (!d.isNum || d.text === '') break;
+    bottom--;
+  }
+  top = bottom + 1;
+  if (top > q.r1 - 1) { OF.toast('当前单元格上方没有可求和的数字'); return; }
+  commitCell(q.r1, q.c1, '=SUM(' + addr(top, q.c1) + ':' + addr(q.r1 - 1, q.c1) + ')');
+}
+
+function insertFunction(name) {
+  var q = selRect();
+  var range = q.r1 === q.r2 && q.c1 === q.c2 ? addr(q.r1, q.c1) : selAddress();
+  var tpl = {
+    SUM: '=SUM(' + range + ')', AVERAGE: '=AVERAGE(' + range + ')',
+    COUNT: '=COUNT(' + range + ')', MAX: '=MAX(' + range + ')', MIN: '=MIN(' + range + ')',
+    IF: '=IF(' + addr(q.r1, q.c1) + '>0,"达标","未达标")', ROUND: '=ROUND(' + addr(q.r1, q.c1) + ',2)'
+  }[name] || ('=' + name + '(' + range + ')');
+  commitCell(sel.r, sel.c, tpl);
+  OF.toast('已插入 ' + name + '，可在公式栏继续修改', 'success');
+}
+
+function fitWidth() {
+  var avail = gridScroll.clientWidth - 46;
+  var w = Math.max(50, Math.floor((avail / COLS) * 10) / 10);
+  sheet.w = {};
+  for (var c = 0; c < COLS; c++) sheet.w[colLetter(c)] = w;
+  renderColWidths(); applySelectionUI(); scheduleSave();
+}
+
+function exportCsv() {
+  if (!sheet) return;
+  var lines = [];
+  for (var r = 0; r < ROWS; r++) {
+    var row = [];
+    for (var c = 0; c < COLS; c++) {
+      var d = displayOf(r, c);
+      var t = d.text.replace(/"/g, '""');
+      row.push('"' + t + '"');
+    }
+    lines.push(row.join(','));
+  }
+  OF.download((book.title || '工作簿') + '-' + sheet.name + '.csv', '\ufeff' + lines.join('\r\n'), 'text/csv;charset=utf-8');
+  OF.toast('已导出 CSV', 'success');
+}
+
+/* ---------- 键盘 ---------- */
+function onGridKey(e) {
+  if (editing) return;
+  var k = e.key;
+  var mod = e.ctrlKey || e.metaKey;
+  if (mod && k.toLowerCase() === 'b') { e.preventDefault(); cmd('bold'); return; }
+  if (mod && k.toLowerCase() === 'i') { e.preventDefault(); cmd('italic'); return; }
+  if (mod && k.toLowerCase() === 'u') { e.preventDefault(); cmd('underline'); return; }
+  if (mod && k.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
+  if (mod && k.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
+  if (mod && k.toLowerCase() === 's') { e.preventDefault(); flush(); return; }
+  if (mod && k.toLowerCase() === 'c') {
+    e.preventDefault(); copySelection(); return;
+  }
+  if (mod && k.toLowerCase() === 'v') return; // 交给 paste 事件
+  var moved = false;
+  if (k === 'ArrowUp') { setSel(sel.r - 1, sel.c, e.shiftKey); moved = true; }
+  else if (k === 'ArrowDown') { setSel(sel.r + 1, sel.c, e.shiftKey); moved = true; }
+  else if (k === 'ArrowLeft') { setSel(sel.r, sel.c - 1, e.shiftKey); moved = true; }
+  else if (k === 'ArrowRight') { setSel(sel.r, sel.c + 1, e.shiftKey); moved = true; }
+  else if (k === 'Enter') { setSel(sel.r + (e.shiftKey ? -1 : 1), sel.c, false); moved = true; }
+  else if (k === 'Tab') { setSel(sel.r, sel.c + (e.shiftKey ? -1 : 1), false); moved = true; }
+  else if (k === 'Delete' || k === 'Backspace') { clearSelection('content'); e.preventDefault(); return; }
+  else if (k === 'F2') { beginEdit(sel.r, sel.c, null); e.preventDefault(); return; }
+  else if (k.length === 1 && !mod && !e.altKey) {
+    beginEdit(sel.r, sel.c, k);
+    e.preventDefault(); return;
+  }
+  if (moved) e.preventDefault();
+}
+
+function onGlobalKey(e) {
+  var mod = e.ctrlKey || e.metaKey;
+  if (mod && e.key.toLowerCase() === 's') {
+    e.preventDefault();
+    flush().then(function (ok) { OF.toast(ok ? '已保存' : '保存失败', ok ? 'success' : 'error'); });
+  }
+  if (mod && e.key.toLowerCase() === 'n') { e.preventDefault(); createBook('未命名工作簿'); }
+  if (e.key === 'Escape' && editing) { /* 输入框自己处理 */ }
+}
+
+function copySelection() {
+  var q = selRect();
+  var lines = [];
+  for (var r = q.r1; r <= q.r2; r++) {
+    var row = [];
+    for (var c = q.c1; c <= q.c2; c++) row.push(displayOf(r, c).text);
+    lines.push(row.join('\t'));
+  }
+  var txt = lines.join('\n');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(function () { OF.toast('已复制 ' + q.r1 + ':' + q.c1 + ' 区域'); }).catch(function () { OF.toast('复制失败', 'error'); });
+  } else {
+    OF.toast('当前环境不支持剪贴板', 'error');
+  }
+}
+
+/* ================= 函数面板 ================= */
+function buildFunctions() {
+  var root = document.createElement('div');
+  root.className = 'xl-func';
+  var fns = [
+    ['SUM', '对区域求和', '=SUM(A1:A10)'],
+    ['AVERAGE', '计算算术平均值', '=AVERAGE(B2:B9)'],
+    ['COUNT', '统计数字单元格数量', '=COUNT(C2:C40)'],
+    ['COUNTA', '统计非空单元格数量', '=COUNTA(A2:A40)'],
+    ['MAX / MIN', '取区域最大值 / 最小值', '=MAX(D2:D20)'],
+    ['IF', '按条件返回不同结果', '=IF(A1>60,"及格","不及格")'],
+    ['ROUND', '四舍五入到指定小数位', '=ROUND(B2,2)'],
+    ['SUMIF', '按条件对区域求和', '=SUMIF(A2:A20,"北京",C2:C20)'],
+    ['CONCAT', '拼接多个文本', '=CONCAT(A2," ",B2)'],
+    ['LEN / LEFT / RIGHT', '文本长度与截取', '=LEFT(A2,3)'],
+    ['TODAY / NOW', '当前日期 / 日期时间', '=TODAY()'],
+    ['MEDIAN', '中位数', '=MEDIAN(A1:A9)']
+  ];
+  var h = '<h3>函数参考</h3><div class="sub">点击任意一行，把示例公式写进当前单元格，再改参数即可。</div>';
+  fns.forEach(function (f, i) {
+    h += '<div class="xl-fn" data-fn="' + i + '"><code>' + f[0] + '</code><div><b>' + f[1] + '</b><small>' + OF.esc(f[2]) + '</small></div></div>';
+  });
+  root.innerHTML = h;
+  root.querySelectorAll('[data-fn]').forEach(function (n) {
+    n.addEventListener('click', function () {
+      var f = fns[parseInt(n.dataset.fn, 10)];
+      commitCell(sel.r, sel.c, f[2]);
+      OF.toast('已写入示例公式', 'success');
+    });
+  });
+  return root;
+}
+
+/* ================= 模板 ================= */
+function buildTemplates() {
+  var root = document.createElement('div');
+  root.className = 'xl-tpl';
+  root.innerHTML = '<div class="wd-tpl-head" style="font-size:18px;font-weight:600">从模板新建</div>' +
+    '<div style="font-size:11.5px;color:var(--text-3)">数据、公式和格式都已预置，可以直接改。</div>' +
+    '<div class="xl-tpl-grid"></div>';
+  var grid = root.querySelector('.xl-tpl-grid');
+  var tpls = [
+    { name: '月度预算', icon: 'fa-wallet', desc: '收入 / 支出 / 结余自动汇总', seed: seedBudget },
+    { name: '待办清单', icon: 'fa-list-check', desc: '状态、优先级与完成率', seed: seedTodo },
+    { name: '成绩单', icon: 'fa-graduation-cap', desc: '平均分、最高分公式', seed: seedGrades },
+    { name: '销售看板', icon: 'fa-chart-line', desc: '按周数据 + 一键图表', seed: seedSales }
+  ];
+  tpls.forEach(function (t) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'of-card';
+    b.style.minHeight = '104px';
+    b.innerHTML = '<div class="of-card-thumb"><i class="fa-solid ' + t.icon + '"></i></div><div class="of-card-name"></div><div class="of-card-sub"><span></span></div>';
+    b.querySelector('.of-card-name').textContent = t.name;
+    b.querySelector('.of-card-sub span').textContent = t.desc;
+    b.addEventListener('click', function () {
+      createBook(t.name, t.seed);
+      OF.toast('已创建「' + t.name + '」', 'success');
+    });
+    grid.appendChild(b);
+  });
+  return root;
+}
+
+function setCS(s, r, c, v, style) {
+  var k = addr(r, c);
+  s.cells[k] = { v: v };
+  if (style) s.cells[k].s = style;
+}
+function seedBudget(s) {
+  s.name = '预算';
+  var head = { b: 1, fill: 'rgb(232,244,235)', al: 'center' };
+  ['项目', '类别', '预算', '实际', '差额'].forEach(function (t, c) { setCS(s, 1, c, t, head); });
+  var rows = [['房租', '固定', 3200, 3200], ['餐饮', '生活', 1800, 1642], ['交通', '生活', 420, 386], ['娱乐', '弹性', 600, 712], ['储蓄', '长期', 1500, 1500]];
+  rows.forEach(function (row, i) {
+    var r = 2 + i;
+    setCS(s, r, 0, row[0]); setCS(s, r, 1, row[1]);
+    setCS(s, r, 2, row[2], { nf: 'currency' }); setCS(s, r, 3, row[3], { nf: 'currency' });
+    setCS(s, r, 4, '=C' + (r + 1) + '-D' + (r + 1), { nf: 'currency' });
+  });
+  setCS(s, 8, 0, '合计', { b: 1 });
+  setCS(s, 8, 2, '=SUM(C3:C7)', { b: 1, nf: 'currency', fill: 'rgb(243,247,244)' });
+  setCS(s, 8, 3, '=SUM(D3:D7)', { b: 1, nf: 'currency', fill: 'rgb(243,247,244)' });
+  setCS(s, 8, 4, '=C9-D9', { b: 1, nf: 'currency', fill: 'rgb(243,247,244)' });
+}
+function seedTodo(s) {
+  s.name = '清单';
+  var head = { b: 1, fill: 'rgb(232,244,235)', al: 'center' };
+  ['事项', '负责人', '优先级', '状态', '完成'].forEach(function (t, c) { setCS(s, 1, c, t, head); });
+  [['整理需求', '小方', '高', '已完成'], ['接口联调', '前端', '高', '进行中'], ['视觉复核', '设计', '中', '待开始'], ['性能测试', '测试', '中', '待开始'], ['发布说明', '产品', '低', '待开始']].forEach(function (row, i) {
+    var r = 2 + i;
+    row.forEach(function (v, c) { setCS(s, r, c, v); });
+    setCS(s, r, 4, '=IF(D' + (r + 1) + '="已完成",1,0)');
+  });
+  setCS(s, 8, 0, '完成率', { b: 1 });
+  setCS(s, 8, 1, '=AVERAGE(E3:E7)', { nf: 'percent', b: 1 });
+}
+function seedGrades(s) {
+  s.name = '成绩';
+  var head = { b: 1, fill: 'rgb(232,244,235)', al: 'center' };
+  ['姓名', '语文', '数学', '英语', '总分', '平均'].forEach(function (t, c) { setCS(s, 1, c, t, head); });
+  [['张同学', 88, 92, 85], ['李同学', 76, 81, 90], ['王同学', 95, 89, 93], ['赵同学', 68, 72, 70]].forEach(function (row, i) {
+    var r = 2 + i;
+    setCS(s, r, 0, row[0]); setCS(s, r, 1, row[1]); setCS(s, r, 2, row[2]); setCS(s, r, 3, row[3]);
+    setCS(s, r, 4, '=SUM(B' + (r + 1) + ':D' + (r + 1) + ')');
+    setCS(s, r, 5, '=AVERAGE(B' + (r + 1) + ':D' + (r + 1) + ')', { nf: 'dec1' });
+  });
+  setCS(s, 7, 0, '班级平均', { b: 1 });
+  setCS(s, 7, 1, '=AVERAGE(B3:B6)', { nf: 'dec1', b: 1 });
+  setCS(s, 7, 2, '=AVERAGE(C3:C6)', { nf: 'dec1', b: 1 });
+  setCS(s, 7, 3, '=AVERAGE(D3:D6)', { nf: 'dec1', b: 1 });
+}
+function seedSales(s) {
+  s.name = '销售';
+  var head = { b: 1, fill: 'rgb(232,244,235)', al: 'center' };
+  ['周次', '线上', '线下', '合计'].forEach(function (t, c) { setCS(s, 1, c, t, head); });
+  [['第 1 周', 1200, 860], ['第 2 周', 1480, 930], ['第 3 周', 1320, 1010], ['第 4 周', 1760, 1180], ['第 5 周', 1920, 1260]].forEach(function (row, i) {
+    var r = 2 + i;
+    row.forEach(function (v, c) { setCS(s, r, c, v); });
+    setCS(s, r, 3, '=B' + (r + 1) + '+C' + (r + 1));
+  });
+}
+
+/* ================= 启动 ================= */
+function boot() {
+  shell = N26UI.createShell(document.getElementById('xlShell'), {
+    defaultId: 'edit',
+    sidebar: [
+      { id: 'library', icon: 'fa-folder-open', label: '工作簿', render: buildLibrary },
+      { id: 'edit', icon: 'fa-table-cells-large', label: '编辑', render: buildEditor },
+      { id: 'functions', icon: 'fa-square-root-variable', label: '函数', render: buildFunctions },
+      { id: 'templates', icon: 'fa-layer-group', label: '模板', render: buildTemplates }
+    ],
+    onSelect: function (id) {
+      if (id === 'edit' && pageNeedsLayout()) { setTimeout(function () { applySelectionUI(); }, 0); }
+      if (id === 'library') renderLibrary();
+    }
+  });
+  renderTabs();
+  load().then(function () {
+    booted = true;
+    openBook(state.currentId, false);
+    setSaveState('saved');
+  }).catch(function () {
+    booted = true;
+    state.books = [bookNew('未命名工作簿')];
+    state.currentId = state.books[0].id;
+    book = state.books[0]; sheet = book.sheets[0];
+    el.title.value = book.title;
+    renderGrid(); renderTabs();
+  });
+}
+
+function pageNeedsLayout() { return gridScroll && gridScroll.offsetParent !== null; }
+
+function load() {
+  return store.read().then(function (data) {
+    if (data && Array.isArray(data.books) && data.books.length) {
+      state.books = data.books.map(function (b) {
+        var bb = {
+          id: b.id || OF.uid('xl'), title: b.title || '未命名工作簿',
+          sheets: (b.sheets && b.sheets.length ? b.sheets : [newSheet('Sheet1')]).map(function (s) {
+            return {
+              name: s.name || 'Sheet1',
+              cells: s.cells || {},
+              w: s.w || {},
+              freeze: s.freeze || null,
+              merges: Array.isArray(s.merges) ? s.merges : [],
+              charts: Array.isArray(s.charts) ? s.charts : []
+            };
+          }),
+          active: b.active || 0,
+          created: b.created || Date.now(), updated: b.updated || Date.now()
+        };
+        return bb;
+      });
+      state.currentId = data.currentId && findBook(data.currentId) ? data.currentId : state.books[0].id;
+    } else {
+      var b = bookNew('欢迎使用 Nexus 表格', seedBudget);
+      state.books = [b];
+      state.currentId = b.id;
+      return store.write(serialize());
+    }
+    return true;
+  });
+}
+
+el.title.addEventListener('input', function () { scheduleSave(); });
+document.getElementById('xlSaveBtn').addEventListener('click', function () {
+  flush().then(function (ok) { OF.toast(ok ? '已保存到系统存储' : '保存失败', ok ? 'success' : 'error'); });
+});
+document.getElementById('xlExport').addEventListener('click', exportCsv);
+
+OF.onTheme(function () {
+  setTimeout(function () { renderCharts(); }, 120);
+});
+
+boot();
+})();
+</script>
+</body>
+</html>

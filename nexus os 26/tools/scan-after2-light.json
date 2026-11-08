@@ -1,0 +1,21 @@
+{
+  "meta": {
+    "generatedAt": "2026-11-07T23:18:53.456Z",
+    "mode": "light",
+    "label": "after2",
+    "target": "nexus os 26/Nexus OS 26.html",
+    "apps": "core",
+    "threshold": {
+      "minArea": 400,
+      "maxLum": 60
+    },
+    "theme": {
+      "mode": "light",
+      "cls": "light-mode os-mac style-glass dock-bottom n26-a11y-scale-100 mat-liquid n26-on"
+    },
+    "totalHits": 0,
+    "surfaceHits": 0
+  },
+  "hits": [],
+  "fullscreenOrWindow": []
+}

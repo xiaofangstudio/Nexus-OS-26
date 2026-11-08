@@ -1,916 +1,4272 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-mode="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nexus Terminal</title>
-<link rel="stylesheet" href="_polish.css?v=2.9.54"><!-- 不引 _app.js，手写版本戳需与 _app.js 内 _v 同步 -->
-<script src="_bridge.js"></script>
+<title>终端 · Nexus OS 26</title>
+<link rel="stylesheet" href="../ui/tokens.css">
+<link rel="stylesheet" href="../ui/glass.css">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
-  body {
-    background: #0b0f14;
-    color: #c9d1d9;
-    font-family: "Cascadia Code", "JetBrains Mono", "Fira Code", "SF Mono", Consolas, "Courier New", monospace;
-    font-size: 13.5px;
-    line-height: 1.5;
+/* ============================================================
+   Nexus OS 26 · 终端（apps/terminal.html）
+   设计语言：终端品牌主色 = 经典终端绿（非系统蓝）。
+   光标 / 提示符 / 选中 / 成功输出统一绿族；错误保留红族。
+   玻璃背景只取中性色，不染色；深浅色各校一次对比度。
+   ============================================================ */
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+    margin: 0;
     overflow: hidden;
-  }
-  #term {
-    height: 100vh;
+    background: transparent;
+    color: var(--term-fg);
+    font-family: var(--font-mono, "Cascadia Code", "JetBrains Mono", Consolas, monospace);
+    font-size: var(--term-fs);
+    line-height: var(--term-lh);
+    -webkit-font-smoothing: antialiased;
+    --term-fs: 13px;
+    --term-lh: 1.5;
+    --term-bg: rgba(251, 252, 254, 0.88);
+    --term-sheen: rgba(255, 255, 255, 0.14);
+    --term-bar: rgba(241, 245, 249, 0.52);
+    --term-panel: rgba(255, 255, 255, 0.95);
+    --term-fg: rgba(15, 23, 42, 0.92);
+    --term-dim: rgba(15, 23, 42, 0.64);
+    --term-faint: rgba(15, 23, 42, 0.42);
+    --term-line: rgba(15, 23, 42, 0.10);
+    --term-line-strong: rgba(15, 23, 42, 0.18);
+    --term-hover: rgba(15, 23, 42, 0.055);
+    --term-tab: rgba(15, 23, 42, 0.035);
+    --term-accent: hsl(145, 62%, 27%);
+    --term-accent-soft: rgba(26, 122, 69, 0.10);
+    --term-on-accent: hsl(0, 0%, 100%);
+    --term-sel: rgba(26, 122, 69, 0.18);
+    --term-hit: rgba(26, 122, 69, 0.18);
+    --term-caret: hsl(145, 62%, 30%);
+    --term-green: hsl(145, 62%, 27%);
+    --term-red: hsl(356, 66%, 42%);
+    --term-yellow: hsl(35, 78%, 30%);
+    --term-cyan: hsl(187, 58%, 26%);
+    --term-magenta: hsl(285, 40%, 38%);
+    --term-dir: hsl(145, 63%, 26%);
+    --term-focus-ring: rgba(26, 122, 69, 0.55);
+    --term-specular: rgba(255, 255, 255, 0.62);
+    --term-shadow: var(--sh-pop);
+    color-scheme: light;
+}
+body.dark-mode #term {
+    --term-bg: rgba(20, 24, 34, 0.90);
+    --term-sheen: rgba(255, 255, 255, 0.035);
+    --term-bar: rgba(255, 255, 255, 0.035);
+    --term-panel: rgba(24, 29, 40, 0.96);
+    --term-fg: rgba(236, 241, 249, 0.92);
+    --term-dim: rgba(226, 232, 240, 0.66);
+    --term-faint: rgba(203, 213, 225, 0.44);
+    --term-line: rgba(255, 255, 255, 0.10);
+    --term-line-strong: rgba(255, 255, 255, 0.16);
+    --term-hover: rgba(255, 255, 255, 0.065);
+    --term-tab: rgba(255, 255, 255, 0.028);
+    --term-accent: hsl(145, 45%, 48%);
+    --term-accent-soft: rgba(67, 178, 122, 0.14);
+    --term-on-accent: hsl(150, 22%, 8%);
+    --term-sel: rgba(67, 178, 122, 0.24);
+    --term-hit: rgba(67, 178, 122, 0.20);
+    --term-caret: hsl(145, 45%, 55%);
+    --term-green: hsl(145, 42%, 52%);
+    --term-red: hsl(356, 72%, 66%);
+    --term-yellow: hsl(40, 78%, 64%);
+    --term-cyan: hsl(187, 55%, 60%);
+    --term-magenta: hsl(285, 50%, 70%);
+    --term-dir: hsl(145, 48%, 58%);
+    --term-focus-ring: rgba(67, 178, 122, 0.50);
+    --term-specular: rgba(255, 255, 255, 0.08);
+    color-scheme: dark;
+}
+
+#term {
+    position: relative;
     display: flex;
     flex-direction: column;
-    padding: 10px 12px;
-    cursor: text;
-    background:
-      radial-gradient(1200px 400px at 100% 0%, rgba(56,139,253,0.06), transparent),
-      radial-gradient(900px 400px at 0% 100%, rgba(163,113,247,0.05), transparent),
-      #0b0f14;
-  }
-  #scroll { flex: 1; overflow-y: auto; overflow-x: auto; scroll-behavior: smooth; }
-  #scroll::-webkit-scrollbar { width: 9px; height: 9px; }
-  #scroll::-webkit-scrollbar-thumb { background: rgba(139,148,158,0.35); border-radius: 6px; }
-  #scroll::-webkit-scrollbar-track { background: transparent; }
-  .line { white-space: pre-wrap; word-break: break-word; min-height: 1.5em; }
-  .dim { color: #6e7681; }
-  .err { color: #f85149; }
-  .ok  { color: #3fb950; }
-  .warn{ color: #d29922; }
-  .cyan{ color: #39c5cf; }
-  .mag { color: #bc8cff; }
-  .yel { color: #e3b341; }
-  .blu { color: #58a6ff; }
-  .b   { font-weight: 700; }
-  .cursor-blink { animation: blink 1s steps(2, start) infinite; }
-  @keyframes blink { to { visibility: hidden; } }
+    height: 100%;
+    overflow: hidden;
+    color: var(--term-fg);
+    background-color: var(--term-bg);
+    background-image: linear-gradient(180deg, var(--term-sheen), transparent 26%);
+    box-shadow: inset 0 1px 0 var(--term-specular);
+}
+#term.kbd-focus { outline: 2px solid var(--term-focus-ring); outline-offset: -2px; }
 
-  .input-row { display: flex; align-items: baseline; }
-  .prompt { flex: 0 0 auto; white-space: pre; user-select: none; }
-  #cmd {
+/* ── 标签栏 36 ─────────────────────────────────────────────── */
+.term-head {
+    flex: 0 0 36px;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2, 8px);
+    padding: 4px var(--sp-2, 8px) 0 var(--sp-2, 8px);
+    /* 顶栏磨砂玻璃：直连宿主材质变量（_app.js 注入），材质切“固态”时 blur 归零 */
+    background: rgba(255, 255, 255, calc(var(--n26-glass-alpha, .55) * .55));
+    -webkit-backdrop-filter: blur(var(--n26-blur, 18px)) saturate(var(--n26-glass-sat, 148%));
+    backdrop-filter: blur(var(--n26-blur, 18px)) saturate(var(--n26-glass-sat, 148%));
+    border-bottom: 1px solid var(--term-line);
+    position: relative;
+    z-index: 2;
+}
+body.dark-mode .term-head {
+    background: rgba(20, 24, 34, calc(var(--n26-glass-alpha, .55) * .75));
+}
+body.perf-mode .term-head {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+.tabs {
     flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { width: 0; height: 0; }
+.tab {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 6px 0 10px;
+    border: 0;
+    border-radius: var(--r-sm, 10px) var(--r-sm, 10px) 0 0;
     background: transparent;
-    border: none;
-    outline: none;
-    color: #c9d1d9;
-    font: inherit;
-    caret-color: #58a6ff;
+    color: var(--term-dim);
+    font-family: inherit;
+    font-size: var(--fs-11, 11px);
+    line-height: 1;
+    cursor: pointer;
+    position: relative;
+    white-space: nowrap;
+}
+.tab:hover { background: var(--term-hover); color: var(--term-fg); }
+.tab[aria-selected="true"] {
+    background: var(--term-accent-soft);
+    color: var(--term-fg);
+    box-shadow: inset 0 -2px 0 var(--term-accent);
+}
+.tab-title {
+    max-width: 128px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.tab-x {
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    font-size: 10px;
+    opacity: 0.42;
+}
+.tab:hover .tab-x, .tab[aria-selected="true"] .tab-x { opacity: 0.78; }
+.tab-x:hover { background: rgba(180, 48, 48, 0.12); color: var(--term-red); opacity: 1; }
+.tab-add {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    margin-left: 2px;
+    border: 0;
+    border-radius: var(--r-xs, 6px);
+    background: transparent;
+    color: var(--term-dim);
+    font-size: 11px;
+    cursor: pointer;
+}
+.tab-add:hover { background: var(--term-hover); color: var(--term-accent); }
+.tools { flex: 0 0 auto; display: flex; gap: 2px; }
+.tool {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border: 0;
+    border-radius: var(--r-xs, 6px);
+    background: transparent;
+    color: var(--term-dim);
+    font-size: 11px;
+    cursor: pointer;
+}
+.tool:hover { background: var(--term-hover); color: var(--term-fg); }
+.tool.accent:hover { color: var(--term-accent); }
+
+/* ── 输出搜索条 ────────────────────────────────────────────── */
+.findbar {
+    flex: 0 0 34px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 var(--sp-2, 8px);
+    background: var(--term-bar);
+    border-bottom: 1px solid var(--term-line);
+    color: var(--term-dim);
+    z-index: 2;
+}
+.findbar:focus-within { box-shadow: inset 0 -1px 0 var(--term-accent); }
+.findbar > i { font-size: 11px; color: var(--term-accent); }
+#find-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 26px;
     padding: 0;
-    margin-left: 6px;
-  }
-  .hint { color: #6e7681; }
-  a { color: #58a6ff; }
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--term-fg);
+    font: inherit;
+    font-size: var(--fs-12, 12px);
+}
+#find-input::placeholder { color: var(--term-faint); }
+#find-input::-webkit-search-cancel-button { display: none; }
+.find-count {
+    flex: 0 0 auto;
+    min-width: 46px;
+    text-align: right;
+    font-size: var(--fs-11, 11px);
+    color: var(--term-dim);
+    font-variant-numeric: tabular-nums;
+}
+.find-count.none { color: var(--term-red); }
+.find-btn {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--term-dim);
+    font-size: 10px;
+    cursor: pointer;
+}
+.find-btn:hover { background: var(--term-hover); color: var(--term-fg); }
+
+/* ── 输出区 ────────────────────────────────────────────────── */
+.term-out {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: auto;
+    padding: 10px var(--sp-3, 12px) 8px;
+    outline: none;
+    scrollbar-gutter: stable;
+    overscroll-behavior: contain;
+    touch-action: pan-y pinch-zoom;
+}
+.line {
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: calc(var(--term-fs) * var(--term-lh));
+}
+.line.cmd-line { margin-top: 2px; }
+.line.blank { min-height: calc(var(--term-fs) * 0.75); }
+#term.edge-drag, #term.edge-drag * { user-select: none; }
+
+.dim { color: var(--term-dim); }
+.faint { color: var(--term-faint); }
+.err { color: var(--term-red); }
+.ok { color: var(--term-green); }
+.warn { color: var(--term-yellow); }
+.accent { color: var(--term-accent); }
+.green { color: var(--term-green); }
+.cyan { color: var(--term-cyan); }
+.mag { color: var(--term-magenta); }
+.b { font-weight: 600; }
+.group { color: var(--term-dim); font-weight: 600; }
+.dir { color: var(--term-dir); font-weight: 600; }
+.puser { color: var(--term-green); font-weight: 600; }
+.ppath { color: var(--term-accent); font-weight: 600; }
+.psign { color: var(--term-green); font-weight: 600; }
+.psign.root { color: var(--term-green); font-weight: 700; }
+.term-brand { color: var(--term-green); font-weight: 700; }
+
+#scroll mark.hit {
+    background: var(--term-hit);
+    color: var(--term-fg);
+    border-radius: 2px;
+    padding: 0 1px;
+}
+#scroll mark.hit.current {
+    background: var(--term-accent);
+    color: var(--term-on-accent);
+}
+
+/* ── 反向搜索条 ────────────────────────────────────────────── */
+.rs-bar {
+    flex: 0 0 30px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 var(--sp-3, 12px);
+    background: var(--term-bar);
+    border-top: 1px solid var(--term-line);
+}
+.rs-label { flex: 0 0 auto; color: var(--term-green); font-size: var(--fs-12, 12px); }
+#rs-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--term-fg);
+    font: inherit;
+    font-size: var(--fs-12, 12px);
+}
+#rs-input::placeholder { color: var(--term-faint); }
+.rs-hint { flex: 0 0 auto; color: var(--term-dim); font-size: var(--fs-11, 11px); }
+
+/* ── 输入行 ────────────────────────────────────────────────── */
+.term-entry {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 1px var(--sp-3, 12px) 9px;
+    position: relative;
+}
+.prompt {
+    flex: 0 1 auto;
+    max-width: 58%;
+    min-width: 0;
+    display: block;
+    overflow: hidden;
+    white-space: pre;
+    text-overflow: ellipsis;
+    user-select: none;
+}
+.cmd-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+}
+#cmd {
+    width: 100%;
+    height: calc(var(--term-fs) * var(--term-lh));
+    margin: 0;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--term-fg);
+    font: inherit;
+    line-height: var(--term-lh);
+    caret-color: var(--term-caret);
+    appearance: none;
+}
+#cmd:focus-visible { outline: none; }
+body:not([data-cursor="system"]) #cmd { caret-color: transparent; }
+#cmd::selection { background: var(--term-sel); color: inherit; }
+
+.fake-cursor {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 2px;
+    height: 1.2em;
+    transform: translateY(-50%);
+    transform-origin: center;
+    border-radius: 1px;
+    background: var(--term-caret);
+    opacity: 0;
+    pointer-events: none;
+    animation: termBlink 1.06s step-end infinite;
+}
+body[data-cursor="block"] .fake-cursor,
+body[data-cursor="bar"] .fake-cursor,
+body[data-cursor="underline"] .fake-cursor { opacity: 1; }
+body[data-cursor="block"] .fake-cursor {
+    height: 1.18em;
+    background: var(--term-caret);
+    opacity: 0.30;
+}
+body[data-cursor="underline"] .fake-cursor {
+    top: auto;
+    bottom: 0.04em;
+    height: 2px;
+    transform: none;
+    background: var(--term-caret);
+    opacity: 0.92;
+}
+.fake-cursor.hide { opacity: 0; animation: none; }
+.fake-cursor.typing { animation: none; opacity: 1; }
+
+.term-measure {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    visibility: hidden;
+    white-space: pre;
+    font: inherit;
+    font-size: var(--term-fs);
+}
+
+.busy {
+    flex: 0 0 auto;
+    width: 13px;
+    height: 13px;
+    margin-left: var(--sp-2, 8px);
+    border: 1.5px solid var(--term-line-strong);
+    border-top-color: var(--term-accent);
+    border-radius: 50%;
+    animation: termSpin 0.9s steps(8, end) infinite;
+}
+
+/* ── 状态栏 26 ────────────────────────────────────────────── */
+.term-status {
+    flex: 0 0 26px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 var(--sp-3, 12px);
+    background: var(--term-bar);
+    border-top: 1px solid var(--term-line);
+    color: var(--term-dim);
+    font-size: var(--fs-11, 11px);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.term-status .spacer { flex: 1 1 auto; }
+.term-status .st-dot {
+    flex: 0 0 auto;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--term-faint);
+}
+#st-cwd {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--term-dim);
+}
+#st-exit.ok { color: var(--term-green); }
+#st-exit.err { color: var(--term-red); }
+#st-mode.accent { color: var(--term-accent); }
+#st-fs { color: var(--term-faint); }
+
+/* ── 设置浮层 ──────────────────────────────────────────────── */
+.settings-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: var(--z-modal, 1100);
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-start;
+    padding: 42px 10px 10px;
+    background: rgba(15, 23, 42, 0.14);
+}
+body.dark-mode .settings-overlay { background: rgba(0, 0, 0, 0.32); }
+.settings-card {
+    width: 308px;
+    max-width: calc(100% - 20px);
+    border: 1px solid var(--term-line-strong);
+    border-radius: var(--r-md, 14px);
+    background: var(--term-panel);
+    box-shadow: var(--term-shadow);
+    overflow: hidden;
+    animation: termPop 160ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.settings-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--term-line);
+}
+.settings-head h2 {
+    margin: 0;
+    font-size: var(--fs-13, 13px);
+    font-weight: 600;
+    color: var(--term-fg);
+    letter-spacing: 0.02em;
+}
+.set-close {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--term-dim);
+    cursor: pointer;
+}
+.set-close:hover { background: var(--term-hover); color: var(--term-fg); }
+.settings-body { padding: 4px 14px 12px; }
+.set-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--term-line);
+}
+.set-row:last-of-type { border-bottom: 0; }
+.set-row.column {
+    display: block;
+    padding-bottom: 12px;
+}
+.set-label {
+    display: block;
+    font-size: var(--fs-11, 11px);
+    color: var(--term-dim);
+    letter-spacing: 0.04em;
+}
+.set-row.column .set-label { margin-bottom: 7px; }
+.stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    border: 1px solid var(--term-line-strong);
+    border-radius: var(--r-xs, 6px);
+    overflow: hidden;
+}
+.stepper button {
+    width: 26px;
+    height: 26px;
+    border: 0;
+    background: transparent;
+    color: var(--term-fg);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+.stepper button:hover { background: var(--term-hover); }
+#font-val {
+    min-width: 52px;
+    text-align: center;
+    font-size: var(--fs-12, 12px);
+    color: var(--term-fg);
+    font-variant-numeric: tabular-nums;
+}
+.seg { display: flex; gap: 4px; }
+.seg button {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 27px;
+    padding: 0 6px;
+    border: 1px solid var(--term-line-strong);
+    border-radius: var(--r-xs, 6px);
+    background: transparent;
+    color: var(--term-dim);
+    font: inherit;
+    font-size: var(--fs-11, 11px);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.seg button:hover { background: var(--term-hover); color: var(--term-fg); }
+.seg button[aria-pressed="true"] {
+    border-color: var(--term-accent);
+    background: var(--term-accent-soft);
+    color: var(--term-accent);
+    font-weight: 600;
+}
+.set-hint {
+    margin-top: 2px;
+    padding-top: 10px;
+    border-top: 1px solid var(--term-line);
+    color: var(--term-faint);
+    font-size: var(--fs-11, 11px);
+    line-height: 1.65;
+}
+.settings-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 10px 14px 14px;
+    border-top: 1px solid var(--term-line);
+}
+.settings-foot .glass-btn { height: 28px; font-size: var(--fs-11, 11px); }
+.settings-foot .glass-btn.accent {
+    border-color: var(--term-accent);
+    color: var(--term-accent);
+}
+
+/* ── 动效（克制：只有光标闪烁、加载圈、浮层 160ms） ───────── */
+@keyframes termBlink {
+    0%, 45% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+}
+@keyframes termSpin { to { transform: rotate(360deg); } }
+@keyframes termPop {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 无障碍 / 降级 ─────────────────────────────────────────── */
+#term :focus-visible { outline-color: var(--term-focus-ring); }
+#term ::selection {
+    background: var(--term-sel);
+    color: inherit;
+}
+body.dark-mode #term ::selection { background: var(--term-sel); color: inherit; }
+[hidden] { display: none; }
+
+body.perf-mode .fake-cursor { animation: none; opacity: 1; }
+body.perf-mode .settings-card { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    .fake-cursor { animation: none; opacity: 1; }
+    .settings-card { animation: none; }
+    .busy { animation-duration: 1.8s; }
+}
+
+@media (max-width: 560px) {
+    .term-head { gap: 4px; padding-inline: 4px; }
+    .tab { padding: 0 5px 0 8px; }
+    .tab-title { max-width: 76px; }
+    .prompt { max-width: 50%; }
+    #st-fs { display: none; }
+    .settings-card { width: 280px; }
+}
 </style>
 </head>
 <body>
-<div id="term">
-  <div id="scroll"></div>
-  <div class="input-row">
-    <span class="prompt" id="prompt"></span>
-    <input id="cmd" autocomplete="off" autocapitalize="off" spellcheck="false" />
-  </div>
+<div id="term" data-app-id="terminal">
+    <div class="term-head">
+        <div class="tabs" id="tabs" role="tablist" aria-label="终端标签"></div>
+        <div class="tools">
+            <button type="button" class="tool" id="btn-clear" title="清屏（Ctrl+L）" aria-label="清屏">
+                <i class="fa-solid fa-eraser" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="tool" id="btn-find" title="搜索输出（Ctrl+Shift+F）" aria-label="搜索输出">
+                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="tool accent" id="btn-settings" title="终端设置" aria-label="终端设置">
+                <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="findbar" id="findbar" role="search" hidden>
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <input id="find-input" type="search" placeholder="在当前输出中搜索…" aria-label="搜索输出内容" autocomplete="off" spellcheck="false">
+        <span class="find-count" id="find-count" aria-live="polite"></span>
+        <button type="button" class="find-btn" id="find-prev" title="上一个（Shift+Enter）" aria-label="上一个匹配">
+            <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="find-btn" id="find-next" title="下一个（Enter）" aria-label="下一个匹配">
+            <i class="fa-solid fa-arrow-down" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="find-btn" id="find-close" title="关闭（Esc）" aria-label="关闭搜索">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+    </div>
+
+    <main class="term-out" id="scroll" role="log" aria-live="polite" aria-label="终端输出" tabindex="-1"></main>
+
+    <div class="rs-bar" id="rsbar" hidden>
+        <span class="rs-label">bck-i-search:</span>
+        <input id="rs-input" type="text" aria-label="反向搜索命令历史" autocomplete="off" spellcheck="false" placeholder="输入关键字，Ctrl+R 跳下一条">
+        <span class="rs-hint" id="rs-hint"></span>
+    </div>
+
+    <div class="term-entry" id="entry">
+        <span class="prompt" id="prompt" aria-hidden="true"></span>
+        <div class="cmd-wrap">
+            <input id="cmd" type="text" aria-label="终端命令输入" aria-describedby="status" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            <span class="fake-cursor" id="fake-cursor" aria-hidden="true"></span>
+        </div>
+        <span class="busy" id="busy" aria-hidden="true" hidden></span>
+    </div>
+
+    <div class="term-status" id="status" role="status" aria-live="polite">
+        <span id="st-cwd"></span>
+        <span class="st-dot" aria-hidden="true"></span>
+        <span id="st-exit"></span>
+        <span class="spacer"></span>
+        <span id="st-mode"></span>
+        <span class="st-dot" aria-hidden="true"></span>
+        <span id="st-fs"></span>
+    </div>
+
+    <div class="settings-overlay" id="settings" hidden>
+        <div class="settings-card" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+            <div class="settings-head">
+                <h2 id="settings-title">终端设置</h2>
+                <button type="button" class="set-close" id="settings-x" aria-label="关闭设置">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="settings-body">
+                <div class="set-row">
+                    <span class="set-label">字号</span>
+                    <div class="stepper">
+                        <button type="button" data-font="-" aria-label="减小字号">−</button>
+                        <span id="font-val">13 px</span>
+                        <button type="button" data-font="+" aria-label="增大字号">+</button>
+                    </div>
+                </div>
+                <div class="set-row column">
+                    <span class="set-label">光标</span>
+                    <div class="seg" role="group" aria-label="光标样式">
+                        <button type="button" data-cursor="system" aria-pressed="true">系统</button>
+                        <button type="button" data-cursor="block" aria-pressed="false">方块</button>
+                        <button type="button" data-cursor="bar" aria-pressed="false">竖线</button>
+                        <button type="button" data-cursor="underline" aria-pressed="false">下划线</button>
+                    </div>
+                </div>
+                <div class="set-row column">
+                    <span class="set-label">配色</span>
+                    <div class="seg" role="group" aria-label="终端配色">
+                        <button type="button" data-scheme="auto" aria-pressed="true">跟随系统</button>
+                        <button type="button" data-scheme="light" aria-pressed="false">浅色</button>
+                        <button type="button" data-scheme="dark" aria-pressed="false">深色</button>
+                    </div>
+                </div>
+                <div class="set-hint">
+                    双指滚动查看输出历史；左缘右滑返回上一目录，右缘左滑前进。<br>
+                    设置只影响终端本身，不改系统主题。
+                </div>
+            </div>
+            <div class="settings-foot">
+                <button type="button" class="glass-btn" id="reset-prefs">恢复默认</button>
+                <button type="button" class="glass-btn accent" id="settings-ok">完成</button>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script src="_bridge.js"></script>
+<script src="_app.js?v=2.9.57"></script>
 <script>
 (function () {
-  'use strict';
+'use strict';
 
-  var N = window.Nexus;
-  var scrollEl = document.getElementById('scroll');
-  var promptEl = document.getElementById('prompt');
-  var cmdEl = document.getElementById('cmd');
-  var termEl = document.getElementById('term');
+var N = window.Nexus;
+var termEl = document.getElementById('term');
+var tabsEl = document.getElementById('tabs');
+var scrollEl = document.getElementById('scroll');
+var promptEl = document.getElementById('prompt');
+var cmdEl = document.getElementById('cmd');
+var fakeEl = document.getElementById('fake-cursor');
+var busyEl = document.getElementById('busy');
+var statusCwd = document.getElementById('st-cwd');
+var statusExit = document.getElementById('st-exit');
+var statusMode = document.getElementById('st-mode');
+var statusFs = document.getElementById('st-fs');
+var findbar = document.getElementById('findbar');
+var findInput = document.getElementById('find-input');
+var findCount = document.getElementById('find-count');
+var rsbar = document.getElementById('rsbar');
+var rsInput = document.getElementById('rs-input');
+var rsHint = document.getElementById('rs-hint');
+var settingsEl = document.getElementById('settings');
+var fontValEl = document.getElementById('font-val');
 
-  var ctx = null;           // 桥上下文
-  var user = { name: 'user', role: 'guest' };
-  var home = 'C:/Users/user';
-  var cwd = 'C:/Users/user';
-  var history = [];
-  var histIdx = history.length;
-  var tabBaseline = '';
-  var bootT = Date.now();
-  var fsCache = null;       // 本次命令执行时的文件系统快照
+var FONT_STEPS = [11, 12, 13, 14, 16, 18];
+var CURSORS = ['system', 'block', 'bar', 'underline'];
+var SCHEMES = ['auto', 'light', 'dark'];
+var MAX_LINES = 2500;
 
-  /* —— 诊断兜底：任何脚本错误直接打进终端，不再静默变砖 —— */
-  window.addEventListener('error', function (ev) {
-    try { printErr('<span class="dim">[script-error]</span> ' + esc((ev && ev.message) || '未知错误') + (ev && ev.filename ? ' <span class="dim">(' + esc(ev.filename.split('/').pop()) + ':' + ev.lineno + ')</span>' : '')); } catch (e) {}
-  });
-  window.addEventListener('unhandledrejection', function (ev) {
-    try { printErr('<span class="dim">[async-error]</span> ' + esc((ev.reason && ev.reason.message) || String(ev.reason))); } catch (e) {}
-  });
+var state = {
+    started: false,
+    ctx: null,
+    user: { name: 'user', role: 'standard' },
+    hostDark: false,
+    bridgeReady: false,
+    fsOffline: false,
+    fs: null,
+    home: 'C:',
+    apps: null,
+    tabs: [],
+    active: 0,
+    nextTabId: 1,
+    nextTabNo: 1,
+    recent: [],
+    prefs: { fs: 13, cursor: 'system', scheme: 'auto' },
+    bootAt: Date.now(),
+    scrollTarget: 0,
+    scrollRAF: 0,
+    scrollAnimating: false,
+    cursorRAF: 0,
+    findOpen: false,
+    searchMarks: [],
+    searchIndex: -1,
+    searchTimer: 0,
+    rsActive: false,
+    rsDraft: '',
+    rsMatches: [],
+    rsIndex: 0,
+    busyTimer: 0,
+    statusTimer: 0,
+    recentTimer: 0,
+    edgeAcc: 0,
+    edgeLock: 0,
+    edgePtr: null,
+    lastTitle: ''
+};
 
-  /* ---------------- 基础工具 ---------------- */
-  function esc(s) {
+function esc(s) {
     return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-  // 输出一段 HTML（已受控转义的部分用 html 参数传入）
-  function print(text, cls) {
-    var d = document.createElement('div');
-    d.className = 'line' + (cls ? ' ' + cls : '');
-    d.innerHTML = text;
-    scrollEl.appendChild(d);
-    scrollToBottom();
-  }
-  function printErr(text) { print(text, 'err'); }
-  function scrollToBottom() { scrollEl.scrollTop = scrollEl.scrollHeight; }
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function pad(s, n) {
+    s = String(s);
+    while (s.length < n) s = ' ' + s;
+    return s;
+}
+function humanSize(n) {
+    n = Number(n) || 0;
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(n < 10240 ? 1 : 0) + ' K';
+    return (n / 1048576).toFixed(1) + ' M';
+}
+function fmtDuration(ms) {
+    var sec = Math.max(0, Math.floor(ms / 1000));
+    if (sec < 60) return sec + 's';
+    var m = Math.floor(sec / 60), s = sec % 60;
+    if (m < 60) return m + 'm ' + (s < 10 ? '0' : '') + s + 's';
+    var h = Math.floor(m / 60); m = m % 60;
+    return h + 'h ' + (m < 10 ? '0' : '') + m + 'm';
+}
+function fmtDate(ts) {
+    if (!ts) return '—';
+    try { return new Date(ts).toISOString().slice(0, 10); } catch (e) { return '—'; }
+}
+function nowText() {
+    try {
+        return new Date().toLocaleString('zh-CN', { hour12: false });
+    } catch (e) { return new Date().toString(); }
+}
 
-  /* ---------------- 路径 ---------------- */
-  function homeDir() { return 'C:/Users/' + (user.name || 'user'); }
-  function resolve(arg) {
-    if (!arg) return cwd;
-    if (arg === '~') return homeDir();
-    arg = String(arg).replace(/\\/g, '/');
-    var abs;
-    if (/^[A-Za-z]:/.test(arg)) abs = arg;
-    else if (arg.charAt(0) === '/') abs = 'C:' + arg;
-    else abs = cwd + '/' + arg;
-    var drive = abs.charAt(0).toUpperCase();
-    var segs = abs.slice(2).split('/').filter(function (s) { return s !== ''; });
-    var out = [];
-    for (var i = 0; i < segs.length; i++) {
-      var s = segs[i];
-      if (s === '.') continue;
-      if (s === '..') { if (out.length) out.pop(); }
-      else out.push(s);
+/* ── Shell 语法辅助 ───────────────────────────────────────── */
+
+function tokenize(s) {
+    var out = [], cur = '', q = null, has = false;
+    for (var i = 0; i < s.length; i++) {
+        var c = s.charAt(i);
+        if (q) {
+            if (c === q) { q = null; }
+            else if (c === '\\' && q === '"' && i + 1 < s.length) { cur += s.charAt(++i); }
+            else { cur += c; }
+            continue;
+        }
+        if (c === '"' || c === "'") { q = c; has = true; continue; }
+        if (c === ' ' || c === '\t') {
+            if (cur || has) { out.push(cur); cur = ''; has = false; }
+            continue;
+        }
+        if (c === '\\' && i + 1 < s.length) { cur += s.charAt(++i); has = true; continue; }
+        cur += c; has = true;
     }
-    return drive + ':' + (out.length ? '/' + out.join('/') : '');
-  }
-  function getNode(fs, path) {
-    if (!fs) return null;
-    var segs = path.split('/').filter(function (s) { return s !== ''; });
-    if (!segs.length) return null;
-    var node = fs[segs[0].replace(':', '')];
+    if (cur || has) out.push(cur);
+    return out;
+}
+
+function splitTop(s, sep) {
+    var out = [], cur = '', q = null;
+    for (var i = 0; i < s.length; i++) {
+        var c = s.charAt(i);
+        if (q) {
+            cur += c;
+            if (c === q && s.charAt(i - 1) !== '\\') q = null;
+            continue;
+        }
+        if (c === '"' || c === "'") { q = c; cur += c; continue; }
+        if (c === sep) { out.push(cur); cur = ''; continue; }
+        if (c === '\\' && i + 1 < s.length) { cur += c + s.charAt(i + 1); i++; continue; }
+        cur += c;
+    }
+    out.push(cur);
+    return out;
+}
+
+function splitChain(s) {
+    var out = [], cur = '', q = null, op = null;
+    for (var i = 0; i < s.length; i++) {
+        var c = s.charAt(i);
+        if (q) {
+            cur += c;
+            if (c === q && s.charAt(i - 1) !== '\\') q = null;
+            continue;
+        }
+        if (c === '"' || c === "'") { q = c; cur += c; continue; }
+        if (c === '&' && s.charAt(i + 1) === '&') { out.push({ cmd: cur, op: op }); cur = ''; op = '&&'; i++; continue; }
+        if (c === '|' && s.charAt(i + 1) === '|') { out.push({ cmd: cur, op: op }); cur = ''; op = '||'; i++; continue; }
+        if (c === ';') { out.push({ cmd: cur, op: op }); cur = ''; op = ';'; continue; }
+        if (c === '\\' && i + 1 < s.length) { cur += c + s.charAt(i + 1); i++; continue; }
+        cur += c;
+    }
+    out.push({ cmd: cur, op: op });
+    return out;
+}
+
+function extractRedirect(s) {
+    var q = null, last = -1, len = 1;
+    for (var i = 0; i < s.length; i++) {
+        var c = s.charAt(i);
+        if (q) {
+            if (c === q && s.charAt(i - 1) !== '\\') q = null;
+            continue;
+        }
+        if (c === '"' || c === "'") { q = c; continue; }
+        if (c === '\\' && i + 1 < s.length) { i++; continue; }
+        if (c === '>') {
+            len = s.charAt(i + 1) === '>' ? 2 : 1;
+            last = i;
+            if (len === 2) i++;
+        }
+    }
+    if (last < 0) return null;
+    var target = s.slice(last + len).trim();
+    var cmd = s.slice(0, last).trim();
+    if (!target) return { bad: '缺少重定向目标文件' };
+    if (!cmd) return { bad: '缺少重定向前的命令' };
+    return { cmd: cmd, target: target, append: len === 2 };
+}
+
+function ShellError(message, code) {
+    this.message = message;
+    this.code = code || 1;
+}
+
+/* ── 路径与虚拟文件系统 ───────────────────────────────────── */
+
+function getNode(fs, p) {
+    if (!fs || !p) return null;
+    var m = /^([A-Za-z]):/.exec(p);
+    if (!m) return null;
+    var node = fs[m[1].toUpperCase()];
     if (!node) return null;
-    for (var i = 1; i < segs.length; i++) {
-      if (!node.children || !node.children[segs[i]]) return null;
-      node = node.children[segs[i]];
+    var rest = p.slice(2).split('/');
+    for (var i = 0; i < rest.length; i++) {
+        var seg = rest[i];
+        if (!seg) continue;
+        if (!node.children || !node.children[seg]) return null;
+        node = node.children[seg];
     }
     return node;
-  }
-  function displayPath(p) {
-    var h = homeDir();
-    if (p === h) return '~';
-    if (p.indexOf(h + '/') === 0) return '~' + p.slice(h.length);
-    if (/^[A-Za-z]:$/.test(p)) return '/';
-    if (/^[A-Za-z]:/.test(p)) return p.slice(2); // C:/Windows -> /Windows
+}
+
+function isDir(node) {
+    return !!node && (node.type === 'folder' || node.type === 'drive');
+}
+
+function normalizeAbs(abs) {
+    var drive = abs.charAt(0).toUpperCase();
+    var rest = abs.slice(2).split('/');
+    var out = [];
+    for (var i = 0; i < rest.length; i++) {
+        var seg = rest[i];
+        if (!seg || seg === '.') continue;
+        if (seg === '..') { if (out.length) out.pop(); continue; }
+        out.push(seg);
+    }
+    return drive + ':' + (out.length ? '/' + out.join('/') : '');
+}
+
+function resolvePath(arg, tab) {
+    if (!arg) return tab.cwd;
+    var a = String(arg).replace(/\\/g, '/');
+    if (a === '~') return tab.home;
+    if (a === '-') return tab.oldpwd || tab.cwd;
+    var abs;
+    if (/^[A-Za-z]:/.test(a)) abs = a;
+    else if (a.charAt(0) === '/') abs = tab.cwd.charAt(0) + ':' + a;
+    else abs = tab.cwd + '/' + a;
+    return normalizeAbs(abs);
+}
+
+function parentPath(p) {
+    var i = p.lastIndexOf('/');
+    if (i < 0) return null;
+    return i === 2 ? p.slice(0, 2) : p.slice(0, i);
+}
+
+function baseName(p) {
+    var i = p.lastIndexOf('/');
+    if (i < 0) return p;
+    return p.slice(i + 1);
+}
+
+function joinPath(dir, name) {
+    return dir + '/' + name;
+}
+
+function displayPath(tab, p) {
+    p = p || tab.cwd;
+    if (!p) return '/';
+    if (tab.home && p === tab.home) return '~';
+    if (tab.home && p.indexOf(tab.home + '/') === 0) return '~' + p.slice(tab.home.length);
+    if (p === 'C:') return '/';
+    if (/^C:/.test(p)) return p.slice(2);
+    if (/^[A-Za-z]:$/.test(p)) return p + '/';
     return p;
-  }
+}
 
-  /* ---------------- 提示符 ---------------- */
-  function renderPrompt() {
-    var path = displayPath(cwd);
-    var sign = (user.role === 'admin') ? '#' : '$';
-    promptEl.innerHTML =
-      '<span style="color:#3fb950;font-weight:700">' + esc(user.name || 'user') + '@nexus</span>' +
-      '<span style="color:#8b949e">:</span>' +
-      '<span style="color:#58a6ff">' + esc(path) + '</span>' +
-      '<span style="color:' + (user.role === 'admin' ? '#f85149' : '#8b949e') + '">' + sign + '</span>' +
-      ' ';
-  }
-
-  /* ---------------- 文件系统（经桥） ---------------- */
-  function loadFS() { return N.getUserLS('filesystem'); }
-  function saveFS(fs) { return N.setUserLS('filesystem', fs); }
-
-  /* ---------------- 输出：把纯文本按行打印（支持 \n） ---------------- */
-  function out(text, cls) {
-    if (text == null || text === '') return;
-    var lines = String(text).split('\n');
-    for (var i = 0; i < lines.length; i++) print(esc(lines[i]), cls);
-  }
-
-  /* ============================================================
-     命令解析：支持 序列(; &&) / 管道(|) / 重定向(> >>)
-     ============================================================ */
-  function tokenize(stage) {
-    var toks = [];
-    var cur = '';
-    var q = null;
-    for (var i = 0; i < stage.length; i++) {
-      var c = stage.charAt(i);
-      if (q) {
-        if (c === q) { q = null; }
-        else cur += c;
-      } else if (c === '"' || c === "'") {
-        q = c;
-      } else if (c === ' ' || c === '\t') {
-        if (cur) { toks.push(cur); cur = ''; }
-      } else {
-        cur += c;
-      }
+function pickHome(fs, name) {
+    var candidates = ['C:/Users/' + name, 'C:/Users/user', 'C:/文档', 'C:'];
+    for (var i = 0; i < candidates.length; i++) {
+        if (getNode(fs, candidates[i])) return candidates[i];
     }
-    if (cur) toks.push(cur);
-    return toks;
-  }
-  function splitTop(str, sep) {
-    var parts = [];
-    var cur = '';
-    var q = null;
-    for (var i = 0; i < str.length; i++) {
-      var c = str.charAt(i);
-      if (q) { cur += c; if (c === q) q = null; }
-      else if (c === '"' || c === "'") { q = c; cur += c; }
-      else if (c === sep) { parts.push(cur); cur = ''; }
-      else cur += c;
+    var keys = Object.keys(fs);
+    return keys.length ? keys[0].toUpperCase() + ':' : 'C:';
+}
+
+function envValue(name, tab) {
+    switch (name) {
+        case 'USER': return state.user.name || 'user';
+        case 'HOME': return tab.home || 'C:';
+        case 'PWD': return tab.cwd;
+        case 'OLDPWD': return tab.oldpwd || '';
+        case 'SHELL': return 'nexus-sh';
+        case 'TERM': return 'nexus-256color';
+        case 'HOSTNAME': return 'nexus';
+        case 'LANG': return 'zh-CN.UTF-8';
+        case 'TZ': return 'Asia/Shanghai';
+        case '?': return String(tab.exit || 0);
+        default: return '';
     }
-    parts.push(cur);
-    return parts;
-  }
+}
 
-  /* ---------------- 命令实现 ----------------
-     约定：cmd(argv, stdin) -> Promise<string|undefined>  （返回即 stdout）
-     ============================================================ */
-
-  var CMDS = {};
-  function def(name, fn, meta) { CMDS[name] = { fn: fn, meta: meta || {} }; }
-
-  /* 返回"含 <span> 彩色 HTML"的命令白名单：这些命令已自行 esc 动态内容，输出走 raw；
-     其余命令返回纯文本，统一经 out() 转义，保证 echo/cat 等不受信任内容安全。 */
-  var COLOR_CMDS = { help: 1, man: 1, ls: 1, ll: 1, la: 1, neofetch: 1, tree: 1, matrix: 1, btw: 1, sudo: 1, open: 1, curl: 1, wget: 1 };
-
-  def('help', async function () {
-    var groups = {
-      '文件': 'ls  ll  cd  pwd  cat  head  tail  touch  mkdir  rmdir  rm  cp  mv  tree  find  wc  grep',
-      '系统': 'whoami  id  hostname  uname  date  cal  uptime  free  df  ps  top  env  which  type  neofetch  ver  about',
-      'Shell': 'echo  printf  clear  history  sleep  open  exit  bc  man  help',
-      '趣味': 'cowsay  banner  figlet  fortune  yes  sl  matrix  btw  sudo'
-    };
-    var lines = ['<span class="blu b">Nexus Terminal</span> <span class="dim">— nexus-sh 1.0（贴近 Linux 的体验）</span>', ''];
-    for (var g in groups) lines.push('  <span class="mag">' + g + '</span>  ' + groups[g]);
-    lines.push('');
-    lines.push('  <span class="dim">提示：Tab 补全 · ↑↓ 历史 · Ctrl+L 清屏 · Ctrl+C 中断 · Ctrl+A/E/U/K 行编辑 · 支持 | 管道 与 > >> 重定向</span>');
-    lines.push('  <span class="dim">输入 man <命令> 查看详细用法</span>');
-    return lines.join('\n');
-  });
-
-  def('man', async function (argv) {
-    var name = argv[0];
-    if (!name) return '<span class="err">用法: man <命令></span>';
-    var c = CMDS[name];
-    if (!c || !c.meta.man) return '<span class="err">man: 没有 ' + esc(name) + ' 的手册页</span>';
-    return c.meta.man;
-  });
-
-  def('pwd', async function () { return cwd; });
-
-  def('cd', async function (argv) {
-    var target = argv[0] || '~';
-    var p = resolve(target);
-    var node = getNode(fsCache, p);
-    if (!node) return 'cd: ' + esc(target) + ': 没有那个文件或目录';
-    if (node.type === 'file') return 'cd: ' + esc(target) + ': 不是目录';
-    cwd = p; renderPrompt();
-    return '';
-  });
-
-  function fmtLs(name, data, long, human) {
-    if (!long) {
-      var color = data.type === 'folder' || data.type === 'drive' ? 'blu b' : '';
-      return color ? '<span class="' + color + '">' + esc(name) + (data.type === 'folder' ? '/' : '') + '</span>' : esc(name);
-    }
-    var isDir = (data.type === 'folder' || data.type === 'drive');
-    var perm = isDir ? 'drwxr-xr-x' : '-rw-r--r--';
-    var size = isDir ? 4096 : (data.content ? data.content.length : 0);
-    var sz = human ? humanSize(size) : size;
-    var date = new Date(data.mtime || Date.now()).toISOString().slice(0, 10);
-    return '<span class="dim">' + perm + '</span> ' + esc(String(size).padStart(8, ' ')) +
-      ' <span class="dim">' + date + '</span> ' +
-      (isDir ? '<span class="blu b">' + esc(name) + '/</span>' : esc(name));
-  }
-  function humanSize(n) {
-    if (n < 1024) return n + 'B';
-    if (n < 1048576) return (n / 1024).toFixed(1) + 'K';
-    if (n < 1073741824) return (n / 1048576).toFixed(1) + 'M';
-    return (n / 1073741824).toFixed(1) + 'G';
-  }
-  def('ls', async function (argv) {
-    var long = false, all = false, human = false;
-    var paths = [];
-    argv.forEach(function (a) {
-      if (a === '-l' || a === '-la' || a === '-al') { long = true; if (a !== '-l') all = true; }
-      else if (a === '-a') all = true;
-      else if (a === '-h') human = true;
-      else if (a === '-lh' || a === '-hl') { long = true; human = true; }
-      else if (a[0] === '-') { /* 忽略未知选项 */ }
-      else paths.push(a);
+function expandVars(s, tab) {
+    return String(s).replace(/\$([A-Za-z?][A-Za-z0-9_]*)/g, function (_, k) {
+        var v = envValue(k, tab);
+        return v == null ? '' : v;
     });
-    var target = paths.length ? resolve(paths[0]) : cwd;
-    var node = getNode(fsCache, target);
-    if (!node) return 'ls: 无法访问 \'' + esc(paths[0] || target) + '\': 没有那个文件或目录';
-    if (node.type === 'file') return esc(paths[0]);
-    var names = Object.keys(node.children || {}).filter(function (n) { return all || n.charAt(0) !== '.'; });
-    if (!names.length) return long ? 'total 0' : '';
-    if (long) {
-      var rows = ['total ' + names.length];
-      names.forEach(function (n) { rows.push(fmtLs(n, node.children[n], true, human)); });
-      return rows.join('\n');
-    }
-    // 网格排布
-    return names.map(function (n) {
-      var isDir = (node.children[n].type === 'folder' || node.children[n].type === 'drive');
-      return isDir ? '<span class="blu b">' + esc(n) + '/</span>' : esc(n);
-    }).join('   ');
-  });
-  def('ll', async function (a) { return CMDS.ls.fn(['-l'].concat(a || []), ''); });
-  def('la', async function (a) { return CMDS.ls.fn(['-a'].concat(a || []), ''); });
+}
 
-  def('cat', async function (argv, stdin) {
-    if (!argv.length) return stdin || '';
-    var res = [];
-    for (var i = 0; i < argv.length; i++) {
-      var node = getNode(fsCache, resolve(argv[i]));
-      if (!node) return 'cat: ' + esc(argv[i]) + ': 没有那个文件或目录';
-      if (node.type === 'folder') return 'cat: ' + esc(argv[i]) + ': 是一个目录';
-      res.push(node.content == null ? '' : node.content);
+function readDirNames(node, all) {
+    var names = Object.keys((node && node.children) || {});
+    if (!all) {
+        names = names.filter(function (n) {
+            var c = node.children[n];
+            return !(c && c.hidden === true);
+        });
     }
-    return res.join('\n');
-  }, { man: '<span class="b">cat</span> <span class="dim">[文件...]</span> — 显示文件内容；无参数时读取管道输入' });
+    names.sort(function (a, b) { return a.localeCompare(b, 'zh-CN'); });
+    return names;
+}
 
-  def('head', async function (argv, stdin) {
-    var n = 10, f = null;
-    if (argv[0] === '-n') { n = parseInt(argv[1], 10) || 10; f = argv[2]; }
-    else f = argv[0];
-    var text = f ? (getNode(fsCache, resolve(f)) || {}).content : stdin;
-    if (text == null) return 'head: 无法读取输入';
-    return String(text).split('\n').slice(0, n).join('\n');
-  });
-  def('tail', async function (argv, stdin) {
-    var n = 10, f = null;
-    if (argv[0] === '-n') { n = parseInt(argv[1], 10) || 10; f = argv[2]; }
-    else f = argv[0];
-    var text = f ? (getNode(fsCache, resolve(f)) || {}).content : stdin;
-    if (text == null) return 'tail: 无法读取输入';
-    var arr = String(text).split('\n');
-    return arr.slice(Math.max(0, arr.length - n)).join('\n');
-  });
-  def('wc', async function (argv, stdin) {
-    var text = argv[0] ? (getNode(fsCache, resolve(argv[0])) || {}).content : stdin;
-    if (text == null) return 'wc: 无法读取输入';
-    var lines = text === '' ? 0 : String(text).split('\n').length;
-    var words = String(text).split(/\s+/).filter(Boolean).length;
-    var chars = String(text).length;
-    return '  ' + lines + '  ' + words + '  ' + chars + (argv[0] ? ' ' + esc(argv[0]) : '');
-  });
-  def('grep', async function (argv, stdin) {
-    var pat = null, files = [];
-    for (var i = 0; i < argv.length; i++) {
-      if (argv[i][0] === '-') continue;
-      if (pat == null) pat = argv[i]; else files.push(argv[i]);
-    }
-    if (pat == null) return 'grep: 缺少匹配模式';
-    var re = new RegExp(pat);
-    var text;
-    if (files.length) text = (getNode(fsCache, resolve(files[0])) || {}).content || '';
-    else text = stdin || '';
-    return String(text).split('\n').filter(function (l) { return re.test(l); }).join('\n');
-  });
-  def('find', async function (argv) {
-    var start = cwd, name = null;
-    argv.forEach(function (a) { if (a === '.') return; if (a[0] === '-') { if (a === '-name' || a === '-iname') { /* next */ } } else if (!/^-/.test(a)) { if (a === '.') return; start = resolve(a); } });
-    // 简化：find [路径] -name 关键字
-    var kw = null, pathArg = null;
-    for (var i = 0; i < argv.length; i++) {
-      if (argv[i] === '-name') { kw = argv[i + 1]; i++; }
-      else pathArg = argv[i];
-    }
-    var base = pathArg ? resolve(pathArg) : cwd;
-    var res = [];
-    (function walk(path, node) {
-      if (!node) return;
-      var kids = node.children || {};
-      Object.keys(kids).forEach(function (n) {
-        var child = kids[n];
-        var full = path + '/' + n;
-        var isDir = (child.type === 'folder' || child.type === 'drive');
-        if (!kw || n.indexOf(kw) !== -1) res.push(full + (isDir ? '/' : ''));
-        if (isDir) walk(full, child);
-      });
-    })(base, getNode(fsCache, base));
-    return res.join('\n');
-  });
-  def('tree', async function (argv) {
-    var base = argv[0] ? resolve(argv[0]) : cwd;
-    var root = getNode(fsCache, base);
-    if (!root) return 'tree: ' + esc(argv[0]) + ': 没有那个目录';
-    var lines = ['<span class="blu">' + esc(displayPath(base)) + '</span>'];
-    (function walk(node, prefix) {
-      var kids = node.children || {};
-      var names = Object.keys(kids);
-      names.forEach(function (n, idx) {
-        var last = idx === names.length - 1;
-        var child = kids[n];
-        var isDir = (child.type === 'folder' || child.type === 'drive');
-        lines.push(prefix + (last ? '└── ' : '├── ') +
-          (isDir ? '<span class="blu b">' + esc(n) + '/</span>' : esc(n)));
-        if (isDir) walk(child, prefix + (last ? '    ' : '│   '));
-      });
-    })(root, '');
-    var dirs = lines.length;
-    return lines.join('\n');
-  });
+/* ── 桥接 ─────────────────────────────────────────────────── */
 
-  def('echo', async function (argv, stdin) {
-    var text = argv.join(' ');
-    return text.replace(/\$(\w+)/g, '');
-  });
-  def('printf', async function (argv) {
-    return argv.join(' ').replace(/\\n/g, '\n').replace(/\\t/g, '\t');
-  });
+function bridgeMs(promise, ms, label) {
+    return new Promise(function (resolve, reject) {
+        var done = false;
+        var timer = setTimeout(function () {
+            if (done) return;
+            done = true;
+            reject(new Error((label || 'bridge') + ' timeout'));
+        }, ms);
+        Promise.resolve(promise).then(function (v) {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            resolve(v);
+        }, function (e) {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            reject(e);
+        });
+    });
+}
 
-  function parentAndName(fs, path) {
-    var idx = path.lastIndexOf('/');
-    var parentPath = idx <= 2 ? path.slice(0, 2) : path.slice(0, idx); // 'C:' 或 'C:/xxx'
-    var name = idx <= 2 ? path.slice(3) : path.slice(idx + 1);
-    return { parent: getNode(fs, parentPath), parentPath: parentPath, name: name };
-  }
-  def('touch', async function (argv) {
-    if (!argv[0]) return 'touch: 缺少文件操作数';
-    var fs = fsCache;
-    var p = resolve(argv[0]);
-    var pn = parentAndName(fs, p);
-    if (!pn.parent || !pn.parent.children) return 'touch: 无法创建 \'' + esc(argv[0]) + '\': 目录不存在';
-    if (pn.parent.children[pn.name]) { pn.parent.children[pn.name].mtime = Date.now(); }
-    else pn.parent.children[pn.name] = { type: 'file', content: '', mtime: Date.now() };
-    await saveFS(fs);
-    return '';
-  });
-  def('mkdir', async function (argv) {
-    argv = argv.filter(function (a) { return a[0] !== '-'; });
-    if (!argv[0]) return 'mkdir: 缺少操作数';
-    var fs = fsCache;
-    var p = resolve(argv[0]);
-    var pn = parentAndName(fs, p);
-    if (!pn.parent || !pn.parent.children) return 'mkdir: 无法创建目录 \'' + esc(argv[0]) + '\': 上级不存在';
-    if (pn.parent.children[pn.name]) return 'mkdir: 无法创建目录 \'' + esc(argv[0]) + '\': 文件已存在';
-    pn.parent.children[pn.name] = { type: 'folder', children: {}, mtime: Date.now() };
-    await saveFS(fs);
-    return '';
-  });
-  def('rmdir', async function (argv) {
-    if (!argv[0]) return 'rmdir: 缺少操作数';
-    var fs = fsCache;
-    var p = resolve(argv[0]);
-    var pn = parentAndName(fs, p);
-    var node = pn.parent && pn.parent.children && pn.parent.children[pn.name];
-    if (!node) return 'rmdir: 失败: \'' + esc(argv[0]) + '\': 没有那个文件或目录';
-    if (node.type !== 'folder') return 'rmdir: 失败: \'' + esc(argv[0]) + '\': 不是目录';
-    if (node.children && Object.keys(node.children).length) return 'rmdir: 失败: \'' + esc(argv[0]) + '\': 目录非空';
-    delete pn.parent.children[pn.name];
-    await saveFS(fs);
-    return '';
-  });
-  def('rm', async function (argv) {
-    var rec = false, targets = [];
-    argv.forEach(function (a) { if (a === '-r' || a === '-rf' || a === '-fr' || a === '-R') rec = true; else if (a[0] !== '-') targets.push(a); });
-    if (!targets.length) return 'rm: 缺少操作数';
-    var fs = fsCache;
-    for (var i = 0; i < targets.length; i++) {
-      var p = resolve(targets[i]);
-      var pn = parentAndName(fs, p);
-      var node = pn.parent && pn.parent.children && pn.parent.children[pn.name];
-      if (!node) return 'rm: 无法删除 \'' + esc(targets[i]) + '\': 没有那个文件或目录';
-      if (node.type === 'folder' && !rec) return 'rm: 无法删除 \'' + esc(targets[i]) + '\': 是一个目录（用 -r）';
-      // 移入回收站（与系统一致）
-      var trash = await N.getUserLS('trash') || [];
-      trash.push({ name: pn.name, type: node.type, content: node.content, children: node.children, originalPath: pn.parentPath, deletedAt: Date.now() });
-      await N.setUserLS('trash', trash);
-      delete pn.parent.children[pn.name];
-    }
-    await saveFS(fs);
-    return '';
-  });
-  def('cp', async function (argv) {
-    argv = argv.filter(function (a) { return a[0] !== '-'; });
-    if (argv.length < 2) return 'cp: 用法: cp <源> <目标>';
-    var fs = fsCache;
-    var src = getNode(fs, resolve(argv[0]));
-    if (!src) return 'cp: 无法访问 \'' + esc(argv[0]) + '\': 没有那个文件或目录';
-    var dp = resolve(argv[1]);
-    var pn = parentAndName(fs, dp);
-    if (!pn.parent || !pn.parent.children) return 'cp: 目标目录无效';
-    pn.parent.children[pn.name] = JSON.parse(JSON.stringify(src));
-    await saveFS(fs);
-    return '';
-  });
-  def('mv', async function (argv) {
-    argv = argv.filter(function (a) { return a[0] !== '-'; });
-    if (argv.length < 2) return 'mv: 用法: mv <源> <目标>';
-    var fs = fsCache;
-    var sp = resolve(argv[0]);
-    var spn = parentAndName(fs, sp);
-    var node = spn.parent && spn.parent.children && spn.parent.children[spn.name];
-    if (!node) return 'mv: 无法访问 \'' + esc(argv[0]) + '\': 没有那个文件或目录';
-    var dp = resolve(argv[1]);
-    var dpn = parentAndName(fs, dp);
-    if (!dpn.parent || !dpn.parent.children) return 'mv: 目标目录无效';
-    dpn.parent.children[dpn.name] = node;
-    delete spn.parent.children[spn.name];
-    await saveFS(fs);
-    return '';
-  });
+function offlineMessage() {
+    return '本地桥离线：文件系统命令不可用。\n请从 Nexus OS 桌面打开终端；help / echo / theme 等内建命令仍可使用。';
+}
 
-  def('clear', async function () { scrollEl.innerHTML = ''; return undefined; });
-  def('cls', async function () { scrollEl.innerHTML = ''; return undefined; });
-  def('history', async function () {
-    return history.map(function (h, i) { return '  ' + String(i + 1).padStart(4, ' ') + '  ' + h; }).join('\n');
-  });
-  def('whoami', async function () { return user.name || 'guest'; });
-  def('id', async function () {
-    return 'uid=' + (user.role === 'admin' ? 1000 : 1001) + '(' + (user.name || 'user') + ') gid=' + (user.role === 'admin' ? 1000 : 1001) + '(' + (user.role === 'admin' ? 'admin' : 'user') + ')';
-  });
-  def('hostname', async function () { return 'nexus'; });
-  def('uname', async function (argv) {
-    if (argv.indexOf('-a') !== -1) return 'Nexus nexus 5.15.0-nexus #1 SMP x86_64 GNU/Nexus OS 26';
-    return 'Nexus';
-  });
-  def('date', async function () { return new Date().toLocaleString('zh-CN'); });
-  def('uptime', async function () {
-    var s = Math.floor((Date.now() - bootT) / 1000);
-    var m = Math.floor(s / 60), h = Math.floor(m / 60);
-    return ' 现在 ' + new Date().toLocaleTimeString('zh-CN') + '  已运行 ' + h + ':' + String(m % 60).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0') + '  1 user  负载: 0.08, 0.12, 0.10';
-  });
-  def('env', async function () {
-    return ['USER=' + (user.name || 'user'), 'HOME=' + homeDir(), 'SHELL=/bin/nexus-sh', 'TERM=xterm-256color', 'PATH=/usr/local/bin:/usr/bin:/bin', 'LANG=zh_CN.UTF-8'].join('\n');
-  });
-  def('which', async function (argv) {
-    if (!argv[0]) return '';
-    return CMDS[argv[0]] ? '/usr/bin/' + argv[0] : '';
-  });
-  def('type', async function (argv) {
-    if (!argv[0]) return '';
-    return CMDS[argv[0]] ? argv[0] + ' 是 nexus-sh 内建命令' : argv[0] + ': 未找到';
-  });
-  def('ver', async function () { return 'Nexus OS 26 1.0 (nexus-sh 1.0)'; });
-  def('about', async function () { return 'Nexus OS 26 —— 小方工作室出品的网页伪系统。\n本终端为贴近 Linux 体验的 nexus-sh。'; });
-  def('free', async function () {
-    return '               total        used        free      shared     buff/cache   available\nMem:            8192        2048        4096         128        2048        6144\nSwap:           2048           0        2048';
-  });
-  def('df', async function () {
-    return '文件系统      容量  已用  可用 已用% 挂载点\nC:           1000G   42G   958G    5% /\nD:           2000G  128G  1872G    7% /data';
-  });
-  def('ps', async function () {
-    return '  PID TTY          TIME CMD\n    1 ?        00:00:01 nexusd\n  102 ?        00:00:00 nexus-sh\n  ' + (Math.floor(Math.random() * 900) + 100) + ' ?        00:00:00 orb-renderer';
-  });
-  def('top', async function () {
-    return 'top - ' + new Date().toLocaleTimeString('zh-CN') + '  1 user,  load average: 0.08, 0.12, 0.10\n%Cpu(s):  3.2 us,  1.1 sy,  0.0 ni, 95.5 id\nMiB Mem : 8192 total, 6144 free\n\n  PID USER      %CPU  COMMAND\n    1 user       2.1  nexusd\n  102 user       1.4  nexus-sh\n  （真实系统监控见「活动监视器」应用）';
-  });
-  def('sleep', async function (argv) {
-    var n = parseFloat(argv[0]) || 1;
-    await new Promise(function (r) { setTimeout(r, Math.min(n, 5) * 1000); });
-    return '';
-  });
-  def('bc', async function (argv, stdin) {
-    var expr = argv.join(' ') || stdin || '';
-    if (!expr.trim()) return '';
+async function refreshFS(tab) {
+    if (!state.bridgeReady) throw new ShellError(offlineMessage(), 1);
     try {
-      if (!/^[-+*/%(). \d]+$/.test(expr)) return 'bc: 表达式非法';
-      // eslint-disable-next-line no-new-func
-      var val = Function('"use strict";return(' + expr + ')')();
-      return String(val);
-    } catch (e) { return 'bc: 语法错误'; }
-  });
-  def('calc', async function (a) { return CMDS.bc.fn(a, ''); });
-  def('neofetch', async function () {
-    var logo = [
-      '    _   __  __          __',
-      '   / | / /_ _/ /_  ___  / /',
-      '  /  |/ / / / __ \\/ _ \\/ /',
-      ' / /|  / / / / / /  __/ /',
-      '/_/ |_/_/ /_/ /_/\\___/_/'
-    ];
-    var s = Math.floor((Date.now() - bootT) / 1000);
-    var settings = await N.getSettings();
-    var info = [
-      user.name + '@nexus',
-      '----------------',
-      'OS: Nexus OS 26 1.0 x86_64',
-      'Kernel: 5.15.0-nexus',
-      'Uptime: ' + s + 's',
-      'Shell: nexus-sh 1.0',
-      'DE: Nexus Desktop',
-      'Theme: ' + (settings.theme || '夏日海滩'),
-      'Terminal: Nexus Terminal',
-      'CPU: Virtual CPU (8) @ 2.40GHz',
-      'Memory: 2048MiB / 8192MiB'
-    ];
-    var rows = [];
-    var max = Math.max(logo.length, info.length);
-    for (var i = 0; i < max; i++) {
-      var l = (logo[i] || '').padEnd(28, ' ');
-      var inf = info[i] || '';
-      var col = i === 0 ? 'blu b' : (i >= 2 ? '' : 'dim');
-      rows.push('<span class="blu">' + esc(l) + '</span>' + (col ? '<span class="' + col + '">' + esc(inf) + '</span>' : esc(inf)));
+        var fs = await bridgeMs(N.getUserLS('filesystem'), 5000, 'filesystem');
+        if (!fs || typeof fs !== 'object') throw new Error('empty filesystem');
+        state.fs = fs;
+        state.fsOffline = false;
+        if (!getNode(fs, tab.cwd)) {
+            var home = tab.home && getNode(fs, tab.home) ? tab.home : pickHome(fs, state.user.name);
+            tab.cwd = home;
+            tab.home = home;
+        }
+        return fs;
+    } catch (e) {
+        state.fsOffline = true;
+        updateStatus(tab);
+        throw new ShellError('无法读取 Nexus 虚拟文件系统：本地桥无响应。\n文件系统命令不可用，未显示任何假数据。', 1);
     }
-    return rows.join('\n');
-  });
-  def('cowsay', async function (argv) {
-    var msg = argv.join(' ') || 'Moo! 来自 Nexus 终端的问候';
-    var top = ' ' + '_'.repeat(msg.length + 2);
-    var bot = ' ' + '-'.repeat(msg.length + 2);
-    return top + '\n< ' + msg + ' >\n' + bot + '\n        \\   ^__^\n         \\  (oo)\\_______\n            (__)\\       )\\/\\\n                ||----w |\n                ||     ||';
-  });
-  def('banner', async function (argv) {
-    return ' _   __  __          __\n/ | / /_ _/ /_  ___  / /\n/  |/ / / / __ \\/ _ \\/ /\n/ /|  / / / / / /  __/ /\n/_/ |_/_/ /_/ /_/\\___/_/';
-  });
-  def('figlet', async function (a) { return CMDS.banner.fn(a, ''); });
-  def('fortune', async function () {
-    var f = ['愿你写的代码永无 bug。', '今天适合摸鱼，不宜重构。', '世界上有 10 种人：懂二进制的和不懂的。', 'Talk is cheap. Show me the code.', '小方工作室出品，必属精品。'];
-    return f[Math.floor(Math.random() * f.length)];
-  });
-  def('yes', async function (argv) {
-    var w = argv.join(' ') || 'y';
-    var lines = [];
-    for (var i = 0; i < 12; i++) lines.push(w);
-    return lines.join('\n') + '\n（为防止刷屏，仅输出 12 行）';
-  });
-  def('sl', async function () {
-    return '      ====        ________                ___________\n  _D _|  |_______/        \\__I_I_____===__|_________|\n   |(_)---  |   H\\________/ |   |        =|___ ___|   \n   /     |  |   H  |  |     |   |         ||_| |_||   \n   |      |  |   H  |__--------------------| [___] |   \n   | ________|___H__/__|_____/[][]~\\_______|       |   \n   |/ |   |-----------I_____I [][] []  D   |=======|__ ';
-  });
-  def('matrix', async function () {
-    var chars = '01';
-    var rows = [];
-    for (var i = 0; i < 8; i++) {
-      var line = '';
-      for (var j = 0; j < 40; j++) line += chars[Math.floor(Math.random() * chars.length)];
-      rows.push('<span class="ok">' + line + '</span>');
-    }
-    return rows.join('\n') + '\n<span class="dim">（已接入矩阵……开玩笑的，干活吧）</span>';
-  });
-  def('btw', async function () { return '<span class="cyan b">顺便说一句，我用 Nexus OS 26。 Arch btw.</span>'; });
-  def('sudo', async function (argv) {
-    var who = user.name || 'user';
-    if (argv[0] === 'rm' && argv.indexOf('-rf') !== -1 && (argv.indexOf('/') !== -1 || argv.indexOf('C:') !== -1)) {
-      return '<span class="err">[sudo] ' + who + ' 的密码：\n抱歉，用户 ' + who + ' 被禁止执行 "/bin/rm -rf ' + esc(argv.slice(2).join(' ')) + '" 作为 root。</span>';
-    }
-    return '<span class="err">' + who + ' 不在 sudoers 文件中。此事已被上报。</span>';
-  });
-  def('open', async function (argv) {
-    var alias = { settings: 'settings', files: 'files', browser: 'browser', music: 'music', calc: 'calculator', calculator: 'calculator', store: 'appstore', appstore: 'appstore', terminal: 'terminal', weather: 'weather', album: 'album', clock: 'worldclock' };
-    var id = alias[argv[0]] || argv[0];
-    if (!id) return 'open: 用法: open <应用名>';
-    await N.openApp(id);
-    return '正在打开 ' + esc(id) + ' …';
-  });
-  def('exit', async function () { await N.closeWindow(); return undefined; });
-  def('quit', async function () { await N.closeWindow(); return undefined; });
-  def('reboot', async function () { await N.call('osAction', 'reboot'); return '系统正在重启…'; });
-  def('shutdown', async function () { await N.call('osAction', 'shutdown'); return '系统正在关机…'; });
-  def('curl', async function (argv) {
-    return '<span class="dim">curl: 模拟请求 ' + esc(argv.join(' ')) + '\n（网页版为安全沙盒环境，真实网络请求请用「浏览器」应用）</span>';
-  });
-  def('wget', async function (a) { return CMDS.curl.fn(a, ''); });
+}
 
-  /* ============================================================
-     执行引擎
-     ============================================================ */
-  async function runPipeline(line) {
-    // 1) 序列：; 与 &&
-    var seqParts = splitTop(line, ';');
-    var lastCode = 0;
-    for (var si = 0; si < seqParts.length; si++) {
-      var seg = seqParts[si];
-      // && 链
-      var chain = splitDoubleAmp(seg);
-      for (var ci = 0; ci < chain.length; ci++) {
-        if (lastCode !== 0 && ci > 0 && chain[ci]._and) { continue; }
-        lastCode = await runSimple(chain[ci].cmd);
-      }
+async function saveFS() {
+    if (!state.bridgeReady) throw new ShellError(offlineMessage(), 1);
+    try {
+        await bridgeMs(N.setUserLS('filesystem', state.fs), 5000, 'filesystem-write');
+    } catch (e) {
+        throw new ShellError('写入虚拟文件系统失败：本地桥无响应。', 1);
     }
-    return lastCode;
-  }
+}
 
-  function splitDoubleAmp(str) {
-    var res = [];
-    var cur = '', q = null, i = 0;
-    while (i < str.length) {
-      var c = str.charAt(i);
-      if (q) { cur += c; if (c === q) q = null; i++; continue; }
-      if (c === '"' || c === "'") { q = c; cur += c; i++; continue; }
-      if (c === '&' && str.charAt(i + 1) === '&') {
-        res.push({ cmd: cur, _and: true }); cur = ''; i += 2; continue;
-      }
-      cur += c; i++;
+async function readTrashStrict() {
+    if (!state.bridgeReady) throw new ShellError(offlineMessage(), 1);
+    try {
+        var t = await bridgeMs(N.getUserLS('trash'), 4000, 'trash');
+        return Array.isArray(t) ? t : [];
+    } catch (e) {
+        throw new ShellError('回收站不可用，已取消删除。', 1);
     }
-    res.push({ cmd: cur, _and: false });
-    return res;
-  }
+}
 
-  async function runSimple(stageText) {
-    stageText = stageText.trim();
-    if (!stageText) return 0;
-    // 重定向
-    var redirect = null;
-    var m = stageText.match(/\s(>>|>)\s*([^\s]+)\s*$/);
-    if (m) { redirect = { append: m[1] === '>>', file: m[2] }; stageText = stageText.slice(0, m.index).trim(); }
-
-    // 管道
-    var stages = splitTop(stageText, '|').map(function (s) { return s.trim(); }).filter(function (s) { return s; });
-    var stdin = '';
-    var stdout = '';
-    for (var i = 0; i < stages.length; i++) {
-      var argv = tokenize(stages[i]);
-      if (!argv.length) continue;
-      var name = argv[0];
-      var args = argv.slice(1);
-      var cmd = CMDS[name];
-      if (!cmd) {
-        printErr(esc(name) + ': 命令未找到（输入 help 查看可用命令）');
-        return 127;
-      }
-      try {
-        var r = await cmd.fn(args, stdin);
-        stdout = (r == null) ? '' : String(r);
-      } catch (e) {
-        printErr(esc(name) + ': ' + esc(e.message || e));
-        return 1;
-      }
-      stdin = stdout;
+async function writeTrashStrict(trash) {
+    try {
+        await bridgeMs(N.setUserLS('trash', trash), 4000, 'trash-write');
+    } catch (e) {
+        throw new ShellError('写入回收站失败，已取消删除。', 1);
     }
-    if (redirect) {
-      var fs = fsCache;
-      var p = resolve(redirect.file);
-      var pn = parentAndName(fs, p);
-      if (!pn.parent || !pn.parent.children) { printErr('无法写入 ' + esc(redirect.file) + ': 目录不存在'); return 1; }
-      var prev = pn.parent.children[pn.name];
-      var content = prev && prev.content ? prev.content : '';
-      pn.parent.children[pn.name] = { type: 'file', content: redirect.append ? (content + (content ? '\n' : '') + stripTags(stdout)) : stripTags(stdout), mtime: Date.now() };
-      await saveFS(fs);
-    } else if (stdout) {
-      if (COLOR_CMDS[name]) print(stdout); else out(stdout);
+}
+
+/* ── 标签页与会话 ─────────────────────────────────────────── */
+
+function activeTab() { return state.tabs[state.active] || null; }
+function isActive(tab) { return state.tabs[state.active] === tab; }
+function tabById(id) {
+    for (var i = 0; i < state.tabs.length; i++) if (state.tabs[i].id === id) return state.tabs[i];
+    return null;
+}
+function indexById(id) {
+    for (var i = 0; i < state.tabs.length; i++) if (state.tabs[i].id === id) return i;
+    return -1;
+}
+
+function makeTab(cwd) {
+    var t = {
+        id: state.nextTabId++,
+        title: 'shell ' + state.nextTabNo++,
+        home: state.home || 'C:',
+        cwd: cwd || state.home || 'C:',
+        oldpwd: '',
+        history: [],
+        histIdx: 0,
+        lineDraft: '',
+        input: '',
+        nodes: [],
+        scrollTop: 0,
+        exit: 0,
+        dirBack: [],
+        dirFwd: [],
+        runId: 0,
+        busy: false,
+        busyStarted: 0,
+        startedAt: Date.now()
+    };
+    t.histIdx = t.history.length;
+    return t;
+}
+
+function welcome(tab) {
+    printLine(tab, '<span class="term-brand">Nexus Terminal</span> <span class="dim">26.1 · nexus-sh</span>');
+    if (state.started) {
+        if (!state.bridgeReady) {
+            printLine(tab, '<span class="warn">● 本地桥离线</span> <span class="dim">文件系统命令不可用；内建命令仍可使用。</span>');
+        } else if (!state.fs) {
+            printLine(tab, '<span class="warn">● 文件系统未连接</span> <span class="dim">ls / cd / cat 等命令会明确报错。</span>');
+        } else {
+            printLine(tab, '<span class="ok">● 已连接</span> <span class="dim">' + esc(state.user.name) + '@nexus · 虚拟文件系统 · ' + esc(displayPath(tab, tab.cwd)) + '</span>');
+        }
+        printLine(tab, '<span class="dim">输入 help 查看命令 · Tab 补全 · ↑↓ 历史 · Ctrl+R 反向搜索</span>');
+    } else {
+        printLine(tab, '<span class="dim">' + esc(nowText()) + ' · 会话 ' + tab.id + '</span>');
+        printLine(tab, '<span class="warn">正在连接 Nexus 系统…</span>');
+    }
+}
+
+function printLine(tab, html, cls) {
+    if (!tab) return;
+    var n = { html: html == null ? ' ' : String(html), cls: cls || '' };
+    tab.nodes.push(n);
+    if (tab.nodes.length > MAX_LINES) tab.nodes.splice(0, tab.nodes.length - MAX_LINES);
+    if (!isActive(tab)) return;
+    var atBottom = scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight - 30;
+    scrollEl.appendChild(makeLineEl(n));
+    if (atBottom) {
+        scrollEl.scrollTop = scrollEl.scrollHeight;
+        state.scrollTarget = scrollEl.scrollTop;
+    }
+    if (state.findOpen && findInput.value.trim()) scheduleSearch(false);
+}
+
+function makeLineEl(n) {
+    var d = document.createElement('div');
+    d.className = 'line' + (n.cls ? ' ' + n.cls : '');
+    d.innerHTML = n.html;
+    return d;
+}
+
+function printText(tab, text, cls) {
+    if (text == null) return;
+    var parts = String(text).split('\n');
+    if (parts.length > 1 && parts[parts.length - 1] === '') parts.pop();
+    for (var i = 0; i < parts.length; i++) printLine(tab, parts[i] === '' ? ' ' : esc(parts[i]), cls);
+}
+
+function printHtml(tab, html) {
+    if (html == null) return;
+    var parts = String(html).split('\n');
+    if (parts.length > 1 && parts[parts.length - 1] === '') parts.pop();
+    for (var i = 0; i < parts.length; i++) printLine(tab, parts[i] === '' ? ' ' : parts[i]);
+}
+
+function clearTab(tab) {
+    if (!tab) return;
+    tab.nodes = [];
+    if (isActive(tab)) {
+        cancelScrollAnim();
+        scrollEl.innerHTML = '';
+        state.searchMarks = [];
+        state.searchIndex = -1;
+        findCount.textContent = '';
+        state.scrollTarget = 0;
+    }
+}
+
+function echoLine(tab, line) {
+    var html = promptHTML(tab) + (line ? '<span class="cmd-text">' + esc(line) + '</span>' : '');
+    printLine(tab, html, 'cmd-line');
+}
+
+function promptHTML(tab) {
+    var role = String(state.user.role || '').toLowerCase();
+    var root = role === 'admin' || role === 'root';
+    var sign = root ? '#' : '$';
+    return '<span class="puser">' + esc(state.user.name || 'user') + '@nexus</span>' +
+        '<span class="dim">:</span>' +
+        '<span class="ppath">' + esc(displayPath(tab, tab.cwd)) + '</span>' +
+        '<span class="psign' + (root ? ' root' : '') + '">' + sign + '</span> ';
+}
+
+function refreshPrompt(tab) {
+    promptEl.innerHTML = promptHTML(tab);
+    promptEl.title = (state.user.name || 'user') + '@nexus:' + displayPath(tab, tab.cwd);
+}
+
+function updateStatus(tab) {
+    tab = tab || activeTab();
+    if (!tab) return;
+    statusCwd.textContent = displayPath(tab, tab.cwd);
+    statusCwd.title = tab.cwd;
+    statusExit.textContent = '退出 ' + tab.exit;
+    statusExit.className = tab.exit === 0 ? 'ok' : 'err';
+    if (!state.bridgeReady) {
+        statusMode.textContent = '桥离线';
+        statusMode.className = '';
+        statusMode.title = '本地桥离线：文件系统命令不可用';
+    } else if (state.fsOffline || !state.fs) {
+        statusMode.textContent = 'FS 离线';
+        statusMode.className = 'err';
+        statusMode.title = '虚拟文件系统未连接';
+    } else {
+        statusMode.textContent = '虚拟 FS';
+        statusMode.className = 'accent';
+        statusMode.title = 'Nexus 虚拟文件系统（与文件管理器共用）';
+    }
+    statusFs.textContent = state.prefs.fs + 'px';
+}
+
+function statusFlash(text) {
+    statusMode.textContent = text;
+    statusMode.className = 'accent';
+    clearTimeout(state.statusTimer);
+    state.statusTimer = setTimeout(function () { updateStatus(activeTab()); }, 1400);
+}
+
+function saveActive() {
+    var t = activeTab();
+    if (!t) return;
+    t.input = cmdEl.value;
+    t.scrollTop = scrollEl.scrollTop;
+}
+
+function renderTab(tab) {
+    cancelScrollAnim();
+    scrollEl.innerHTML = '';
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < tab.nodes.length; i++) frag.appendChild(makeLineEl(tab.nodes[i]));
+    scrollEl.appendChild(frag);
+    scrollEl.scrollTop = tab.scrollTop || 0;
+    state.scrollTarget = scrollEl.scrollTop;
+}
+
+function renderTabs() {
+    tabsEl.innerHTML = '';
+    state.tabs.forEach(function (t, idx) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'tab';
+        b.setAttribute('role', 'tab');
+        b.setAttribute('aria-selected', idx === state.active ? 'true' : 'false');
+        b.setAttribute('aria-label', t.title + '，点击切换，按 Delete 关闭');
+        b.tabIndex = idx === state.active ? 0 : -1;
+        var name = document.createElement('span');
+        name.className = 'tab-title';
+        name.textContent = t.title;
+        var x = document.createElement('span');
+        x.className = 'tab-x';
+        x.setAttribute('aria-hidden', 'true');
+        x.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        b.appendChild(name);
+        b.appendChild(x);
+        b.addEventListener('click', function (e) {
+            if (e.target && e.target.closest && e.target.closest('.tab-x')) closeTab(t.id);
+            else switchTab(indexById(t.id));
+        });
+        b.addEventListener('keydown', function (e) {
+            if (e.key === 'Delete') { e.preventDefault(); closeTab(t.id); return; }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                var i = indexById(t.id);
+                var ni = (i + (e.key === 'ArrowRight' ? 1 : -1) + state.tabs.length) % state.tabs.length;
+                switchTab(ni);
+                var btns = tabsEl.querySelectorAll('.tab');
+                if (btns[ni]) btns[ni].focus();
+            }
+        });
+        tabsEl.appendChild(b);
+    });
+    var add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'tab-add';
+    add.title = '新建标签（Ctrl+T）';
+    add.setAttribute('aria-label', '新建标签');
+    add.innerHTML = '<i class="fa-solid fa-plus" aria-hidden="true"></i>';
+    add.addEventListener('click', createTab);
+    tabsEl.appendChild(add);
+}
+
+function switchTab(index) {
+    if (index < 0 || index >= state.tabs.length) return;
+    if (index === state.active) { focusCmd(); return; }
+    saveActive();
+    state.active = index;
+    var t = activeTab();
+    renderTabs();
+    renderTab(t);
+    cmdEl.value = t.input || '';
+    t.histIdx = t.history.length;
+    refreshPrompt(t);
+    updateStatus(t);
+    syncBusy();
+    scheduleCursor();
+    focusCmd();
+    if (state.findOpen && findInput.value.trim()) runSearch(false);
+    updateWindowTitle();
+}
+
+function createTab() {
+    saveActive();
+    var t = makeTab(state.home || 'C:');
+    state.tabs.push(t);
+    state.active = state.tabs.length - 1;
+    renderTabs();
+    renderTab(t);
+    welcome(t);
+    cmdEl.value = '';
+    refreshPrompt(t);
+    updateStatus(t);
+    syncBusy();
+    scheduleCursor();
+    focusCmd();
+    scrollBottom(t, true);
+    updateWindowTitle();
+}
+
+function closeTab(id) {
+    var idx = indexById(id);
+    if (idx < 0) return;
+    saveActive();
+    if (state.tabs.length === 1) {
+        var only = state.tabs[0];
+        only.runId++;
+        only.nodes = [];
+        only.exit = 0;
+        only.input = '';
+        only.cwd = only.home || state.home || 'C:';
+        only.oldpwd = '';
+        only.dirBack = [];
+        only.dirFwd = [];
+        only.busy = false;
+        only.history = state.recent.slice(-200);
+        only.histIdx = only.history.length;
+        renderTab(only);
+        welcome(only);
+        printLine(only, '<span class="dim">已重置当前会话（至少保留一个标签）。</span>');
+        cmdEl.value = '';
+        refreshPrompt(only);
+        updateStatus(only);
+        syncBusy();
+        focusCmd();
+        scrollBottom(only, true);
+        return;
+    }
+    var wasActive = idx === state.active;
+    state.tabs.splice(idx, 1);
+    if (wasActive) state.active = Math.min(idx, state.tabs.length - 1);
+    else if (idx < state.active) state.active--;
+    var t = activeTab();
+    renderTabs();
+    renderTab(t);
+    cmdEl.value = t.input || '';
+    t.histIdx = t.history.length;
+    refreshPrompt(t);
+    updateStatus(t);
+    syncBusy();
+    scheduleCursor();
+    focusCmd();
+    if (state.findOpen && findInput.value.trim()) runSearch(false);
+    updateWindowTitle();
+}
+
+function updateWindowTitle() {
+    var t = activeTab();
+    if (!t || t.title === state.lastTitle) return;
+    state.lastTitle = t.title;
+    if (N && N.setWindowTitle) {
+        try { N.setWindowTitle('终端 · ' + t.title).catch(function () {}); } catch (e) {}
+    }
+}
+
+/* ── 滚动 ─────────────────────────────────────────────────── */
+
+function cancelScrollAnim() {
+    if (state.scrollRAF) {
+        cancelAnimationFrame(state.scrollRAF);
+        state.scrollRAF = 0;
+    }
+    state.scrollAnimating = false;
+}
+
+function startScrollAnim() {
+    if (state.scrollRAF) return;
+    state.scrollAnimating = true;
+    var step = function () {
+        var diff = state.scrollTarget - scrollEl.scrollTop;
+        if (Math.abs(diff) < 0.6) {
+            scrollEl.scrollTop = state.scrollTarget;
+            state.scrollAnimating = false;
+            state.scrollRAF = 0;
+            return;
+        }
+        scrollEl.scrollTop += diff * 0.2;
+        state.scrollRAF = requestAnimationFrame(step);
+    };
+    state.scrollRAF = requestAnimationFrame(step);
+}
+
+function scrollBottom(tab, force) {
+    if (!isActive(tab)) return;
+    cancelScrollAnim();
+    scrollEl.scrollTop = scrollEl.scrollHeight;
+    state.scrollTarget = scrollEl.scrollTop;
+}
+
+function pageScroll(dir) {
+    if (!state.scrollAnimating) state.scrollTarget = scrollEl.scrollTop;
+    var max = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+    var page = Math.max(48, scrollEl.clientHeight * 0.86);
+    state.scrollTarget = clamp(state.scrollTarget + dir * page, 0, max);
+    startScrollAnim();
+}
+
+/* ── 主题 / 字号 / 光标 ───────────────────────────────────── */
+
+/* 深链/截图预览：?theme=dark / light 临时覆盖配色，不影响已保存偏好 */
+var forcedTheme = (function () {
+    try {
+        var t = new URLSearchParams(location.search).get('theme');
+        return (t === 'dark' || t === 'light') ? t : null;
+    } catch (e) { return null; }
+})();
+
+function applyScheme() {
+    var scheme = state.prefs.scheme;
+    var dark = forcedTheme ? forcedTheme === 'dark'
+        : (scheme === 'dark' || (scheme === 'auto' && state.hostDark));
+    if (dark) document.body.classList.add('dark-mode');
+    else document.body.classList.remove('dark-mode');
+    document.documentElement.setAttribute('data-mode', dark ? 'dark' : 'light');
+}
+
+function applyPrefs() {
+    var fs = clamp(Math.round(state.prefs.fs || 13), 11, 18);
+    state.prefs.fs = fs;
+    document.body.style.setProperty('--term-fs', fs + 'px');
+    document.body.setAttribute('data-cursor', state.prefs.cursor);
+    applyScheme();
+    syncSettingsUI();
+    scheduleCursor();
+}
+
+function persistPrefs() {
+    if (!state.bridgeReady || !N || !N.setUserLS) return;
+    try { N.setUserLS('terminal.prefs', state.prefs).catch(function () {}); } catch (e) {}
+}
+
+function snapFont(px) {
+    var n = parseInt(px, 10);
+    if (!isFinite(n)) return state.prefs.fs;
+    var best = FONT_STEPS[0], dist = 999;
+    for (var i = 0; i < FONT_STEPS.length; i++) {
+        var d = Math.abs(FONT_STEPS[i] - n);
+        if (d < dist) { dist = d; best = FONT_STEPS[i]; }
+    }
+    return best;
+}
+
+function setFont(px, silent) {
+    state.prefs.fs = snapFont(px);
+    applyPrefs();
+    persistPrefs();
+    if (!silent) statusFlash('字号 ' + state.prefs.fs + 'px');
+    return state.prefs.fs;
+}
+
+function stepFont(dir) {
+    var idx = FONT_STEPS.indexOf(state.prefs.fs);
+    if (idx < 0) idx = 2;
+    idx = clamp(idx + dir, 0, FONT_STEPS.length - 1);
+    return setFont(FONT_STEPS[idx]);
+}
+
+function setCursor(v) {
+    if (CURSORS.indexOf(v) < 0) return false;
+    state.prefs.cursor = v;
+    applyPrefs();
+    persistPrefs();
+    return true;
+}
+
+function setScheme(v) {
+    if (SCHEMES.indexOf(v) < 0) return false;
+    state.prefs.scheme = v;
+    applyScheme();
+    persistPrefs();
+    return true;
+}
+
+/* ── 自定义光标 ───────────────────────────────────────────── */
+
+var measureEl = document.createElement('span');
+measureEl.className = 'term-measure';
+document.body.appendChild(measureEl);
+
+function measureText(s) {
+    measureEl.textContent = s;
+    var r = measureEl.getBoundingClientRect();
+    return r.width;
+}
+
+function scheduleCursor() {
+    if (state.cursorRAF) return;
+    state.cursorRAF = requestAnimationFrame(function () {
+        state.cursorRAF = 0;
+        updateCursor();
+    });
+}
+
+function updateCursor() {
+    if (state.prefs.cursor === 'system' || document.activeElement !== cmdEl ||
+        cmdEl.selectionStart !== cmdEl.selectionEnd) {
+        fakeEl.classList.add('hide');
+        return;
+    }
+    fakeEl.classList.remove('hide');
+    var x = measureText(cmdEl.value.slice(0, cmdEl.selectionStart)) - cmdEl.scrollLeft;
+    var max = Math.max(0, cmdEl.clientWidth);
+    if (x < -2 || x > max + 2) { fakeEl.classList.add('hide'); return; }
+    fakeEl.style.left = clamp(x, 0, Math.max(0, max - 1)) + 'px';
+    if (state.prefs.cursor === 'block' || state.prefs.cursor === 'underline') {
+        fakeEl.style.width = Math.max(4, measureText('M')) + 'px';
+    } else {
+        fakeEl.style.width = '2px';
+    }
+}
+
+function focusCmd() {
+    if (!settingsEl.hidden || !findbar.hidden || state.rsActive) return;
+    try { cmdEl.focus(); } catch (e) {}
+    scheduleCursor();
+}
+
+/* ── 输出搜索 ─────────────────────────────────────────────── */
+
+function clearMarks() {
+    var marks = scrollEl.querySelectorAll('mark.hit');
+    for (var i = marks.length - 1; i >= 0; i--) {
+        var m = marks[i];
+        if (m.parentNode) m.parentNode.replaceChild(document.createTextNode(m.textContent), m);
+    }
+    if (marks.length) scrollEl.normalize();
+    state.searchMarks = [];
+    state.searchIndex = -1;
+}
+
+function openFind() {
+    if (!settingsEl.hidden) closeSettings();
+    if (state.rsActive) cancelRS();
+    state.findOpen = true;
+    findbar.hidden = false;
+    var sel = '';
+    try { sel = String(window.getSelection() || ''); } catch (e) {}
+    if (sel && sel.length < 80 && sel.indexOf('\n') < 0) findInput.value = sel;
+    findInput.focus();
+    findInput.select();
+    if (findInput.value.trim()) runSearch(true);
+}
+
+function closeFind() {
+    clearMarks();
+    findCount.textContent = '';
+    findCount.classList.remove('none');
+    findbar.hidden = true;
+    state.findOpen = false;
+    focusCmd();
+}
+
+function runSearch(reset) {
+    if (findbar.hidden) return;
+    clearMarks();
+    var q = findInput.value.trim();
+    if (!q) {
+        findCount.textContent = '';
+        findCount.classList.remove('none');
+        return;
+    }
+    var walker = document.createTreeWalker(scrollEl, NodeFilter.SHOW_TEXT, {
+        acceptNode: function (node) {
+            if (!node.nodeValue || !node.nodeValue.length) return NodeFilter.FILTER_REJECT;
+            if (node.parentNode && node.parentNode.nodeName === 'MARK') return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+        }
+    });
+    var nodes = [];
+    var n;
+    while ((n = walker.nextNode())) {
+        nodes.push(n);
+        if (nodes.length > 4000) break;
+    }
+    var lowerQ = q.toLowerCase();
+    var marks = [];
+    for (var ni = 0; ni < nodes.length && marks.length < 600; ni++) {
+        var textNode = nodes[ni];
+        var text = textNode.nodeValue;
+        var lower = text.toLowerCase();
+        var positions = [];
+        var at = 0;
+        while ((at = lower.indexOf(lowerQ, at)) !== -1) {
+            positions.push(at);
+            at += Math.max(1, lowerQ.length);
+            if (marks.length + positions.length >= 600) break;
+        }
+        if (!positions.length) continue;
+        var local = [];
+        for (var pi = positions.length - 1; pi >= 0; pi--) {
+            var mid = textNode.splitText(positions[pi]);
+            var rest = mid.splitText(q.length);
+            var mark = document.createElement('mark');
+            mark.className = 'hit';
+            mid.parentNode.insertBefore(mark, mid);
+            mark.appendChild(mid);
+            local.unshift(mark);
+            void rest;
+        }
+        for (var li = 0; li < local.length; li++) marks.push(local[li]);
+    }
+    state.searchMarks = marks;
+    if (!marks.length) {
+        state.searchIndex = -1;
+        findCount.textContent = '0 / 0';
+        findCount.classList.add('none');
+        return;
+    }
+    findCount.classList.remove('none');
+    state.searchIndex = reset ? 0 : clamp(state.searchIndex, 0, marks.length - 1);
+    if (!isFinite(state.searchIndex) || state.searchIndex < 0) state.searchIndex = 0;
+    applySearchCurrent();
+}
+
+function applySearchCurrent() {
+    var marks = state.searchMarks;
+    if (!marks.length) return;
+    for (var i = 0; i < marks.length; i++) marks[i].classList.remove('current');
+    var m = marks[state.searchIndex];
+    if (!m) return;
+    m.classList.add('current');
+    findCount.textContent = (state.searchIndex + 1) + ' / ' + marks.length;
+    try { m.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (e) {
+        scrollEl.scrollTop = m.offsetTop - scrollEl.clientHeight / 2;
+    }
+}
+
+function findNext(dir) {
+    if (!state.searchMarks.length) return;
+    state.searchIndex = (state.searchIndex + dir + state.searchMarks.length) % state.searchMarks.length;
+    applySearchCurrent();
+}
+
+function scheduleSearch(reset) {
+    clearTimeout(state.searchTimer);
+    state.searchTimer = setTimeout(function () { runSearch(!!reset); }, 120);
+}
+
+/* ── 反向搜索 ─────────────────────────────────────────────── */
+
+function openRS() {
+    if (state.rsActive) return;
+    if (!settingsEl.hidden) closeSettings();
+    if (state.findOpen) closeFind();
+    var t = activeTab();
+    if (!t) return;
+    state.rsActive = true;
+    state.rsDraft = cmdEl.value;
+    rsbar.hidden = false;
+    rsInput.value = '';
+    rsHint.textContent = '';
+    rsInput.focus();
+    updateRS();
+}
+
+function updateRS() {
+    var t = activeTab();
+    if (!t) return;
+    var q = rsInput.value.trim().toLowerCase();
+    var list = t.history.slice().reverse();
+    state.rsMatches = q ? list.filter(function (h) { return h.toLowerCase().indexOf(q) >= 0; }) : list.slice();
+    state.rsIndex = 0;
+    if (state.rsMatches.length) {
+        cmdEl.value = state.rsMatches[0];
+        rsHint.textContent = '1 / ' + state.rsMatches.length;
+    } else {
+        cmdEl.value = state.rsDraft;
+        rsHint.textContent = '无匹配';
+    }
+    scheduleCursor();
+}
+
+function cycleRS() {
+    if (!state.rsMatches.length) return;
+    state.rsIndex = (state.rsIndex + 1) % state.rsMatches.length;
+    cmdEl.value = state.rsMatches[state.rsIndex];
+    rsHint.textContent = (state.rsIndex + 1) + ' / ' + state.rsMatches.length;
+    scheduleCursor();
+}
+
+function cancelRS() {
+    if (!state.rsActive) return;
+    state.rsActive = false;
+    rsbar.hidden = true;
+    cmdEl.value = state.rsDraft || '';
+    state.rsDraft = '';
+    focusCmd();
+    scheduleCursor();
+}
+
+function acceptRS() {
+    var line = cmdEl.value;
+    state.rsActive = false;
+    rsbar.hidden = true;
+    state.rsDraft = '';
+    focusCmd();
+    executeLine(line);
+}
+
+/* ── 设置面板 ─────────────────────────────────────────────── */
+
+function syncSettingsUI() {
+    if (!fontValEl) return;
+    fontValEl.textContent = state.prefs.fs + ' px';
+    var cBtns = settingsEl.querySelectorAll('[data-cursor]');
+    for (var i = 0; i < cBtns.length; i++) {
+        cBtns[i].setAttribute('aria-pressed', cBtns[i].getAttribute('data-cursor') === state.prefs.cursor ? 'true' : 'false');
+    }
+    var sBtns = settingsEl.querySelectorAll('[data-scheme]');
+    for (var j = 0; j < sBtns.length; j++) {
+        sBtns[j].setAttribute('aria-pressed', sBtns[j].getAttribute('data-scheme') === state.prefs.scheme ? 'true' : 'false');
+    }
+}
+
+function trapFocus(container, e) {
+    var items = container.querySelectorAll('button:not(:disabled), input:not(:disabled), [tabindex="0"]');
+    if (!items.length) return;
+    var first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+
+function openSettings() {
+    if (!settingsEl.hidden) return;
+    if (state.findOpen) closeFind();
+    if (state.rsActive) cancelRS();
+    syncSettingsUI();
+    settingsEl.hidden = false;
+    var first = settingsEl.querySelector('.set-close');
+    if (first) first.focus();
+}
+
+function closeSettings() {
+    if (settingsEl.hidden) return;
+    settingsEl.hidden = true;
+    focusCmd();
+}
+
+/*__JS_PART_1_END__*/
+/* ── 命令基础设施 ─────────────────────────────────────────── */
+
+var CMD = Object.create(null);
+var ALIAS = Object.create(null);
+
+function def(name, spec) {
+    spec.name = name;
+    CMD[name] = spec;
+    return spec;
+}
+function defAlias(name, target) { ALIAS[name] = target; }
+
+function makeIO(tab, stdin) {
+    return {
+        tab: tab,
+        stdin: stdin == null ? '' : String(stdin),
+        lines: [],
+        clear: false,
+        exitTab: false,
+        runId: tab.runId,
+        write: function (text, cls) {
+            if (text == null) return;
+            var parts = String(text).split('\n');
+            if (parts.length > 1 && parts[parts.length - 1] === '') parts.pop();
+            for (var i = 0; i < parts.length; i++) {
+                this.lines.push([{ t: parts[i], c: cls || '' }]);
+            }
+        },
+        row: function (segs) { this.lines.push(segs || []); },
+        blank: function () { this.lines.push([]); }
+    };
+}
+
+function ioText(io) {
+    var out = [];
+    for (var i = 0; i < io.lines.length; i++) {
+        var line = io.lines[i], s = '';
+        for (var j = 0; j < line.length; j++) s += line[j].t;
+        out.push(s);
+    }
+    return out.join('\n');
+}
+
+function charWidth(c) {
+    var code = c.charCodeAt(0);
+    return (code >= 0x1100 && (
+        code <= 0x115F || (code >= 0x2E80 && code <= 0xA4CF) ||
+        (code >= 0xAC00 && code <= 0xD7A3) || (code >= 0xF900 && code <= 0xFAFF) ||
+        (code >= 0xFE30 && code <= 0xFE4F) || (code >= 0xFF00 && code <= 0xFF60) ||
+        (code >= 0xFFE0 && code <= 0xFFE6)
+    )) ? 2 : 1;
+}
+
+function strWidth(s) {
+    s = String(s == null ? '' : s);
+    var w = 0;
+    for (var i = 0; i < s.length; i++) w += charWidth(s.charAt(i));
+    return w;
+}
+
+function padR(s, n) {
+    s = String(s);
+    var w = strWidth(s);
+    while (w < n) { s += ' '; w++; }
+    return s;
+}
+
+function padL(s, n) {
+    s = String(s);
+    var w = strWidth(s);
+    while (w < n) { s = ' ' + s; w++; }
+    return s;
+}
+
+function parseFlags(args, allowed) {
+    var flags = {}, rest = [], i = 0;
+    for (; i < args.length; i++) {
+        var a = args[i];
+        if (a === '--') { for (var k = i + 1; k < args.length; k++) rest.push(args[k]); break; }
+        if (a.length > 1 && a.charAt(0) === '-' && !/^-\d/.test(a)) {
+            var letters = a.slice(1);
+            for (var j = 0; j < letters.length; j++) {
+                var ch = letters.charAt(j);
+                if (!allowed[ch]) throw new ShellError('不支持的选项：-' + ch, 2);
+                flags[ch] = true;
+            }
+            continue;
+        }
+        rest.push(a);
+    }
+    return { flags: flags, rest: rest };
+}
+
+function nodeTime(node) {
+    var keys = ['mtime', 'modifiedAt', 'updatedAt', 'createdAt', 'created'];
+    for (var i = 0; i < keys.length; i++) {
+        var v = node && node[keys[i]];
+        if (v) {
+            var t = typeof v === 'number' ? v : Date.parse(v);
+            if (isFinite(t)) return t;
+        }
     }
     return 0;
-  }
+}
 
-  function stripTags(html) {
-    var d = document.createElement('div');
-    d.innerHTML = html;
-    return d.textContent || '';
-  }
+function fmtStamp(ts) {
+    if (!ts) return '—';
+    try {
+        var d = new Date(ts);
+        var p = function (n) { return (n < 10 ? '0' : '') + n; };
+        return (d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    } catch (e) { return '—————'; }
+}
 
-  /* ============================================================
-     输入交互
-     ============================================================ */
-  function echoCommand(line) {
-    var path = displayPath(cwd);
-    var sign = (user.role === 'admin') ? '#' : '$';
-    var echoEl = document.createElement('div');
-    echoEl.className = 'line';
-    echoEl.innerHTML =
-      '<span style="color:#3fb950;font-weight:700">' + esc(user.name || 'user') + '@nexus</span>' +
-      '<span style="color:#8b949e">:</span>' +
-      '<span style="color:#58a6ff">' + esc(path) + '</span>' +
-      '<span style="color:' + (user.role === 'admin' ? '#f85149' : '#8b949e') + '">' + sign + '</span> ' +
-      esc(line);
-    scrollEl.appendChild(echoEl);
-  }
+function nodeBytes(node) {
+    if (!node) return 0;
+    if (node.type === 'file' || (!isDir(node) && node.content != null)) {
+        var c = node.content;
+        if (typeof c === 'string') return c.length;
+        if (c == null) return 0;
+        try { return JSON.stringify(c).length; } catch (e) { return 0; }
+    }
+    var total = 0, keys = Object.keys(node.children || {});
+    for (var i = 0; i < keys.length; i++) total += nodeBytes(node.children[keys[i]]);
+    return total;
+}
 
-  cmdEl.addEventListener('keydown', async function (e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      var line = cmdEl.value;
-      cmdEl.value = '';
-      echoCommand(line);
-      if (line.trim()) {
-        history.push(line);
-        histIdx = history.length;
-        // 加固：FS 读取最多等 4 秒，超时/失败用缓存继续，绝不让命令静默无响应
-        try {
-          var fsTry = await Promise.race([
-            loadFS(),
-            new Promise(function (res) { setTimeout(function () { res(null); }, 4000); })
-          ]);
-          if (fsTry) fsCache = fsTry;
-        } catch (e) {
-          print('<span class="err">[err] 文件系统读取失败：' + esc((e && e.message) || e) + '，本次使用缓存继续</span>');
+function childCount(node) {
+    return Object.keys((node && node.children) || {}).length;
+}
+
+async function needFS() {
+    if (state.fs) return state.fs;
+    return refreshFS(activeTab());
+}
+
+function nodeAt(p, tab) {
+    var n = getNode(state.fs, p);
+    if (!n) throw new ShellError('没有这个文件或目录：' + displayPath(tab, p), 1);
+    return n;
+}
+
+function parentOf(p, tab) {
+    var pp = parentPath(p);
+    if (!pp) throw new ShellError('不能这样操作根目录：' + displayPath(tab, p), 1);
+    var parent = getNode(state.fs, pp);
+    if (!parent || !isDir(parent)) throw new ShellError('父目录不存在：' + displayPath(tab, pp), 1);
+    return parent;
+}
+
+function splitName(p) {
+    var i = p.lastIndexOf('/');
+    return { dir: i < 0 ? '' : p.slice(0, i), name: i < 0 ? p : p.slice(i + 1) };
+}
+
+function pushDirHistory(tab, from) {
+    tab.dirBack.push(from);
+    if (tab.dirBack.length > 40) tab.dirBack.shift();
+    tab.dirFwd = [];
+}
+
+function goDirBack(tab) {
+    if (!tab.dirBack.length) return false;
+    var target = tab.dirBack.pop();
+    tab.dirFwd.push(tab.cwd);
+    tab.cwd = target;
+    return true;
+}
+
+function goDirFwd(tab) {
+    if (!tab.dirFwd.length) return false;
+    var target = tab.dirFwd.pop();
+    tab.dirBack.push(tab.cwd);
+    tab.cwd = target;
+    return true;
+}
+
+/* ── 文件与目录 ─────────────────────────────────────────── */
+
+def('ls', {
+    group: '文件与目录',
+    usage: 'ls [-l] [-a] [-h] [路径]',
+    desc: '列出目录内容。ll / la 为常用别名。',
+    run: async function (args, io) {
+        var o = parseFlags(args, { l: 1, a: 1, h: 1 });
+        await needFS();
+        var p = resolvePath(o.rest[0], io.tab);
+        var node = nodeAt(p, io.tab);
+        if (!isDir(node)) {
+            io.row([{ t: baseName(p), c: '' }]);
+            return;
         }
-        if (!fsCache) { fsCache = {}; }
-        await runPipeline(line);
-      }
-      scrollToBottom();
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (histIdx > 0) { histIdx--; cmdEl.value = history[histIdx] || ''; }
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (histIdx < history.length - 1) { histIdx++; cmdEl.value = history[histIdx]; }
-      else { histIdx = history.length; cmdEl.value = ''; }
-    } else if (e.key === 'Tab') {
-      e.preventDefault();
-      complete();
-    } else if (e.ctrlKey && (e.key === 'l' || e.key === 'L')) {
-      e.preventDefault(); scrollEl.innerHTML = '';
-    } else if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
-      // 中断当前行
-      echoCommand(cmdEl.value + '^C');
-      cmdEl.value = '';
-    } else if (e.ctrlKey && (e.key === 'a' || e.key === 'A')) {
-      e.preventDefault(); setTimeout(function () { cmdEl.selectionStart = cmdEl.selectionEnd = 0; }, 0);
-    } else if (e.ctrlKey && (e.key === 'e' || e.key === 'E')) {
-      e.preventDefault(); setTimeout(function () { cmdEl.selectionStart = cmdEl.selectionEnd = cmdEl.value.length; }, 0);
-    } else if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
-      e.preventDefault(); cmdEl.value = '';
-    } else if (e.ctrlKey && (e.key === 'k' || e.key === 'K')) {
-      e.preventDefault(); cmdEl.value = cmdEl.value.slice(0, cmdEl.selectionStart || 0);
+        var names = readDirNames(node, o.flags.a);
+        if (!names.length) return;
+        var tab = io.tab;
+        if (o.flags.l) {
+            for (var i = 0; i < names.length; i++) {
+                var n = node.children[names[i]];
+                var dir = isDir(n);
+                var bytes = dir ? childCount(n) + '项' : (o.flags.h ? humanSize(nodeBytes(n)) : String(nodeBytes(n)));
+                io.row([
+                    { t: (dir ? 'd' : '-') + '  ', c: 'dim' },
+                    { t: padL(bytes, 7) + '  ', c: 'faint' },
+                    { t: padR(fmtStamp(nodeTime(n)), 13) + '  ', c: 'dim' },
+                    { t: names[i] + (dir ? '/' : ''), c: dir ? 'dir' : '' }
+                ]);
+            }
+            return;
+        }
+        var maxw = 0;
+        for (var j = 0; j < names.length; j++) maxw = Math.max(maxw, strWidth(names[j]) + (isDir(node.children[names[j]]) ? 1 : 0));
+        var colw = maxw + 3;
+        var perRow = clamp(Math.floor(78 / colw), 1, 8);
+        for (var r = 0; r < names.length; r += perRow) {
+            var segs = [];
+            for (var c = 0; c < perRow && r + c < names.length; c++) {
+                var nm = names[r + c];
+                var dd = isDir(node.children[nm]);
+                var label = nm + (dd ? '/' : '');
+                if (c < perRow - 1 && r + c < names.length - 1) label = padR(label, colw);
+                segs.push({ t: label, c: dd ? 'dir' : '' });
+            }
+            io.row(segs);
+        }
     }
-  });
+});
 
-  function complete() {
-    var val = cmdEl.value;
-    var toks = val.split(/\s+/);
-    var last = toks[toks.length - 1] || '';
-    var cands = [];
-    if (toks.length === 1) {
-      cands = Object.keys(CMDS).filter(function (c) { return c.indexOf(last) === 0; });
-      if (cands.length === 1) cmdEl.value = cands[0] + ' ';
-      else if (cands.length > 1) { print('<span class="dim">' + esc(cands.join('   ')) + '</span>'); }
-      return;
+defAlias('ll', 'ls -l');
+defAlias('la', 'ls -la');
+defAlias('dir', 'ls');
+
+def('pwd', {
+    group: '文件与目录',
+    usage: 'pwd',
+    desc: '显示当前工作目录的绝对路径。',
+    run: async function (args, io) {
+        io.write(io.tab.cwd);
     }
-    // 补全路径
-    var dirPart = last.indexOf('/') !== -1 ? last.slice(0, last.lastIndexOf('/') + 1) : '';
-    var prefix = last.slice(dirPart.length);
-    var dirNode = getNode(fsCache, resolve(dirPart || '.'));
-    if (dirNode && dirNode.children) {
-      cands = Object.keys(dirNode.children).filter(function (n) { return n.indexOf(prefix) === 0; });
-      if (cands.length === 1) {
-        var isDir = (dirNode.children[cands[0]].type === 'folder' || dirNode.children[cands[0]].type === 'drive');
-        cmdEl.value = toks.slice(0, -1).join(' ') + (toks.length > 1 ? ' ' : '') + dirPart + cands[0] + (isDir ? '/' : ' ');
-      } else if (cands.length > 1) {
-        print('<span class="dim">' + esc(cands.map(function (c) { var nd = dirNode.children[c]; return (nd.type === 'folder' || nd.type === 'drive') ? c + '/' : c; }).join('   ')) + '</span>');
-      }
+});
+
+def('cd', {
+    group: '文件与目录',
+    usage: 'cd [路径]   cd -   cd ~',
+    desc: '切换目录；无参数回到主目录，cd - 返回上一目录。',
+    run: async function (args, io) {
+        var tab = io.tab;
+        var target = args[0];
+        if (!target) target = tab.home;
+        else if (target === '-') {
+            if (!tab.oldpwd) throw new ShellError('cd: OLDPWD 未设置', 1);
+            target = tab.oldpwd;
+        }
+        await needFS();
+        var p = resolvePath(target, tab);
+        var node = nodeAt(p, tab);
+        if (!isDir(node)) throw new ShellError('cd: 不是目录：' + displayPath(tab, p), 1);
+        var from = tab.cwd;
+        tab.oldpwd = from;
+        tab.cwd = p;
+        pushDirHistory(tab, from);
+        refreshPrompt(tab);
+        updateStatus(tab);
+        updateWindowTitle();
+        if (resolvePath(target, tab) === from && target === '-') io.write(p);
     }
-  }
+});
 
-  // 点击终端任意处聚焦输入（含 pointerdown 抢先聚焦 + 窗口获得焦点时跟随）
-  termEl.addEventListener('click', function () { cmdEl.focus(); });
-  termEl.addEventListener('pointerdown', function () { setTimeout(function () { cmdEl.focus(); }, 0); });
-  window.addEventListener('focus', function () { cmdEl.focus(); });
+def('cat', {
+    group: '文本处理',
+    usage: 'cat [文件…]',
+    desc: '输出文件内容；无文件时读取管道输入。',
+    run: async function (args, io) {
+        if (!args.length || (args.length === 1 && args[0] === '-')) {
+            if (!io.stdin) throw new ShellError('cat: 缺少文件名（或通过管道提供输入）', 1);
+            io.write(io.stdin);
+            return;
+        }
+        await needFS();
+        for (var i = 0; i < args.length; i++) {
+            var p = resolvePath(args[i], io.tab);
+            var n = nodeAt(p, io.tab);
+            if (isDir(n)) throw new ShellError('cat: ' + displayPath(io.tab, p) + ': 是一个目录', 1);
+            var c = n.content;
+            if (c == null) c = '';
+            io.write(typeof c === 'string' ? c : String(c));
+        }
+    }
+});
 
-  /* ============================================================
-     启动
-     ============================================================ */
-  function banner() {
-    var now = new Date();
-    var isRoot = (user.role === 'admin');
-    print('<span class="blu b">    _   __  __          __</span>');
-    print('<span class="blu b">   / | / /_ _/ /_  ___  / /</span>');
-    print('<span class="blu b">  /  |/ / / / __ \\/ _ \\/ /</span>');
-    print('<span class="blu b"> / /|  / / / / / /  __/ /</span>');
-    print('<span class="blu b">/_/ |_/_/ /_/ /_/\\___/_/</span>');
-    print('');
-    print('  <span class="ok b">Nexus OS 26</span> <span class="dim">v26.1.0 · 内核 nexus-kernel 26.1 · Shell nexus-sh 1.0</span>');
-    print('  <span class="dim">当前用户：</span><span class="yel b">' + esc(user.name || 'user') + '</span> <span class="dim">（' + (isRoot ? '管理员 administrator' : '标准用户 standard') + '）</span> <span class="dim">· 主机名：</span>nexus-os-26');
-    print('  <span class="dim">本次会话开始于：</span>' + esc(now.toLocaleString()));
-    print('  <span class="dim">输入</span> <span class="yel">help</span> <span class="dim">查看全部命令 ·</span> <span class="yel">man &lt;命令&gt;</span> <span class="dim">看用法 ·</span> <span class="yel">neofetch</span> <span class="dim">看系统信息</span>');
-    print('');
-  }
+function readLinesFor(args, io, fromEnd) {
+    var count = 10, files = [], i = 0;
+    for (; i < args.length; i++) {
+        if (args[i] === '-n' || args[i] === '-c') {
+            var v = args[++i];
+            if (v == null) throw new ShellError(args[i - 1] + ': 缺少行数', 2);
+            count = parseInt(v, 10);
+            if (!isFinite(count) || count < 0) throw new ShellError('行数必须是正整数', 2);
+            continue;
+        }
+        files.push(args[i]);
+    }
+    return { count: count, files: files, fromEnd: fromEnd };
+}
 
-  /* —— 启动加固：横幅立即出现，文件系统后台加载，任何桥故障都不再让 shell 静默变砖 —— */
-  var booted = false;
-  function boot() {
+function emitHeadTail(io, text, count, fromEnd, label) {
+    var lines = String(text).split('\n');
+    if (lines.length && lines[lines.length - 1] === '') lines.pop();
+    var out = fromEnd ? lines.slice(Math.max(0, lines.length - count)) : lines.slice(0, count);
+    if (label) io.write('==> ' + label + ' <==', 'dim');
+    for (var i = 0; i < out.length; i++) io.write(out[i]);
+}
+
+def('head', {
+    group: '文本处理',
+    usage: 'head [-n 行数] [文件…]',
+    desc: '显示文件开头若干行（默认 10 行）。',
+    run: async function (args, io) {
+        var o = readLinesFor(args, io, false);
+        if (!o.files.length) {
+            if (!io.stdin) throw new ShellError('head: 缺少输入（请指定文件或使用管道）', 1);
+            emitHeadTail(io, io.stdin, o.count, false, '');
+            return;
+        }
+        await needFS();
+        for (var i = 0; i < o.files.length; i++) {
+            var p = resolvePath(o.files[i], io.tab);
+            var n = nodeAt(p, io.tab);
+            if (isDir(n)) throw new ShellError('head: ' + displayPath(io.tab, p) + ': 是一个目录', 1);
+            emitHeadTail(io, n.content == null ? '' : n.content, o.count, false, o.files.length > 1 ? o.files[i] : '');
+        }
+    }
+});
+
+def('tail', {
+    group: '文本处理',
+    usage: 'tail [-n 行数] [文件…]',
+    desc: '显示文件末尾若干行（默认 10 行）。',
+    run: async function (args, io) {
+        var o = readLinesFor(args, io, true);
+        if (!o.files.length) {
+            if (!io.stdin) throw new ShellError('tail: 缺少输入（请指定文件或使用管道）', 1);
+            emitHeadTail(io, io.stdin, o.count, true, '');
+            return;
+        }
+        await needFS();
+        for (var i = 0; i < o.files.length; i++) {
+            var p = resolvePath(o.files[i], io.tab);
+            var n = nodeAt(p, io.tab);
+            if (isDir(n)) throw new ShellError('tail: ' + displayPath(io.tab, p) + ': 是一个目录', 1);
+            emitHeadTail(io, n.content == null ? '' : n.content, o.count, true, o.files.length > 1 ? o.files[i] : '');
+        }
+    }
+});
+
+def('wc', {
+    group: '文本处理',
+    usage: 'wc [-l] [-w] [-c] [文件…]',
+    desc: '统计行数 / 单词数 / 字符数；无文件时读管道。',
+    run: async function (args, io) {
+        var o = parseFlags(args, { l: 1, w: 1, c: 1 });
+        var wantAll = !o.flags.l && !o.flags.w && !o.flags.c;
+        var specs = [];
+        if (!o.rest.length) {
+            if (!io.stdin) throw new ShellError('wc: 缺少输入（请指定文件或使用管道）', 1);
+            specs.push({ text: io.stdin, label: '' });
+        } else {
+            await needFS();
+            for (var i = 0; i < o.rest.length; i++) {
+                var p = resolvePath(o.rest[i], io.tab);
+                var n = nodeAt(p, io.tab);
+                if (isDir(n)) throw new ShellError('wc: ' + displayPath(io.tab, p) + ': 是一个目录', 1);
+                specs.push({ text: n.content == null ? '' : String(n.content), label: o.rest[i] });
+            }
+        }
+        var totals = { l: 0, w: 0, c: 0 };
+        for (var j = 0; j < specs.length; j++) {
+            var text = specs[j].text;
+            var ln = (text.match(/\n/g) || []).length;
+            var wd = text.split(/\s+/).filter(function (s) { return s.length; }).length;
+            var ch = text.length;
+            totals.l += ln; totals.w += wd; totals.c += ch;
+            var segs = [];
+            if (wantAll || o.flags.l) segs.push({ t: padL(String(ln), 7) + ' ' });
+            if (wantAll || o.flags.w) segs.push({ t: padL(String(wd), 7) + ' ' });
+            if (wantAll || o.flags.c) segs.push({ t: padL(String(ch), 7) + ' ' });
+            if (specs[j].label) segs.push({ t: specs[j].label });
+            io.row(segs);
+        }
+        if (specs.length > 1) {
+            var ts = [];
+            if (wantAll || o.flags.l) ts.push({ t: padL(String(totals.l), 7) + ' ' });
+            if (wantAll || o.flags.w) ts.push({ t: padL(String(totals.w), 7) + ' ' });
+            if (wantAll || o.flags.c) ts.push({ t: padL(String(totals.c), 7) + ' ' });
+            ts.push({ t: '总计' });
+            io.blank();
+            io.row(ts);
+        }
+    }
+});
+
+/* ── 检索 ─────────────────────────────────────────────────── */
+
+function globToRe(pat) {
+    var s = String(pat).replace(/[.+^${}()|[\]\\]/g, '\\$&');
+    s = s.replace(/\*/g, '.*').replace(/\?/g, '.');
+    return new RegExp('^' + s + '$', 'i');
+}
+
+function grepLine(io, prefix, text, re, reG) {
+    var segs = [{ t: prefix, c: 'dim' }];
+    var last = 0, m;
+    reG.lastIndex = 0;
+    while ((m = reG.exec(text)) !== null) {
+        if (m[0] === '') { reG.lastIndex++; continue; }
+        if (m.index > last) segs.push({ t: text.slice(last, m.index) });
+        segs.push({ t: m[0], c: 'ok' });
+        last = m.index + m[0].length;
+    }
+    if (last < text.length) segs.push({ t: text.slice(last) });
+    io.row(segs);
+}
+
+def('grep', {
+    group: '文本处理',
+    usage: 'grep [-i] [-n] [-v] 模式 [文件…]',
+    desc: '在文件或管道输入中查找匹配行。',
+    run: async function (args, io) {
+        var o = parseFlags(args, { i: 1, n: 1, v: 1 });
+        if (!o.rest.length) throw new ShellError('grep: 缺少搜索模式', 2);
+        var pattern = o.rest[0];
+        var files = o.rest.slice(1);
+        var flags = 'i' in o.flags ? 'i' : '';
+        var re, reG;
+        try {
+            re = new RegExp(pattern, flags);
+            reG = new RegExp(pattern, flags + 'g');
+        } catch (e) {
+            throw new ShellError('grep: 正则表达式无效：' + pattern, 2);
+        }
+        var sources = [];
+        if (!files.length) {
+            if (!io.stdin) throw new ShellError('grep: 缺少输入（请指定文件或使用管道）', 1);
+            sources.push({ label: '(标准输入)', text: io.stdin, showLabel: false });
+        } else {
+            await needFS();
+            for (var i = 0; i < files.length; i++) {
+                var p = resolvePath(files[i], io.tab);
+                var n = nodeAt(p, io.tab);
+                if (isDir(n)) throw new ShellError('grep: ' + displayPath(io.tab, p) + ': 是一个目录', 1);
+                sources.push({ label: files[i], text: n.content == null ? '' : String(n.content), showLabel: files.length > 1 });
+            }
+        }
+        var found = false;
+        for (var s = 0; s < sources.length; s++) {
+            var lines = sources[s].text.split('\n');
+            if (lines.length && lines[lines.length - 1] === '') lines.pop();
+            for (var ln = 0; ln < lines.length; ln++) {
+                var hit = re.test(lines[ln]);
+                if (o.flags.v ? hit : !hit) continue;
+                found = true;
+                var prefix = (sources[s].showLabel ? sources[s].label + ':' : '') + (o.flags.n ? (ln + 1) + ':' : '');
+                if (o.flags.v) io.row([{ t: prefix, c: 'dim' }, { t: lines[ln] }]);
+                else grepLine(io, prefix, lines[ln], re, reG);
+            }
+        }
+        if (!found) throw new ShellError('', 1);
+    }
+});
+
+def('find', {
+    group: '文件与目录',
+    usage: 'find [路径] [-name 模式]',
+    desc: '递归查找目录下的文件与文件夹。',
+    run: async function (args, io) {
+        await needFS();
+        var rootArg = null, pattern = '*', i = 0;
+        for (; i < args.length; i++) {
+            if (args[i] === '-name') { pattern = args[++i]; if (pattern == null) throw new ShellError('find: -name 缺少模式', 2); }
+            else if (rootArg == null && args[i].charAt(0) !== '-') rootArg = args[i];
+            else throw new ShellError('find: 不支持的参数：' + args[i], 2);
+        }
+        var root = resolvePath(rootArg, io.tab);
+        var start = nodeAt(root, io.tab);
+        var re = pattern === '*' ? null : globToRe(pattern);
+        var count = 0;
+        (function walk(p, node, depth) {
+            if (count > 5000 || depth > 60) return;
+            var name = baseName(p);
+            if (re && re.test(name)) {
+                io.row([{ t: displayPath(io.tab, p) + (isDir(node) ? '/' : ''), c: isDir(node) ? 'dir' : '' }]);
+                count++;
+            }
+            if (!isDir(node)) return;
+            var names = readDirNames(node, false);
+            for (var k = 0; k < names.length; k++) walk(joinPath(p, names[k]), node.children[names[k]], depth + 1);
+        })(root, start, 0);
+        if (!count) throw new ShellError('', 1);
+    }
+});
+
+def('tree', {
+    group: '文件与目录',
+    usage: 'tree [路径] [-L 深度]',
+    desc: '以树形展示目录结构（默认 3 层）。',
+    run: async function (args, io) {
+        await needFS();
+        var rootArg = null, limit = 3, i = 0, shown = 0;
+        for (; i < args.length; i++) {
+            if (args[i] === '-L') { limit = parseInt(args[++i], 10); if (!isFinite(limit) || limit < 1) throw new ShellError('tree: -L 需要正整数', 2); }
+            else if (rootArg == null && args[i].charAt(0) !== '-') rootArg = args[i];
+            else throw new ShellError('tree: 不支持的参数：' + args[i], 2);
+        }
+        var root = resolvePath(rootArg, io.tab);
+        var start = nodeAt(root, io.tab);
+        io.row([{ t: displayPath(io.tab, root) + (isDir(start) ? '/' : ''), c: 'dir' }]);
+        if (!isDir(start)) return;
+        var dirs = 0, files = 0;
+        (function walk(node, prefix, depth) {
+            if (depth >= limit || shown > 800) return;
+            var names = readDirNames(node, false);
+            for (var k = 0; k < names.length; k++) {
+                if (shown++ > 800) { io.row([{ t: prefix + '…', c: 'dim' }]); return; }
+                var last = k === names.length - 1;
+                var child = node.children[names[k]];
+                var branch = last ? '└── ' : '├── ';
+                io.row([{ t: prefix + branch, c: 'faint' }, { t: names[k] + (isDir(child) ? '/' : ''), c: isDir(child) ? 'dir' : '' }]);
+                if (isDir(child)) { dirs++; walk(child, prefix + (last ? '    ' : '│   '), depth + 1); }
+                else files++;
+            }
+        })(start, '', 0);
+        io.blank();
+        io.row([{ t: dirs + ' 个目录, ' + files + ' 个文件', c: 'dim' }]);
+    }
+});
+
+/* ── 变更操作 ─────────────────────────────────────────────── */
+
+function cloneNode(node) {
+    try { return JSON.parse(JSON.stringify(node)); } catch (e) {
+        throw new ShellError('复制失败：节点包含无法序列化的数据', 1);
+    }
+}
+
+function removeNode(p) {
+    var sp = splitName(p);
+    var parent = getNode(state.fs, sp.dir);
+    if (!parent || !parent.children) throw new ShellError('无法删除：父目录不存在', 1);
+    delete parent.children[sp.name];
+}
+
+def('mkdir', {
+    group: '文件与目录',
+    usage: 'mkdir [-p] 路径…',
+    desc: '创建目录；-p 自动创建缺失的父目录。',
+    run: async function (args, io) {
+        var o = parseFlags(args, { p: 1 });
+        if (!o.rest.length) throw new ShellError('mkdir: 缺少目录名', 2);
+        await needFS();
+        for (var i = 0; i < o.rest.length; i++) {
+            var p = resolvePath(o.rest[i], io.tab);
+            var existed = getNode(state.fs, p);
+            if (existed) {
+                if (o.flags.p && isDir(existed)) continue;
+                throw new ShellError('mkdir: 已存在：' + displayPath(io.tab, p), 1);
+            }
+            var segs = p.slice(2).split('/');
+            var curNode = state.fs[p.charAt(0).toUpperCase()];
+            if (!curNode) throw new ShellError('mkdir: 磁盘不存在：' + p, 1);
+            for (var s = 0; s < segs.length; s++) {
+                if (!segs[s]) continue;
+                if (!curNode.children) curNode.children = {};
+                var next = curNode.children[segs[s]];
+                if (!next) {
+                    if (!o.flags.p && s < segs.length - 1) {
+                        throw new ShellError('mkdir: 父目录不存在：' + segs.slice(0, s + 1).join('/'), 1);
+                    }
+                    next = { type: 'folder', children: {}, mtime: Date.now() };
+                    curNode.children[segs[s]] = next;
+                } else if (!isDir(next)) {
+                    throw new ShellError('mkdir: 路径中存在同名文件：' + segs[s], 1);
+                }
+                curNode = next;
+            }
+        }
+        await saveFS();
+        refreshFS(io.tab).catch(function () {});
+    }
+});
+
+def('touch', {
+    group: '文件与目录',
+    usage: 'touch 文件…',
+    desc: '创建空文件；已存在时更新时间。',
+    run: async function (args, io) {
+        if (!args.length) throw new ShellError('touch: 缺少文件名', 2);
+        await needFS();
+        for (var i = 0; i < args.length; i++) {
+            var p = resolvePath(args[i], io.tab);
+            var sp = splitName(p);
+            var parent = getNode(state.fs, sp.dir);
+            if (!parent || !isDir(parent)) throw new ShellError('touch: 父目录不存在：' + displayPath(io.tab, sp.dir), 1);
+            var node = parent.children[sp.name];
+            if (node) {
+                if (isDir(node)) throw new ShellError('touch: 是一个目录：' + args[i], 1);
+                node.mtime = Date.now();
+            } else {
+                parent.children[sp.name] = { type: 'file', content: '', mtime: Date.now() };
+            }
+        }
+        await saveFS();
+    }
+});
+
+def('rm', {
+    group: '文件与目录',
+    usage: 'rm [-r] [-f] 路径…',
+    desc: '删除文件或目录（移入回收站）；目录需要 -r。',
+    run: async function (args, io) {
+        var o = parseFlags(args, { r: 1, f: 1 });
+        if (!o.rest.length) throw new ShellError('rm: 缺少操作对象', 2);
+        await needFS();
+        var trash = await readTrashStrict();
+        var originalTrash = cloneNode(trash);
+        var removed = [];
+        for (var i = 0; i < o.rest.length; i++) {
+            var p = resolvePath(o.rest[i], io.tab);
+            if (/^[A-Za-z]:$/.test(p)) throw new ShellError('rm: 不能删除磁盘根目录：' + p, 1);
+            if (p === io.tab.cwd) throw new ShellError('rm: 不能删除当前工作目录：' + displayPath(io.tab, p), 1);
+            var n = getNode(state.fs, p);
+            if (!n) {
+                if (o.flags.f) continue;
+                throw new ShellError('rm: 没有这个文件或目录：' + displayPath(io.tab, p), 1);
+            }
+            if (isDir(n) && !o.flags.r) throw new ShellError('rm: 是一个目录，请加 -r：' + displayPath(io.tab, p), 1);
+            var sp = splitName(p);
+            trash.push({
+                name: sp.name,
+                type: n.type,
+                content: n.content,
+                children: cloneNode(n.children || {}),
+                originalPath: sp.dir,
+                deletedAt: Date.now()
+            });
+            removed.push({ path: p, node: n });
+        }
+        if (!removed.length) return;
+        var tempTrash = trash;
+        for (var r = 0; r < removed.length; r++) removeNode(removed[r].path);
+        try {
+            await writeTrashStrict(tempTrash);
+            await saveFS();
+        } catch (e) {
+            try {
+                state.fs = await bridgeMs(N.getUserLS('filesystem'), 4000, 'filesystem-restore');
+                await writeTrashStrict(originalTrash);
+            } catch (e2) {}
+            throw e;
+        }
+        for (var m = 0; m < removed.length; m++) {
+            io.row([{ t: '已移入回收站：', c: 'dim' }, { t: displayPath(io.tab, removed[m].path), c: 'ok' }]);
+        }
+    }
+});
+
+def('rmdir', {
+    group: '文件与目录',
+    usage: 'rmdir 目录…',
+    desc: '删除空目录（移入回收站）。',
+    run: async function (args, io) {
+        if (!args.length) throw new ShellError('rmdir: 缺少目录名', 2);
+        await needFS();
+        for (var i = 0; i < args.length; i++) {
+            var p = resolvePath(args[i], io.tab);
+            if (p === io.tab.cwd) throw new ShellError('rmdir: 不能删除当前工作目录', 1);
+            var n = nodeAt(p, io.tab);
+            if (!isDir(n)) throw new ShellError('rmdir: 不是目录：' + displayPath(io.tab, p), 1);
+            if (childCount(n)) throw new ShellError('rmdir: 目录不为空（用 rm -r）：' + displayPath(io.tab, p), 1);
+        }
+      var rm = CMD['rm'];
+        await rm.run(['-r'].concat(args), io);
+    }
+});
+
+def('cp', {
+    group: '文件与目录',
+    usage: 'cp [-r] 源 目标',
+    desc: '复制文件或目录（-r 复制目录）。',
+    run: async function (args, io) {
+        var o = parseFlags(args, { r: 1 });
+        if (o.rest.length < 2) throw new ShellError('cp: 需要源和目标', 2);
+        if (o.rest.length > 2) throw new ShellError('cp: 一次只支持一个源和一个目标', 2);
+        await needFS();
+        var src = resolvePath(o.rest[0], io.tab);
+        var dst = resolvePath(o.rest[1], io.tab);
+        var sn = nodeAt(src, io.tab);
+        if (isDir(sn) && !o.flags.r) throw new ShellError('cp: 源是目录，请加 -r', 1);
+        var dn = getNode(state.fs, dst);
+        var target = dst;
+        if (dn && isDir(dn)) target = joinPath(dst, baseName(src));
+        if (target === src) throw new ShellError('cp: 源和目标是同一个路径', 1);
+        if (isDir(sn) && (target.indexOf(src + '/') === 0)) throw new ShellError('cp: 不能把目录复制到自己的子目录中', 1);
+        var sp = splitName(target);
+        var parent = getNode(state.fs, sp.dir);
+        if (!parent || !isDir(parent)) throw new ShellError('cp: 目标父目录不存在：' + displayPath(io.tab, sp.dir), 1);
+        parent.children[sp.name] = cloneNode(sn);
+        await saveFS();
+        io.row([{ t: '已复制 ', c: 'dim' }, { t: displayPath(io.tab, src), c: 'accent' }, { t: ' → ', c: 'dim' }, { t: displayPath(io.tab, target), c: 'ok' }]);
+    }
+});
+
+def('mv', {
+    group: '文件与目录',
+    usage: 'mv 源 目标',
+    desc: '移动或重命名文件 / 目录。',
+    run: async function (args, io) {
+        if (args.length < 2) throw new ShellError('mv: 需要源和目标', 2);
+        if (args.length > 2) throw new ShellError('mv: 一次只支持一个源和一个目标', 2);
+        await needFS();
+        var src = resolvePath(args[0], io.tab);
+        var dst = resolvePath(args[1], io.tab);
+        var sn = nodeAt(src, io.tab);
+        if (src === io.tab.cwd) throw new ShellError('mv: 不能移动当前工作目录', 1);
+        var dn = getNode(state.fs, dst);
+        var target = dst;
+        if (dn && isDir(dn)) target = joinPath(dst, baseName(src));
+        if (target === src) throw new ShellError('mv: 源和目标是同一个路径', 1);
+        if (isDir(sn) && target.indexOf(src + '/') === 0) throw new ShellError('mv: 不能移动到自己的子目录中', 1);
+        var sp = splitName(target);
+        var parent = getNode(state.fs, sp.dir);
+        if (!parent || !isDir(parent)) throw new ShellError('mv: 目标父目录不存在：' + displayPath(io.tab, sp.dir), 1);
+        if (parent.children[sp.name] && isDir(parent.children[sp.name]) && !isDir(sn)) {
+            throw new ShellError('mv: 目标已存在同名目录', 1);
+        }
+        parent.children[sp.name] = sn;
+        removeNode(src);
+        if (state.tabs.length) {
+            for (var i = 0; i < state.tabs.length; i++) {
+                var t = state.tabs[i];
+                if (t.cwd === src || t.cwd.indexOf(src + '/') === 0) {
+                    t.cwd = target + t.cwd.slice(src.length);
+                    if (isActive(t)) { refreshPrompt(t); updateStatus(t); }
+                }
+            }
+        }
+        await saveFS();
+        io.row([{ t: '已移动 ', c: 'dim' }, { t: displayPath(io.tab, src), c: 'accent' }, { t: ' → ', c: 'dim' }, { t: displayPath(io.tab, target), c: 'ok' }]);
+    }
+});
+
+def('stat', {
+    group: '文件与目录',
+    usage: 'stat 路径…',
+    desc: '显示文件 / 目录的详细信息。',
+    run: async function (args, io) {
+        if (!args.length) throw new ShellError('stat: 缺少路径', 2);
+        await needFS();
+        for (var i = 0; i < args.length; i++) {
+            var p = resolvePath(args[i], io.tab);
+            var n = nodeAt(p, io.tab);
+            if (i) io.blank();
+            io.row([{ t: '路径  ', c: 'dim' }, { t: displayPath(io.tab, p), c: 'accent' }]);
+            io.row([{ t: '类型  ', c: 'dim' }, { t: isDir(n) ? (n.type === 'drive' ? '磁盘' : '文件夹') : '文件' }]);
+            io.row([{ t: '大小  ', c: 'dim' }, { t: (isDir(n) ? childCount(n) + ' 项' : humanSize(nodeBytes(n)) + '（' + nodeBytes(n) + ' 字节）') }]);
+            io.row([{ t: '修改  ', c: 'dim' }, { t: nodeTime(n) ? new Date(nodeTime(n)).toLocaleString('zh-CN', { hour12: false }) : '未记录' }]);
+        }
+    }
+});
+
+def('du', {
+    group: '文件与目录',
+    usage: 'du [-h] [路径…]',
+    desc: '统计虚拟文件占用（字节）。',
+    run: async function (args, io) {
+        var o = parseFlags(args, { h: 1, s: 1 });
+        await needFS();
+        var paths = o.rest.length ? o.rest : ['.'];
+        for (var i = 0; i < paths.length; i++) {
+            var p = resolvePath(paths[i], io.tab);
+            var n = nodeAt(p, io.tab);
+            var bytes = nodeBytes(n);
+            io.row([{ t: (o.flags.h ? humanSize(bytes) : String(bytes)) + '\t', c: 'faint' }, { t: displayPath(io.tab, p), c: isDir(n) ? 'dir' : '' }]);
+        }
+    }
+});
+
+def('file', {
+    group: '文件与目录',
+    usage: 'file 路径…',
+    desc: '判断文件类型。',
+    run: async function (args, io) {
+        if (!args.length) throw new ShellError('file: 缺少路径', 2);
+        await needFS();
+        for (var i = 0; i < args.length; i++) {
+            var p = resolvePath(args[i], io.tab);
+            var n = nodeAt(p, io.tab);
+            var kind = '空文件';
+            if (isDir(n)) kind = '文件夹（' + childCount(n) + ' 项）';
+            else {
+                var c = n.content == null ? '' : String(n.content);
+                if (c.length) {
+                    var parsed = null;
+                    if (c.charAt(0) === '{') { try { parsed = JSON.parse(c); } catch (e) {} }
+                    kind = parsed && parsed.type ? 'Nexus 数据（' + parsed.type + '）' : '文本，' + humanSize(c.length);
+                }
+            }
+            io.row([{ t: args[i] + ': ', c: 'accent' }, { t: kind }]);
+        }
+    }
+});
+
+def('open', {
+    group: '文件与目录',
+    usage: 'open [路径]',
+    desc: '在文件管理器中打开（不支持定位到具体路径）。',
+    run: async function (args, io) {
+        if (!state.bridgeReady) throw new ShellError('本地桥离线：无法打开应用。', 1);
+        await needFS();
+        if (args.length) {
+            var p = resolvePath(args[0], io.tab);
+            nodeAt(p, io.tab);
+        }
+        try {
+            await bridgeMs(N.openApp('files'), 4000, 'openApp');
+        } catch (e) {
+            throw new ShellError('打开文件管理器失败：本地桥无响应。', 1);
+        }
+        io.write('已打开文件管理器。系统桥不支持定位到具体路径，请在应用内导航。', 'dim');
+    }
+});
+
+/* ── 文本与计算 ───────────────────────────────────────────── */
+
+def('echo', {
+    group: '文本处理',
+    usage: 'echo [-n] 文本…',
+    desc: '输出文本，支持 $变量 展开。',
+    run: async function (args, io) {
+        var rest = args.slice();
+        if (rest[0] === '-n') rest.shift();
+        io.write(expandVars(rest.join(' '), io.tab));
+    }
+});
+
+def('printf', {
+    group: '文本处理',
+    usage: 'printf 格式 [参数…]',
+    desc: '按格式输出；支持 %s %d 与 \\n \\t。',
+    run: async function (args, io) {
+        if (!args.length) throw new ShellError('printf: 缺少格式字符串', 2);
+        var fmt = args[0].replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\\\/g, '\\');
+        var vals = args.slice(1), vi = 0;
+        fmt = fmt.replace(/%[sd]/g, function (m) {
+            var v = vals[vi++];
+            if (v == null) v = '';
+            return m === '%d' ? String(parseInt(v, 10) || 0) : v;
+        });
+        io.write(fmt);
+    }
+});
+
+function evalArith(src) {
+    var s = String(src).replace(/\s+/g, '');
+    if (!s) throw new ShellError('bc: 表达式为空', 2);
+    if (/[^0-9.+\-*/%^()]/.test(s)) throw new ShellError('bc: 只支持数字与 + - * / % ^ ( )', 2);
+    var pos = 0;
+    function peek() { return s.charAt(pos); }
+    function num() {
+        var start = pos;
+        while (/[0-9.]/.test(peek())) pos++;
+        if (start === pos) throw new ShellError('bc: 语法错误，位置 ' + (pos + 1), 2);
+        var v = parseFloat(s.slice(start, pos));
+        if (!isFinite(v)) throw new ShellError('bc: 无效数字', 2);
+        return v;
+    }
+    function atom() {
+        if (peek() === '(') {
+            pos++;
+            var v = expr();
+            if (peek() !== ')') throw new ShellError('bc: 缺少右括号', 2);
+            pos++;
+            return v;
+        }
+        if (peek() === '+' || peek() === '-') {
+            var sign = peek() === '-' ? -1 : 1;
+            pos++;
+            return sign * factor();
+        }
+        return num();
+    }
+    function power() {
+        var base = atom();
+        if (peek() === '^') {
+            pos++;
+            return Math.pow(base, factor());
+        }
+        return base;
+    }
+    function factor() {
+        var left = power();
+        while (peek() === '*' || peek() === '/' || peek() === '%') {
+            var op = peek(); pos++;
+            var right = power();
+            if ((op === '/' || op === '%') && right === 0) throw new ShellError('bc: 除数为零', 2);
+            if (op === '*') left *= right;
+            else if (op === '/') left /= right;
+            else left %= right;
+        }
+        return left;
+    }
+    function expr() {
+        var left = factor();
+        while (peek() === '+' || peek() === '-') {
+            var op = peek(); pos++;
+            var right = factor();
+            left = op === '+' ? left + right : left - right;
+        }
+        return left;
+    }
+    var result = expr();
+    if (pos < s.length) throw new ShellError('bc: 语法错误，位置 ' + (pos + 1), 2);
+    if (!isFinite(result)) throw new ShellError('bc: 结果超出范围', 2);
+    return Math.abs(result - Math.round(result)) < 1e-10 ? String(Math.round(result)) : String(Number(result.toFixed(10)));
+}
+
+def('bc', {
+    group: '文本处理',
+    usage: 'bc [表达式]',
+    desc: '计算四则运算；也可以从管道读取。',
+    run: async function (args, io) {
+        var input = args.length ? args.join(' ') : io.stdin;
+        if (!input) throw new ShellError('bc: 缺少表达式（示例：bc 2+3*4）', 2);
+        var lines = String(input).split('\n').filter(function (l) { return l.trim(); });
+        for (var i = 0; i < lines.length; i++) {
+            var value = evalArith(lines[i]);
+            io.row([{ t: value, c: 'ok' }]);
+        }
+    }
+});
+defAlias('calc', 'bc');
+
+def('clear', {
+    group: '会话',
+    usage: 'clear',
+    desc: '清空当前标签页输出（Ctrl+L）。',
+    run: async function (args, io) { io.clear = true; }
+});
+defAlias('cls', 'clear');
+
+def('history', {
+    group: '会话',
+    usage: 'history [条数]   history -c',
+    desc: '查看命令历史；-c 清空当前标签的历史。',
+    run: async function (args, io) {
+        var tab = io.tab;
+        if (args[0] === '-c') {
+            tab.history = [];
+            tab.histIdx = 0;
+            state.recent = [];
+            io.write('已清空当前标签的命令历史。', 'dim');
+            return;
+        }
+        var n = args[0] ? parseInt(args[0], 10) : 0;
+        var list = tab.history;
+        if (n > 0) list = list.slice(Math.max(0, list.length - n));
+        if (!list.length) { io.write('（还没有历史记录）', 'dim'); return; }
+        var start = tab.history.length - list.length + 1;
+        for (var i = 0; i < list.length; i++) {
+            io.row([{ t: padL(String(start + i), 4) + '  ', c: 'faint' }, { t: list[i] }]);
+        }
+    }
+});
+
+function waitAbortable(ms, tab, runId) {
+    return new Promise(function (resolve, reject) {
+        var deadline = Date.now() + ms;
+        function tick() {
+            if (tab.runId !== runId) { reject(new ShellError('已中断', 130)); return; }
+            var left = deadline - Date.now();
+            if (left <= 0) { resolve(); return; }
+            setTimeout(tick, Math.min(120, left));
+        }
+        tick();
+    });
+}
+
+def('sleep', {
+    group: '会话',
+    usage: 'sleep 秒数',
+    desc: '暂停指定秒数（最多 30 秒，Ctrl+C 中断）。',
+    run: async function (args, io) {
+        if (!args.length) throw new ShellError('sleep: 缺少秒数', 2);
+        var v = parseFloat(args[0]);
+        if (!isFinite(v) || v < 0) throw new ShellError('sleep: 秒数必须是非负数字', 2);
+        if (v > 30) throw new ShellError('sleep: 最长为 30 秒', 2);
+        await waitAbortable(v * 1000, io.tab, io.runId);
+    }
+});
+
+def('exit', {
+    group: '会话',
+    usage: 'exit',
+    desc: '关闭当前标签；只剩一个标签时关闭窗口。',
+    run: async function (args, io) { io.exitTab = true; }
+});
+defAlias('logout', 'exit');
+
+def('alias', {
+    group: '终端设置',
+    usage: 'alias',
+    desc: '列出内建别名（不支持自定义）。',
+    run: async function (args, io) {
+        var names = Object.keys(ALIAS).sort();
+        for (var i = 0; i < names.length; i++) {
+            io.row([{ t: padR(names[i], 10), c: 'ok' }, { t: '→ ', c: 'dim' }, { t: ALIAS[names[i]] }]);
+        }
+        io.blank();
+        io.write('别名是内建的，当前版本不支持自定义。', 'dim');
+    }
+});
+
+def('reset', {
+    group: '终端设置',
+    usage: 'reset',
+    desc: '恢复终端默认设置（字号、光标、配色）。',
+    run: async function (args, io) {
+        state.prefs.fs = 13;
+        state.prefs.cursor = 'system';
+        state.prefs.scheme = 'auto';
+        applyPrefs();
+        persistPrefs();
+        io.write('已恢复默认：字号 13px · 光标跟随系统 · 配色跟随系统。', 'dim');
+    }
+});
+
+/* ── 帮助与信息 ───────────────────────────────────────────── */
+
+var GROUP_ORDER = ['文件与目录', '文本处理', '系统信息', '终端设置', '系统交互', '会话', '受限命令'];
+
+function groupNames() {
+    var names = Object.keys(CMD);
+    var byGroup = {};
+    for (var i = 0; i < names.length; i++) {
+        var g = CMD[names[i]].group || '其他';
+        if (!byGroup[g]) byGroup[g] = [];
+        byGroup[g].push(names[i]);
+    }
+    var order = GROUP_ORDER.slice();
+    Object.keys(byGroup).forEach(function (g) { if (order.indexOf(g) < 0) order.push(g); });
+    return order.filter(function (g) { return byGroup[g]; }).map(function (g) {
+        return { name: g, items: byGroup[g].sort() };
+    });
+}
+
+def('help', {
+    group: '系统信息',
+    usage: 'help [命令]',
+    desc: '查看命令列表或某个命令的用法。',
+    run: async function (args, io) {
+        if (args.length) {
+            await CMD['man'].run([args[0]], io);
+            return;
+        }
+        var groups = groupNames();
+        io.row([{ t: 'Nexus Terminal', c: 'ok' }, { t: ' · nexus-sh 内建命令', c: 'dim' }]);
+        io.blank();
+        for (var i = 0; i < groups.length; i++) {
+            io.row([{ t: groups[i].name, c: 'accent' }]);
+            for (var j = 0; j < groups[i].items.length; j++) {
+                var spec = CMD[groups[i].items[j]];
+                io.row([{ t: '  ' + padR(spec.name, 12), c: 'ok' }, { t: spec.desc }]);
+            }
+            io.blank();
+        }
+        io.row([{ t: '别名  ', c: 'dim' }, { t: Object.keys(ALIAS).sort().map(function (a) { return a + ' → ' + ALIAS[a]; }).join(' · ') }]);
+        io.row([{ t: '提示  ', c: 'dim' }, { t: 'Tab 补全 · ↑↓ 历史 · Ctrl+R 反向搜索 · Ctrl+L 清屏 · Ctrl+Shift+F 搜索输出' }]);
+        io.row([{ t: '边界  ', c: 'dim' }, { t: '终端运行在沙箱中，只能操作 Nexus 虚拟文件系统；真实系统与网络命令会明确报错。' }]);
+    }
+});
+
+def('man', {
+    group: '系统信息',
+    usage: 'man 命令',
+    desc: '显示命令的详细说明。',
+    run: async function (args, io) {
+        if (!args.length) throw new ShellError('man: 缺少命令名', 2);
+        var name = args[0].toLowerCase();
+        if (ALIAS[name]) name = ALIAS[name].split(/\s+/)[0].toLowerCase();
+        var spec = CMD[name];
+        if (!spec) throw new ShellError('man: 没有这个命令：' + args[0] + '（help 查看全部命令）', 1);
+        io.row([{ t: spec.name, c: 'ok' }, { t: '  ' + (spec.group || ''), c: 'dim' }]);
+        io.row([{ t: '用法  ', c: 'dim' }, { t: spec.usage }]);
+        io.row([{ t: '说明  ', c: 'dim' }, { t: spec.desc }]);
+        if (spec.reason) io.row([{ t: '限制  ', c: 'dim' }, { t: spec.reason, c: 'warn' }]);
+    }
+});
+
+def('about', {
+    group: '系统信息',
+    usage: 'about',
+    desc: '关于 Nexus Terminal 与能力边界。',
+    run: async function (args, io) {
+        io.row([{ t: 'Nexus Terminal', c: 'ok' }, { t: '  26.1 · nexus-sh 1.4' }]);
+        io.row([{ t: '运行于  ', c: 'dim' }, { t: 'Nexus OS 26 · Web 沙箱' }]);
+        io.row([{ t: '文件系统', c: 'dim' }, { t: '与文件管理器共用的虚拟 FS（删除进入回收站）' }]);
+        io.row([{ t: '能力边界', c: 'dim' }, { t: '无真实系统进程 / 网络 / 外部程序；受限命令会明确报错' }]);
+        io.row([{ t: '状态    ', c: 'dim' }, { t: state.bridgeReady ? (state.fs ? '本地桥已连接' : '桥已连接，FS 未读取') : '本地桥离线' }]);
+    }
+});
+
+def('version', {
+    group: '系统信息',
+    usage: 'version',
+    desc: '显示终端版本。',
+    run: async function (args, io) {
+        io.write('Nexus Terminal 26.1.0 (nexus-sh 1.4)');
+    }
+});
+
+/* ── 系统信息 ─────────────────────────────────────────────── */
+
+function userName() { return state.user.name || 'user'; }
+function isRootUser() {
+    var r = String(state.user.role || '').toLowerCase();
+    return r === 'admin' || r === 'root';
+}
+
+def('whoami', {
+    group: '系统信息',
+    usage: 'whoami',
+    desc: '显示当前用户名。',
+    run: async function (args, io) { io.write(userName()); }
+});
+
+def('id', {
+    group: '系统信息',
+    usage: 'id',
+    desc: '显示虚拟身份与角色。',
+    run: async function (args, io) {
+        var role = state.user.role || 'standard';
+        var uid = isRootUser() ? 0 : 1000;
+        var groups = '1000(nexus)' + (isRootUser() ? ',0(root)' : '');
+        io.write('uid=' + uid + '(' + userName() + ') gid=1000(nexus) groups=' + groups + ' 角色=' + role);
+    }
+});
+
+def('hostname', {
+    group: '系统信息',
+    usage: 'hostname',
+    desc: '显示主机名。',
+    run: async function (args, io) { io.write('nexus'); }
+});
+
+def('uname', {
+    group: '系统信息',
+    usage: 'uname [-a]',
+    desc: '显示系统标识。',
+    run: async function (args, io) {
+        var o = parseFlags(args, { a: 1 });
+        if (o.flags.a) io.write('NexusOS 26.1 nexus-sh x86_64 Web');
+        else io.write('NexusOS');
+    }
+});
+
+def('date', {
+    group: '系统信息',
+    usage: 'date',
+    desc: '显示当前日期与时间。',
+    run: async function (args, io) {
+        io.write(new Date().toLocaleString('zh-CN', { hour12: false, weekday: 'short' }));
+    }
+});
+
+def('uptime', {
+    group: '系统信息',
+    usage: 'uptime',
+    desc: '显示终端会话运行时长。',
+    run: async function (args, io) {
+        var ms = Date.now() - state.bootAt;
+        io.row([{ t: '终端已运行 ', c: 'dim' }, { t: fmtDuration(ms), c: 'ok' }, { t: ' · ' + state.tabs.length + ' 个会话', c: 'dim' }]);
+        io.write('平均负载：不可用（沙箱内无法读取真实系统指标）。', 'dim');
+    }
+});
+
+def('env', {
+    group: '系统信息',
+    usage: 'env',
+    desc: '显示当前会话的环境变量。',
+    run: async function (args, io) {
+        var keys = ['USER', 'HOME', 'PWD', 'OLDPWD', 'SHELL', 'TERM', 'HOSTNAME', 'LANG', 'TZ'];
+        for (var i = 0; i < keys.length; i++) {
+            io.row([{ t: padR(keys[i], 9), c: 'accent' }, { t: '= ' + envValue(keys[i], io.tab) }]);
+        }
+        io.write('环境变量为只读，不支持 export / unset。', 'dim');
+    }
+});
+
+function whichRun(args, io) {
+    if (!args.length) throw new ShellError('缺少命令名', 2);
+    var misses = 0;
+    for (var i = 0; i < args.length; i++) {
+        var name = args[i].toLowerCase();
+        if (ALIAS[name]) {
+            io.row([{ t: name + ': ', c: 'accent' }, { t: '别名为 ' + ALIAS[name], c: 'dim' }]);
+        } else if (CMD[name]) {
+            io.row([{ t: name + ': ', c: 'accent' }, { t: 'shell 内建命令（' + CMD[name].group + '）' }]);
+        } else {
+            misses++;
+            io.row([{ t: name + ': ', c: 'accent' }, { t: '未找到', c: 'err' }]);
+        }
+    }
+    if (misses) throw new ShellError('', 1);
+}
+
+def('which', {
+    group: '系统信息',
+    usage: 'which 命令…',
+    desc: '定位命令是否为内建命令。',
+    run: whichRun
+});
+
+def('type', {
+    group: '系统信息',
+    usage: 'type 命令…',
+    desc: '显示命令类型（同 which）。',
+    run: whichRun
+});
+
+def('ps', {
+    group: '系统信息',
+    usage: 'ps',
+    desc: '列出终端会话（仅终端内进程）。',
+    run: async function (args, io) {
+        io.row([
+            { t: padL('PID', 6) + ' ', c: 'dim' },
+            { t: padR('TTY', 7), c: 'dim' },
+            { t: 'STAT  CMD', c: 'dim' }
+        ]);
+        for (var i = 0; i < state.tabs.length; i++) {
+            var t = state.tabs[i];
+            io.row([
+                { t: padL(String(t.id), 6) + ' ', c: 'faint' },
+                { t: padR('tty' + (i + 1), 7), c: 'faint' },
+                { t: (t.busy ? 'R' : 'S') + '     ', c: t.busy ? 'warn' : 'ok' },
+                { t: 'nexus-sh' + (isActive(t) ? ' *' : ''), c: isActive(t) ? 'accent' : '' }
+            ]);
+        }
+        io.write('仅列出终端会话；沙箱内无法查看系统进程。', 'dim');
+    }
+});
+
+def('kill', {
+    group: '系统信息',
+    usage: 'kill [-9] PID',
+    desc: '结束指定终端会话；当前会话则中断任务。',
+    run: async function (args, io) {
+        var rest = args.filter(function (a) { return a !== '-9' && a !== '-s'; });
+        var pid = parseInt(rest[0], 10);
+        if (!isFinite(pid)) throw new ShellError('kill: 需要进程号（用 ps 查看）', 2);
+        var t = tabById(pid);
+        if (!t) throw new ShellError('kill: 没有这个进程：' + pid, 1);
+        if (isActive(t)) {
+            t.runId++;
+            t.busy = false;
+            t.busyStarted = 0;
+            syncBusy();
+            io.write('已中断当前会话中的任务（PID ' + pid + '）。', 'dim');
+            return;
+        }
+        closeTab(pid);
+        io.write('已结束会话 PID ' + pid + '。', 'dim');
+    }
+});
+
+def('df', {
+    group: '系统信息',
+    usage: 'df [-h]',
+    desc: '显示虚拟磁盘占用（不代表真实磁盘）。',
+    run: async function (args, io) {
+        parseFlags(args, { h: 1 });
+        await needFS();
+        io.row([
+            { t: padR('文件系统', 10), c: 'dim' },
+            { t: padR('类型', 8), c: 'dim' },
+            { t: padL('占用', 9) + '  ', c: 'dim' },
+            { t: '项目', c: 'dim' }
+        ]);
+        var keys = Object.keys(state.fs);
+        for (var i = 0; i < keys.length; i++) {
+            var drive = keys[i].toUpperCase();
+            var n = state.fs[keys[i]];
+            if (!isDir(n)) continue;
+            io.row([
+                { t: padR(drive + ':', 10), c: 'dir' },
+                { t: padR('虚拟盘', 8), c: 'faint' },
+                { t: padL(humanSize(nodeBytes(n)), 9) + '  ', c: 'ok' },
+                { t: childCount(n) + ' 项', c: 'faint' }
+            ]);
+        }
+        io.write('这是 Nexus 虚拟文件系统，容量与真实磁盘无关。', 'dim');
+    }
+});
+
+/* ── 系统交互 ─────────────────────────────────────────────── */
+
+def('apps', {
+    group: '系统交互',
+    usage: 'apps [-i]',
+    desc: '列出系统应用；-i 只显示已安装。',
+    run: async function (args, io) {
+        var o = parseFlags(args, { i: 1 });
+        if (!state.bridgeReady) throw new ShellError(offlineMessage(), 1);
+        var list;
+        try {
+            list = await bridgeMs(N.getApps(), 5000, 'apps');
+        } catch (e) {
+            throw new ShellError('读取应用清单失败：本地桥无响应。', 1);
+        }
+        if (!Array.isArray(list)) throw new ShellError('应用清单格式异常。', 1);
+        var rows = list.filter(function (a) { return !o.flags.i || a.installed; });
+        rows.sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'zh-CN'); });
+        if (!rows.length) { io.write('（没有已安装的应用）', 'dim'); return; }
+        for (var i = 0; i < rows.length; i++) {
+            var a = rows[i];
+            io.row([
+                { t: a.installed ? '● ' : '○ ', c: a.installed ? 'ok' : 'faint' },
+                { t: padR(a.name || a.id, 14) },
+                { t: padR(a.id, 14), c: 'accent' },
+                { t: a.category || '', c: 'dim' }
+            ]);
+        }
+        io.write('● 已安装 · ○ 未安装 · 用 openapp <id> 打开', 'dim');
+    }
+});
+
+def('openapp', {
+    group: '系统交互',
+    usage: 'openapp 应用ID',
+    desc: '按应用 ID 打开系统应用。',
+    run: async function (args, io) {
+        if (!args.length) throw new ShellError('openapp: 缺少应用 ID（用 apps 查看）', 2);
+        if (!state.bridgeReady) throw new ShellError(offlineMessage(), 1);
+        var id = args[0].toLowerCase();
+        var list = [];
+        try {
+            list = await bridgeMs(N.getApps(), 4000, 'apps');
+        } catch (e) { list = []; }
+        var found = Array.isArray(list) && list.some(function (a) { return a.id === id; });
+        if (!found) throw new ShellError('openapp: 没有这个应用：' + id, 1);
+        try {
+            await bridgeMs(N.openApp(id), 4000, 'openApp');
+        } catch (e) {
+            throw new ShellError('打开应用失败：本地桥无响应。', 1);
+        }
+        io.write('已请求打开应用：' + id, 'dim');
+    }
+});
+defAlias('app', 'openapp');
+
+def('notify', {
+    group: '系统交互',
+    usage: 'notify 文本…',
+    desc: '发送一条系统通知。',
+    run: async function (args, io) {
+        if (!args.length) throw new ShellError('notify: 缺少通知内容', 2);
+        if (!state.bridgeReady) throw new ShellError(offlineMessage(), 1);
+        try {
+            await bridgeMs(N.notify('终端', args.join(' '), 'info'), 4000, 'notify');
+        } catch (e) {
+            throw new ShellError('发送通知失败：本地桥无响应。', 1);
+        }
+        io.write('已发送系统通知。', 'dim');
+    }
+});
+
+/* ── 终端设置 ─────────────────────────────────────────────── */
+
+def('theme', {
+    group: '终端设置',
+    usage: 'theme [auto|light|dark]',
+    desc: '查看或切换终端配色（不影响系统主题）。',
+    run: async function (args, io) {
+        if (!args.length) {
+            var actual = document.body.classList.contains('dark-mode') ? '深色' : '浅色';
+            io.row([{ t: '配色  ', c: 'dim' }, { t: state.prefs.scheme, c: 'ok' }, { t: '（当前渲染为' + actual + '）', c: 'dim' }]);
+            io.write('可用值：auto · light · dark', 'dim');
+            return;
+        }
+        var v = args[0].toLowerCase();
+        if (v === 'system') v = 'auto';
+        if (SCHEMES.indexOf(v) < 0) throw new ShellError('theme: 未知配色：' + args[0] + '（可用 auto / light / dark）', 2);
+        setScheme(v);
+        io.write('配色已切换为 ' + v + '。只影响终端，不改系统主题。', 'dim');
+    }
+});
+
+def('font', {
+    group: '终端设置',
+    usage: 'font [字号 | + | -]',
+    desc: '查看或调整终端字号（11–18px）。',
+    run: async function (args, io) {
+        if (!args.length) {
+            io.row([{ t: '字号  ', c: 'dim' }, { t: state.prefs.fs + ' px', c: 'ok' }, { t: '（Ctrl+= / Ctrl+- 也可调整）', c: 'dim' }]);
+            return;
+        }
+        if (args[0] === '+' || args[0] === '-') {
+            var px = stepFont(args[0] === '+' ? 1 : -1);
+            io.write('字号已调整为 ' + px + ' px。', 'dim');
+            return;
+        }
+        var n = parseInt(args[0], 10);
+        if (!isFinite(n)) throw new ShellError('font: 需要数字或 + / -', 2);
+        if (n < 11 || n > 18) throw new ShellError('font: 字号范围 11–18 px', 2);
+        var snapped = setFont(n);
+        io.write('字号已设置为 ' + snapped + ' px。', 'dim');
+    }
+});
+
+def('cursor', {
+    group: '终端设置',
+    usage: 'cursor [system|block|bar|underline]',
+    desc: '查看或切换终端光标样式。',
+    run: async function (args, io) {
+        if (!args.length) {
+            io.row([{ t: '光标  ', c: 'dim' }, { t: state.prefs.cursor, c: 'ok' }]);
+            io.write('可用值：system · block · bar · underline', 'dim');
+            return;
+        }
+        if (!setCursor(args[0].toLowerCase())) {
+            throw new ShellError('cursor: 未知样式：' + args[0], 2);
+        }
+        io.write('光标样式已切换为 ' + state.prefs.cursor + '。', 'dim');
+    }
+});
+
+def('settings', {
+    group: '终端设置',
+    usage: 'settings',
+    desc: '打开终端设置面板（字号 / 光标 / 配色）。',
+    run: async function (args, io) {
+        openSettings();
+        io.write('已打开设置面板。', 'dim');
+    }
+});
+
+def('title', {
+    group: '终端设置',
+    usage: 'title [名称]',
+    desc: '查看或设置当前标签名称。',
+    run: async function (args, io) {
+        var tab = io.tab;
+        if (!args.length) {
+            io.row([{ t: '标签名  ', c: 'dim' }, { t: tab.title, c: 'ok' }]);
+            return;
+        }
+        var name = args.join(' ').replace(/[\r\n]/g, ' ').slice(0, 24);
+        tab.title = name || tab.title;
+        renderTabs();
+        updateWindowTitle();
+        io.write('标签已重命名为：' + tab.title, 'dim');
+    }
+});
+
+def('neofetch', {
+    group: '系统信息',
+    usage: 'neofetch',
+    desc: '概览终端环境与设置。',
+    run: async function (args, io) {
+        var rows = [
+            ['版本', 'Nexus Terminal 26.1'],
+            ['Shell', 'nexus-sh 1.4'],
+            ['用户', userName() + '@nexus'],
+            ['角色', state.user.role || 'standard'],
+            ['配色', state.prefs.scheme + (document.body.classList.contains('dark-mode') ? ' → 深色' : ' → 浅色')],
+            ['字号', state.prefs.fs + ' px'],
+            ['光标', state.prefs.cursor],
+            ['工作区', displayPath(io.tab, io.tab.cwd)],
+            ['标签', state.tabs.length + ' 个会话'],
+            ['文件系统', state.fs ? '虚拟 FS · ' + Object.keys(state.fs).join(' / ') : '未连接'],
+            ['本地桥', state.bridgeReady ? '在线' : '离线'],
+            ['运行时长', fmtDuration(Date.now() - state.bootAt)]
+        ];
+        io.row([{ t: 'Nexus Terminal', c: 'ok' }, { t: '  ·  ' , c: 'dim' }, { t: '26.1', c: 'accent' }]);
+        io.row([{ t: '────────────────────────', c: 'faint' }]);
+        for (var i = 0; i < rows.length; i++) {
+            io.row([{ t: padR(rows[i][0], 9), c: 'dim' }, { t: rows[i][1], c: i === 6 || i === 7 ? 'accent' : 'ok' }]);
+        }
+    }
+});
+
+/* ── 受限命令（明确说明，绝不假装执行） ────────────────────── */
+
+function restricted(name, usage, reason) {
+    def(name, {
+        group: '受限命令',
+        usage: usage || name,
+        desc: reason,
+        reason: reason,
+        run: async function () {
+            throw new ShellError(name + ': ' + reason, 126);
+        }
+    });
+}
+
+restricted('sudo', 'sudo 命令…', '终端没有提权能力；管理员权限由系统账户决定。');
+restricted('su', 'su', '终端无法切换系统用户。');
+restricted('reboot', 'reboot', '电源操作不可用；请使用系统菜单重启。');
+restricted('shutdown', 'shutdown', '电源操作不可用；请使用系统菜单关机。');
+restricted('curl', 'curl URL', '沙箱内无法访问网络，请使用浏览器。');
+restricted('wget', 'wget URL', '沙箱内无法访问网络或下载文件。');
+restricted('ping', 'ping 主机', '沙箱内无法发送网络请求。');
+restricted('ssh', 'ssh 主机', '沙箱内无法建立远程连接。');
+restricted('git', 'git 子命令', '沙箱内无法运行外部程序。');
+restricted('npm', 'npm 子命令', '沙箱内无法运行外部程序或访问网络。');
+restricted('node', 'node 脚本', '沙箱内无法运行外部程序。');
+restricted('python', 'python 脚本', '沙箱内无法运行外部程序。');
+restricted('top', 'top', '无法读取真实系统资源；可执行 ps / df 查看终端与虚拟磁盘。');
+restricted('htop', 'htop', '不支持交互式监视器；可执行 ps 查看终端会话。');
+restricted('free', 'free', '无法读取真实内存信息，终端不会伪造数据。');
+restricted('vim', 'vim 文件', '不支持交互式编辑器；请用 cat / head / tail 查看内容。');
+restricted('nano', 'nano 文件', '不支持交互式编辑器；请用 cat / head / tail 查看内容。');
+restricted('chmod', 'chmod 权限 文件', '虚拟文件系统不记录权限位。');
+restricted('export', 'export 变量=值', '当前会话的环境变量只读。');
+restricted('source', 'source 文件', '不支持执行脚本，内建命令之外不会运行任意代码。');
+
+/* ── 输出渲染 ─────────────────────────────────────────────── */
+
+function segHtml(line) {
+    var html = '';
+    for (var i = 0; i < line.length; i++) {
+        var seg = line[i];
+        html += seg.c ? '<span class="' + seg.c + '">' + esc(seg.t) + '</span>' : esc(seg.t);
+    }
+    return html;
+}
+
+function printIO(tab, io) {
+    if (!tab || !io) return;
+    for (var i = 0; i < io.lines.length; i++) {
+        var line = io.lines[i];
+        printLine(tab, line.length ? segHtml(line) : ' ');
+    }
+}
+
+function printError(tab, msg) {
+    var parts = String(msg == null ? '' : msg).split('\n');
+    for (var i = 0; i < parts.length; i++) {
+        if (!parts[i]) continue;
+        printLine(tab, '<span class="' + (i === 0 ? 'err' : 'dim') + '">' + esc(parts[i]) + '</span>');
+    }
+}
+
+function appendIO(dst, src) {
+    if (!src) return;
+    for (var i = 0; i < src.lines.length; i++) dst.lines.push(src.lines[i]);
+}
+
+/* ── 重定向 ───────────────────────────────────────────────── */
+
+async function writeRedirect(targetArg, append, text, tab) {
+    var tokens = tokenize(targetArg);
+    if (!tokens.length) throw new ShellError('重定向：缺少目标文件', 2);
+    if (tokens.length > 1) throw new ShellError('重定向：目标只能是一个文件（名称含空格请加引号）', 2);
+    await needFS();
+    var p = resolvePath(expandVars(tokens[0], tab), tab);
+    var sp = splitName(p);
+    var parent = getNode(state.fs, sp.dir);
+    if (!parent || !isDir(parent)) throw new ShellError('重定向失败：目录不存在：' + displayPath(tab, sp.dir), 1);
+    var existing = parent.children[sp.name];
+    if (existing && isDir(existing)) throw new ShellError('重定向失败：目标是一个目录：' + displayPath(tab, p), 1);
+    var body = text;
+    if (append && existing) {
+        var old = existing.content == null ? '' : String(existing.content);
+        if (old && old.charAt(old.length - 1) !== '\n') old += '\n';
+        body = old + body;
+    }
+    if (body && body.charAt(body.length - 1) !== '\n') body += '\n';
+    if (!existing) {
+        existing = { type: 'file', content: '', mtime: 0 };
+        parent.children[sp.name] = existing;
+    }
+    existing.content = body;
+    existing.type = 'file';
+    existing.mtime = Date.now();
+    await saveFS();
+}
+
+/* ── 执行引擎 ─────────────────────────────────────────────── */
+
+function resolveAlias(argv) {
+    var a = argv.slice(), guard = 0;
+    while (a.length && ALIAS[a[0].toLowerCase()] && guard++ < 6) {
+        var rep = tokenize(ALIAS[a[0].toLowerCase()]);
+        a = rep.concat(a.slice(1));
+    }
+    return a;
+}
+
+async function runSegment(cmdText, tab, runId) {
+    var redir = extractRedirect(cmdText);
+    if (redir && redir.bad) throw new ShellError(redir.bad, 2);
+    var parts = splitTop(redir ? redir.cmd : cmdText, '|');
+    var stdin = '';
+    var lastIO = makeIO(tab, '');
+    var clear = false, exitTab = false;
+    for (var i = 0; i < parts.length; i++) {
+        if (tab.runId !== runId) return { io: lastIO, code: 130, clear: clear, exitTab: exitTab };
+        var argv = tokenize(parts[i]).map(function (a) { return expandVars(a, tab); });
+        if (!argv.length) throw new ShellError('语法错误：管道中缺少命令', 2);
+        argv = resolveAlias(argv);
+        if (!argv.length || !argv[0]) throw new ShellError('语法错误：缺少命令', 2);
+        var name = argv[0].toLowerCase();
+        var spec = CMD[name];
+        if (!spec) {
+            throw new ShellError('nexus-sh: ' + argv[0] + ': command not found\n输入 help 查看可用命令。', 127);
+        }
+        var io = makeIO(tab, stdin);
+        io.runId = runId;
+        await spec.run(argv.slice(1), io);
+        if (io.clear) clear = true;
+        if (io.exitTab) exitTab = true;
+        lastIO = io;
+        stdin = ioText(io);
+    }
+    if (redir) {
+        await writeRedirect(redir.target, redir.append, stdin, tab);
+        return { io: makeIO(tab, ''), code: 0, clear: clear, exitTab: exitTab };
+    }
+    return { io: lastIO, code: 0, clear: clear, exitTab: exitTab };
+}
+
+async function runChain(line, tab, runId) {
+    var segs = splitChain(line);
+    var combined = makeIO(tab, '');
+    var prevCode = 0, error = null;
+    for (var i = 0; i < segs.length; i++) {
+        var text = segs[i].cmd.trim();
+        var op = segs[i].op;
+        if (op === '&&' && prevCode !== 0) continue;
+        if (op === '||' && prevCode === 0) continue;
+        if (!text) continue;
+        if (tab.runId !== runId) return { io: combined, code: 130, clear: false, exitTab: false, error: null };
+        var r;
+        try {
+            r = await runSegment(text, tab, runId);
+        } catch (e) {
+            if (e instanceof ShellError) {
+                error = e;
+                prevCode = e.code || 1;
+                break;
+            }
+            throw e;
+        }
+        appendIO(combined, r.io);
+        if (r.clear) combined.clear = true;
+        prevCode = r.code;
+        if (r.exitTab) { combined.exitTab = true; break; }
+    }
+    return { io: combined, code: prevCode, clear: combined.clear, exitTab: combined.exitTab, error: error };
+}
+
+/* ── 历史 ─────────────────────────────────────────────────── */
+
+function pushHistory(tab, line) {
+    if (!line) return;
+    if (tab.history.length && tab.history[tab.history.length - 1] === line) {
+        tab.histIdx = tab.history.length;
+        return;
+    }
+    tab.history.push(line);
+    if (tab.history.length > 200) tab.history.splice(0, tab.history.length - 200);
+    tab.histIdx = tab.history.length;
+    tab.lineDraft = '';
+    state.recent = tab.history.slice(-200);
+    scheduleRecentSave();
+}
+
+function scheduleRecentSave() {
+    clearTimeout(state.recentTimer);
+    state.recentTimer = setTimeout(function () {
+        if (!state.bridgeReady || !state.recent.length) return;
+        try { N.setUserLS('terminal.recent', state.recent).catch(function () {}); } catch (e) {}
+    }, 900);
+}
+
+function abortRun(tab) {
+    tab = tab || activeTab();
+    if (!tab || !tab.running) return false;
+    tab.runId++;
+    tab.running = false;
+    tab.busy = false;
+    tab.busyStarted = 0;
+    tab.exit = 130;
+    clearTimeout(state.busyTimer);
+    printLine(tab, '<span class="dim">^C</span> <span class="warn">已中断</span>');
+    if (isActive(tab)) { syncBusy(); updateStatus(tab); }
+    return true;
+}
+
+function syncBusy() {
+    var t = activeTab();
+    var show = !!(t && t.busy);
+    busyEl.hidden = !show;
+    cmdEl.setAttribute('aria-busy', show ? 'true' : 'false');
+}
+
+/* ── 执行入口 ─────────────────────────────────────────────── */
+
+async function executeLine(raw) {
+    var tab = activeTab();
+    if (!tab) return;
+    var line = String(raw == null ? '' : raw).replace(/[\r\n]+/g, ' ');
+    if (tab.running) {
+        printLine(tab, '<span class="warn">上一命令仍在运行；按 Ctrl+C 中断，或稍候。</span>');
+        scrollBottom(tab);
+        focusCmd();
+        return;
+    }
+    cmdEl.value = '';
+    tab.input = '';
+    scheduleCursor();
+    echoLine(tab, line);
+    var cmd = line.trim();
+    if (!cmd) { scrollBottom(tab); return; }
+    pushHistory(tab, cmd);
+    tab.running = true;
+    tab.runId++;
+    var runId = tab.runId;
+    tab.busy = false;
+    clearTimeout(state.busyTimer);
+    state.busyTimer = setTimeout(function () {
+        if (tab.runId !== runId) return;
+        tab.busy = true;
+        tab.busyStarted = Date.now();
+        if (isActive(tab)) syncBusy();
+    }, 320);
+    var res = null;
+    try {
+        res = await runChain(cmd, tab, runId);
+    } catch (e) {
+        res = { io: makeIO(tab, ''), code: 1, clear: false, exitTab: false, error: e };
+    } finally {
+        clearTimeout(state.busyTimer);
+        tab.busy = false;
+        tab.busyStarted = 0;
+        tab.running = false;
+        if (tab.runId !== runId) {
+            if (isActive(tab)) { syncBusy(); updateStatus(tab); }
+            return;
+        }
+        if (res) {
+            if (res.clear) {
+                clearTab(tab);
+            } else {
+                printIO(tab, res.io);
+            }
+            if (res.error) {
+                if (res.error instanceof ShellError) {
+                    if (res.error.message) printError(tab, res.error.message);
+                    tab.exit = res.error.code || 1;
+                } else {
+                    printError(tab, '内部错误：' + (res.error && res.error.message ? res.error.message : String(res.error)));
+                    tab.exit = 1;
+                }
+            } else {
+                tab.exit = res.code || 0;
+            }
+        }
+        if (isActive(tab)) { syncBusy(); updateStatus(tab); }
+        scrollBottom(tab);
+        if (res && res.exitTab) {
+            if (state.tabs.length > 1) {
+                closeTab(tab.id);
+            } else if (state.bridgeReady && N.closeWindow) {
+                try { N.closeWindow(); } catch (e) {}
+            } else {
+                closeTab(tab.id);
+            }
+        } else {
+            focusCmd();
+        }
+    }
+}
+
+/* ── 补全 ─────────────────────────────────────────────────── */
+
+function currentToken() {
+    var value = cmdEl.value;
+    var caret = cmdEl.selectionStart;
+    var head = value.slice(0, caret);
+    var m = /([^\s]*)$/.exec(head);
+    var token = m ? m[1] : '';
+    return {
+        value: value,
+        caret: caret,
+        token: token,
+        start: caret - token.length,
+        before: head.slice(0, caret - token.length)
+    };
+}
+
+function commonPrefix(list) {
+    if (!list.length) return '';
+    var p = list[0];
+    for (var i = 1; i < list.length; i++) {
+        while (p && list[i].indexOf(p) !== 0) p = p.slice(0, -1);
+    }
+    return p;
+}
+
+function quoteName(name) {
+    if (!/\s/.test(name)) return name;
+    return "'" + name.replace(/'/g, "'\\''") + "'";
+}
+
+function replaceToken(ctx, insert) {
+    cmdEl.value = ctx.value.slice(0, ctx.start) + insert + ctx.value.slice(ctx.caret);
+    var pos = ctx.start + insert.length;
+    try { cmdEl.setSelectionRange(pos, pos); } catch (e) {}
+    var t = activeTab();
+    if (t) t.input = cmdEl.value;
+    scheduleCursor();
+}
+
+function printCandidates(tab, items) {
+    var names = items.map(function (it) { return it.name + (it.kind === 'dir' ? '/' : ''); });
+    var maxw = 0;
+    for (var i = 0; i < names.length; i++) maxw = Math.max(maxw, strWidth(names[i]));
+    var colw = maxw + 3;
+    var perRow = clamp(Math.floor(78 / colw), 1, 4);
+    var io = makeIO(tab, '');
+    for (var r = 0; r < items.length; r += perRow) {
+        var segs = [];
+        for (var c = 0; c < perRow && r + c < items.length; c++) {
+            var it = items[r + c];
+            var label = it.name + (it.kind === 'dir' ? '/' : '');
+            if (r + c < items.length - 1) label = padR(label, colw);
+            segs.push({ t: label, c: it.kind === 'dir' ? 'dir' : '' });
+        }
+        io.row(segs);
+    }
+    printIO(tab, io);
+    scrollBottom(tab);
+}
+
+function completeCommand() {
+    var tab = activeTab();
+    var ctx = currentToken();
+    var looksPath = ctx.token.indexOf('/') >= 0 || ctx.token.indexOf('~') >= 0 || ctx.token.indexOf('\\') >= 0;
+    var firstWord = ctx.before.trim() === '' && !looksPath;
+    if (firstWord) {
+        var token = ctx.token.toLowerCase();
+        var cmds = Object.keys(CMD).concat(Object.keys(ALIAS)).filter(function (n) {
+            return n.indexOf(token) === 0;
+        }).sort();
+        var items = cmds.map(function (n) { return { name: n, kind: 'cmd' }; });
+        if (!items.length) {
+            statusFlash('没有匹配的命令');
+            return;
+        }
+        if (items.length === 1) {
+            replaceToken(ctx, items[0].name + ' ');
+            return;
+        }
+        var prefix = commonPrefix(cmds);
+        if (prefix.length > ctx.token.length) {
+            replaceToken(ctx, prefix);
+            return;
+        }
+        printCandidates(tab, items);
+        return;
+    }
+    if (!state.fs) {
+        statusFlash('文件系统未连接，无法补全路径');
+        return;
+    }
+    var slash = ctx.token.lastIndexOf('/');
+    var dirPart = slash >= 0 ? ctx.token.slice(0, slash + 1) : '';
+    var base = slash >= 0 ? ctx.token.slice(slash + 1) : ctx.token;
+    var dirArg = dirPart || '.';
+    if (dirArg.slice(0, 2) === '~/') dirArg = tab.home + '/' + dirArg.slice(2);
+    else if (dirArg === '~') dirArg = tab.home;
+    var dirPath = resolvePath(dirArg, tab);
+    var dirNode = getNode(state.fs, dirPath);
+    if (!dirNode || !isDir(dirNode)) {
+        statusFlash('目录不存在：' + dirArg);
+        return;
+    }
+    var names = readDirNames(dirNode, true).filter(function (n) {
+        if (base.charAt(0) !== '.' && n.charAt(0) === '.') return false;
+        return n.toLowerCase().indexOf(base.toLowerCase()) === 0;
+    });
+    var pItems = names.map(function (n) {
+        return { name: n, kind: isDir(dirNode.children[n]) ? 'dir' : 'file' };
+    });
+    if (!pItems.length) {
+        statusFlash('没有匹配的文件');
+        return;
+    }
+    if (pItems.length === 1) {
+        var it = pItems[0];
+        replaceToken(ctx, dirPart + quoteName(it.name) + (it.kind === 'dir' ? '/' : ' '));
+        return;
+    }
+    var pPrefix = commonPrefix(names);
+    if (pPrefix.length > base.length) {
+        replaceToken(ctx, dirPart + pPrefix);
+        return;
+    }
+    printCandidates(tab, pItems);
+}
+
+/* ── 历史导航 / 光标移动 ─────────────────────────────────── */
+
+function moveCaretEnd() {
+    var n = cmdEl.value.length;
+    try { cmdEl.setSelectionRange(n, n); } catch (e) {}
+    scheduleCursor();
+}
+
+function histPrev(tab) {
+    if (!tab.history.length) return;
+    if (tab.histIdx >= tab.history.length) {
+        tab.lineDraft = cmdEl.value;
+        tab.histIdx = tab.history.length;
+    }
+    if (tab.histIdx > 0) {
+        tab.histIdx--;
+        cmdEl.value = tab.history[tab.histIdx];
+        moveCaretEnd();
+    }
+}
+
+function histNext(tab) {
+    if (tab.histIdx < tab.history.length - 1) {
+        tab.histIdx++;
+        cmdEl.value = tab.history[tab.histIdx];
+    } else {
+        tab.histIdx = tab.history.length;
+        cmdEl.value = tab.lineDraft || '';
+    }
+    moveCaretEnd();
+}
+
+function deleteWordBefore() {
+    var v = cmdEl.value;
+    var start = cmdEl.selectionStart, end = cmdEl.selectionEnd;
+    if (start !== end) {
+        cmdEl.value = v.slice(0, start) + v.slice(end);
+        cmdEl.setSelectionRange(start, start);
+    } else {
+        var left = v.slice(0, start);
+        var trimmed = left.replace(/\s+$/, '');
+        var cut = trimmed.length;
+        cmdEl.value = v.slice(0, cut) + v.slice(start);
+        cmdEl.setSelectionRange(cut, cut);
+    }
+    scheduleCursor();
+}
+
+function jumpWord(dir) {
+    var v = cmdEl.value;
+    var p = cmdEl.selectionStart;
+    if (dir < 0) {
+        var left = v.slice(0, p);
+        var m = /\S+$/.exec(left);
+        p = m ? p - m[0].length : 0;
+    } else {
+        var right = v.slice(p);
+        var n = /^\S+/.exec(right);
+        if (n) {
+            p += n[0].length;
+            var ws = right.slice(n[0].length).match(/^\s+/);
+            if (ws) p += ws[0].length;
+        } else p = v.length;
+    }
+    try { cmdEl.setSelectionRange(p, p); } catch (e) {}
+    scheduleCursor();
+}
+
+/* ── 目录历史（边缘手势） ─────────────────────────────────── */
+
+function doDirHistory(dir) {
+    var tab = activeTab();
+    if (!tab) return;
+    var target = dir < 0 ? tab.dirBack[tab.dirBack.length - 1] : tab.dirFwd[tab.dirFwd.length - 1];
+    if (target && state.fs && !getNode(state.fs, target)) {
+        if (dir < 0) tab.dirBack.pop();
+        else tab.dirFwd.pop();
+        statusFlash('目标目录已不存在');
+        return;
+    }
+    var ok = dir < 0 ? goDirBack(tab) : goDirFwd(tab);
+    if (!ok) {
+        statusFlash(dir < 0 ? '没有更早的目录' : '没有更晚的目录');
+        return;
+    }
+    refreshPrompt(tab);
+    updateStatus(tab);
+    updateWindowTitle();
+    statusFlash(dir < 0 ? '← 返回上一目录' : '下一目录 →');
+}
+
+/* ── 输入 / 键盘 ─────────────────────────────────────────── */
+
+cmdEl.addEventListener('keydown', function (e) {
+    if (e.isComposing || e.keyCode === 229) return;
+    var tab = activeTab();
+    if (!tab) return;
+    var key = e.key;
+    var lower = key.length === 1 ? key.toLowerCase() : key;
+    var ctrl = e.ctrlKey || e.metaKey;
+
+    if (key === 'Enter') {
+        e.preventDefault();
+        executeLine(cmdEl.value);
+        return;
+    }
+    if (key === 'Tab') {
+        e.preventDefault();
+        completeCommand();
+        return;
+    }
+    if (ctrl && !e.shiftKey && lower === 'c') {
+        e.preventDefault();
+        if (abortRun(tab)) return;
+        var v = cmdEl.value;
+        if (v) {
+            echoLine(tab, v + '^C');
+            cmdEl.value = '';
+            tab.input = '';
+        }
+        scheduleCursor();
+        return;
+    }
+    if (ctrl && !e.shiftKey && lower === 'l') {
+        e.preventDefault();
+        clearTab(tab);
+        scheduleCursor();
+        return;
+    }
+    if (ctrl && !e.shiftKey && lower === 'r') {
+        e.preventDefault();
+        openRS();
+        return;
+    }
+    if (ctrl && e.shiftKey && lower === 'f') {
+        e.preventDefault();
+        if (state.findOpen) closeFind();
+        else openFind();
+        return;
+    }
+    if (ctrl && !e.shiftKey && lower === 't') {
+        e.preventDefault();
+        createTab();
+        return;
+    }
+    if (ctrl && lower === 'w') {
+        e.preventDefault();
+        if (cmdEl.value) deleteWordBefore();
+        else closeTab(tab.id);
+        return;
+    }
+    if (ctrl && (key === '=' || key === '+')) {
+        e.preventDefault();
+        stepFont(1);
+        return;
+    }
+    if (ctrl && (key === '-' || key === '_')) {
+        e.preventDefault();
+        stepFont(-1);
+        return;
+    }
+    if (ctrl && !e.shiftKey && lower === 'a') {
+        e.preventDefault();
+        try { cmdEl.setSelectionRange(0, 0); } catch (err) {}
+        scheduleCursor();
+        return;
+    }
+    if (ctrl && !e.shiftKey && lower === 'e') {
+        e.preventDefault();
+        moveCaretEnd();
+        return;
+    }
+    if (ctrl && !e.shiftKey && lower === 'u') {
+        e.preventDefault();
+        cmdEl.value = cmdEl.value.slice(cmdEl.selectionStart);
+        try { cmdEl.setSelectionRange(0, 0); } catch (err) {}
+        scheduleCursor();
+        return;
+    }
+    if (ctrl && !e.shiftKey && lower === 'k') {
+        e.preventDefault();
+        cmdEl.value = cmdEl.value.slice(0, cmdEl.selectionStart);
+        scheduleCursor();
+        return;
+    }
+    if (ctrl && key === 'ArrowLeft') { e.preventDefault(); jumpWord(-1); return; }
+    if (ctrl && key === 'ArrowRight') { e.preventDefault(); jumpWord(1); return; }
+    if (ctrl && key === 'Backspace') { e.preventDefault(); deleteWordBefore(); return; }
+    if (key === 'ArrowUp') {
+        e.preventDefault();
+        histPrev(tab);
+        return;
+    }
+    if (key === 'ArrowDown') {
+        e.preventDefault();
+        histNext(tab);
+        return;
+    }
+    if (key === 'PageUp') {
+        e.preventDefault();
+        pageScroll(-1);
+        return;
+    }
+    if (key === 'PageDown') {
+        e.preventDefault();
+        pageScroll(1);
+        return;
+    }
+    if (key === 'Escape') {
+        if (tab.running) { e.preventDefault(); abortRun(tab); }
+    }
+});
+
+cmdEl.addEventListener('input', function () {
+    var t = activeTab();
+    if (t) t.input = cmdEl.value;
+    if (!state.rsActive) scheduleCursor();
+});
+
+cmdEl.addEventListener('click', scheduleCursor);
+cmdEl.addEventListener('keyup', scheduleCursor);
+cmdEl.addEventListener('select', scheduleCursor);
+cmdEl.addEventListener('scroll', updateCursor, { passive: true });
+cmdEl.addEventListener('focus', scheduleCursor);
+cmdEl.addEventListener('blur', function () { fakeEl.classList.add('hide'); });
+document.addEventListener('selectionchange', function () {
+    if (document.activeElement === cmdEl) scheduleCursor();
+});
+
+scrollEl.addEventListener('mouseup', function (e) {
+    if (e.button !== 0) return;
+    var sel = null;
+    try { sel = window.getSelection(); } catch (err) {}
+    if (sel && !sel.isCollapsed) return;
+    if (e.target && e.target.closest && e.target.closest('mark.hit')) return;
+    focusCmd();
+});
+
+/* ── 工具按钮 / 搜索 / 反向搜索 ──────────────────────────── */
+
+document.getElementById('btn-clear').addEventListener('click', function () {
+    var t = activeTab();
+    if (t) clearTab(t);
+    focusCmd();
+});
+
+document.getElementById('btn-find').addEventListener('click', function () {
+    if (state.findOpen) closeFind();
+    else openFind();
+});
+
+document.getElementById('btn-settings').addEventListener('click', function () {
+    openSettings();
+});
+
+findInput.addEventListener('input', function () { scheduleSearch(true); });
+findInput.addEventListener('keydown', function (e) {
+    if (e.isComposing) return;
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        findNext(e.shiftKey ? -1 : 1);
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeFind();
+    }
+});
+document.getElementById('find-prev').addEventListener('click', function () { findNext(-1); });
+document.getElementById('find-next').addEventListener('click', function () { findNext(1); });
+document.getElementById('find-close').addEventListener('click', closeFind);
+
+rsInput.addEventListener('input', updateRS);
+rsInput.addEventListener('keydown', function (e) {
+    if (e.isComposing) return;
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        acceptRS();
+        return;
+    }
+    if (e.key === 'Escape' || (e.ctrlKey && e.key.toLowerCase() === 'g')) {
+        e.preventDefault();
+        cancelRS();
+        return;
+    }
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || (e.ctrlKey && e.key.toLowerCase() === 'r')) {
+        e.preventDefault();
+        cycleRS();
+        return;
+    }
+});
+
+/* ── 触控板：惯性滚动 / 边缘返回 ──────────────────────────── */
+
+scrollEl.addEventListener('wheel', function (e) {
+    if (e.ctrlKey) return;
+    var dx = e.deltaX, dy = e.deltaY;
+    if (e.deltaMode === 1) { dx *= 16; dy *= 16; }
+    else if (e.deltaMode === 2) { dx *= scrollEl.clientHeight; dy *= scrollEl.clientHeight; }
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 1) {
+        e.preventDefault();
+        var now = Date.now();
+        if (now < state.edgeLock) return;
+        clearTimeout(state.edgeTimer);
+        state.edgeAcc += dx;
+        state.edgeTimer = setTimeout(function () { state.edgeAcc = 0; }, 380);
+        if (state.edgeAcc > 120) {
+            state.edgeAcc = 0;
+            state.edgeLock = now + 650;
+            doDirHistory(-1);
+        } else if (state.edgeAcc < -120) {
+            state.edgeAcc = 0;
+            state.edgeLock = now + 650;
+            doDirHistory(1);
+        }
+        return;
+    }
+    if (!dy) return;
+    e.preventDefault();
+    var max = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+    if (Math.abs(dy) <= 30) {
+        cancelScrollAnim();
+        scrollEl.scrollTop = clamp(scrollEl.scrollTop + dy, 0, max);
+        state.scrollTarget = scrollEl.scrollTop;
+    } else {
+        if (!state.scrollAnimating) state.scrollTarget = scrollEl.scrollTop;
+        state.scrollTarget = clamp(state.scrollTarget + dy, 0, max);
+        startScrollAnim();
+    }
+}, { passive: false });
+
+termEl.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    var t = e.target;
+    if (t && t.closest && t.closest('button, input, .settings-card, .settings-overlay')) return;
+    if (e.clientY < 36) return;
+    var w = termEl.clientWidth;
+    var side = 0;
+    if (e.clientX <= 26) side = -1;
+    else if (e.clientX >= w - 26) side = 1;
+    if (!side) return;
+    state.edgePtr = { id: e.pointerId, x: e.clientX, y: e.clientY, side: side, done: false };
+    termEl.classList.add('edge-drag');
+    try { termEl.setPointerCapture(e.pointerId); } catch (err) {}
+}, { passive: true });
+
+termEl.addEventListener('pointermove', function (e) {
+    var g = state.edgePtr;
+    if (!g || g.id !== e.pointerId || g.done) return;
+    var dx = e.clientX - g.x;
+    var dy = e.clientY - g.y;
+    if (Math.abs(dy) > 30) {
+        state.edgePtr = null;
+        termEl.classList.remove('edge-drag');
+        return;
+    }
+    if (g.side < 0 && dx >= 36) {
+        g.done = true;
+        termEl.classList.remove('edge-drag');
+        doDirHistory(-1);
+    } else if (g.side > 0 && dx <= -36) {
+        g.done = true;
+        termEl.classList.remove('edge-drag');
+        doDirHistory(1);
+    }
+}, { passive: true });
+
+function endEdgeGesture() {
+    state.edgePtr = null;
+    termEl.classList.remove('edge-drag');
+}
+termEl.addEventListener('pointerup', endEdgeGesture, { passive: true });
+termEl.addEventListener('pointercancel', endEdgeGesture, { passive: true });
+
+/* ── 设置面板事件 ─────────────────────────────────────────── */
+
+var fontBtns = settingsEl.querySelectorAll('[data-font]');
+for (var fi = 0; fi < fontBtns.length; fi++) {
+    (function (btn) {
+        btn.addEventListener('click', function () {
+            stepFont(btn.getAttribute('data-font') === '+' ? 1 : -1);
+        });
+    })(fontBtns[fi]);
+}
+
+var cursorBtns = settingsEl.querySelectorAll('[data-cursor]');
+for (var ci = 0; ci < cursorBtns.length; ci++) {
+    (function (btn) {
+        btn.addEventListener('click', function () {
+            setCursor(btn.getAttribute('data-cursor'));
+        });
+    })(cursorBtns[ci]);
+}
+
+var schemeBtns = settingsEl.querySelectorAll('[data-scheme]');
+for (var si = 0; si < schemeBtns.length; si++) {
+    (function (btn) {
+        btn.addEventListener('click', function () {
+            setScheme(btn.getAttribute('data-scheme'));
+        });
+    })(schemeBtns[si]);
+}
+
+document.getElementById('settings-x').addEventListener('click', closeSettings);
+document.getElementById('settings-ok').addEventListener('click', closeSettings);
+document.getElementById('reset-prefs').addEventListener('click', function () {
+    state.prefs.fs = 13;
+    state.prefs.cursor = 'system';
+    state.prefs.scheme = 'auto';
+    applyPrefs();
+    persistPrefs();
+    statusFlash('已恢复默认设置');
+});
+
+settingsEl.addEventListener('click', function (e) {
+    if (e.target === settingsEl) closeSettings();
+});
+
+document.addEventListener('keydown', function (e) {
+    if (settingsEl.hidden) return;
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        closeSettings();
+        return;
+    }
+    if (e.key === 'Tab') {
+        trapFocus(settingsEl.querySelector('.settings-card'), e);
+    }
+});
+
+tabsEl.addEventListener('keydown', function (e) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    var idx = clamp(state.active + (e.key === 'ArrowRight' ? 1 : -1), 0, state.tabs.length - 1);
+    switchTab(idx);
+});
+
+/* ── 启动 ─────────────────────────────────────────────────── */
+
+var booted = false;
+
+async function loadPrefs() {
+    if (!state.bridgeReady) return;
+    try {
+        var p = await bridgeMs(N.getUserLS('terminal.prefs'), 3000, 'prefs');
+        if (p && typeof p === 'object') {
+            if (typeof p.fs === 'number') state.prefs.fs = snapFont(p.fs);
+            if (CURSORS.indexOf(p.cursor) >= 0) state.prefs.cursor = p.cursor;
+            if (SCHEMES.indexOf(p.scheme) >= 0) state.prefs.scheme = p.scheme;
+        }
+    } catch (e) {}
+}
+
+async function loadRecent() {
+    if (!state.bridgeReady) return;
+    try {
+        var r = await bridgeMs(N.getUserLS('terminal.recent'), 3000, 'recent');
+        if (Array.isArray(r)) {
+            state.recent = r.filter(function (x) { return typeof x === 'string'; }).slice(-200);
+        }
+    } catch (e) {}
+}
+
+async function boot(ctx) {
     if (booted) return;
     booted = true;
-    renderPrompt();
-    banner();
-    setTimeout(function () { cmdEl.focus(); }, 0);
-    var timeout = setTimeout(function () {
-      print('<span class="warn">[warn] 文件系统桥 4 秒未响应，基础命令仍可用；重启系统或检查用户会话后可恢复</span>');
-      scrollToBottom();
-    }, 4000);
-    loadFS().then(function (fs) {
-      clearTimeout(timeout);
-      fsCache = fs || {};
-    }).catch(function (e) {
-      clearTimeout(timeout);
-      fsCache = {};
-      print('<span class="err">[err] 文件系统加载失败：' + esc((e && e.message) || e) + '</span>');
-      scrollToBottom();
-    });
-  }
+    state.ctx = ctx || null;
+    state.user = (ctx && ctx.user) || { name: '本地用户', role: 'guest' };
+    state.hostDark = !!(ctx && ctx.dark);
+    state.bridgeReady = !!(ctx && !ctx.offline);
 
-  N.on('ready', function (c) {
-    ctx = c;
-    if (c && c.user) { user = c.user; }
-    home = homeDir();
-    cwd = home;
-    renderPrompt();
-    boot();
-    setTimeout(function () { cmdEl.focus(); }, 0);
-  });
+    var tab = makeTab('C:');
+    state.tabs.push(tab);
+    state.active = 0;
+    renderTabs();
+    renderTab(tab);
+    welcome(tab);
+    state.started = true;
 
-  // 兜底：桥上下文若已就绪（脚本顺序）也启动
-  (function bootFallback() {
-    var c = N.context && N.context();
-    if (c) {
-      ctx = c;
-      if (c.user) user = c.user;
-      home = homeDir(); cwd = home;
-      renderPrompt();
-      boot();
-      setTimeout(function () { cmdEl.focus(); }, 0);
+    await loadPrefs();
+    applyPrefs();
+    await loadRecent();
+
+    if (state.bridgeReady) {
+        try {
+            await refreshFS(tab);
+        } catch (e) {
+            state.fs = null;
+            state.fsOffline = true;
+        }
     } else {
-      setTimeout(bootFallback, 50);
+        state.fs = null;
+        state.fsOffline = true;
     }
-  })();
+
+    if (state.fs) state.home = pickHome(state.fs, userName());
+    tab.home = state.home;
+    tab.cwd = state.home;
+    tab.oldpwd = '';
+    tab.dirBack = [];
+    tab.dirFwd = [];
+    tab.history = state.recent.slice(-200);
+    tab.histIdx = tab.history.length;
+
+    if (!state.bridgeReady) {
+        printLine(tab, '<span class="warn">● 本地桥离线</span> <span class="dim">文件系统命令不可用；help / echo / theme 等内建命令仍可使用。</span>');
+    } else if (!state.fs) {
+        printLine(tab, '<span class="warn">● 文件系统未连接</span> <span class="dim">ls / cd / cat 会明确报错，不会显示假数据。</span>');
+    } else {
+        printLine(tab, '<span class="ok">● 已连接</span> <span class="dim">' + esc(userName()) + '@nexus · 虚拟文件系统 · ' + esc(displayPath(tab, tab.cwd)) + '</span>');
+    }
+    printLine(tab, '<span class="dim">输入 help 查看命令 · Tab 补全 · ↑↓ 历史 · Ctrl+R 反向搜索</span>');
+    refreshPrompt(tab);
+    updateStatus(tab);
+    updateWindowTitle();
+    syncBusy();
+    scheduleCursor();
+    focusCmd();
+    scrollBottom(tab, true);
+}
+
+if (N && N.on) {
+    N.on('theme', function (d) {
+        state.hostDark = !!(d && d.dark);
+        applyScheme();
+        scheduleCursor();
+    });
+}
+
+window.addEventListener('resize', scheduleCursor);
+
+Nexus.ready(boot);
+focusCmd();
 
 })();
 </script>

@@ -1,0 +1,961 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Nexus Cloud API",
+    "version": "1.0.0",
+    "summary": "Nexus OS 应用商店云端 API（MxOS v0.3 的超集）",
+    "description": "开发者账号 → 应用 → 版本 → 审核 → 资源分发 → 遥测。\n\n- 公开接口无需认证。\n- 开发者接口使用 `Authorization: Bearer n26_xxx`（每 Token 独立 scope）。\n- 管理接口使用 `X-N26-Admin`。\n- 失败统一返回 `{ \"error\": { \"code\", \"message\", \"details\" } }`。\n- 旧 `/api/store/*`、`/api/acc/*` 保持不变。",
+    "contact": { "name": "Nexus OS 26", "url": "https://ai.fanggame.company" },
+    "license": { "name": "Internal" }
+  },
+  "servers": [
+    { "url": "https://ai.fanggame.company/api/v1", "description": "生产" },
+    { "url": "http://localhost:8787/api/v1", "description": "本地 wrangler dev" }
+  ],
+  "tags": [
+    { "name": "Public", "description": "公开接口，无需认证" },
+    { "name": "Developer", "description": "开发者接口，Bearer Token + scope" },
+    { "name": "Review", "description": "审核与运营接口，X-N26-Admin" },
+    { "name": "Telemetry", "description": "下载 / 安装 / 启动事件" }
+  ],
+  "security": [],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Public"],
+        "operationId": "getHealth",
+        "summary": "健康检查",
+        "responses": {
+          "200": {
+            "description": "服务状态",
+            "content": { "application/json": { "example": { "ok": true, "service": "nexus-cloud", "apiVersion": "v1", "storage": "kv", "features": ["apps", "releases", "reviews", "ratings", "telemetry", "webhooks"] } } }
+          },
+          "503": { "$ref": "#/components/responses/StorageUnavailable" }
+        }
+      }
+    },
+    "/apps": {
+      "get": {
+        "tags": ["Public"],
+        "operationId": "listApps",
+        "summary": "应用列表",
+        "parameters": [
+          { "name": "category", "in": "query", "schema": { "$ref": "#/components/schemas/Category" } },
+          { "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["hot", "new", "rating"], "default": "hot" } },
+          { "name": "q", "in": "query", "schema": { "type": "string", "maxLength": 80 } },
+          { "name": "channel", "in": "query", "schema": { "$ref": "#/components/schemas/Channel" } },
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/PageSize" }
+        ],
+        "responses": {
+          "200": {
+            "description": "分页结果",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppList" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/apps/{appId}": {
+      "get": {
+        "tags": ["Public"],
+        "operationId": "getApp",
+        "summary": "应用详情",
+        "parameters": [{ "$ref": "#/components/parameters/AppId" }],
+        "responses": {
+          "200": { "description": "详情", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppDetail" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/apps/{appId}/versions": {
+      "get": {
+        "tags": ["Public"],
+        "operationId": "listAppVersions",
+        "summary": "版本历史",
+        "parameters": [{ "$ref": "#/components/parameters/AppId" }],
+        "responses": {
+          "200": { "description": "版本列表", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VersionList" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/apps/{appId}/icon": {
+      "get": {
+        "tags": ["Public"],
+        "operationId": "getAppIcon",
+        "summary": "应用图标",
+        "parameters": [{ "$ref": "#/components/parameters/AppId" }, { "$ref": "#/components/parameters/IfNoneMatch" }],
+        "responses": {
+          "200": { "description": "图标二进制", "headers": { "ETag": { "$ref": "#/components/headers/ETag" }, "Cache-Control": { "$ref": "#/components/headers/CacheControl" } }, "content": { "image/png": { "schema": { "type": "string", "format": "binary" } }, "image/svg+xml": { "schema": { "type": "string", "format": "binary" } } } },
+          "304": { "description": "未修改" }
+        }
+      }
+    },
+    "/apps/{appId}/screenshots/{index}": {
+      "get": {
+        "tags": ["Public"],
+        "operationId": "getAppScreenshot",
+        "summary": "应用截图",
+        "parameters": [
+          { "$ref": "#/components/parameters/AppId" },
+          { "name": "index", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 0, "maximum": 7 } }
+        ],
+        "responses": {
+          "200": { "description": "截图二进制", "content": { "image/png": { "schema": { "type": "string", "format": "binary" } }, "image/jpeg": { "schema": { "type": "string", "format": "binary" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/apps/{appId}/updates": {
+      "get": {
+        "tags": ["Public"],
+        "operationId": "checkUpdate",
+        "summary": "更新检查",
+        "parameters": [
+          { "$ref": "#/components/parameters/AppId" },
+          { "name": "version", "in": "query", "required": true, "schema": { "type": "string" }, "example": "1.2.0" },
+          { "name": "channel", "in": "query", "schema": { "$ref": "#/components/schemas/Channel" } }
+        ],
+        "responses": {
+          "200": { "description": "检查结果", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateCheck" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/apps/{appId}/ratings": {
+      "get": {
+        "tags": ["Public"],
+        "operationId": "listRatings",
+        "summary": "评分与评论",
+        "parameters": [{ "$ref": "#/components/parameters/AppId" }, { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 20 } }],
+        "responses": {
+          "200": { "description": "评分列表", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RatingList" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "post": {
+        "tags": ["Public"],
+        "operationId": "createRating",
+        "summary": "提交评分",
+        "parameters": [{ "$ref": "#/components/parameters/AppId" }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RatingInput" } } }
+        },
+        "responses": {
+          "201": { "description": "已记录", "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "rating": { "$ref": "#/components/schemas/RatingSummary" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/search": {
+      "get": {
+        "tags": ["Public"],
+        "operationId": "searchApps",
+        "summary": "搜索应用",
+        "parameters": [
+          { "name": "q", "in": "query", "required": true, "schema": { "type": "string", "maxLength": 80 } },
+          { "name": "category", "in": "query", "schema": { "$ref": "#/components/schemas/Category" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "搜索结果", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SearchResult" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/rankings": {
+      "get": {
+        "tags": ["Public"],
+        "operationId": "getRankings",
+        "summary": "榜单",
+        "parameters": [
+          { "name": "type", "in": "query", "schema": { "type": "string", "enum": ["hot", "new", "weekly", "rating"], "default": "hot" } },
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/PageSize" }
+        ],
+        "responses": { "200": { "description": "榜单", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Ranking" } } } } }
+      }
+    },
+    "/categories": {
+      "get": {
+        "tags": ["Public"],
+        "operationId": "listCategories",
+        "summary": "分类列表",
+        "responses": { "200": { "description": "分类", "content": { "application/json": { "schema": { "type": "object", "properties": { "items": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "name": { "type": "string" } } } } } } } } } }
+      }
+    },
+    "/download/{releaseId}": {
+      "get": {
+        "tags": ["Public"],
+        "operationId": "downloadRelease",
+        "summary": "下载安装包（支持 Range）",
+        "parameters": [
+          { "name": "releaseId", "in": "path", "required": true, "schema": { "type": "string" }, "example": "com.nexus.fangma%401.3.0", "description": "appId@version，@ 建议编码为 %40" },
+          { "name": "Range", "in": "header", "schema": { "type": "string" }, "example": "bytes=0-1023" },
+          { "$ref": "#/components/parameters/IfNoneMatch" }
+        ],
+        "responses": {
+          "200": {
+            "description": "完整包",
+            "headers": {
+              "X-Content-SHA256": { "$ref": "#/components/headers/ContentSha256" },
+              "ETag": { "$ref": "#/components/headers/ETag" },
+              "Content-Disposition": { "$ref": "#/components/headers/ContentDisposition" },
+              "Accept-Ranges": { "$ref": "#/components/headers/AcceptRanges" },
+              "Content-Security-Policy": { "$ref": "#/components/headers/CSP" }
+            },
+            "content": { "application/zip": { "schema": { "type": "string", "format": "binary" } }, "text/html": { "schema": { "type": "string", "format": "binary" } } }
+          },
+          "206": {
+            "description": "区间内容",
+            "headers": { "Content-Range": { "$ref": "#/components/headers/ContentRange" }, "X-Content-SHA256": { "$ref": "#/components/headers/ContentSha256" } },
+            "content": { "application/octet-stream": { "schema": { "type": "string", "format": "binary" } } }
+          },
+          "304": { "description": "未修改" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "416": { "$ref": "#/components/responses/RangeNotSatisfiable" }
+        }
+      }
+    },
+    "/telemetry/download": {
+      "post": {
+        "tags": ["Telemetry"],
+        "operationId": "telemetryDownload",
+        "summary": "下载计数上报",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TelemetryInput" } } } },
+        "responses": {
+          "200": { "description": "已计数", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TelemetryAck" } } } },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/telemetry/install": {
+      "post": {
+        "tags": ["Telemetry"],
+        "operationId": "telemetryInstall",
+        "summary": "安装事件",
+        "security": [{ "devToken": [] }, {}],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TelemetryInput" } } } },
+        "responses": {
+          "200": { "description": "已记录", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TelemetryAck" } } } },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/telemetry/launch": {
+      "post": {
+        "tags": ["Telemetry"],
+        "operationId": "telemetryLaunch",
+        "summary": "启动事件",
+        "security": [{ "devToken": [] }, {}],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TelemetryInput" } } } },
+        "responses": {
+          "200": { "description": "已记录", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TelemetryAck" } } } },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/dev/me": {
+      "get": {
+        "tags": ["Developer"],
+        "operationId": "getMe",
+        "summary": "当前开发者",
+        "security": [{ "devToken": [] }],
+        "responses": {
+          "200": { "description": "开发者与当前 Token", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Me" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
+      "patch": {
+        "tags": ["Developer"],
+        "operationId": "patchMe",
+        "summary": "修改开发者资料 / Webhook",
+        "security": [{ "devToken": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DeveloperPatch" } } } },
+        "responses": {
+          "200": { "description": "已更新", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Me" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/dev/apps": {
+      "get": {
+        "tags": ["Developer"],
+        "operationId": "listMyApps",
+        "summary": "我的应用（含草稿）",
+        "security": [{ "devToken": [] }],
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["draft", "published", "unpublished"] } },
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/PageSize" }
+        ],
+        "responses": {
+          "200": { "description": "分页结果", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppList" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Developer"],
+        "operationId": "createApp",
+        "summary": "创建应用",
+        "security": [{ "devToken": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppCreate" } } } },
+        "responses": {
+          "201": { "description": "已创建", "content": { "application/json": { "schema": { "type": "object", "properties": { "app": { "$ref": "#/components/schemas/App" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/dev/apps/{appId}": {
+      "get": {
+        "tags": ["Developer"],
+        "operationId": "getMyApp",
+        "summary": "我的应用详情（含全部版本与审核备注）",
+        "security": [{ "devToken": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/AppId" }],
+        "responses": {
+          "200": { "description": "详情", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DevAppDetail" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "patch": {
+        "tags": ["Developer"],
+        "operationId": "patchApp",
+        "summary": "修改应用元数据",
+        "security": [{ "devToken": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/AppId" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppPatch" } } } },
+        "responses": {
+          "200": { "description": "已更新", "content": { "application/json": { "schema": { "type": "object", "properties": { "app": { "$ref": "#/components/schemas/App" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/dev/apps/{appId}/releases": {
+      "get": {
+        "tags": ["Developer"],
+        "operationId": "listMyReleases",
+        "summary": "我的版本列表（含草稿/待审/被拒）",
+        "security": [{ "devToken": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/AppId" }],
+        "responses": {
+          "200": { "description": "版本列表", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VersionList" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "post": {
+        "tags": ["Developer"],
+        "operationId": "uploadRelease",
+        "summary": "上传安装包（multipart）",
+        "description": "支持三种形态：`.zip`/`.mx`（zip）、单文件 `.html`、目录（多个 `files` 分片）。\n原字节计算 SHA-256；同 appId+version 不可重复上传。",
+        "security": [{ "devToken": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/AppId" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary", "description": "单个文件：zip / mx / html" },
+                  "files": { "type": "array", "items": { "type": "string", "format": "binary" }, "description": "目录上传分片，filename 即相对路径" },
+                  "manifest": { "type": "string", "description": "manifest.json 的 JSON 字符串（html / dir 必填）" },
+                  "version": { "type": "string", "description": "manifest 缺 version 时使用" },
+                  "channel": { "$ref": "#/components/schemas/Channel" },
+                  "release_notes": { "type": "string", "maxLength": 1000 },
+                  "force_update": { "type": "string", "enum": ["true", "false"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "已上传", "content": { "application/json": { "schema": { "type": "object", "properties": { "release": { "$ref": "#/components/schemas/Release" }, "manifest": { "$ref": "#/components/schemas/Manifest" }, "warnings": { "type": "array", "items": { "type": "string" } } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "413": { "$ref": "#/components/responses/PayloadTooLarge" },
+          "415": { "$ref": "#/components/responses/UnsupportedMediaType" },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/dev/releases/{releaseId}": {
+      "get": {
+        "tags": ["Developer"],
+        "operationId": "getMyRelease",
+        "summary": "单版本详情（含拒绝原因）",
+        "security": [{ "devToken": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ReleaseId" }],
+        "responses": {
+          "200": { "description": "详情", "content": { "application/json": { "schema": { "type": "object", "properties": { "release": { "$ref": "#/components/schemas/Release" }, "review": { "$ref": "#/components/schemas/Review" } } } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/dev/releases/{releaseId}/submit": {
+      "post": {
+        "tags": ["Developer"],
+        "operationId": "submitRelease",
+        "summary": "提交审核",
+        "security": [{ "devToken": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ReleaseId" }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "release_notes": { "type": "string", "maxLength": 1000 } } } } } },
+        "responses": {
+          "200": { "description": "已提交", "content": { "application/json": { "example": { "releaseId": "com.nexus.fangma@1.3.0", "status": "pending", "submittedAt": "2026-11-07T10:00:00Z" } } } },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/dev/releases/{releaseId}/withdraw": {
+      "post": {
+        "tags": ["Developer"],
+        "operationId": "withdrawRelease",
+        "summary": "撤回提交",
+        "security": [{ "devToken": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ReleaseId" }],
+        "responses": {
+          "200": { "description": "已撤回", "content": { "application/json": { "example": { "releaseId": "com.nexus.fangma@1.3.0", "status": "draft" } } } },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/dev/tokens": {
+      "get": {
+        "tags": ["Developer"],
+        "operationId": "listTokens",
+        "summary": "Token 列表（不含明文）",
+        "security": [{ "devToken": [] }],
+        "responses": { "200": { "description": "Token 列表", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenList" } } } } }
+      },
+      "post": {
+        "tags": ["Developer"],
+        "operationId": "createToken",
+        "summary": "新建 Token（明文只返回一次）",
+        "security": [{ "devToken": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenCreate" } } } },
+        "responses": {
+          "201": { "description": "已创建", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenCreated" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/dev/tokens/{tokenId}": {
+      "delete": {
+        "tags": ["Developer"],
+        "operationId": "revokeToken",
+        "summary": "吊销 Token",
+        "security": [{ "devToken": [] }],
+        "parameters": [{ "name": "tokenId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "已吊销", "content": { "application/json": { "example": { "ok": true, "tokenId": "tk_9f3c1a7e", "revokedAt": "2026-11-07T10:00:00Z" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/admin/developers": {
+      "get": {
+        "tags": ["Review"],
+        "operationId": "adminListDevelopers",
+        "summary": "开发者列表",
+        "security": [{ "adminToken": [] }],
+        "responses": { "200": { "description": "列表", "content": { "application/json": { "schema": { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Developer" } }, "total": { "type": "integer" } } } } } } },
+        "401": { "$ref": "#/components/responses/AdminUnauthorized" }
+      },
+      "post": {
+        "tags": ["Review"],
+        "operationId": "adminCreateDeveloper",
+        "summary": "创建开发者并签发首个 Token",
+        "security": [{ "adminToken": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DeveloperCreate" } } } },
+        "responses": {
+          "201": { "description": "已创建", "content": { "application/json": { "schema": { "type": "object", "properties": { "developer": { "$ref": "#/components/schemas/Developer" }, "token": { "$ref": "#/components/schemas/TokenCreated" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/AdminUnauthorized" }
+        }
+      }
+    },
+    "/admin/reviews": {
+      "get": {
+        "tags": ["Review"],
+        "operationId": "adminListReviews",
+        "summary": "待审队列",
+        "security": [{ "adminToken": [] }],
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["pending", "approved", "rejected"], "default": "pending" } },
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/PageSize" }
+        ],
+        "responses": {
+          "200": { "description": "队列", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReviewQueue" } } } },
+          "401": { "$ref": "#/components/responses/AdminUnauthorized" }
+        }
+      }
+    },
+    "/admin/reviews/{releaseId}/approve": {
+      "post": {
+        "tags": ["Review"],
+        "operationId": "adminApproveReview",
+        "summary": "审核通过并上架",
+        "security": [{ "adminToken": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ReleaseId" }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "note": { "type": "string", "maxLength": 500 } } } } } },
+        "responses": {
+          "200": { "description": "已通过", "content": { "application/json": { "example": { "releaseId": "com.nexus.fangma@1.3.0", "status": "published", "appId": "com.nexus.fangma", "publishedAt": "2026-11-07T10:00:00Z" } } } },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/admin/reviews/{releaseId}/reject": {
+      "post": {
+        "tags": ["Review"],
+        "operationId": "adminRejectReview",
+        "summary": "拒绝（reason 必填）",
+        "security": [{ "adminToken": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ReleaseId" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["reason"], "properties": { "reason": { "type": "string", "minLength": 1, "maxLength": 500 } } } } } },
+        "responses": {
+          "200": { "description": "已拒绝", "content": { "application/json": { "example": { "releaseId": "com.nexus.fangma@1.3.0", "status": "rejected", "reason": "入口文件引用了外网 CDN" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/admin/apps/{appId}/takedown": {
+      "post": {
+        "tags": ["Review"],
+        "operationId": "adminTakedownApp",
+        "summary": "下架应用",
+        "security": [{ "adminToken": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/AppId" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["reason"], "properties": { "reason": { "type": "string", "minLength": 1, "maxLength": 500 } } } } } },
+        "responses": {
+          "200": { "description": "已下架", "content": { "application/json": { "schema": { "type": "object", "properties": { "appId": { "type": "string" }, "status": { "type": "string" }, "reason": { "type": "string" } } } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/admin/apps/{appId}/restore": {
+      "post": {
+        "tags": ["Review"],
+        "operationId": "adminRestoreApp",
+        "summary": "恢复上架",
+        "security": [{ "adminToken": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/AppId" }],
+        "responses": {
+          "200": { "description": "已恢复", "content": { "application/json": { "schema": { "type": "object", "properties": { "appId": { "type": "string" }, "status": { "type": "string" } } } } } },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/admin/audit-logs": {
+      "get": {
+        "tags": ["Review"],
+        "operationId": "adminAuditLogs",
+        "summary": "审计日志",
+        "security": [{ "adminToken": [] }],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 } },
+          { "name": "action", "in": "query", "schema": { "type": "string" } },
+          { "name": "actor", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "日志", "content": { "application/json": { "schema": { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/AuditLog" } }, "total": { "type": "integer" } } } } } },
+          "401": { "$ref": "#/components/responses/AdminUnauthorized" }
+        }
+      }
+    },
+    "/admin/stats": {
+      "get": {
+        "tags": ["Review"],
+        "operationId": "adminStats",
+        "summary": "运营概览",
+        "security": [{ "adminToken": [] }],
+        "responses": {
+          "200": { "description": "统计", "content": { "application/json": { "example": { "apps": 12, "published": 9, "pending": 2, "developers": 3, "releases": 31, "downloads": 520 } } } }
+        }
+      }
+    },
+    "/admin/migrate/legacy-store": {
+      "post": {
+        "tags": ["Review"],
+        "operationId": "adminMigrateLegacyStore",
+        "summary": "迁移旧 store:* 包（只读旧键，写新键）",
+        "security": [{ "adminToken": [] }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "dryRun": { "type": "boolean", "default": true }, "kind": { "type": "string", "enum": ["app", "plugin"], "default": "app" } } } } } },
+        "responses": {
+          "200": { "description": "迁移结果", "content": { "application/json": { "schema": { "type": "object", "properties": { "dryRun": { "type": "boolean" }, "scanned": { "type": "integer" }, "migrated": { "type": "integer" }, "skipped": { "type": "array", "items": { "type": "object" } } } } } } }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "devToken": { "type": "http", "scheme": "bearer", "bearerFormat": "n26_<hex>", "description": "开发者 Token，scope 决定权限" },
+      "adminToken": { "type": "apiKey", "in": "header", "name": "X-N26-Admin", "description": "管理员令牌，与开发者 Token 完全独立" }
+    },
+    "parameters": {
+      "AppId": { "name": "appId", "in": "path", "required": true, "schema": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$" }, "example": "com.nexus.fangma" },
+      "ReleaseId": { "name": "releaseId", "in": "path", "required": true, "schema": { "type": "string" }, "example": "com.nexus.fangma%401.3.0", "description": "appId@version" },
+      "Page": { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
+      "PageSize": { "name": "page_size", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } },
+      "IfNoneMatch": { "name": "If-None-Match", "in": "header", "schema": { "type": "string" } }
+    },
+    "headers": {
+      "ETag": { "schema": { "type": "string" }, "description": "内容 SHA-256 的强 ETag" },
+      "ContentSha256": { "schema": { "type": "string" }, "description": "安装包 SHA-256（hex）" },
+      "CacheControl": { "schema": { "type": "string" }, "description": "public, max-age=31536000, immutable" },
+      "ContentDisposition": { "schema": { "type": "string" }, "description": "attachment; filename=\"<appId>-<version>.zip\"" },
+      "AcceptRanges": { "schema": { "type": "string" }, "description": "bytes" },
+      "ContentRange": { "schema": { "type": "string" }, "description": "bytes <start>-<end>/<total>" },
+      "CSP": { "schema": { "type": "string" }, "description": "sandbox; default-src 'none'" }
+    },
+    "responses": {
+      "BadRequest": { "description": "参数非法", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "Unauthorized": { "description": "未认证", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "AdminUnauthorized": { "description": "管理员令牌无效", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "Forbidden": { "description": "权限不足", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "NotFound": { "description": "资源不存在", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "Conflict": { "description": "状态冲突", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "PayloadTooLarge": { "description": "体积超限", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "UnsupportedMediaType": { "description": "类型不支持", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "RateLimited": { "description": "限流", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "RangeNotSatisfiable": { "description": "区间越界", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "StorageUnavailable": { "description": "存储不可用", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": { "type": "string", "example": "INVALID_MANIFEST" },
+              "message": { "type": "string", "example": "manifest.json 缺少必填字段 version" },
+              "details": { "type": "object", "additionalProperties": true, "nullable": true }
+            }
+          }
+        }
+      },
+      "Channel": { "type": "string", "enum": ["stable", "beta"], "default": "stable" },
+      "Category": { "type": "string", "enum": ["tools", "games", "media", "productivity", "social", "education", "system", "demo", "other"] },
+      "RatingSummary": {
+        "type": "object",
+        "properties": {
+          "avg": { "type": "number", "example": 4.6 },
+          "count": { "type": "integer" },
+          "dist": { "type": "array", "items": { "type": "integer" }, "minItems": 5, "maxItems": 5, "description": "1★..5★ 数量" }
+        }
+      },
+      "App": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "subtitle": { "type": "string" },
+          "developer": { "type": "string" },
+          "developerId": { "type": "string" },
+          "category": { "$ref": "#/components/schemas/Category" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "description": { "type": "string" },
+          "status": { "type": "string", "enum": ["draft", "published", "unpublished"] },
+          "latestVersion": { "type": "string" },
+          "latestChannel": { "$ref": "#/components/schemas/Channel" },
+          "downloadCount": { "type": "integer" },
+          "rating": { "$ref": "#/components/schemas/RatingSummary" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "publishedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AppSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "subtitle": { "type": "string" },
+          "developer": { "type": "string" },
+          "developerId": { "type": "string" },
+          "category": { "$ref": "#/components/schemas/Category" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "download_count": { "type": "integer" },
+          "latest_version": { "type": "string" },
+          "latest_version_id": { "type": "string", "description": "等价 releaseId" },
+          "releaseId": { "type": "string" },
+          "size": { "type": "integer" },
+          "sha256": { "type": "string" },
+          "iconUrl": { "type": "string" },
+          "rating": { "$ref": "#/components/schemas/RatingSummary" },
+          "published_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AppList": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/AppSummary" } },
+          "page": { "type": "integer" },
+          "page_size": { "type": "integer" },
+          "total": { "type": "integer" }
+        }
+      },
+      "Manifest": {
+        "type": "object",
+        "required": ["id", "name", "version", "entry"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$" },
+          "name": { "type": "string", "maxLength": 60 },
+          "version": { "type": "string", "example": "1.3.0" },
+          "entry": { "type": "string", "example": "index.html" },
+          "icon": { "type": "string", "example": "assets/icon.png" },
+          "category": { "$ref": "#/components/schemas/Category" },
+          "permissions": { "type": "array", "maxItems": 16, "items": { "type": "string" } },
+          "minOsVersion": { "type": "string", "example": "26.0" },
+          "screenshots": { "type": "array", "maxItems": 8, "items": { "type": "string" } },
+          "i18n": { "type": "object", "additionalProperties": { "type": "object", "properties": { "name": { "type": "string" }, "description": { "type": "string" } } } },
+          "author": { "type": "string" },
+          "description": { "type": "string" },
+          "subtitle": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "ReleaseVersion": {
+        "type": "object",
+        "properties": {
+          "version": { "type": "string" },
+          "releaseId": { "type": "string" },
+          "channel": { "$ref": "#/components/schemas/Channel" },
+          "status": { "type": "string", "enum": ["draft", "pending", "published", "rejected", "archived"] },
+          "size": { "type": "integer" },
+          "sha256": { "type": "string" },
+          "fileCount": { "type": "integer" },
+          "release_notes": { "type": "string" },
+          "force_update": { "type": "boolean" },
+          "uploaded_at": { "type": "string", "format": "date-time" },
+          "published_at": { "type": "string", "format": "date-time" },
+          "review": { "$ref": "#/components/schemas/Review" }
+        }
+      },
+      "Release": {
+        "allOf": [{ "$ref": "#/components/schemas/ReleaseVersion" }],
+        "type": "object",
+        "properties": {
+          "appId": { "type": "string" },
+          "format": { "type": "string", "enum": ["html", "zip", "dir"] },
+          "entry": { "type": "string" },
+          "manifest": { "$ref": "#/components/schemas/Manifest" },
+          "submittedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "VersionList": { "type": "object", "properties": { "appId": { "type": "string" }, "items": { "type": "array", "items": { "$ref": "#/components/schemas/ReleaseVersion" } } } },
+      "AppDetail": {
+        "type": "object",
+        "properties": {
+          "app": { "$ref": "#/components/schemas/App" },
+          "latest_version": { "$ref": "#/components/schemas/ReleaseVersion" },
+          "permissions": { "type": "array", "items": { "type": "string" } },
+          "minOsVersion": { "type": "string" },
+          "i18n": { "type": "object", "additionalProperties": true },
+          "screenshots": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "DevAppDetail": {
+        "type": "object",
+        "properties": {
+          "app": { "$ref": "#/components/schemas/App" },
+          "releases": { "type": "array", "items": { "$ref": "#/components/schemas/Release" } }
+        }
+      },
+      "AppCreate": {
+        "type": "object",
+        "required": ["appId", "name"],
+        "properties": {
+          "appId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$" },
+          "name": { "type": "string", "maxLength": 60 },
+          "subtitle": { "type": "string", "maxLength": 80 },
+          "category": { "$ref": "#/components/schemas/Category" },
+          "tags": { "type": "array", "maxItems": 8, "items": { "type": "string" } },
+          "description": { "type": "string", "maxLength": 4000 }
+        }
+      },
+      "AppPatch": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "maxLength": 60 },
+          "subtitle": { "type": "string", "maxLength": 80 },
+          "category": { "$ref": "#/components/schemas/Category" },
+          "tags": { "type": "array", "maxItems": 8, "items": { "type": "string" } },
+          "description": { "type": "string", "maxLength": 4000 },
+          "developerName": { "type": "string", "maxLength": 60 }
+        }
+      },
+      "Review": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+          "reason": { "type": "string" },
+          "reviewer": { "type": "string" },
+          "submittedAt": { "type": "string", "format": "date-time" },
+          "reviewedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ReviewQueue": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": { "releaseId": { "type": "string" }, "appId": { "type": "string" }, "appName": { "type": "string" }, "version": { "type": "string" }, "size": { "type": "integer" }, "sha256": { "type": "string" }, "submittedAt": { "type": "string" }, "developer": { "type": "string" } }
+            }
+          },
+          "page": { "type": "integer" },
+          "page_size": { "type": "integer" },
+          "total": { "type": "integer" }
+        }
+      },
+      "RatingInput": {
+        "type": "object",
+        "required": ["stars"],
+        "properties": {
+          "stars": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "comment": { "type": "string", "maxLength": 500 },
+          "author": { "type": "string", "maxLength": 32 }
+        }
+      },
+      "Rating": {
+        "type": "object",
+        "properties": { "ratingId": { "type": "string" }, "stars": { "type": "integer" }, "comment": { "type": "string" }, "author": { "type": "string" }, "createdAt": { "type": "string" } }
+      },
+      "RatingList": {
+        "type": "object",
+        "properties": { "appId": { "type": "string" }, "summary": { "$ref": "#/components/schemas/RatingSummary" }, "items": { "type": "array", "items": { "$ref": "#/components/schemas/Rating" } } }
+      },
+      "SearchResult": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" },
+          "hits": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "score": { "type": "number" }, "matched": { "type": "string", "enum": ["name", "tag", "description"] } } } },
+          "estimated_total": { "type": "integer" }
+        }
+      },
+      "Ranking": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "enum": ["hot", "new", "weekly", "rating"] },
+          "period": { "type": "string" },
+          "degraded": { "type": "boolean" },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/AppSummary" } },
+          "page": { "type": "integer" },
+          "page_size": { "type": "integer" }
+        }
+      },
+      "UpdateCheck": {
+        "type": "object",
+        "properties": {
+          "appId": { "type": "string" },
+          "currentVersion": { "type": "string" },
+          "latestVersion": { "type": "string" },
+          "updateAvailable": { "type": "boolean" },
+          "mandatory": { "type": "boolean" },
+          "release": {
+            "type": "object",
+            "properties": { "releaseId": { "type": "string" }, "size": { "type": "integer" }, "sha256": { "type": "string" }, "release_notes": { "type": "string" }, "downloadUrl": { "type": "string" } }
+          }
+        }
+      },
+      "TelemetryInput": {
+        "type": "object",
+        "properties": {
+          "releaseId": { "type": "string" },
+          "appId": { "type": "string" },
+          "clientId": { "type": "string", "maxLength": 64 },
+          "osVersion": { "type": "string", "maxLength": 16 }
+        }
+      },
+      "TelemetryAck": { "type": "object", "properties": { "ok": { "type": "boolean" }, "counted": { "type": "boolean" } } },
+      "Developer": {
+        "type": "object",
+        "properties": {
+          "devId": { "type": "string" },
+          "type": { "type": "string", "enum": ["personal", "org"] },
+          "name": { "type": "string" },
+          "email": { "type": "string" },
+          "status": { "type": "string", "enum": ["active", "suspended"] },
+          "appLimit": { "type": "integer" },
+          "webhookUrl": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "DeveloperCreate": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "type": { "type": "string", "enum": ["personal", "org"], "default": "personal" },
+          "name": { "type": "string", "maxLength": 60 },
+          "email": { "type": "string" },
+          "appLimit": { "type": "integer", "minimum": 1, "maximum": 500 },
+          "scopes": { "type": "array", "items": { "type": "string", "enum": ["app:read", "app:write", "release:publish", "review:read", "telemetry:write", "*"] }, "default": ["*"] }
+        }
+      },
+      "DeveloperPatch": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "maxLength": 60 },
+          "email": { "type": "string" },
+          "webhookUrl": { "type": "string", "nullable": true, "description": "必须为 https://；传 null 取消" }
+        }
+      },
+      "Me": {
+        "type": "object",
+        "properties": {
+          "developer": { "$ref": "#/components/schemas/Developer" },
+          "token": { "type": "object", "properties": { "tokenId": { "type": "string" }, "name": { "type": "string" }, "scopes": { "type": "array", "items": { "type": "string" } } } },
+          "usage": { "type": "object", "properties": { "apps": { "type": "integer" }, "appLimit": { "type": "integer" } } }
+        }
+      },
+      "TokenCreate": {
+        "type": "object",
+        "required": ["name", "scopes"],
+        "properties": {
+          "name": { "type": "string", "maxLength": 40 },
+          "scopes": { "type": "array", "minItems": 1, "items": { "type": "string", "enum": ["app:read", "app:write", "release:publish", "review:read", "telemetry:write", "*"] } }
+        }
+      },
+      "TokenCreated": {
+        "type": "object",
+        "properties": { "tokenId": { "type": "string" }, "token": { "type": "string", "description": "明文只返回这一次" }, "name": { "type": "string" }, "scopes": { "type": "array", "items": { "type": "string" } } }
+      },
+      "TokenSummary": {
+        "type": "object",
+        "properties": { "tokenId": { "type": "string" }, "prefix": { "type": "string" }, "name": { "type": "string" }, "scopes": { "type": "array", "items": { "type": "string" } }, "createdAt": { "type": "string" }, "lastUsedAt": { "type": "string" }, "revokedAt": { "type": "string", "nullable": true } }
+      },
+      "TokenList": { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/TokenSummary" } } } },
+      "AuditLog": {
+        "type": "object",
+        "properties": {
+          "auditId": { "type": "string" },
+          "at": { "type": "string", "format": "date-time" },
+          "actor": { "type": "object", "properties": { "type": { "type": "string", "enum": ["admin", "developer"] }, "id": { "type": "string" } } },
+          "action": { "type": "string", "example": "review.reject" },
+          "target": { "type": "string" },
+          "reason": { "type": "string" },
+          "ip": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -1,17 +1,45 @@
+# ===== Nexus OS 26 本地仓库忽略规则 =====
+# 原则：只回滚「能用的东西」（代码、文档、运行所需素材）；备份、缓存、构建产物不入库。
+
 # 临时回收站（不入库）
 **/.trash/
+**/_trash*/
+**/trash/
+
 # WorkBuddy 内部目录（不入库）
 **/.workbuddy/
+
+# 本地备份与回滚快照（这类文件由 git 自己承担回滚职责，不再入库）
+**/_backup*/
+**/_backups*/
+*_backup_*
+backup-Nexus*.html
+*.bak
+*.bak-*
+*.broken-encoding
+
 # 系统 / 编辑器
 .DS_Store
 Thumbs.db
 desktop.ini
 .idea/
 .vscode/
-# 缓存
+
+# 缓存 / 构建产物
 __pycache__/
 *.pyc
 **/node_modules/
+**/.build/
+**/.wrangler/
+**/dist/
+**/.cache/
+*.log
+*.tmp
+~$*
 
 # Edge 自动化测试档案（>1GB，不入库）
 .edge-*/
+
+# 临时截图目录
+**/*_screenshots*/
+**/screenshots_tmp/

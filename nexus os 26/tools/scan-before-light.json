@@ -1,0 +1,78 @@
+{
+  "meta": {
+    "generatedAt": "2026-11-07T15:50:31.890Z",
+    "mode": "light",
+    "label": "before",
+    "target": "nexus os 26/Nexus OS 26.scanbaseline.html",
+    "apps": "core",
+    "threshold": {
+      "minArea": 400,
+      "maxLum": 60
+    },
+    "theme": {
+      "mode": "light",
+      "cls": "light-mode os-mac style-glass dock-bottom n26-a11y-scale-100 mat-liquid n26-on"
+    },
+    "totalHits": 4,
+    "surfaceHits": 4
+  },
+  "hits": [
+    {
+      "frame": "main",
+      "sel": "div#n26AiChatOverlay > div#n26AiChat > aside#n26AiSide > button#n26AiNewChat",
+      "tag": "button",
+      "area": 6591,
+      "w": 169,
+      "h": 39,
+      "bg": "rgba(0, 0, 0, 0)",
+      "img": "linear-gradient(rgb(47, 52, 64), rgb(28, 32, 41))",
+      "lum": 42,
+      "kind": "gradient",
+      "text": "新建对话",
+      "state": "ai-chat"
+    },
+    {
+      "frame": "main",
+      "sel": "div#dock > div#dockBgApps > div.dock-item.running > span.app-icon-flat",
+      "tag": "span",
+      "area": 2304,
+      "w": 48,
+      "h": 48,
+      "bg": "rgb(190, 18, 60)",
+      "img": "none",
+      "lum": 58,
+      "kind": "solid",
+      "text": "",
+      "state": "app:news"
+    },
+    {
+      "frame": "main",
+      "sel": "div#n26AiChat > div.n26ai-main > div.n26ai-inputrow > button.n26ai-send",
+      "tag": "button",
+      "area": 1600,
+      "w": 40,
+      "h": 40,
+      "bg": "rgba(0, 0, 0, 0)",
+      "img": "linear-gradient(rgb(47, 52, 64), rgb(28, 32, 41))",
+      "lum": 42,
+      "kind": "gradient",
+      "text": "",
+      "state": "ai-chat"
+    },
+    {
+      "frame": "main",
+      "sel": "div#n26AiMessages > div#n26AiWelcome > div.w-handoff > div.wh-l",
+      "tag": "div",
+      "area": 900,
+      "w": 30,
+      "h": 30,
+      "bg": "rgba(0, 0, 0, 0)",
+      "img": "linear-gradient(rgb(58, 64, 80), rgb(34, 38, 47))",
+      "lum": 51,
+      "kind": "gradient",
+      "text": "",
+      "state": "ai-chat"
+    }
+  ],
+  "fullscreenOrWindow": []
+}
