@@ -19874,8 +19874,15 @@
         </filter>
         <!-- v3 水波位移：只做"真扭曲"，由 #covi-wave 的 backdrop-filter 引用 -->
         <filter id="coviWaveWarp" x="-8%" y="-8%" width="116%" height="116%" color-interpolation-filters="sRGB">
-            <feTurbulence type="fractalNoise" baseFrequency="0.005 0.014" numOctaves="2" seed="11" result="coviWaveNoise"/>
-            <feDisplacementMap in="SourceGraphic" in2="coviWaveNoise" scale="22" xChannelSelector="R" yChannelSelector="G"/>
+            <feTurbulence type="fractalNoise" baseFrequency="0.005 0.011" numOctaves="2" seed="11" result="coviWaveNoise"/>
+            <!-- dy 由 +150 走到 -90：噪声图案整体上移约两圈半 → 波纹自下而上流，不是原地抖动 -->
+            <feOffset in="coviWaveNoise" dy="0" result="coviWaveShift">
+                <animate attributeName="dy" values="150;-90" dur="0.66s" calcMode="linear" fill="freeze" begin="indefinite"/>
+            </feOffset>
+            <!-- scale 0→26→0：入水时逐渐变强、离开时收平，屏幕不会整段一直扭 -->
+            <feDisplacementMap in="SourceGraphic" in2="coviWaveShift" scale="0" xChannelSelector="R" yChannelSelector="G">
+                <animate attributeName="scale" values="0;16;26;26;13;0" keyTimes="0;0.18;0.45;0.62;0.82;1" dur="0.66s" fill="freeze" begin="indefinite"/>
+            </feDisplacementMap>
         </filter>
     </svg>
     <div id="covi-stage" aria-hidden="true">
@@ -26113,6 +26120,13 @@
             if (canWave) {
                 void wave.offsetWidth;        // 重启动画
                 wave.classList.add('play');
+                // 水波纹理上行 + 强度包络：SVG 里的 SMIL 需要显式 beginElement 才会重播
+                setTimeout(function () {
+                    var warpAnims = document.querySelectorAll('#coviWaveWarp animate');
+                    for (var wi = 0; wi < warpAnims.length; wi++) {
+                        try { warpAnims[wi].beginElement(); } catch (e) {}
+                    }
+                }, 100);
             }
             clearTimeout(_coviWaveEndT);
             _coviWaveEndT = setTimeout(function () {

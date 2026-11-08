@@ -60,34 +60,36 @@
     position: fixed; left: 0; top: 0; z-index: 2147483000;
     margin: 0;
     border-radius: 999px;
-    background: rgba(125, 135, 155, 0.16);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    background: rgba(125, 135, 155, 0.10);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -10px 20px rgba(0, 0, 0, 0.10);
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.25s linear;
     transition-timing-function: linear;
     will-change: transform, width, height;
 }
-/* 滑动中：变液态玻璃——透明、磨砂、描边、光泽 */
+/* 滑动中：真液态玻璃——折射串来自元素级 --n26-lg-filter（与 Dock 三处同源同参数）；
+   底色降到参照物量级（0.20→0.06），否则白色蒙层会把背景弯折盖住 */
 .n26-dng.travel {
-    background: linear-gradient(160deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.12));
-    backdrop-filter: blur(14px) saturate(1.5);
-    -webkit-backdrop-filter: blur(14px) saturate(1.5);
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.06));
+    backdrop-filter: var(--n26-lg-filter, blur(14px) saturate(1.5));
+    -webkit-backdrop-filter: var(--n26-lg-filter, blur(14px) saturate(1.5));
     border: 1px solid rgba(255, 255, 255, 0.55);
-    box-shadow: 0 10px 26px rgba(20, 40, 70, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    box-shadow: 0 10px 26px rgba(20, 40, 70, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -10px 20px rgba(0, 0, 0, 0.12);
 }
 /* v2.9.79：按住跟手时的发光态（深浅色各一套，不糊成一团） */
 .n26-dng.glow {
-    background: linear-gradient(160deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.16));
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.08));
     border-color: rgba(255, 255, 255, 0.78);
-    /* v2.9.81：按下凸出时的折射感（只调感知，不动任何颜色令牌） */
-    backdrop-filter: blur(16px) saturate(1.6) brightness(1.06);
-    -webkit-backdrop-filter: blur(16px) saturate(1.6) brightness(1.06);
+    /* v3.5：按下时同样走折射串，不再退回纯磨砂 */
+    backdrop-filter: var(--n26-lg-filter, blur(16px) saturate(1.6) brightness(1.06));
+    -webkit-backdrop-filter: var(--n26-lg-filter, blur(16px) saturate(1.6) brightness(1.06));
     box-shadow:
         0 0 0 1px rgba(255, 255, 255, 0.55),
         0 0 16px rgba(120, 190, 255, 0.38),
         0 10px 26px rgba(20, 40, 70, 0.18),
-        inset 0 1px 0 rgba(255, 255, 255, 0.72);
+        inset 0 1px 0 rgba(255, 255, 255, 0.72),
+        inset 0 -10px 20px rgba(0, 0, 0, 0.12);
 }
 body.dark-mode .n26-dng.glow {
     background: linear-gradient(160deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
@@ -108,9 +110,9 @@ body.dark-mode .n26-dng.glow {
 }
 @keyframes n26DngGloss { from { background-position: 130% 0; } to { background-position: -70% 0; } }
 
-body.dark-mode .n26-dng { background: rgba(255, 255, 255, 0.10); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14); }
+body.dark-mode .n26-dng { background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -10px 20px rgba(0, 0, 0, 0.16); }
 body.dark-mode .n26-dng.travel {
-    background: linear-gradient(160deg, rgba(255, 255, 255, 0.17), rgba(255, 255, 255, 0.07));
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
     border-color: rgba(255, 255, 255, 0.22);
 }
 
@@ -326,10 +328,26 @@ body.dark-mode [data-n26dock="h"] > .active {
 /* dfd 两枚等宽按钮在 dock 条里保持等宽 */
 [data-n26dock="h"].dfd-tabs > .dfd-tab { flex: 1; }
 
+/* ★ v2.9.90 液态玻璃随运动形变（仅在该元素真的在动的窗口内挂 .n26-def-on）
+   形变写在元素自身的 scale 属性上（不动 transform / 不改布局），
+   直接子项用 --n26-def-cx/cy 反向抵消，内容不会被拉长/压扁；
+   玻璃本体的折射、描边、高光都跟随同一个 scale → 不会「边框动了高光没动」。
+   静止时 class 与变量全部移除 → 零开销。 */
+.n26-def-on {
+    transform-origin: 50% 50%;
+    will-change: scale;
+}
+.n26-def-on > * {
+    scale: var(--n26-def-cx, 1) var(--n26-def-cy, 1);
+    transform-origin: 50% 50%;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .n26-dng, .n26-icon-pop, .n26-nudge-left, .n26-nudge-right, .n26-nudge-up, .n26-nudge-down {
         animation: none !important; transition: none !important;
     }
+    /* 减少动效：降级为纯位移，不做任何形变 */
+    .n26-def-on, .n26-def-on > * { scale: none !important; }
 }
 
  /* ★ v2.9.68 文件管理侧栏：选中项只保留内层蓝色图标，去掉外层灰胶囊。

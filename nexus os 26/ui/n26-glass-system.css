@@ -51,31 +51,29 @@ html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, .window, .password-
     backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
 }
 
-/* 2.3 顶栏（浅色以前完全没有，深色写死 18/150%，这里统一） */
-html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #finder-bar) {
-    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .42)) !important;
-    -webkit-backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * .92)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
-    backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * .92)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
-}
+/* 2.3 顶栏：已从磨砂总账里彻底除名（原 0.92× blur 登记作废），
+   改为「永久禁止任何背景」——见第 3.0 节。 */
 
 /* 2.4 Dock 三段（底板 + 左右胶囊）：液态时优先吃元素级折射串 --n26-lg-filter，
    它内部已经是「url(#折射) blur(--n26-blur) saturate(--n26-glass-sat) 颗粒」；
    非液态时回落到本层的纯磨砂串。 */
 html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #dock, #dockBar) {
-    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .29)) !important;
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .18)) !important;
+    box-shadow: inset 0 -10px 25px rgba(0, 0, 0, .15), inset 0 1px 0 rgba(255, 255, 255, .45) !important;
     -webkit-backdrop-filter: var(--n26-lg-filter, blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1))) !important;
     backdrop-filter: var(--n26-lg-filter, blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1))) !important;
 }
 html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #n26LeftDock, #n26RightDock) {
-    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .40)) !important;
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .20)) !important;
+    box-shadow: inset 0 -10px 25px rgba(0, 0, 0, .15), inset 0 1px 0 rgba(255, 255, 255, .45) !important;
     -webkit-backdrop-filter: var(--n26-lg-filter, blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * 1.3)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1))) !important;
     backdrop-filter: var(--n26-lg-filter, blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1) * 1.3)) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1))) !important;
 }
 body.dark-mode.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #dock, #dockBar) {
-    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * 1.05)) !important;
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .55)) !important;
 }
 body.dark-mode.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #n26LeftDock, #n26RightDock) {
-    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * 1.09)) !important;
+    background-color: rgb(var(--n26-tint) / calc(var(--n26-glass-alpha, .55) * var(--n26-alpha-k, 1) * .60)) !important;
 }
 
 /* 2.5 通知侧栏 / 控制中心 / 开始菜单 / Spotlight */
@@ -165,7 +163,47 @@ html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, .nexus-confirm-moda
     backdrop-filter: blur(calc(var(--n26-blur, 18px) * var(--n26-k, 1))) saturate(calc(var(--n26-glass-sat, 148%) * var(--n26-sat-k, 1))) var(--n26-grain-fn, opacity(1)) !important;
 }
 
+/* 2.11 液态折射的光学链（同源参照物 Liquid Glass Web：位移 + 发丝级模糊 + contrast/brightness）。
+   整条串来自元素级 --n26-lg-filter（已含 contrast/brightness），这里只做高特异性放行，
+   不再追加第二次 contrast/brightness。仅 4 类折射面：Dock 三段、设置演示窗、侧栏指示器、按钮/开关。 */
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, #dock, #dockBar, #n26LeftDock, #n26RightDock, #n26PzDemoWin).n26-liquid-on {
+    -webkit-backdrop-filter: var(--n26-lg-filter) !important;
+    backdrop-filter: var(--n26-lg-filter) !important;
+}
+/* 2.12 应用侧栏液态指示器 / 玻璃按钮与开关：只在「滑动 / 按住 / 演示」窗口内曝光，
+   静止时元素本身不消费滤镜（零开销）。 */
+html body.style-glass:not(.mat-solid) :is(#n26a #n26b #n26c, .n26-dng.n26-liquid-on.travel, .n26-dng.n26-liquid-on.glow, .n26-lg-ctrl.n26-liquid-on:active, .n26-lg-ctrl.n26-liquid-on:focus-visible, .n26-lg-ctrl.n26-liquid-on.n26-lg-live) {
+    -webkit-backdrop-filter: var(--n26-lg-filter) !important;
+    backdrop-filter: var(--n26-lg-filter) !important;
+}
+
 /* ── 3. 不该磨砂：实底，不留半层 ───────────────────────────────── */
+
+/* 3.0 顶栏永久禁止任何背景（不是「该不该磨砂」，而是「永远不许有」）：
+   浅/深两套一致——整条完全透明，图标与时间直接浮在壁纸上。
+   任何材质档（liquid / frost / solid）、任何主题、任何状态下都不得给它
+   添加底色、渐变、模糊、描边、阴影或伪元素蒙版；内部布局容器一并清零。 */
+html body :is(#n26a #n26b #n26c, #finder-bar, #finder-bar .n26-topbar-left, #finder-bar .n26-topbar-right, #finder-bar .n26-topbar-icon, #finder-bar .n26-topbar-weather, #finder-bar .n26-topbar-time, #finder-bar .n26-topbar-date) {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    border: 0 !important;
+    border-top: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+    border-left: 0 !important;
+    box-shadow: none !important;
+    -webkit-box-shadow: none !important;
+}
+html body :is(#n26a #n26b #n26c, #finder-bar::before, #finder-bar::after) {
+    content: none !important;
+    background: none !important;
+    background-image: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
 
 /* 3.1 启动台搜索框：继承启动台玻璃，本身不再二次模糊 */
 html body :is(#n26a #n26b #n26c, #launchpadSearch) {
