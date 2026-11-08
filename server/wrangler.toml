@@ -66,3 +66,9 @@ id = "83431e2e0fcc4ce7948e664f39b1ce84"
 [[kv_namespaces]]
 binding = "BILI_KV"
 id = "83431e2e0fcc4ce7948e664f39b1ce84"
+
+# v3.6 · Workers AI（字幕翻译主通道）
+#   wrangler 4.x 的绑定写法；响应里的 usage.neurons 是本次实际消耗，
+#   是否落在免费额度取决于账号计划
+[ai]
+binding = "AI"

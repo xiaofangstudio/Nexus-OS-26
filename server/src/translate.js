@@ -2,8 +2,9 @@
  * ============================================================
  * Nexus OS 26 · 字幕翻译中转（/api/translate）
  * ------------------------------------------------------------
- * 只做一件事：浏览器 → 本 Worker → Google 翻译，补 CORS 并缓存。
- * 前端绝不直连 Google（国内不可达，且会暴露用户 IP）。
+ * 浏览器 → 本 Worker → 翻译通道，补 CORS 并缓存。
+ * 主通道：Cloudflare Workers AI（@cf/meta/m2m100-1.2b，逐句对齐）；
+ * 备通道：Google 翻译（translate.goog 中转 + 直连，429 时退避）。
  *
  * 接口：
  *   POST /api/translate
@@ -12,7 +13,8 @@
  *   限制：单次 ≤40 句、总字符 ≤2000；按行缓存 tr:<tl>:<sha1> 30 天。
  *   失败一律返回真实上游错误，**绝不回填原文冒充译文**。
  *
- *   GET /api/translate?selftest=1 —— 逐个探测候选上游，返回真实状态码
+ *   GET /api/translate?selftest=1 —— 探测 AI + 各 Google 上游，返回真实状态码
+ *   GET /api/translate?probe=ai    —— Workers AI 单次探针（model/sl/tl/text 可调）
  * ============================================================
  */
 
@@ -39,6 +41,93 @@ const UPSTREAMS = [
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* ---------------- Workers AI 主通道 ---------------- */
+const AI_MODEL = '@cf/meta/m2m100-1.2b';
+const AI_CONCURRENCY = 12;
+/* m2m100 支持的语言代码（实测传 'auto' 会 8006 参数错误，必须给具体语种） */
+const MM_LANGS = new Set(
+  ('af am ar ast az ba be bg bn br bs ca ceb cs cy da de el en es et fa ff fi fr fy ga gd gl gu ha he hi hr ht hu hy id ig ilo is it ja jv ka kk km kn ko lb lg ln lo lt lv mg mk ml mn mr ms my ne nl no ns oc or pa pl ps pt ro ru sd si sk sl so sq sr ss su sv sw ta th tl tn tr uk ur uz vi wo xh yi yo zh zu').split(' ')
+);
+
+function aiLang(code) {
+  const s = String(code == null ? '' : code).trim().toLowerCase();
+  if (!s) return '';
+  const base = s.split('-')[0];
+  return MM_LANGS.has(base) ? base : '';
+}
+
+/** sl=auto 时的轻量语种猜测（假名/谚文/西里尔/阿拉伯/汉字/泰文，兜底英文） */
+function guessLang(texts) {
+  const s = texts.join(' ');
+  if (/[\u3040-\u30ff]/.test(s)) return 'ja';
+  if (/[\uac00-\ud7af]/.test(s)) return 'ko';
+  if (/[\u0400-\u04ff]/.test(s)) return 'ru';
+  if (/[\u0600-\u06ff]/.test(s)) return 'ar';
+  if (/[\u0e00-\u0e7f]/.test(s)) return 'th';
+  if (/[\u4e00-\u9fff]/.test(s)) return 'zh';
+  return 'en';
+}
+
+function withTimeout(p, ms) {
+  return Promise.race([
+    p,
+    new Promise((_, rej) => setTimeout(() => rej(new Error('Workers AI 超时（' + ms + 'ms）')), ms)),
+  ]);
+}
+
+/** 单句走 Workers AI：参数错误/模型下线不重试，其余最多 2 次 */
+async function callAI(env, text, sl, tl) {
+  let last = { status: 502, code: 'AI_FAIL', error: 'Workers AI 不可用' };
+  for (let i = 0; i < 2; i++) {
+    try {
+      const out = await withTimeout(
+        env.AI.run(AI_MODEL, { text, source_lang: sl, target_lang: tl }),
+        20000
+      );
+      const t = String((out && (out.translated_text || out.response || out.text)) || '').trim();
+      if (!t) {
+        last = { status: 502, code: 'AI_EMPTY', error: 'Workers AI 返回空译文' };
+        break;
+      }
+      return { ok: true, text: t, via: 'workers-ai', usage: (out && out.usage) || null };
+    } catch (e) {
+      const msg = (e && (e.message || e.toString())) || '未知错误';
+      last = { status: 502, code: 'AI_FAIL', error: 'Workers AI 翻译失败：' + msg };
+      if (/Invalid data|deprecated|not found|No such|8006|5028|5016/.test(msg)) break;
+      if (i < 1) await sleep(1000 * (i + 1));
+    }
+  }
+  return { ok: false, err: Object.assign({ via: 'workers-ai' }, last) };
+}
+
+/**
+ * Workers AI 逐句翻译（m2m100 不用 \n 对齐：实测换行会被吞，分隔符会丢句）。
+ * 返回 null 表示当前场景不适用（未绑定 AI / 语种不支持），交给 Google 备通道。
+ */
+async function translateViaAI(env, lines, sl, tl) {
+  if (!env || !env.AI || typeof env.AI.run !== 'function') return null;
+  const T = aiLang(tl);
+  if (!T) return null;
+  const S = sl && sl !== 'auto' ? aiLang(sl) : guessLang(lines);
+  if (!S) return null;
+  if (S === T) return { ok: true, items: lines.slice() };
+
+  const out = new Array(lines.length);
+  let err = null;
+  for (let i = 0; i < lines.length && !err; i += AI_CONCURRENCY) {
+    const chunk = lines.slice(i, i + AI_CONCURRENCY);
+    const rs = await Promise.all(chunk.map((t) => callAI(env, t, S, T)));
+    for (let k = 0; k < rs.length; k++) {
+      if (!rs[k].ok) {
+        err = rs[k].err;
+        break;
+      }
+      out[i + k] = rs[k].text;
+    }
+  }
+  return err ? { ok: false, err } : { ok: true, items: out };
+}
 
 async function sha1Hex(s) {
   const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(s));
@@ -181,11 +270,98 @@ function langCode(v, dflt) {
   return /^[A-Za-z][A-Za-z0-9-]{1,9}$/.test(s) ? s : '';
 }
 
-/** GET ?selftest=1：逐个上游探测（单次，不重试，如实报状态码） */
+/** GET ?probe=ai：Workers AI 翻译探针（可传 model/sl/tl/text，记录真实响应/耗时） */
+async function probeAI(env, request, url) {
+  const q = (url && url.searchParams) || new URLSearchParams();
+  const model = q.get('model') || '@cf/meta/m2m100-1.2b';
+  const sl = q.get('sl') || 'en';
+  const tl = q.get('tl') || 'zh';
+  const text = q.get('text') || 'Hello, this is a subtitle translation self-test.';
+  if (!env || !env.AI || typeof env.AI.run !== 'function') {
+    return fail('AI_NOT_BOUND', '当前 Worker 未绑定 Workers AI（缺少 [ai] binding = "AI"）', 503, env, request);
+  }
+  const isM2m = model.indexOf('m2m100') >= 0;
+  const input = isM2m
+    ? { text, source_lang: sl, target_lang: tl }
+    : {
+        messages: [
+          { role: 'system', content: 'You are a subtitle translator. Translate each line separately and keep the same number of lines.' },
+          { role: 'user', content: 'Translate to ' + tl + ':\n' + text },
+        ],
+        max_tokens: 1024,
+      };
+  const t0 = Date.now();
+  try {
+    const out = await env.AI.run(model, input);
+    const translated = (out && (out.translated_text || out.response || out.text)) || '';
+    return json(
+      {
+        ok: !!String(translated).trim(),
+        model,
+        sl,
+        tl,
+        ms: Date.now() - t0,
+        sample: text,
+        translated,
+        usage: (out && out.usage) || null,
+        raw: out,
+        note: 'usage.neurons 为本次实际消耗；是否落在免费额度取决于账号计划',
+      },
+      200,
+      env,
+      request,
+      { 'Cache-Control': 'no-store' }
+    );
+  } catch (e) {
+    return fail(
+      'AI_FAIL',
+      'Workers AI 调用失败：' + ((e && (e.message || e.toString())) || '未知错误'),
+      502,
+      env,
+      request,
+      { ms: Date.now() - t0, model, sl, tl, raw: e && e.toString ? e.toString() : '' }
+    );
+  }
+}
+
+/** GET ?selftest=1：探测 Workers AI + 各 Google 上游（单次，不重试，如实报状态码） */
 async function selftest(env, request, url) {
   const tl = langCode(url.searchParams.get('tl'), 'zh-CN') || 'zh-CN';
   const sample = 'Hello, this is a subtitle translation self-test.';
+  const aiTl = aiLang(tl) || 'zh';
   const results = [];
+  {
+    const t0 = Date.now();
+    if (env && env.AI && typeof env.AI.run === 'function') {
+      try {
+        const out = await withTimeout(
+          env.AI.run(AI_MODEL, { text: sample, source_lang: 'en', target_lang: aiTl }),
+          20000
+        );
+        const t = String((out && (out.translated_text || out.response || out.text)) || '').trim();
+        results.push({
+          upstream: 'workers-ai',
+          model: AI_MODEL,
+          ms: Date.now() - t0,
+          ok: !!t,
+          status: 200,
+          sample: t,
+          usage: (out && out.usage) || null,
+        });
+      } catch (e) {
+        results.push({
+          upstream: 'workers-ai',
+          model: AI_MODEL,
+          ms: Date.now() - t0,
+          ok: false,
+          status: 502,
+          error: 'Workers AI 调用失败：' + ((e && (e.message || e.toString())) || '未知错误'),
+        });
+      }
+    } else {
+      results.push({ upstream: 'workers-ai', ok: false, status: 503, error: '未绑定 env.AI' });
+    }
+  }
   for (const up of UPSTREAMS) {
     const t0 = Date.now();
     const r = await callGoogle(up, sample, 'auto', tl, 1);
@@ -203,7 +379,7 @@ async function selftest(env, request, url) {
     {
       tl,
       ok,
-      note: ok ? '至少一个 Google 翻译上游可达，可以启用字幕翻译' : '全部上游不可达，前端不得启用字幕翻译',
+      note: ok ? '至少一个翻译通道可达（优先 Workers AI）' : '全部翻译通道不可达，前端不得启用字幕翻译',
       results,
     },
     200,
@@ -215,8 +391,9 @@ async function selftest(env, request, url) {
 
 export async function handleTranslate(request, env, url) {
   if (request.method === 'GET') {
+    if (url.searchParams.get('probe') === 'ai') return await probeAI(env, request, url);
     if (url.searchParams.get('selftest') === '1') return await selftest(env, request, url);
-    return fail('METHOD', '仅支持 POST；GET 只允许 ?selftest=1', 405, env, request);
+    return fail('METHOD', '仅支持 POST；GET 只允许 ?selftest=1 / ?probe=ai', 405, env, request);
   }
   if (request.method !== 'POST') return fail('METHOD', '仅支持 POST', 405, env, request);
 
@@ -264,7 +441,15 @@ export async function handleTranslate(request, env, url) {
   }
 
   if (uniq.length) {
-    const r = await translateMany(uniq.map((u) => u.line), sl, tl);
+    const texts = uniq.map((u) => u.line);
+    const ai = await translateViaAI(env, texts, sl, tl);
+    let r;
+    if (ai && ai.ok) {
+      r = ai;
+    } else {
+      const g = await translateMany(texts, sl, tl);
+      r = g.ok ? g : ai && ai.err ? ai : g;
+    }
     if (!r.ok) {
       const e = r.err || {};
       return fail(
