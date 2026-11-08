@@ -31,9 +31,8 @@
         ['#chips[data-n26dock]', '.chip', 'active', null]
     ];
 
-    /* ★ v2.9.90 距离-时长曲线（替换原来「一格 400ms 匀速」）：
-       1 格 160ms / 2 格 290ms / 3 格 400ms，再远按同一条曲线继续收；
-       每一格的边际耗时递减（160 → 130 → 110 → 96…），距离越长单位距离越省时间。 */
+    /* ★ P3 距离-时长：1 格 160ms / 2 格 290ms / 3 格 400ms（用户钦定），
+       再远按 STEPN 继续收；位移用标准 ease-in-out（先慢-中快-后慢）。 */
     var STEP1 = 160, STEP2 = 290, STEP3 = 400, STEPN = 96;
     var TRAVEL_EASE_HALF = true; // 位移用标准 ease-in-out（先慢-中快-后慢）
     var FADE_MS = 140;          // 到达后玻璃淡出/收小
@@ -43,7 +42,11 @@
     var DEF_ON = !REDUCED;
     var DEF_MAX = 0.17, DEF_VMAX = 420;
     var SPRING_LAM = 5.5, SPRING_OMG = 10;
-    var OUT = 5;                // v2.9.82：玻璃浮层越出侧栏外框的单边像素（4–6px）
+    /* ★ P3 玻璃不再凸出 Dock：始终贴在那条轨道上、停在被选中的那一格里，
+       上下左右都不越出宿主外框（用户明确否掉「越出侧栏轮廓」的旧设计）。 */
+    var OUT = 0;
+    var HOLD_MS = 240;          // 长按多久出玻璃（只认「当前选中格」）
+    var HOLD_MOVE = 8;          // 按住后移动超过 8px 视为拖拽 → 取消出玻璃
     var GLASS_SEQ = 0;          // 浮层唯一编号（供调试/回归脚本定位）
 
     function itemsOf(cont, cfg) {
@@ -129,7 +132,9 @@
             if (!gw || !gh) return;
             var q = { w: Math.max(48, Math.round(gw / 8) * 8), h: Math.max(40, Math.round(gh / 4) * 4) };
             var id = 'n26Lg' + gid.replace(/[^0-9]/g, '');
-            var opts = { inset: 0.10, thresh: -0.10 };
+            /* ★ P3：SDF 半宽 0.30 / 半高 0.20（参照 roundedRectSDF(ix,iy,0.3,0.2,0.6)），
+               不是 0.5/0.5 的退化场（那会得到一个恒定位移、折射消失）。 */
+            var opts = { hw: 0.30, hh: 0.20, thresh: -0.10 };
             try {
                 if (window.n26LgResize) window.n26LgResize(glass, id, opts, q);
                 else window.n26LgAttach(glass, id, opts, q);
@@ -142,17 +147,19 @@
 
         function placeAt(x, y) { glass.style.transform = 'translate(' + x + 'px,' + y + 'px)'; }
 
-        /* v2.9.82 浮层凸出：垂直于走向的那条边以「整条 Dock 外框」为基准，
-           两侧各外扩 OUT（视觉上真的越出侧栏轮廓）；沿走向仍以项为基准。
-           竖排：宽 = 侧栏外框宽 + 2*OUT；横排：高 = 标签条外框高 + 2*OUT。 */
+        /* v2.9.91 → P3：玻璃 = 选中格本身，四边钳进 Dock 外框（不再外扩 OUT）。 */
         function floatRect(r) {
             var cr = cont.getBoundingClientRect();
             if (axis === 'v') {
-                var w = cr.width + OUT * 2, h = r.h + OUT * 2;
-                return { x: cr.left - OUT, y: r.y - OUT, w: w, h: h, cx: cr.left - OUT + w / 2, cy: r.y - OUT + h / 2 };
+                var h = Math.min(r.h, cr.height), w = Math.min(r.w, cr.width);
+                var y = clampNum(r.y, cr.top, cr.top + cr.height - h);
+                var x = clampNum(r.x, cr.left, cr.left + cr.width - w);
+                return { x: x, y: y, w: w, h: h, cx: x + w / 2, cy: y + h / 2 };
             }
-            var w2 = r.w + OUT * 2, h2 = cr.height + OUT * 2;
-            return { x: r.x - OUT, y: cr.top - OUT, w: w2, h: h2, cx: r.x - OUT + w2 / 2, cy: cr.top - OUT + h2 / 2 };
+            var w2 = Math.min(r.w, cr.width), h2 = Math.min(r.h, cr.height);
+            var x2 = clampNum(r.x, cr.left, cr.left + cr.width - w2);
+            var y2 = clampNum(r.y, cr.top, cr.top + cr.height - h2);
+            return { x: x2, y: y2, w: w2, h: h2, cx: x2 + w2 / 2, cy: y2 + h2 / 2 };
         }
         function clampNum(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
@@ -177,45 +184,24 @@
             if (!glass) return;
             try { glass.style.removeProperty('scale'); } catch (e) { }
         }
-        /* 停下的回弹：d(t)=d0·e^(−λt)·cos(ωt)。
-           穿越零点后变成反向形变（过冲），再回正；|d|<0.0025 且 t>0.42s 收敛。 */
+        /* ★ P3 水滴回弹（不是钱学森弹道）：位移幅度 d0 封顶 0.055，
+           垂直走向按 k*0.45 压扁、沿走向按 (1+k) 拉长 —— 肉眼是「鼓回来」。
+           w(t) = 1 − e^(−5t)·cos(9t)：从 0 起、单峰后快速收敛，不来回飞。 */
         function settleGlass(d0, ax) {
             if (!DEF_ON || !d0) { clearGlassScale(); return; }
+            var amp = Math.min(Math.abs(d0), 0.055) * (d0 < 0 ? -1 : 1);
             var my = settleToken, t0 = 0;
             function step(now) {
                 if (my !== settleToken) return;
                 if (!t0) t0 = now;
                 var t = (now - t0) / 1000;
-                var d = d0 * Math.exp(-SPRING_LAM * t) * Math.cos(SPRING_OMG * t);
-                if ((t > 0.50 && Math.abs(d) < 0.0025) || t > 1.2) { clearGlassScale(); return; }
+                var d = -amp * (1 - Math.exp(-5 * t) * Math.cos(9 * t));
+                if ((t > 0.34 && Math.abs(d) < 0.0025) || t > 0.62) { clearGlassScale(); return; }
                 setGlassScale(d, ax);
                 requestAnimationFrame(step);
             }
             requestAnimationFrame(step);
         }
-        /* 轨道范围 = 首项起点 → 末项终点（两端各再放宽 OUT，使玻璃能与首/末项严丝合缝） */
-        function trackBounds() {
-            var it = itemsOf(cont, cfg);
-            if (!it.length) return { start: 0, end: 0 };
-            var a = rectIn(it[0]), b = rectIn(it[it.length - 1]);
-            if (axis === 'v') {
-                return { start: Math.min(a.y, b.y) - OUT, end: Math.max(a.y + a.h, b.y + b.h) + OUT };
-            }
-            return { start: Math.min(a.x, b.x) - OUT, end: Math.max(a.x + a.w, b.x + b.w) + OUT };
-        }
-        /* 轴锁定落位：along 只取走向分量；cross 是垂直走向的固定边（左上角），全程不动 */
-        function placeLocked(along, cross, w, h) {
-            var tb = trackBounds();
-            if (axis === 'v') {
-                var y = clampNum(along - h / 2, tb.start, Math.max(tb.start, tb.end - h));
-                placeAt(cross, y);
-                return { x: cross, y: y };
-            }
-            var x = clampNum(along - w / 2, tb.start, Math.max(tb.start, tb.end - w));
-            placeAt(x, cross);
-            return { x: x, y: cross };
-        }
-
         /* 静止态：玻璃只对位、不可见；选中项由宿自带的灰色胶囊承担 */
         function restTo(item) {
             if (!item) { glass.style.opacity = '0'; cur = null; return; }
@@ -230,7 +216,7 @@
             cont.classList.toggle('n26-docknav-hold', !!on);
         }
 
-        /* 相邻两项的中心间距（真实布局），用于把「一格 = 400ms」换算成实际时长 */
+        /* 相邻两项的中心间距（真实布局），用于把「一格 = 200ms」换算成实际时长 */
         function stepLen() {
             var it = itemsOf(cont, cfg);
             if (it.length < 2) return 1;
@@ -246,16 +232,15 @@
             };
         }
 
-        /* 距离 → 时长：1 格 160 / 2 格 290 / 3 格 400，之后边际递减。
-           曲线本身（先慢-中快-后慢）由位移帧里的 easeInOut 承担。 */
+        /* 距离 → 时长：1 格 160 / 2 格 290 / 3 格 400，之后按 STEPN 递减边际。 */
         function travelMs(fromR, toR) {
             var a = ctr(fromR), b = ctr(toR);
             var d = axis === 'v' ? Math.abs(b.y - a.y) : Math.abs(b.x - a.x);
             var cells = d / stepLen();
             var ms;
-            if (cells <= 1) ms = STEP1 * Math.max(0.25, cells);
-            else if (cells <= 2) ms = STEP1 + (cells - 1) * 130;
-            else if (cells <= 3) ms = STEP2 + (cells - 2) * 110;
+            if (cells <= 1) ms = STEP1 * Math.max(0.35, cells);
+            else if (cells <= 2) ms = STEP1 + (cells - 1) * (STEP2 - STEP1);
+            else if (cells <= 3) ms = STEP2 + (cells - 2) * (STEP3 - STEP2);
             else ms = STEP3 + (cells - 3) * STEPN;
             return Math.max(70, Math.round(ms));
         }
@@ -276,6 +261,7 @@
                     glass.style.transform = 'translate(' + r.x + 'px,' + r.y + 'px)';
                     settleToken++;          // 淡出结束：作废还在跑的弹簧帧，彻底归零
                     clearGlassScale();
+                    try { glass.style.transformOrigin = ''; } catch (e) { }
                     traveling = false;
                     hideCaps(false);
                     if (done) done();
@@ -313,6 +299,13 @@
             var ax = axis;
             var dur = travelMs(fromR, toR);
             var fx = fromR.x, fy = fromR.y, tx = toB.x, ty = toB.y;
+            /* ★ v2.9.91 水滴「前面先到、后面慢半拍跟上」：缩放原点钉在拖尾边 ——
+               沿走向拉长时前沿先探出去，到位回弹时拖尾侧再跟上。
+               每次 travel 前按运动方向重设，淡出结束后复原为中心。 */
+            var fwd = (ax === 'v' ? ty - fy : tx - fx) >= 0;
+            glass.style.transformOrigin = ax === 'v'
+                ? (fwd ? '50% 0%' : '50% 100%')
+                : (fwd ? '0% 50%' : '100% 50%');
             var t0 = 0, lx = fx, ly = fy, lt = 0, kEnd = 0, kPeak = 0;
             /* 标准 ease-in-out：先慢、中间快、后慢 */
             function ease(p) {
@@ -371,122 +364,61 @@
             travelTo(bp, rectIn(item), function () { cur = item; restTo(item); }, bp);
         }, true);
 
-        /* v2.9.82 按下语义：
-           1) 玻璃是浮层（body + fixed + 超高 z-index），压过 Dock 与窗口，不再被轨道裁切；
-           2) 按下瞬间玻璃以侧栏外框为基准四周外扩 OUT（真的越出侧栏轮廓）并发光，灰胶囊立即让位；
-           3) 跟手是轴锁定的：竖排只吃指针 y、横排只吃 x，另一分量全程固定，
-              且沿走向被钳在轨道两端之间；
-           4) 松手后沿走向匀速（linear，一格 400ms）滑到最近项，到位缩淡，
-              灰胶囊在目标项重新出现。 */
+        /* ★ P3 长按语义（用户逐条对齐）：
+           1) 只有长按「当前已选中那一格」才出玻璃 —— 其它格长按一律不出；
+           2) 玻璃一旦出现就钉在该选中格、贴着那条轨道，不跟指针移动，也不越出 Dock；
+           3) 松手原地水滴回弹（沿运动轴压扁）后淡出，不吸附、不切项；
+           4) 玻璃出现前移动 > 8px 视为普通点击/误触，直接取消。 */
         cont.addEventListener('pointerdown', function (e) {
             if (e.button !== 0 || dragging) return;
             var item = closestItem(e.target);
             if (!item) return;
-            e.preventDefault();
-            dragging = true;
+            /* 闸门：必须正好按在「当前选中格」上 */
+            if (item !== findActive()) return;
             detectAxis();
-            cont.classList.add('n26-docknav-drag');
-            hideCaps(true);
             var fr = floatRect(rectIn(item));
-            sizeTo(fr.w, fr.h);
-            /* 垂直于走向的那条边按「按下项」钉死，拖动时不参与运算 */
-            var lockX = fr.x, lockY = fr.y;
-            var along = axis === 'v' ? e.clientY : e.clientX;
-            /* 按下即接管：玻璃中心 = 指针沿轴坐标 + 抓取偏移。
-               偏移 = 项中心 − 落点，夹在 ±半格内 —— 既不跳半屏，也不再出现旧版那种
-               「先停在项中心，一动就瞬移」的台阶。之后 1:1 跟手，松手才落位。 */
-            var step = stepLen();
-            var ic = axis === 'v' ? fr.cy : fr.cx;
-            var grabOff = clampNum(ic - along, -step / 2, step / 2);
-            var pos = placeLocked(along + grabOff, axis === 'v' ? lockX : lockY, gw, gh);
-            glass.style.opacity = '1';
-            glass.classList.add('travel', 'glow');
-            lastRect = { x: pos.x, y: pos.y, w: gw, h: gh, cx: pos.x + gw / 2, cy: pos.y + gh / 2 };
-            cont.style.touchAction = 'none';
-            try { document.body.style.userSelect = 'none'; } catch (er) { }
-
-            var sx = e.clientX, sy = e.clientY, moved = false;
-            /* 跟手形变：记录上一帧指针位置/时间，用真实速度驱动水滴拉伸 */
-            settleToken++;
-            clearGlassScale();
-            var dragToken = settleToken;
-            var lastPx = axis === 'v' ? e.clientY : e.clientX;
-            var lastPt = performance.now();
+            var sx = e.clientX, sy = e.clientY;
+            var cancelled = false, shown = false;
+            var holdT = setTimeout(function () {
+                holdT = null;
+                if (cancelled || dragging) return;
+                shown = true;
+                dragging = true;
+                hideCaps(true);
+                cont.classList.add('n26-docknav-drag');
+                sizeTo(fr.w, fr.h);
+                placeAt(fr.x, fr.y);
+                glass.style.opacity = '1';
+                glass.classList.add('travel', 'glow');
+                lastRect = { x: fr.x, y: fr.y, w: fr.w, h: fr.h, cx: fr.cx, cy: fr.cy };
+                lgSync();
+                settleGlass(-0.045, axis);   // 出现瞬间「鼓一下」，不位移
+            }, HOLD_MS);
 
             function onMove(ev) {
-                if (!dragging) return;
-                if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 4) moved = true;
-                if (ev.cancelable) ev.preventDefault();
-                /* 只取走向分量：竖排只认 y，横排只认 x；另一分量全程钉死 */
-                var p = axis === 'v'
-                    ? placeLocked(ev.clientY + grabOff, lockX, gw, gh)
-                    : placeLocked(ev.clientX + grabOff, lockY, gw, gh);
-                lastRect = { x: p.x, y: p.y, w: gw, h: gh, cx: p.x + gw / 2, cy: p.y + gh / 2 };
-                var now = performance.now();
-                var cur = axis === 'v' ? ev.clientY : ev.clientX;
-                var v = Math.abs(cur - lastPx) / Math.max(1, now - lastPt);
-                lastPx = cur; lastPt = now;
-                if (dragToken === settleToken) setGlassScale(speedK(v), axis);
+                if (!shown && Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > HOLD_MOVE) {
+                    cancelled = true;
+                    if (holdT) { clearTimeout(holdT); holdT = null; }
+                    release();
+                }
             }
-
-            function cleanup() {
+            function release() {
                 window.removeEventListener('pointermove', onMove, true);
-                window.removeEventListener('pointerup', onUp, true);
-                window.removeEventListener('pointercancel', onUp, true);
-                cont.classList.remove('n26-docknav-drag');
-                cont.style.touchAction = '';
-                try { document.body.style.userSelect = ''; } catch (er) { }
-            }
-
-            function onUp(ev) {
-                cleanup();
+                window.removeEventListener('pointerup', up, true);
+                window.removeEventListener('pointercancel', up, true);
+                if (holdT) { clearTimeout(holdT); holdT = null; }
+                if (!shown) return;
+                shown = false;
                 dragging = false;
-                var it = itemsOf(cont, cfg);
-                if (!moved) {
-                    /* 点击：从原激活项匀速滑到按下的项；点的是当前项则直接淡出 */
-                    var prev = findActive();
-                    if (prev && prev !== item) {
-                        var bp = floatRect(rectIn(prev));
-                        sizeTo(bp.w, bp.h);
-                        placeAt(bp.x, bp.y);
-                        glass.style.opacity = '1';
-                        travelTo(bp, rectIn(item), function () { cur = item; restTo(cur); }, bp);
-                    } else {
-                        settleToken++;
-                        clearGlassScale();
-                        fadeGlass(function () { cur = item; restTo(cur); });
-                    }
-                    /* 受控触发一次应用逻辑，压掉随后可能出现的原生 click */
-                    skipActivate = true;
-                    item.click();
-                    skipActivate = false;
-                    suppress = true;
-                    setTimeout(function () { suppress = false; }, 900);
-                    return;
-                }
-
-                /* 落位：只按走向分量找最近的项（另一分量不参与） */
-                var reach = axis === 'v' ? lastRect.cy : lastRect.cx;
-                var best = null, bd = 1e9;
-                for (var i = 0; i < it.length; i++) {
-                    var rr = rectIn(it[i]);
-                    var dd = axis === 'v' ? Math.abs(reach - rr.cy) : Math.abs(reach - rr.cx);
-                    if (dd < bd) { bd = dd; best = it[i]; }
-                }
-                if (!best) { fadeGlass(function () { restTo(cur || findActive()); }); return; }
-
-                /* 先让应用切到目标项（此时灰胶囊被 hold 隐藏），再匀速滑过去 */
-                skipActivate = true;
-                best.click();
-                skipActivate = false;
-                suppress = true;
-                setTimeout(function () { suppress = false; }, 900);
-                travelTo(lastRect, rectIn(best), function () { cur = best; restTo(best); }, lastRect);
+                cont.classList.remove('n26-docknav-drag');
+                settleGlass(-0.03, axis);
+                fadeGlass(function () { cur = item; restTo(item); });
             }
+            function up() { release(); }
 
             window.addEventListener('pointermove', onMove, true);
-            window.addEventListener('pointerup', onUp, true);
-            window.addEventListener('pointercancel', onUp, true);
+            window.addEventListener('pointerup', up, true);
+            window.addEventListener('pointercancel', up, true);
         }, true);
 
         /* 滚动 / 尺寸变化时对位（玻璃静止不可见，只更新几何） */
@@ -569,152 +501,6 @@
         var sqMO = new MutationObserver(function () { applyDockSquircle(); });
         sqMO.observe(document.documentElement, { childList: true, subtree: true });
     } catch (e) { }
-
-    /* ════════════════════════════════════════════════════════════════
-       N26 Liquid Motion v1（v2.9.90）：有内容的玻璃面也随运动形变。
-       · 形变写在元素独立的 `scale` 属性上，不覆盖 transform / 不改布局，
-         所以 #dock 的 translateX(-50%)、桌面文件卡片的 translate 都保持；
-       · 直接子项用 CSS 反补（--n26-def-cx/cy）抵消压缩 → 内容不会被压扁；
-       · 只有「真的在动」的时间窗内跑 rAF，静止即全部清零 = 零开销；
-       · prefers-reduced-motion 直接不启动 = 纯位移不形变。
-       ════════════════════════════════════════════════════════════════ */
-    (function () {
-        /* 硬边界（v3.4）：物理/形变只允许 Dock 底板 + 左右两个胶囊 + 应用侧栏指示器。
-           启动台 / 聚焦搜索 / 开始菜单 / 桌面文件区 / 通知栏 / 设置面板等全部退回普通磨砂或实底。 */
-        var SEL = '#dock, #dockBar, #n26LeftDock, #n26RightDock';
-        var KMAX = 0.17, VMAX = 420, LAM = 5.5, OMG = 10;
-        var RED = false;
-        try { RED = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { }
-        if (RED) return;
-
-        var st = [];
-        var raf = 0, lastT = 0, wakeUntil = 0;
-
-        function sync() {
-            var els = document.querySelectorAll(SEL), next = [];
-            for (var i = 0; i < els.length; i++) {
-                var old = null;
-                for (var j = 0; j < st.length; j++) if (st[j].el === els[i]) { old = st[j]; break; }
-                next.push(old || { el: els[i], g: null, vx: 0, vy: 0, mode: 'still', k: 0, ax: 'h', d0: 0, t0: 0, sx: 1, sy: 1 });
-            }
-            st = next;
-        }
-
-        function paint(s, along, across, ax) {
-            var sx = ax === 'v' ? across : along;
-            var sy = ax === 'v' ? along : across;
-            if (sx < 0.01 || sy < 0.01) return;
-            s.sx = sx; s.sy = sy;          // 记下自己写进去的形变，量基准时反除
-            s.el.style.setProperty('scale', sx + ' ' + sy);
-            s.el.style.setProperty('--n26-def-cx', String(1 / sx));
-            s.el.style.setProperty('--n26-def-cy', String(1 / sy));
-            s.el.classList.add('n26-def-on');
-        }
-        function clear(s) {
-            s.el.classList.remove('n26-def-on');
-            s.el.style.removeProperty('scale');
-            s.el.style.removeProperty('--n26-def-cx');
-            s.el.style.removeProperty('--n26-def-cy');
-            s.mode = 'still'; s.k = 0; s.vx = 0; s.vy = 0; s.d0 = 0; s.g = null; s.sx = 1; s.sy = 1;
-        }
-
-        function wake(ms) {
-            var now = performance.now();
-            wakeUntil = Math.max(wakeUntil, now + (ms || 240));
-            if (!raf) { lastT = 0; raf = requestAnimationFrame(loop); }
-        }
-
-        function loop(now) {
-            raf = 0;
-            var restart = !lastT;
-            var dt = restart ? 16 : Math.max(1, now - lastT);
-            lastT = now;
-            var busy = false;
-            for (var i = 0; i < st.length; i++) {
-                var s = st[i], el = s.el;
-                if (!el || !el.isConnected) { s.g = null; continue; }
-                /* Dock 悬停放大期间不参与形变：放大是「慢慢撑宽」不是「运动」，
-                   而且它的判定区 zone() 读的是底板实时 rect，若此时叠我们的 scale
-                   会改变进出判定阈值（等于给放大链路引入外部反馈）。滑入/滑出时照常形变。 */
-                if (el.id === 'dock' && el.classList.contains('dock-magnifying')) {
-                    if (s.mode !== 'still') clear(s);
-                    else { s.g = null; }
-                    continue;
-                }
-                if (s.mode === 'spring') {
-                    var t = (now - s.t0) / 1000;
-                    var d = s.d0 * Math.exp(-LAM * t) * Math.cos(OMG * t);
-                    if ((t > 0.50 && Math.abs(d) < 0.0025) || t > 1.2) clear(s);
-                    else { paint(s, 1 + d, 1 - d * 0.45, s.ax); busy = true; }
-                    continue;
-                }
-                /* ★ 关键：量「不含自身形变」的基准几何。
-                   rect 会被我们自己写进去的 scale 放大，若直接拿 rect 算速度，
-                   就会形成「读 rect → 写 scale → rect 又变 → 再写 scale」的自激振荡。
-                   做法：中心点不受中心缩放影响；宽高除以自己刚写入的 sx/sy 还原。 */
-                var r = el.getBoundingClientRect();
-                var sx0 = s.sx || 1, sy0 = s.sy || 1;
-                var w0 = r.width / sx0, h0 = r.height / sy0;
-                if (w0 < 8 || h0 < 8) { s.g = null; continue; }
-                var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-                var g = { l: cx - w0 / 2, rr: cx + w0 / 2, t: cy - h0 / 2, b: cy + h0 / 2, cx: cx, cy: cy };
-                if (restart || !s.g) { s.g = g; continue; }
-                /* 0.35px 死区：亚像素噪声不算运动（量化后再求速度） */
-                var dl = g.l - s.g.l, dr = g.rr - s.g.rr, dtt = g.t - s.g.t, db = g.b - s.g.b;
-                var vl = (Math.abs(dl) < 0.35 ? 0 : dl) / dt;
-                var vr = (Math.abs(dr) < 0.35 ? 0 : dr) / dt;
-                var vt = (Math.abs(dtt) < 0.35 ? 0 : dtt) / dt;
-                var vb = (Math.abs(db) < 0.35 ? 0 : db) / dt;
-                s.vx = s.vx * 0.7 + Math.max(Math.abs(vl), Math.abs(vr)) * 0.3;
-                s.vy = s.vy * 0.7 + Math.max(Math.abs(vt), Math.abs(vb)) * 0.3;
-                s.g = g;
-                var kx = Math.min(KMAX, s.vx * 1000 / VMAX * KMAX);
-                var ky = Math.min(KMAX, s.vy * 1000 / VMAX * KMAX);
-                var k = Math.max(kx, ky);
-                /* 速度门槛 60px/s：慢速几乎看不出；单帧限速 0.02 防跳变 */
-                if (k > 0.012) {
-                    s.ax = kx >= ky ? 'h' : 'v';
-                    /* 上升限速 0.02/帧（不让数值一帧跳到底），下降立即跟随（不迟滞） */
-                    s.k = (k > s.k) ? Math.min(k, s.k + 0.02) : k;
-                    paint(s, 1 + s.k, 1 - s.k * 0.45, s.ax);
-                    s.mode = 'live';
-                    busy = true;
-                } else if (s.mode === 'live') {
-                    s.mode = 'spring'; s.d0 = s.k; s.t0 = now; s.k = 0;
-                    busy = true;
-                }
-            }
-            if (busy || now < wakeUntil) raf = requestAnimationFrame(loop);
-            else lastT = 0;
-        }
-
-        /* 会改变玻璃位置/尺寸的事件：指针、滚动、窗口尺寸、过渡/动画开始，
-           以及 class 变化（Dock 收起、Spotlight 打开、桌面文件卡片滑出）。 */
-        window.addEventListener('pointermove', function () { wake(280); }, { passive: true });
-        window.addEventListener('pointerdown', function () { wake(360); }, { passive: true });
-        window.addEventListener('resize', function () { wake(500); }, { passive: true });
-        document.addEventListener('scroll', function () { wake(280); }, true);
-        ['transitionrun', 'transitionstart', 'animationstart'].forEach(function (n) {
-            document.addEventListener(n, function () { wake(560); }, true);
-        });
-
-        var mo = null;
-        function bind() {
-            sync();
-            if (typeof MutationObserver === 'undefined') return;
-            if (mo) mo.disconnect();
-            mo = new MutationObserver(function () { wake(560); });
-            for (var i = 0; i < st.length; i++) {
-                try { mo.observe(st[i].el, { attributes: true, attributeFilter: ['class'] }); } catch (e) { }
-            }
-            if (document.body) mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-        }
-        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
-        else bind();
-        window.addEventListener('load', bind);
-        [400, 1200, 3000].forEach(function (t) { setTimeout(bind, t); });
-        window.N26LiquidMotion = { wake: wake, sync: bind };
-    })();
 
     /* ★ v3.5：玻璃按钮 / 开关的点击形变 —— 与 Dock、侧栏指示器同一套水滴物理。
        按下 90ms 内长到 1.05 / 压到 0.93（垂直按 k*0.45 压扁），松手用

@@ -1,24 +1,35 @@
-/* ===== n26-switch.js · 统一开关的四段动效（v2.9.68） =====
- * 视觉基线在 fangui/core/liquid.css：灰轨(关) / 绿轨(开) / 白色胶囊滑块。
- * 本脚本只做点击后的四段动效：
- *   1) 90ms  白色胶囊胀大
- *   2) 60ms  转液态玻璃（复用 n26-docknav 的 .travel 配方）
- *   3) 260ms 像水滴一样滑到另一端（中段横向拉伸）
- *   4) 260ms 轨道变绿 + 胶囊收回静息态
- * 约定：只读不写业务状态——.on / .active / aria-checked 仍由原有 onclick 逻辑切换，
- *       这里只观察结果并补无障碍属性，绝不改动 toggleSwitch(...) 等调用。
+/* ===== n26-switch.js · 统一开关动效（v3.7 / P3）=====
+ * 视觉基线在 fangui/core/liquid.css：灰轨(关) / 绿轨(开) / 白色胶囊旋钮。
+ * 本脚本只做点击后的一段 400ms 动效，不改业务状态（.on/.active/aria-checked 仍由原 onclick 切换）：
+ *   0 → 400ms：白色胶囊切成液态玻璃（真折射，无 blur），沿轨道滑到对面并精确落位；
+ *              先慢 → 中段最快 → 后慢，末端严格 1:1 停住，不允许弹道过冲或抖动。
+ *   落位后（400ms）玻璃收回白色胶囊。全程单段 WAAPI，无四段拼接、无 overshoot 曲线。
  */
 (function () {
     'use strict';
 
     var SEL = '.fu-switch, .toggle-switch, .widget-alarm-toggle-btn, .alarm-toggle';
-    var T = { grow: 40, glass: 30, slide: 150, settle: 110 };
-    var EASE = {
-        grow: 'cubic-bezier(.2,.9,.3,1)',
-        slide: 'cubic-bezier(.34,1.4,.64,1)',
-        settle: 'cubic-bezier(.34,1.4,.64,1)'
-    };
+    /* ★ P3：整段 400ms，先慢-中快-后慢，末端严格落位、无弹道过冲 */
+    var DUR = 400;
+    var EASE = 'cubic-bezier(.42,0,.24,1)';
     var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var lgSeq = 0;
+
+    /* 旋钮液态玻璃：接主壳同一套 feDisplacementMap 引擎（noBlur —— 不做磨砂，磨砂只由滑块控制） */
+    function attachLg(k) {
+        if (!k || typeof window.n26LgAttach !== 'function') return;
+        k.classList.add('n26-sw-knob');
+        if (!k.__swId) k.__swId = ++lgSeq;
+        var r = k.getBoundingClientRect();
+        var w = Math.max(12, Math.round(r.width)), h = Math.max(12, Math.round(r.height));
+        try {
+            window.n26LgAttach(k, 'n26LgSw' + k.__swId, { hw: 0.30, hh: 0.20, thresh: -0.10, noBlur: true }, { w: w, h: h });
+        } catch (e) { }
+    }
+    function detachLg(k) {
+        if (!k) return;
+        try { if (window.n26LgClear) window.n26LgClear(k); } catch (e) { }
+    }
 
     /* 状态来源判定：有 .on/.active 语义的（旧组件）以类名为准；只有 aria-checked 的（如 FangUI 演示）以 aria 为准。
        不能两者混读，否则 aria 一旦为 true 会把关掉的开关重新锁成 true。 */
@@ -71,6 +82,7 @@
         (s.timers || []).forEach(function (t) { clearTimeout(t); });
         el.__fuAnim = null;
         el.classList.remove('fu-liquid');
+        detachLg(el.querySelector('.fu-knob'));
     }
 
     function finish(el, seq) {
@@ -78,6 +90,7 @@
         var k = el.querySelector('.fu-knob');
         el.classList.remove('fu-anim', 'fu-liquid');
         if (k) k.style.transform = '';
+        detachLg(k);
         el.__fuAnim = null;
         syncAria(el);
     }
@@ -86,7 +99,6 @@
         var k = upgrade(el);
         var travel = Math.round(parseFloat(getComputedStyle(el).getPropertyValue('--fu-sw-travel')) || 16);
         var on = isOn(el);
-        // 起点：上一次动效若还在飞，从当前真实位置续接；否则从「目标的反面」起步
         var fallback = on ? 0 : travel;
         var fromX = el.classList.contains('fu-anim') ? readX(k, fallback) : fallback;
         var toX = on ? travel : 0;
@@ -97,42 +109,27 @@
 
         var s = { list: [], timers: [], active: true };
         el.__fuAnim = s;
-        el.classList.add('fu-anim');
+        el.classList.add('fu-anim', 'fu-liquid');
         k.style.transform = 'translateX(' + fromX + 'px) scale(1,1)';
+        /* 液态玻璃（真折射）接入：不做 blur，磨砂只由设置滑块控制 */
+        attachLg(k);
 
-        // ① 胀大
+        /* 400ms 单段：先慢 → 中段最快 → 后慢落位；沿运动轴微拉伸、垂直轴微压扁，末端精确 1:1 停在目标位 */
+        var mid = fromX + (toX - fromX) * 0.58;
         s.list.push(k.animate([
-            { transform: 'translateX(' + fromX + 'px) scale(1,1)' },
-            { transform: 'translateX(' + fromX + 'px) scale(1.28,1.16)' }
-        ], { duration: T.grow, easing: EASE.grow, fill: 'both' }));
+            { transform: 'translateX(' + fromX + 'px) scale(1,1)', offset: 0 },
+            { transform: 'translateX(' + (fromX + (toX - fromX) * 0.12) + 'px) scale(1.10,0.95)', offset: 0.22 },
+            { transform: 'translateX(' + mid + 'px) scale(1.16,0.92)', offset: 0.56 },
+            { transform: 'translateX(' + (fromX + (toX - fromX) * 0.94) + 'px) scale(1.05,0.98)', offset: 0.88 },
+            { transform: 'translateX(' + toX + 'px) scale(1,1)', offset: 1 }
+        ], { duration: DUR, easing: EASE, fill: 'both' }));
 
-        // ② 液态玻璃 + 横向拉长（水滴成形）
-        s.timers.push(setTimeout(function () {
-            el.classList.add('fu-liquid');
-            s.list.push(k.animate([
-                { transform: 'translateX(' + fromX + 'px) scale(1.28,1.16)' },
-                { transform: 'translateX(' + fromX + 'px) scale(1.44,1.12)' }
-            ], { duration: T.glass, easing: 'ease-out', fill: 'both' }));
-        }, T.grow));
-
-        // ③ 滑行（中段拉伸，像水滴被甩到另一端）
-        s.timers.push(setTimeout(function () {
-            s.list.push(k.animate([
-                { transform: 'translateX(' + fromX + 'px) scale(1.44,1.12)' },
-                { transform: 'translateX(' + ((fromX + toX) / 2) + 'px) scale(1.54,1.10)', offset: 0.45 },
-                { transform: 'translateX(' + toX + 'px) scale(1.20,1.06)' }
-            ], { duration: T.slide, easing: EASE.slide, fill: 'both' }));
-        }, T.grow + T.glass));
-
-        // ④ 玻璃退去（此时轨道已变绿）+ 收成白色胶囊
+        /* 玻璃保留到落位那一帧（DUR）：滚到位时仍是折射玻璃，随后收成白色胶囊 */
         s.timers.push(setTimeout(function () {
             el.classList.remove('fu-liquid');
-            s.list.push(k.animate([
-                { transform: 'translateX(' + toX + 'px) scale(1.20,1.06)' },
-                { transform: 'translateX(' + toX + 'px) scale(1,1)' }
-            ], { duration: T.settle, easing: EASE.settle, fill: 'both' }));
-            s.timers.push(setTimeout(function () { finish(el, seq); }, T.settle));
-        }, T.grow + T.glass + T.slide));
+            detachLg(k);
+        }, DUR));
+        s.timers.push(setTimeout(function () { finish(el, seq); }, DUR + 12));
     }
 
     /* 捕获阶段挂钩，用 setTimeout(0) 错开：等原有 onclick 改完状态再读，业务逻辑零侵入 */
