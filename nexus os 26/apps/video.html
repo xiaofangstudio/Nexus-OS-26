@@ -1330,7 +1330,7 @@
   /* 每个视频记住自己的字幕（cues + 偏移），重新打开同一个视频自动挂回 */
   var K_SUB = 'video.subs';
 
-  /* ---------------- 媒体守卫：全局单播 + 离窗释放 ---------------- */
+  /* ---------------- 媒体守卫：全局单播（后起者接管；失焦/最小化不暂停） ---------------- */
   var MEDIA_ID = 'video-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
   var MEDIA_KEY = 'n26MediaOwnerV1';
   var MEDIA_CH = null;
@@ -1376,35 +1376,6 @@
     if (o && o.id && o.id !== MEDIA_ID) externalStop();
   });
 
-  /* 离开应用：立即暂停并释放音频 */
-  function leaveApp(full) {
-    saveProgress(true);
-    try { video.pause(); } catch (e) {}
-    setPlaying(false);
-    if (full) {
-      try { video.removeAttribute('src'); video.load(); } catch (e) {}
-    }
-    releaseMedia();
-    stopHostBackground();
-  }
-
-  var _frameVisible = true;
-  function watchLeave() {
-    window.addEventListener('pagehide', function () { leaveApp(true); });
-    document.addEventListener('visibilitychange', function () { if (document.hidden) leaveApp(true); });
-    window.addEventListener('blur', function () {
-      if (document.pictureInPictureElement) return;
-      leaveApp(false);
-    });
-    setInterval(function () {
-      var vis = true;
-      try {
-        if (window.frameElement && window.frameElement.checkVisibility) vis = window.frameElement.checkVisibility();
-      } catch (e) { vis = true; }
-      if (!vis && _frameVisible) { _frameVisible = false; leaveApp(true); }
-      else if (vis) _frameVisible = true;
-    }, 900);
-  }
 
 
   /* ---------------- 持久化 ---------------- */
@@ -3790,17 +3761,15 @@
     else if (cmd.act === 'fs') toggleFs();
   });
 
-  // 宿主关闭/最小化窗口时，通过 media-pause 消息立即暂停并释放
-  window.addEventListener('message', function (ev) {
-    var d = ev.data || {};
-    if (d && d.__nexusEvt && d.name === 'media-pause') leaveApp(true);
-  });
-
   function setupMediaSession() {
     if (!('mediaSession' in navigator)) return;
     try {
       navigator.mediaSession.setActionHandler('play', function () { togglePlay(); });
-      navigator.mediaSession.setActionHandler('pause', function () { video.pause(); });
+      // 系统在失焦/最小化后会自行派发 pause；只认窗口有焦点时的主动暂停
+      navigator.mediaSession.setActionHandler('pause', function () {
+        if (document.hidden || !document.hasFocus()) return;
+        video.pause();
+      });
       navigator.mediaSession.setActionHandler('seekbackward', function () { bumpTime(-10); });
       navigator.mediaSession.setActionHandler('seekforward', function () { bumpTime(10); });
       navigator.mediaSession.setActionHandler('nexttrack', function () { nextItem(false); });
@@ -3916,8 +3885,6 @@
   renderPanel();
   showHome();
   setupMediaSession();
-  stopHostBackground();
-  watchLeave();
 
   var deepOpen = openFromParam();
   if (deepOpen) {
